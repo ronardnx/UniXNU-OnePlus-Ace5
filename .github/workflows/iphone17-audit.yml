@@ -1,0 +1,29 @@
+name: iPhone iOS 17 architecture audit
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned inspection tools
+        shell: bash
+        run: |
+          git init "$RUNNER_TEMP/UniXNU"
+          git -C "$RUNNER_TEMP/UniXNU" remote add origin https://github.com/UniXNU/UniXNU.git
+          git -C "$RUNNER_TEMP/UniXNU" fetch --depth 1 origin fb2bb310564ce66779e472a021881cf7c5764919
+          git -C "$RUNNER_TEMP/UniXNU" checkout --detach FETCH_HEAD
+          git -C "$RUNNER_TEMP/UniXNU" submodule update --init --depth 1 kits/NativePrelink
+      - name: Audit official iPhone kernel architecture
+        run: python3 scripts/audit-iphone17.py --unixnu "$RUNNER_TEMP/UniXNU" --out "$RUNNER_TEMP/iphone17-audit"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone17-architecture
+          path: ${{ runner.temp }}/iphone17-audit/architecture.json
+          if-no-files-found: error
