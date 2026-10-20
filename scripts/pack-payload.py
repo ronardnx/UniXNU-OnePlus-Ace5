@@ -30,7 +30,11 @@ def main():
     require(fw_report['status'] == 'offline-image-checks-passed', 'Firmware was not verified')
     require(len(firmware) >= 4096 and firmware[:8] == b'ANDROID!', 'Not an Android boot image')
     require(struct.unpack_from('<I',firmware,40)[0] == 4, 'Requires header v4')
-    require(struct.unpack_from('<I',firmware,1580)[0] == 0, 'Unexpected boot signature')
+    signature_size = struct.unpack_from('<I',firmware,1580)[0]
+    require(signature_size in (0,4096), 'Unexpected boot signature size')
+    if signature_size:
+        require(firmware[-signature_size:] == bytes(signature_size),
+                'Refusing to modify a signed boot image')
     kernel_size = struct.unpack_from('<I',firmware,8)[0]
     require(0 < kernel_size <= len(firmware)-4096, 'Invalid kernel size')
     payload = args.payload.read_bytes()
@@ -44,13 +48,13 @@ def main():
     header = bytearray(firmware[:4096])
     struct.pack_into('<I',header,12,len(payload))
     kernel = firmware[4096:4096+kernel_size]
-    result = bytes(header)+kernel+bytes(-len(kernel)%4096)+payload+bytes(-len(payload)%4096)
+    result = bytes(header)+kernel+bytes(-len(kernel)%4096)+payload+bytes(-len(payload)%4096)+bytes(signature_size)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open('xb') as f:
         f.write(result)
     report = {'firmware_sha256': sha(firmware), 'payload_sha256': sha(payload),
               'sha256': sha(result), 'bytes': len(result), 'header_version': 4,
-              'purpose': 'XNU first entry; no system volume', 'hardware_tested': False}
+              'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
     args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 
