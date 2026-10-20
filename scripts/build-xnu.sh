@@ -16,9 +16,17 @@ if not source.exists():
 assert subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()==pin['commit']
 PY
 cd "$work/UniXNU"
+python3 "$port_root/scripts/fix-upstream.py" "$work/UniXNU"
 python3 unixnu defconfig giulia_defconfig -D "$port_root"
-python3 unixnu fetch -D "$port_root"
-python3 unixnu tree -D "$port_root"
+python3 unixnu fetch xnu libplatform libdispatch AvailabilityVersions libpthread corecrypto-2023 -D "$port_root"
+python3 - "$port_root" <<'PY'
+import sys
+sys.path.insert(0, 'scripts')
+from unixnu.cli import parser, prepare
+from unixnu.config import Context
+ctx = Context(parser().parse_args(['tree', '-D', sys.argv[1]]))
+prepare(ctx, ['kernel'])
+PY
 python3 "$port_root/scripts/cache-public-headers.py" "$work/UniXNU"
 tree="$work/UniXNU/out/giulia/tree"
 # Archive builders need compile records. The upstream normal bootstrap asks for
