@@ -43,3 +43,4 @@ if [[ ! -f "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/
 fi
 python3 unixnu build kernel -D "$port_root" -j 3
 python3 unixnu build payload -D "$port_root"
+python3 "$port_root/scripts/verify-payload.py" "$work/UniXNU/out/giulia/payload"
