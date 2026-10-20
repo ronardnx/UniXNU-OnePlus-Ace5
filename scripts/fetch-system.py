@@ -10,6 +10,7 @@ import sys
 p = argparse.ArgumentParser()
 p.add_argument('--unixnu',type=Path,required=True)
 p.add_argument('--out',type=Path,required=True)
+p.add_argument('--components',nargs='+',default=['OS','Cryptex1,SystemOS','StaticTrustCache','Cryptex1,SystemTrustCache'])
 args = p.parse_args()
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(args.unixnu.resolve()/'scripts'))
@@ -39,7 +40,7 @@ ipsw.RangeFile = BoundedRangeFile
 ctx = Context(parser().parse_args(['ipsw','info','-D',str(root),'--out',str(args.out.resolve())]))
 source = ipsw.Ipsw(ctx)
 records = []
-for component in ['OS','Cryptex1,SystemOS','StaticTrustCache','Cryptex1,SystemTrustCache']:
+for component in args.components:
     path = source.extract(component)
     records.append(json.loads(path.with_suffix(path.suffix+'.json').read_text()))
     print(f'Completed and hash-checked: {component}',flush=True)

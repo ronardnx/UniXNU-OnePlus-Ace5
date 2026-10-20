@@ -1,0 +1,31 @@
+name: iPadOS initial Data volume
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  data:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: fb2bb310564ce66779e472a021881cf7c5764919
+          path: upstream
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch and verify original OS
+        run: python3 -u scripts/fetch-system.py --unixnu "$GITHUB_WORKSPACE/upstream" --out "$RUNNER_TEMP/system-source" --components OS
+      - name: Create Data seed from the original var tree
+        run: python3 scripts/create-data-seed.py --unixnu "$GITHUB_WORKSPACE/upstream" --dmg "$RUNNER_TEMP/system-source/ipsw/21H461/044-76040-038.dmg" --output "$RUNNER_TEMP/data-seed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: giulia-initial-data-seed
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/data-seed/owner-data-32.cdr
+            ${{ runner.temp }}/data-seed/seed.json
+          retention-days: 14
