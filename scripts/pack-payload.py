@@ -7,6 +7,10 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import gzip
+import subprocess
+import tempfile
+import zlib
 
 def require(value, message):
     if not value:
@@ -47,13 +51,27 @@ def main():
     require(struct.unpack_from('<I',payload,32)[0]*512 == len(payload), 'FAT size mismatch')
     header = bytearray(firmware[:4096])
     struct.pack_into('<I',header,12,len(payload))
-    kernel = firmware[4096:4096+kernel_size]
+    old_kernel = firmware[4096:4096+kernel_size]
+    decoder = zlib.decompressobj(16+zlib.MAX_WBITS)
+    raw = decoder.decompress(old_kernel)+decoder.flush()
+    require(decoder.eof and decoder.unused_data[:4]==b'\xd0\x0d\xfe\xed', 'Missing gzip/FDT kernel layout')
+    # The firmware receives a DT whose Android initrd range can be stale.
+    # Pin the exact payload size/CRC for a bounded, read-only reserved-RAM scan.
+    crc = zlib.crc32(payload)
+    with tempfile.TemporaryDirectory() as directory:
+        dtb = Path(directory)/'giulia.dtb'
+        dtb.write_bytes(decoder.unused_data)
+        for name,value in [('unixnu,payload-bytes',len(payload)),('unixnu,payload-crc32',crc)]:
+            subprocess.run(['fdtput','-t','x',str(dtb),'/chosen',name,f'{value:x}'],check=True)
+        kernel = gzip.compress(raw,mtime=0)+dtb.read_bytes()
+    struct.pack_into('<I',header,8,len(kernel))
     result = bytes(header)+kernel+bytes(-len(kernel)%4096)+payload+bytes(-len(payload)%4096)+bytes(signature_size)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open('xb') as f:
         f.write(result)
     report = {'firmware_sha256': sha(firmware), 'payload_sha256': sha(payload),
               'sha256': sha(result), 'bytes': len(result), 'header_version': 4,
+              'payload_crc32':f'{crc:08x}',
               'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
     args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))

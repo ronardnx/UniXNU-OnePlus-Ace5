@@ -152,6 +152,12 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   UINT8 *Sector;
   EFI_HANDLE Handle;
   EFI_STATUS Status;
+  CONST VOID *ExpectedProp;
+  INT32 ExpectedLength;
+  UINT32 ExpectedBytes;
+  UINT32 ExpectedCrc;
+  UINT32 ActualCrc;
+  UINTN Pass;
 
   Report (1, 0, 0, EFI_NOT_READY);
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);
@@ -174,6 +180,19 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
     Report (5, Dtb, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
+  ExpectedProp = FdtGetProp (Fdt, Chosen, "unixnu,payload-bytes", &ExpectedLength);
+  if ((ExpectedProp == NULL) || (ExpectedLength != 4)) {
+    Report (10, Dtb, 0, EFI_NOT_FOUND);
+    return EFI_NOT_FOUND;
+  }
+  ExpectedBytes = Fdt32ToCpu (ReadUnaligned32 ((CONST UINT32 *)ExpectedProp));
+  ExpectedProp = FdtGetProp (Fdt, Chosen, "unixnu,payload-crc32", &ExpectedLength);
+  if ((ExpectedProp == NULL) || (ExpectedLength != 4) ||
+      (ExpectedBytes < SIZE_1MB) || (ExpectedBytes > 224 * SIZE_1MB)) {
+    Report (10, Dtb, ExpectedBytes, EFI_INVALID_PARAMETER);
+    return EFI_INVALID_PARAMETER;
+  }
+  ExpectedCrc = Fdt32ToCpu (ReadUnaligned32 ((CONST UINT32 *)ExpectedProp));
   StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);
   EndProp = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);
   if ((StartProp == NULL) || (EndProp == NULL) ||
@@ -190,10 +209,18 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
       (End <= Start) || ((End - Start) < RAM_BLOCK_SIZE)) {
     DEBUG ((DEBUG_ERROR, "GIULIAINITRD: rejected range 0x%lx-0x%lx\n", Start, End));
     Report (7, Start, End, EFI_UNSUPPORTED);
-    return EFI_UNSUPPORTED;
+    Start = 0xA8000000ULL;
+    End = 0xB8000000ULL;
   }
   // Android v4 loaders may prepend the vendor ramdisk. Search sector-aligned
   // offsets for our FAT32 volume rather than treating that prefix as a disk.
+  for (Pass = 0; Pass < 2; Pass++) {
+    if (Pass == 1) {
+      // Only the platform's reserved Kernel RAM, never arbitrary RAM or MMIO.
+      // CRC is an accidental-stale-data check, not a signature/trust bypass.
+      Start = 0xA8000000ULL;
+      End = 0xB8000000ULL;
+    }
   for (At = Start; At <= End - RAM_BLOCK_SIZE; At += RAM_BLOCK_SIZE) {
     Sector = (UINT8 *)(UINTN)At;
     if ((Sector[510] != 0x55) || (Sector[511] != 0xAA) ||
@@ -203,7 +230,11 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
       continue;
     }
     Bytes = (UINT64)ReadUnaligned32 ((CONST UINT32 *)(Sector + 32)) * RAM_BLOCK_SIZE;
-    if ((Bytes < SIZE_1MB) || (Bytes > End - At)) {
+    if ((Bytes != ExpectedBytes) || (Bytes > End - At)) {
+      continue;
+    }
+    Status = gBS->CalculateCrc32 (Sector, (UINTN)Bytes, &ActualCrc);
+    if (EFI_ERROR (Status) || (ActualCrc != ExpectedCrc)) {
       continue;
     }
     mRamBase = Sector;
@@ -218,11 +249,12 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
         &gEfiDevicePathProtocolGuid, &mDevicePath,
         &gEfiBlockIoProtocolGuid, &mBlockIo, NULL);
     DEBUG ((DEBUG_ERROR, "GIULIAINITRD: FAT at 0x%lx size 0x%lx: %r\n", At, Bytes, Status));
-    Report (9, At, At + Bytes, Status);
+    Report (Pass == 0 ? 9 : 12, At, At + Bytes, Status);
     return Status;
   }
+  }
   DEBUG ((DEBUG_ERROR, "GIULIAINITRD: no complete GIULIAESP FAT volume\n"));
-  Report (8, Start, End, EFI_NOT_FOUND);
+  Report (11, Start, End, EFI_NOT_FOUND);
   return EFI_NOT_FOUND;
 }
 
