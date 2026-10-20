@@ -16,6 +16,8 @@
   DebugLib
   FdtLib
   HobLib
+  PrintLib
+  UefiRuntimeServicesTableLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
 [Guids]

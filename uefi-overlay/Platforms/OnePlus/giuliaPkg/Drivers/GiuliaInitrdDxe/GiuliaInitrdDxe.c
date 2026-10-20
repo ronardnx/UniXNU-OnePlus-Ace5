@@ -12,11 +12,23 @@
 #include <Library/DebugLib.h>
 #include <Library/FdtLib.h>
 #include <Library/HobLib.h>
+#include <Library/PrintLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
 
 #define RAM_BLOCK_SIZE  512
+
+STATIC VOID Report (UINTN Stage, UINT64 Start, UINT64 End, EFI_STATUS Status)
+{
+  EFI_GUID Guid = {0x1c87b711,0xeaa6,0x42cb,{0xa3,0xd5,0x8c,0x21,0x19,0x65,0x21,0x31}};
+  CHAR16 Text[128];
+  UnicodeSPrint (Text, sizeof (Text), L"initrd S%u %lx-%lx %r", (UINT32)Stage, Start, End, Status);
+  // Volatile only: no EFI_VARIABLE_NON_VOLATILE attribute.
+  gRT->SetVariable (L"GiuliaInitrdStatus", &Guid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS, StrSize (Text), Text);
+}
 
 #pragma pack(1)
 typedef struct {
@@ -141,20 +153,25 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   EFI_HANDLE Handle;
   EFI_STATUS Status;
 
+  Report (1, 0, 0, EFI_NOT_READY);
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);
   if ((Hob == NULL) || (GET_GUID_HOB_DATA_SIZE (Hob) < sizeof (UINT64))) {
+    Report (2, 0, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
   Dtb = ReadUnaligned64 ((CONST UINT64 *)GET_GUID_HOB_DATA (Hob));
   if ((Dtb == 0) || ((Dtb & 3) != 0)) {
+    Report (3, Dtb, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
   Fdt = (CONST VOID *)(UINTN)Dtb;
   if (FdtCheckHeader (Fdt) != 0) {
+    Report (4, Dtb, 0, EFI_COMPROMISED_DATA);
     return EFI_COMPROMISED_DATA;
   }
   Chosen = FdtPathOffset (Fdt, "/chosen");
   if (Chosen < 0) {
+    Report (5, Dtb, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
   StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);
@@ -162,6 +179,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   if ((StartProp == NULL) || (EndProp == NULL) ||
       ((StartLength != 4) && (StartLength != 8)) ||
       ((EndLength != 4) && (EndLength != 8))) {
+    Report (6, Dtb, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
   Start = ReadAddress (StartProp, StartLength);
@@ -171,6 +189,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   if ((Start < 0xA8000000ULL) || (End > 0xB8000000ULL) ||
       (End <= Start) || ((End - Start) < RAM_BLOCK_SIZE)) {
     DEBUG ((DEBUG_ERROR, "GIULIAINITRD: rejected range 0x%lx-0x%lx\n", Start, End));
+    Report (7, Start, End, EFI_UNSUPPORTED);
     return EFI_UNSUPPORTED;
   }
   // Android v4 loaders may prepend the vendor ramdisk. Search sector-aligned
@@ -199,9 +218,11 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
         &gEfiDevicePathProtocolGuid, &mDevicePath,
         &gEfiBlockIoProtocolGuid, &mBlockIo, NULL);
     DEBUG ((DEBUG_ERROR, "GIULIAINITRD: FAT at 0x%lx size 0x%lx: %r\n", At, Bytes, Status));
+    Report (9, At, At + Bytes, Status);
     return Status;
   }
   DEBUG ((DEBUG_ERROR, "GIULIAINITRD: no complete GIULIAESP FAT volume\n"));
+  Report (8, Start, End, EFI_NOT_FOUND);
   return EFI_NOT_FOUND;
 }
 

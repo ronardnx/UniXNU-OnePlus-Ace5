@@ -51,6 +51,7 @@ def main():
     shutil.copytree(paths['unixnu'] / 'package', uefi / 'UniXNU/package', dirs_exist_ok=True)
     shutil.copytree(paths['darwinboot'], uefi / 'UniXNU/drivers/DarwinBoot', dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('.git', '__pycache__'))
+    run('python3', ROOT / 'scripts/enable-initrd-diagnostics.py', uefi)
     print(f'Prepared {uefi}; build with build-uefi.sh')
 
 if __name__ == '__main__':
