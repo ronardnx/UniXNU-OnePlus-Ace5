@@ -2,7 +2,8 @@
 
 当前目标：OnePlus Ace 5 上的 iPadOS 17.7.11。用户已恢复这条原始路线；
 `targets/iphone17.json` 仅保留一次架构审计，未切换生产配置。
-已构建 UEFI、单核 XNU 和 FAT 启动负载，完整系统尚未启动。
+已构建 UEFI、单核 XNU 和 FAT 启动负载。UEFI 已实机完成负载发现、
+配置读取和 DarwinBoot 交接；XNU 执行和完整系统启动尚未确认。
 
 ## 已验证状态（2026-10-21）
 
@@ -10,7 +11,11 @@
 - 下载到本机后复核通过，镜像大小 2,179,072 字节。
 - 原厂 Fastboot 接受临时启动，用户确认屏幕出现 **UniXNU 菜单**。
 - 用户确认音量上、下键可以正常移动菜单选中项。
-- 存储可用性和 DarwinBoot/XNU 交接尚待分别验证。
+- 实机 `initrd S14 ... Success`：定位到校验匹配的 FAT 负载，并复制到 UEFI 分配的内存。
+- 实际加载 `\\EFI\\UniXNU\\unixnu.toml`，显示 Ace 5 XNU 启动项。
+- 截图中的绿色条由 `DarwinEnter` 在 `ExitBootServices` 成功后绘制，证明进入加载器交接代码。
+- 绿色条在跳转 XNU 前绘制，不能据此认定 XNU 内核已执行。
+- 原生 UFS 系统盘访问、内核执行和用户态仍待验证。
 - 本次使用 `fastboot boot`，没有执行刷写命令或修改 userdata。
 
 构建源码提交：`8277a88371e0fd6a64cc852652583ac41b5a4609`。
@@ -29,12 +34,22 @@ corecrypto、pthread、预链接 XNU 及 192 MiB FAT 负载。
 内核 SHA256：`5de566bab4ffbcf7b67905249fdeff50037996bb6f22bfe20b446fab48d2e5f6`。
 这是离线构建成功，不代表内核已在手机上执行。
 
-临时引导 FAT 通路探针后，用户仍看到原来的缺少系统提示；
-负载发现尚未确认。新增的 `GiuliaInitrdStatus` 诊断为易失变量，
-下一版实际 XNU 镜像会显示加载阶段；不写永久 UEFI 变量。
+启动器传来的 DT 保留旧 Android initrd 信息，因此仅按它的地址定位失败。
+当前版本在 UEFI 声明的普通 RAM 中查找指定大小和 CRC 的 FAT 负载，
+复制后再次校验并发布为只读块设备。扫描排除 MMIO、运行时及未知保留区。
+CRC 用来排除意外的旧数据，不替代内核或系统签名校验。
+`GiuliaInitrdStatus` 是易失诊断变量，不写永久 UEFI 变量。
 
-OS/SystemOS 文件通过 Apple CDN 下载到本机并按 `board.toml` 哈希校验，
-此时不刷写 userdata。SM8650 存储寄存器证据在 `hardware/sm8650-ufs.json`。
+已验证的构建：UEFI run `39516550749`，XNU run `39511969648`。
+完整临时启动镜像 SHA256：
+`c34cb52e6d62920e0a96d4f39d08a4abbac8fd9e3774b5c41dbbaac781bd7bf2`。
+本机基线位于 `out/verified-uefi/`，仅用于 `fastboot boot`，不刷 boot 分区。
+详细观察结果见 `hardware/uefi-verified.json`。
+
+OS/SystemOS 文件已按 `board.toml` 哈希校验并组装为 9,382,658,048 字节
+系统映像。原始 OS 的 GPT CRC、SystemOS 的 APFS 超级块校验通过。
+映像仍未通过实机存储验证，也未刷写 userdata。
+SM8650 存储寄存器证据在 `hardware/sm8650-ufs.json`。
 
 设备为 PKG110 / SM8650，当前 Android 16 固件为
 PKG110_16.0.3.500(CN01)。设备使用 KernelSU，BL 属性经过隐藏，

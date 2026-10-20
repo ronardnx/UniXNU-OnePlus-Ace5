@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-21",
+  "device": "OnePlus Ace 5 PKG110",
+  "firmware_run": 39516550749,
+  "firmware_commit": "6a37957",
+  "kernel_run": 39511969648,
+  "boot_image_sha256": "c34cb52e6d62920e0a96d4f39d08a4abbac8fd9e3774b5c41dbbaac781bd7bf2",
+  "boot_image_bytes": 203501568,
+  "boot_header_version": 3,
+  "boot_method": "fastboot boot (temporary only)",
+  "observed": {
+    "display": true,
+    "volume_key_navigation": true,
+    "payload_crc_and_owned_copy": true,
+    "configuration_loaded": true,
+    "xnu_entry_listed": true,
+    "exit_boot_services": true,
+    "darwin_enter_breadcrumb": true,
+    "xnu_kernel_execution_confirmed": false,
+    "os_userspace_booted": false
+  },
+  "diagnostic": "initrd S14 AA0213000-AAC213000 Success",
+  "note": "Green bar is drawn by DarwinEnter before branching to XNU; it is not proof that XNU executed."
+}
