@@ -26,6 +26,8 @@ def main():
     p.add_argument('--payload', type=Path, required=True)
     p.add_argument('--payload-report', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--header-version', type=int, choices=[3,4], default=4,
+                   help='3 is an explicit temporary-boot compatibility experiment')
     args = p.parse_args()
     require(args.output.resolve() not in (args.firmware.resolve(), args.payload.resolve()), 'Output must be a new path')
     firmware = args.firmware.read_bytes()
@@ -50,6 +52,13 @@ def main():
     require(struct.unpack_from('<H',payload,11)[0] == 512, 'Unexpected FAT sector size')
     require(struct.unpack_from('<I',payload,32)[0]*512 == len(payload), 'FAT size mismatch')
     header = bytearray(firmware[:4096])
+    if args.header_version == 3:
+        # Boot v3 carries its generic ramdisk in boot.img. Some v4 loaders
+        # prefer a separate init_boot partition even for a downloaded image.
+        struct.pack_into('<I',header,20,1580)
+        struct.pack_into('<I',header,40,3)
+        struct.pack_into('<I',header,1580,0)
+        signature_size = 0
     struct.pack_into('<I',header,12,len(payload))
     old_kernel = firmware[4096:4096+kernel_size]
     decoder = zlib.decompressobj(16+zlib.MAX_WBITS)
@@ -70,7 +79,7 @@ def main():
     with args.output.open('xb') as f:
         f.write(result)
     report = {'firmware_sha256': sha(firmware), 'payload_sha256': sha(payload),
-              'sha256': sha(result), 'bytes': len(result), 'header_version': 4,
+              'sha256': sha(result), 'bytes': len(result), 'header_version': args.header_version,
               'payload_crc32':f'{crc:08x}',
               'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
     args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
