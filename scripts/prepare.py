@@ -32,6 +32,15 @@ def main():
         checkout(pins[name], path)
     uefi = paths['uefi']
     patch = ROOT / 'patches/giulia-unixnu.patch'
+    # Upstream mixes CRLF SEC sources with LF board files. The distributed patch
+    # is LF; normalize only its named text inputs, keeping the pinned source.
+    for line in patch.read_text().splitlines():
+        if line.startswith('+++ b/'):
+            target = uefi / line[6:]
+            if not target.resolve().is_relative_to(uefi.resolve()):
+                raise SystemExit('Patch path escapes UEFI source')
+            if target.is_file():
+                target.write_bytes(target.read_bytes().replace(b'\r\n', b'\n'))
     applied = subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=uefi, capture_output=True)
     if applied.returncode:
         run('git', 'apply', '--check', patch, cwd=uefi)
