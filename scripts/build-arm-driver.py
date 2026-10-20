@@ -65,7 +65,13 @@ while index < len(arguments):
     index += 1
 command.extend(['-Wall', '-Wextra', '-Werror', '-Wno-unused-parameter',
                 '-Wno-c99-designator', '-Wno-reorder-init-list', '-Wno-deprecated-enum-enum-conversion',
-                '-Wno-unnecessary-virtual-specifier', '-I', str(ROOT / '.cache/xnu-work/osfmk')])
+                '-I', str(ROOT / '.cache/xnu-work/osfmk')])
+# New LLVM knows this warning; some supported Xcode compilers do not.
+warning = '-Wno-unnecessary-virtual-specifier'
+probe = subprocess.run([command[0], '-Werror', warning, '-x', 'c++', '-fsyntax-only', '-'],
+                       input='', text=True, capture_output=True)
+if probe.returncode == 0:
+    command.append(warning)
 if component in ('NativeVirtioBlock', 'NativeRamBlock', 'NativeUfs'):
     command += ['-I', str(ROOT / 'build/storage-abi/include')]
     if args.verified_root:
