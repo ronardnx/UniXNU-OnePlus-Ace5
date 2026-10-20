@@ -22,6 +22,8 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-path
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
+      - name: Check first-entry device tree
+        run: python3 -m unittest discover -s tests -v
       - name: Build XNU and first-entry payload
         env:
           GH_TOKEN: ${{ github.token }}
