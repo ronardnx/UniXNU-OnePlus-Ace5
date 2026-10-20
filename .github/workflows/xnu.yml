@@ -1,0 +1,51 @@
+name: Ace 5 XNU first entry
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kernel:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      JOBS: 3
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare host tools
+        run: |
+          brew install cmake ninja unifdef llvm lld mtools dtc
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
+      - name: Build XNU and first-entry payload
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/build-xnu.sh "$RUNNER_TEMP/ace5-xnu" 2>&1 | tee xnu-build.log
+      - name: Upload first-entry kernel and payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: giulia-xnu-first-entry
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/kernel/
+            ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/payload/
+            board.toml
+            configs/giulia_defconfig
+            unixnu.lock
+          retention-days: 14
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xnu-build-logs
+          path: |
+            xnu-build.log
+            ${{ runner.temp }}/ace5-xnu/bootstrap.log
+            ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/logs/
+          retention-days: 14

@@ -3,6 +3,24 @@
 当前阶段：构建并验证包含 UniXNU 菜单、DarwinBoot 的 UEFI 测试镜像。
 不包含 XNU 内核、IPSW 或系统卷，不代表 iOS/macOS 已适配。
 
+## 已验证状态（2026-10-21）
+
+- Ubuntu 24.04 GitHub Actions 构建及镜像结构检查通过。
+- 下载到本机后复核通过，镜像大小 2,179,072 字节。
+- 原厂 Fastboot 接受临时启动，用户确认屏幕出现 **UniXNU 菜单**。
+- 用户确认音量上、下键可以正常移动菜单选中项。
+- 存储可用性和 DarwinBoot/XNU 交接尚待分别验证。
+- 本次使用 `fastboot boot`，没有执行刷写命令或修改 userdata。
+
+构建源码提交：`8277a88371e0fd6a64cc852652583ac41b5a4609`。
+构建记录：https://github.com/tycykp/UniXNU-giulia/actions/runs/39508142284
+
+镜像 SHA256：
+`48d659de8ca9c8821a21cea440484ff8c190dfc82aee8c48f95a685e8f0fcb1a`
+
+当前 WSL 的 Ubuntu 26.04 在 Mono/NuGet 准备工具时遇到
+`System.Native` 运行库错误，因此本轮使用私有仓库 Actions 构建。
+
 设备为 PKG110 / SM8650，当前 Android 16 固件为
 PKG110_16.0.3.500(CN01)。设备使用 KernelSU，BL 属性经过隐藏，
 不能以 Android 的 locked/green 属性判断真实解锁状态。
@@ -55,5 +73,11 @@ UEFI 含有磁盘访问能力，临时引导本身不等于所有菜单操作都
 3. 准备 macOS/XNU 构建环境，添加 Ace 5 的 ADT、内核配置和平台驱动。
 4. 在明确备份与分区方案后评估系统卷；本阶段不处理 userdata。
 
-尚未提供 `board.toml` 的 XNU/系统卷配置：这些字段必须来自后续验证，
-不能复制 sheng 的 SM8550 寄存器、GPU、触控或 userdata 参数冒充适配。
+`board.toml` 和 `giulia_defconfig` 提供第一轮单核 XNU 构建配置。
+`make-giulia-adt.py` 使用实机的 GIC、CPU0 与定时器参数；不发布 UFS/GPU 节点。
+目标 kernelcache 沿用上游验证过的 iPad7,1 / 17.7.11 / 21H461 ABI，
+这些 Apple 内核参数不代表借用了 sheng 的硬件驱动。
+
+`xnu.yml` 在 macOS Actions 构建内核和 FAT 负载，尚未经过内核实机验证。
+此负载没有 OS/SystemOS/Data 卷；不能启动到用户界面。
+系统卷和 SM8650 存储/GPU/触控适配继续独立推进，不使用 sheng 的设备参数。

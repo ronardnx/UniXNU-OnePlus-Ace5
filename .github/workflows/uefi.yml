@@ -31,6 +31,8 @@ jobs:
             ${{ runner.temp }}/ace5-port/uefi-giulia/Build/giuliaPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd
             ${{ runner.temp }}/ace5-port/uefi-giulia/BootShim/BootShim.bin
             ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/DTBs/giulia.dtb
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/Configs/giulia.toml
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/ramdisk
           retention-days: 14
       - name: Upload logs
         if: always()
