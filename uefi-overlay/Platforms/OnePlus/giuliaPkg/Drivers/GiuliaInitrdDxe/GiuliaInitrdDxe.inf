@@ -16,6 +16,7 @@
   DebugLib
   FdtLib
   HobLib
+  MemoryAllocationLib
   PrintLib
   UefiRuntimeServicesTableLib
   UefiBootServicesTableLib

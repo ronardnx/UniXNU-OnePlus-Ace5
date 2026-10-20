@@ -12,6 +12,7 @@
 #include <Library/DebugLib.h>
 #include <Library/FdtLib.h>
 #include <Library/HobLib.h>
+#include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -134,6 +135,91 @@ ReadAddress (IN CONST VOID *Property, IN INT32 Length)
   return Fdt32ToCpu (ReadUnaligned32 ((CONST UINT32 *)Property));
 }
 
+STATIC EFI_STATUS ScanRamRange (UINT64 Start, UINT64 End, BOOLEAN Copy, UINTN Stage)
+{
+  UINT64 At;
+  UINT64 Bytes;
+  UINT8 *Sector;
+  UINT32 Crc;
+  EFI_STATUS Status;
+  EFI_HANDLE Handle;
+  EFI_PHYSICAL_ADDRESS Owned = 0;
+  UINTN Pages = EFI_SIZE_TO_PAGES (GIULIA_PAYLOAD_BYTES);
+  if ((End <= Start) || (End - Start < GIULIA_PAYLOAD_BYTES)) {
+    return EFI_NOT_FOUND;
+  }
+  for (At = ALIGN_VALUE (Start, RAM_BLOCK_SIZE); At <= End - GIULIA_PAYLOAD_BYTES; At += RAM_BLOCK_SIZE) {
+    Sector = (UINT8 *)(UINTN)At;
+    if ((Sector[510] != 0x55) || (Sector[511] != 0xAA) ||
+        (ReadUnaligned16 ((CONST UINT16 *)(Sector + 11)) != RAM_BLOCK_SIZE) ||
+        (CompareMem (Sector + 82, "FAT32   ", 8) != 0) ||
+        (CompareMem (Sector + 71, "GIULIAESP  ", 11) != 0)) {
+      continue;
+    }
+    Bytes = (UINT64)ReadUnaligned32 ((CONST UINT32 *)(Sector + 32)) * RAM_BLOCK_SIZE;
+    if (Bytes != GIULIA_PAYLOAD_BYTES) { continue; }
+    Status = gBS->CalculateCrc32 (Sector, (UINTN)Bytes, &Crc);
+    if (EFI_ERROR (Status) || Crc != GIULIA_PAYLOAD_CRC32) { continue; }
+    if (Copy) {
+      Status = gBS->AllocatePages (AllocateAnyPages, EfiBootServicesData, Pages, &Owned);
+      if (EFI_ERROR (Status)) { Report (15, At, End, Status); return Status; }
+      CopyMem ((VOID *)(UINTN)Owned, Sector, (UINTN)Bytes);
+      Sector = (UINT8 *)(UINTN)Owned;
+      Status = gBS->CalculateCrc32 (Sector, (UINTN)Bytes, &Crc);
+      if (EFI_ERROR (Status) || Crc != GIULIA_PAYLOAD_CRC32) {
+        gBS->FreePages (Owned, Pages);
+        Report (16, At, End, EFI_COMPROMISED_DATA);
+        return EFI_COMPROMISED_DATA;
+      }
+    }
+    mRamBase = Sector;
+    mMedia.MediaId = 1;
+    mMedia.MediaPresent = TRUE;
+    mMedia.ReadOnly = TRUE;
+    mMedia.BlockSize = RAM_BLOCK_SIZE;
+    mMedia.IoAlign = 1;
+    mMedia.LastBlock = Bytes / RAM_BLOCK_SIZE - 1;
+    Handle = NULL;
+    Status = gBS->InstallMultipleProtocolInterfaces (&Handle,
+        &gEfiDevicePathProtocolGuid, &mDevicePath,
+        &gEfiBlockIoProtocolGuid, &mBlockIo, NULL);
+    if (EFI_ERROR (Status) && Copy) { gBS->FreePages (Owned, Pages); }
+    Report (Stage, At, At + Bytes, Status);
+    return Status;
+  }
+  return EFI_NOT_FOUND;
+}
+
+STATIC EFI_STATUS ScanBootRam (VOID)
+{
+  EFI_MEMORY_DESCRIPTOR *Map;
+  EFI_MEMORY_DESCRIPTOR *Entry;
+  UINTN Size = 0, Key, DescriptorSize, At;
+  UINT32 Version;
+  UINT64 End;
+  EFI_STATUS Status;
+  Status = gBS->GetMemoryMap (&Size, NULL, &Key, &DescriptorSize, &Version);
+  if (Status != EFI_BUFFER_TOO_SMALL) { return Status; }
+  Size += 8 * DescriptorSize;
+  Map = AllocatePool (Size);
+  if (Map == NULL) { return EFI_OUT_OF_RESOURCES; }
+  Status = gBS->GetMemoryMap (&Size, Map, &Key, &DescriptorSize, &Version);
+  if (EFI_ERROR (Status)) { FreePool (Map); return Status; }
+  for (At = 0; At + DescriptorSize <= Size; At += DescriptorSize) {
+    Entry = (EFI_MEMORY_DESCRIPTOR *)((UINT8 *)Map + At);
+    // Only RAM explicitly usable by UEFI: no reserved, runtime, code, MMIO or ACPI ranges.
+    if ((Entry->Type != EfiConventionalMemory) && (Entry->Type != EfiLoaderData) &&
+        (Entry->Type != EfiBootServicesData)) { continue; }
+    if (Entry->NumberOfPages > (MAX_UINT64 - Entry->PhysicalStart) / EFI_PAGE_SIZE) { continue; }
+    End = Entry->PhysicalStart + EFI_PAGES_TO_SIZE (Entry->NumberOfPages);
+    Status = ScanRamRange (Entry->PhysicalStart, End, TRUE, 14);
+    if (Status != EFI_NOT_FOUND) { FreePool (Map); return Status; }
+  }
+  FreePool (Map);
+  Report (17, 0, 0, EFI_NOT_FOUND);
+  return EFI_NOT_FOUND;
+}
+
 EFI_STATUS
 EFIAPI
 GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTable)
@@ -245,6 +331,6 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   }
   DEBUG ((DEBUG_ERROR, "GIULIAINITRD: no complete GIULIAESP FAT volume\n"));
   Report (11, Start, End, EFI_NOT_FOUND);
-  return EFI_NOT_FOUND;
+  return ScanBootRam ();
 }
 
