@@ -5,6 +5,17 @@ soc = "SM8650"
 description = "OnePlus Ace 5 PKG110"
 kit = "giulia"
 
+# Read-only live GPT of this PKG110 unit, CRC-checked on 2026-10-21.
+# Specific to the connected 256 GB unit; does not authorize flashing userdata.
+[userdata]
+first_lba = 3920350
+last_lba = 61321210
+lba_bytes = 4096
+windows = [
+  { name = "OS", component = "OS" },
+  { name = "SystemOS", component = "Cryptex1,SystemOS" },
+]
+
 [ipsw]
 url = "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
 product = "iPad7,1"
