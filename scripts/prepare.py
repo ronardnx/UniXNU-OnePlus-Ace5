@@ -37,6 +37,8 @@ def main():
         run('git', 'apply', '--check', patch, cwd=uefi)
         run('git', 'apply', patch, cwd=uefi)
     run('git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', cwd=uefi)
+    if (ROOT / 'uefi-overlay').is_dir():
+        shutil.copytree(ROOT / 'uefi-overlay', uefi, dirs_exist_ok=True)
     shutil.copytree(paths['unixnu'] / 'package', uefi / 'UniXNU/package', dirs_exist_ok=True)
     shutil.copytree(paths['darwinboot'], uefi / 'UniXNU/drivers/DarwinBoot', dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('.git', '__pycache__'))

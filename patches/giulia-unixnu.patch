@@ -12,7 +12,7 @@ index dc55110..947af21 100644
          "Common/Mu",
          "Common/Mu_OEM_Sample",
 diff --git a/Platforms/OnePlus/giuliaPkg/giulia.dsc b/Platforms/OnePlus/giuliaPkg/giulia.dsc
-index e3ce375..26826b4 100755
+index e3ce375..882a993 100755
 --- a/Platforms/OnePlus/giuliaPkg/giulia.dsc
 +++ b/Platforms/OnePlus/giuliaPkg/giulia.dsc
 @@ -57,7 +57,7 @@
@@ -33,10 +33,11 @@ index e3ce375..26826b4 100755
    #
    # Memory Libraries
    #
-@@ -88,6 +90,9 @@
+@@ -88,6 +90,10 @@
    ConfigurationMapLib|giuliaPkg/Library/ConfigurationMapLib/ConfigurationMapLib.inf
  
  [Components]
++  giuliaPkg/Drivers/GiuliaInitrdDxe/GiuliaInitrdDxe.inf
 +  UniXNUPkg/Application/UniXNU/UniXNU.inf
 +  UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
 +  DarwinBootPkg/Driver/DarwinBoot.inf
@@ -44,15 +45,17 @@ index e3ce375..26826b4 100755
    # ACPI Tables
    #
 diff --git a/Platforms/OnePlus/giuliaPkg/giulia.fdf b/Platforms/OnePlus/giuliaPkg/giulia.fdf
-index ecafdb7..8551aae 100644
+index ecafdb7..4b3f87d 100644
 --- a/Platforms/OnePlus/giuliaPkg/giulia.fdf
 +++ b/Platforms/OnePlus/giuliaPkg/giulia.fdf
-@@ -97,6 +97,12 @@ READ_LOCK_STATUS   = TRUE
+@@ -97,6 +97,14 @@ READ_LOCK_STATUS   = TRUE
    #INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
    #INF RuleOverride = ACPITABLE giulia/AcpiTables.inf
  
 +  # IORT DT
-+  # UniXNU menu and Darwin loader; no XNU payload in the UEFI smoke build.
++  # Expose the Android initrd payload as a read-only FAT block device.
++  INF giuliaPkg/Drivers/GiuliaInitrdDxe/GiuliaInitrdDxe.inf
++  # UniXNU menu and Darwin loader.
 +  INF UniXNUPkg/Application/UniXNU/UniXNU.inf
 +  INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
 +  INF DarwinBootPkg/Driver/DarwinBoot.inf
@@ -73,3 +76,76 @@ index 308d783..01b34e3 100755
 +# Match the boot header of PKG110_16.0.3.500(CN01), whose GKI base is Android 14.
 +os_version     = "14.0.0"
 +os_patch_level = "2026-01"
+diff --git a/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S b/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
+index 0c05ffa..a1defbf 100644
+--- a/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
++++ b/Silicon/Silicium/SiliciumPkg/Sec/AArch64/ModuleEntryPoint.S
+@@ -13,6 +13,12 @@
+ .set CTRL_SPAN_BIT, BIT23
+ 
+ ASM_FUNC (_ModuleEntryPoint)
++  // Preserve the Android bootloader's FDT pointer before platform code uses x0.
++  adr   x1, ASM_PFX (gSecEntryArg0)
++  str   x0, [x1]
++  // SecEntry invalidates the FD cache; commit this slot before that happens.
++  dc    cvac, x1
++  dsb   sy
+   // Do Platform Specific Initialization
+   bl    ASM_PFX (PlatformAssemblyInitialize)
+ 
+@@ -61,3 +67,8 @@ ASM_PFX (MainEntryPoint):
+ 
+   // Do Infinite Spin
+   b     .
++
++  .align 3
++  .global ASM_PFX (gSecEntryArg0)
++ASM_PFX (gSecEntryArg0):
++  .quad 0
+diff --git a/Silicon/Silicium/SiliciumPkg/Sec/Sec.c b/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+index 8d586b3..b02ab2c 100644
+--- a/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
++++ b/Silicon/Silicium/SiliciumPkg/Sec/Sec.c
+@@ -18,6 +18,8 @@
+ 
+ #include "Sec.h"
+ 
++extern UINT64 gSecEntryArg0;
++
+ #ifndef MDEPKG_NDEBUG
+ STATIC
+ VOID
+@@ -130,6 +132,9 @@ SecMain (VOID)
+     return;
+   }
+ 
++  // Run Library Cconstructors
++  BuildGuidDataHob (&gSiliciumEntryArgHobGuid, &gSecEntryArg0, sizeof (gSecEntryArg0));
++
+   // Run Library Cconstructors
+   ProcessLibraryConstructorList ();
+ 
+diff --git a/Silicon/Silicium/SiliciumPkg/Sec/Sec.inf b/Silicon/Silicium/SiliciumPkg/Sec/Sec.inf
+index 79afd19..8c3129e 100644
+--- a/Silicon/Silicium/SiliciumPkg/Sec/Sec.inf
++++ b/Silicon/Silicium/SiliciumPkg/Sec/Sec.inf
+@@ -51,6 +51,7 @@
+   gArmMpCoreInfoPpiGuid
+ 
+ [Guids]
++  gSiliciumEntryArgHobGuid
+   gArmMpCoreInfoGuid
+ 
+ [Pcd]
+diff --git a/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dec b/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dec
+index 99cd697..b378617 100644
+--- a/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dec
++++ b/Silicon/Silicium/SiliciumPkg/SiliciumPkg.dec
+@@ -8,6 +8,7 @@
+   Include                              # Root Include for the Package
+ 
+ [Guids]
++  gSiliciumEntryArgHobGuid            = { 0xDAEE82E6, 0x8090, 0x4E72, { 0xBF, 0xB9, 0x78, 0xC1, 0x3C, 0xD4, 0xE3, 0x59 } }
+   gSiliciumPkgTokenSpaceGuid          = { 0x055720A6, 0xA739, 0x0047, { 0xBE, 0xC1, 0x67, 0xFC, 0x38, 0x34, 0x54, 0x53 } }
+ 
+ [Protocols]
