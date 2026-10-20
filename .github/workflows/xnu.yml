@@ -23,6 +23,8 @@ jobs:
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
       - name: Build XNU and first-entry payload
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -o pipefail

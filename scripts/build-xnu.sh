@@ -19,6 +19,7 @@ cd "$work/UniXNU"
 python3 unixnu defconfig giulia_defconfig -D "$port_root"
 python3 unixnu fetch -D "$port_root"
 python3 unixnu tree -D "$port_root"
+python3 "$port_root/scripts/cache-public-headers.py" "$work/UniXNU"
 tree="$work/UniXNU/out/giulia/tree"
 # Archive builders need compile records. The upstream normal bootstrap asks for
 # archives before generating those records, so prime using its unlinked baseline.
