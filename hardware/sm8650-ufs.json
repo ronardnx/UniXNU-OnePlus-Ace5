@@ -1,0 +1,89 @@
+{
+  "soc": "SM8650",
+  "device": "PKG110",
+  "source_branch": "oneplus/sm8650_b_16.0.0_ace_5",
+  "gcc_source_sha256": "5f52b2c960a94a1385c571748ab54eb83aac079038850c5ffdbe44ec937efb59",
+  "ufs_host": {
+    "base": "0x01d84000",
+    "size": "0x3000",
+    "source": "captured running DT /soc/ufshc@1d84000"
+  },
+  "smmu_stream_id": "0x60",
+  "clocks": {
+    "gcc_aggre_ufs_phy_axi_clk": {
+      "enable_offset": "0x770e4",
+      "hwcg_bit": 1
+    },
+    "gcc_aggre_ufs_phy_axi_hw_ctl_clk": {
+      "enable_offset": "0x770e4",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_ahb_clk": {
+      "enable_offset": "0x77024",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_axi_clk": {
+      "enable_offset": "0x77018",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_axi_hw_ctl_clk": {
+      "enable_offset": "0x77018",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_ice_core_clk": {
+      "enable_offset": "0x77074",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_ice_core_hw_ctl_clk": {
+      "enable_offset": "0x77074",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_phy_aux_clk": {
+      "enable_offset": "0x770b0",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_phy_aux_hw_ctl_clk": {
+      "enable_offset": "0x770b0",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_rx_symbol_0_clk": {
+      "enable_offset": "0x7702c",
+      "hwcg_bit": null
+    },
+    "gcc_ufs_phy_rx_symbol_1_clk": {
+      "enable_offset": "0x770cc",
+      "hwcg_bit": null
+    },
+    "gcc_ufs_phy_tx_symbol_0_clk": {
+      "enable_offset": "0x77028",
+      "hwcg_bit": null
+    },
+    "gcc_ufs_phy_unipro_core_clk": {
+      "enable_offset": "0x77068",
+      "hwcg_bit": 1
+    },
+    "gcc_ufs_phy_unipro_core_hw_ctl_clk": {
+      "enable_offset": "0x77068",
+      "hwcg_bit": 1
+    }
+  },
+  "status": "register facts only; no storage driver or DMA validated",
+  "unverified": [
+    "GDSC power-domain registers absent from this clock source",
+    "firmware UFS queue state at XNU handoff",
+    "SMMU context and DMA mapping",
+    "OS/SystemOS read path and root volume"
+  ],
+  "sources": [
+    {
+      "file": "gcc-pineapple.c",
+      "git_blob": "add85801886d105802662436d6adf812323a36c8",
+      "source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/clk/qcom/gcc-pineapple.c"
+    },
+    {
+      "file": "tcsrcc-pineapple.c",
+      "git_blob": "2b8c35bbf0230535063b8174332745bb7478670c",
+      "source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/clk/qcom/tcsrcc-pineapple.c"
+    }
+  ]
+}
