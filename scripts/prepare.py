@@ -48,6 +48,15 @@ def main():
     run('git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', cwd=uefi)
     if (ROOT / 'uefi-overlay').is_dir():
         shutil.copytree(ROOT / 'uefi-overlay', uefi, dirs_exist_ok=True)
+    identity = json.loads((ROOT / 'hardware/xnu-payload.json').read_text())
+    size = identity['payload_bytes']
+    crc = int(identity['payload_crc32'], 16)
+    if not 0 < size <= 224 * 1024**2 or not 0 <= crc < 2**32:
+        raise SystemExit('Invalid pinned payload identity')
+    header = uefi / 'Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/PayloadIdentity.h'
+    header.write_text(f'// Generated from hardware/xnu-payload.json\n'
+                      f'#define GIULIA_PAYLOAD_BYTES {size}U\n'
+                      f'#define GIULIA_PAYLOAD_CRC32 0x{crc:08x}U\n')
     shutil.copytree(paths['unixnu'] / 'package', uefi / 'UniXNU/package', dirs_exist_ok=True)
     shutil.copytree(paths['darwinboot'], uefi / 'UniXNU/drivers/DarwinBoot', dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('.git', '__pycache__'))

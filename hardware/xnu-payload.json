@@ -1,0 +1,8 @@
+{
+  "run_id": 39511969648,
+  "payload_bytes": 201326592,
+  "payload_crc32": "e31d6c72",
+  "payload_sha256": "57d64c06e51faf1adac0a219d2b3304e6b9d15cef169e5a60b4bd94e5f9b55e6",
+  "kernel_sha256": "5de566bab4ffbcf7b67905249fdeff50037996bb6f22bfe20b446fab48d2e5f6",
+  "purpose": "Qualified identity for accidental-stale-data rejection, not a signature replacement"
+}

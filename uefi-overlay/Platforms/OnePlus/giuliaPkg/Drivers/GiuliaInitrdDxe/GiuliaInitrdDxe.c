@@ -17,6 +17,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
+#include "PayloadIdentity.h"
 
 #define RAM_BLOCK_SIZE  512
 
@@ -152,8 +153,6 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   UINT8 *Sector;
   EFI_HANDLE Handle;
   EFI_STATUS Status;
-  CONST VOID *ExpectedProp;
-  INT32 ExpectedLength;
   UINT32 ExpectedBytes;
   UINT32 ExpectedCrc;
   UINT32 ActualCrc;
@@ -180,19 +179,10 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
     Report (5, Dtb, 0, EFI_NOT_FOUND);
     return EFI_NOT_FOUND;
   }
-  ExpectedProp = FdtGetProp (Fdt, Chosen, "unixnu,payload-bytes", &ExpectedLength);
-  if ((ExpectedProp == NULL) || (ExpectedLength != 4)) {
-    Report (10, Dtb, 0, EFI_NOT_FOUND);
-    return EFI_NOT_FOUND;
-  }
-  ExpectedBytes = Fdt32ToCpu (ReadUnaligned32 ((CONST UINT32 *)ExpectedProp));
-  ExpectedProp = FdtGetProp (Fdt, Chosen, "unixnu,payload-crc32", &ExpectedLength);
-  if ((ExpectedProp == NULL) || (ExpectedLength != 4) ||
-      (ExpectedBytes < SIZE_1MB) || (ExpectedBytes > 224 * SIZE_1MB)) {
-    Report (10, Dtb, ExpectedBytes, EFI_INVALID_PARAMETER);
-    return EFI_INVALID_PARAMETER;
-  }
-  ExpectedCrc = Fdt32ToCpu (ReadUnaligned32 ((CONST UINT32 *)ExpectedProp));
+  // ABL can pass its vendor DT instead of the appended DT. Bind this build to
+  // the independently hash-checked payload rather than trusting stale /chosen.
+  ExpectedBytes = GIULIA_PAYLOAD_BYTES;
+  ExpectedCrc = GIULIA_PAYLOAD_CRC32;
   StartProp = FdtGetProp (Fdt, Chosen, "linux,initrd-start", &StartLength);
   EndProp = FdtGetProp (Fdt, Chosen, "linux,initrd-end", &EndLength);
   if ((StartProp == NULL) || (EndProp == NULL) ||
