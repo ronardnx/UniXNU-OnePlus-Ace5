@@ -18,8 +18,17 @@ from unixnu.cli import parser
 from unixnu.config import Context
 
 class BoundedRangeFile(ipsw.RangeFile):
+    def __init__(self,url):
+        super().__init__(url,block=1<<20)
+        self.fetched=0
+
     def _block(self,index):
+        missed=index not in self.cache
         data = super()._block(index)
+        if missed:
+            self.fetched+=len(data)
+            if self.fetched//(32<<20)!=(self.fetched-len(data))//(32<<20):
+                print(f'Fetched {self.fetched//(1<<20)} MiB from Apple CDN',flush=True)
         self.cache.pop(index,None)
         self.cache[index] = data
         while len(self.cache) > 8:

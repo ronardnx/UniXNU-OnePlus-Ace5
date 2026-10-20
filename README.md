@@ -1,7 +1,8 @@
 # UniXNU giulia — OnePlus Ace 5 UEFI bring-up
 
-当前阶段：构建并验证包含 UniXNU 菜单、DarwinBoot 的 UEFI 测试镜像。
-不包含 XNU 内核、IPSW 或系统卷，不代表 iOS/macOS 已适配。
+当前目标：OnePlus Ace 5 上的 iPadOS 17.7.11。用户已恢复这条原始路线；
+`targets/iphone17.json` 仅保留一次架构审计，未切换生产配置。
+已构建 UEFI、单核 XNU 和 FAT 启动负载，完整系统尚未启动。
 
 ## 已验证状态（2026-10-21）
 
@@ -20,6 +21,20 @@
 
 当前 WSL 的 Ubuntu 26.04 在 Mono/NuGet 准备工具时遇到
 `System.Native` 运行库错误，因此本轮使用私有仓库 Actions 构建。
+
+## XNU 与系统卷进度
+
+macOS Actions run `39511969648` 已成功构建 ArmDTPlatform、ArmCpu、
+corecrypto、pthread、预链接 XNU 及 192 MiB FAT 负载。
+内核 SHA256：`5de566bab4ffbcf7b67905249fdeff50037996bb6f22bfe20b446fab48d2e5f6`。
+这是离线构建成功，不代表内核已在手机上执行。
+
+临时引导 FAT 通路探针后，用户仍看到原来的缺少系统提示；
+负载发现尚未确认。新增的 `GiuliaInitrdStatus` 诊断为易失变量，
+下一版实际 XNU 镜像会显示加载阶段；不写永久 UEFI 变量。
+
+OS/SystemOS 文件通过 Apple CDN 下载到本机并按 `board.toml` 哈希校验，
+此时不刷写 userdata。SM8650 存储寄存器证据在 `hardware/sm8650-ufs.json`。
 
 设备为 PKG110 / SM8650，当前 Android 16 固件为
 PKG110_16.0.3.500(CN01)。设备使用 KernelSU，BL 属性经过隐藏，
