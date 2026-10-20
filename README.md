@@ -55,6 +55,12 @@ DarwinBoot，并修正上游 SMBIOS 的 PKG110 型号拼写。
 
 ## Linux / Ubuntu WSL 构建
 
+Actions 固件缓存：`data-seed.yml` 缓存经过校验的 OS 组件，`xnu.yml`
+缓存原始/解压 kernelcache。缓存键只依赖 IPSW 身份、下载地址和固件校验值，
+修改驱动、设备树或 userdata 配置不会导致重新下载。
+OS 下载完成就保存缓存，即使之后制作 Data 卷失败也能复用。
+命中缓存后仍校验实际文件 SHA256；有效 OS/解压内核缓存可完全跳过对应的 CDN 请求。
+
 依赖：git、python3、python3-venv、build-essential、clang、llvm、lld、
 uuid-dev、nasm、gcc-aarch64-linux-gnu、acpica-tools、device-tree-compiler。
 上游 NuGet 工具下载还需要 mono-devel 和 ca-certificates-mono。

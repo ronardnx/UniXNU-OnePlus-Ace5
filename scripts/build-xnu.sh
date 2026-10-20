@@ -16,6 +16,12 @@ if not source.exists():
 assert subprocess.check_output(['git','-C',str(source),'rev-parse','HEAD'],text=True).strip()==pin['commit']
 PY
 cd "$work/UniXNU"
+if [[ -n "${UNIXNU_IPSW_CACHE:-}" ]]; then
+  mkdir -p "$UNIXNU_IPSW_CACHE" "$work/UniXNU/out"
+  if [[ ! -e "$work/UniXNU/out/ipsw" ]]; then
+    ln -s "$UNIXNU_IPSW_CACHE" "$work/UniXNU/out/ipsw"
+  fi
+fi
 python3 "$port_root/scripts/fix-upstream.py" "$work/UniXNU"
 python3 unixnu defconfig giulia_defconfig -D "$port_root"
 python3 unixnu fetch xnu libplatform libdispatch AvailabilityVersions libpthread corecrypto-2023 -D "$port_root"
@@ -41,6 +47,13 @@ if [[ ! -f "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/
   test -s "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json"
   test -s "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/link.filelist"
 fi
-python3 unixnu build kernel -D "$port_root" -j 3
+kernel_options=()
+cache_root="${UNIXNU_IPSW_CACHE:-$work/UniXNU/out/ipsw}"
+if [[ "$(python3 "$port_root/scripts/firmware-cache.py" validate-kernel --cache "$cache_root")" == "valid=true" ]]; then
+  build_id=$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb"))["ipsw"]["build"])' "$port_root/board.toml")
+  kernel_options=(--kernelcache "$cache_root/$build_id/kernelcache.decompressed")
+  echo 'Using cached, SHA256-verified kernelcache; no IPSW network access needed for prelink'
+fi
+python3 unixnu build kernel -D "$port_root" -j 3 "${kernel_options[@]}"
 python3 unixnu build payload -D "$port_root"
 python3 "$port_root/scripts/verify-payload.py" "$work/UniXNU/out/giulia/payload"

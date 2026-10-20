@@ -17,8 +17,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Compute OS cache key
+        id: os-key
+        run: python3 scripts/firmware-cache.py key --group os
+      - name: Restore verified OS firmware cache
+        id: os-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/system-source/ipsw
+          key: ${{ steps.os-key.outputs.key }}
       - name: Fetch and verify original OS
         run: python3 -u scripts/fetch-system.py --unixnu "$GITHUB_WORKSPACE/upstream" --out "$RUNNER_TEMP/system-source" --components OS
+      - name: Save verified OS before creating Data seed
+        if: steps.os-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/system-source/ipsw
+          key: ${{ steps.os-key.outputs.key }}
       - name: Create Data seed from the original var tree
         run: python3 scripts/create-data-seed.py --unixnu "$GITHUB_WORKSPACE/upstream" --dmg "$RUNNER_TEMP/system-source/ipsw/21H461/044-76040-038.dmg" --output "$RUNNER_TEMP/data-seed"
       - uses: actions/upload-artifact@v4

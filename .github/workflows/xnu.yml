@@ -15,6 +15,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Compute kernel firmware cache key
+        id: firmware-key
+        run: python3 scripts/firmware-cache.py key --group kernel
+      - name: Restore kernel firmware cache
+        id: firmware-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/kernel-ipsw
+          key: ${{ steps.firmware-key.outputs.key }}
       - name: Prepare host tools
         run: |
           brew install cmake ninja unifdef llvm lld mtools dtc
@@ -27,10 +36,21 @@ jobs:
       - name: Build XNU and first-entry payload
         env:
           GH_TOKEN: ${{ github.token }}
+          UNIXNU_IPSW_CACHE: ${{ runner.temp }}/kernel-ipsw
         shell: bash
         run: |
           set -o pipefail
           bash scripts/build-xnu.sh "$RUNNER_TEMP/ace5-xnu" 2>&1 | tee xnu-build.log
+      - name: Validate downloaded kernel firmware for caching
+        if: ${{ !cancelled() }}
+        id: firmware-valid
+        run: python3 scripts/firmware-cache.py validate-kernel --cache "$RUNNER_TEMP/kernel-ipsw"
+      - name: Save verified kernel firmware even if later build steps failed
+        if: ${{ !cancelled() && steps.firmware-valid.outputs.valid == 'true' && steps.firmware-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/kernel-ipsw
+          key: ${{ steps.firmware-key.outputs.key }}
       - name: Upload first-entry kernel and payload
         uses: actions/upload-artifact@v4
         with:
