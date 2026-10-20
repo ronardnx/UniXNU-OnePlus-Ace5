@@ -1,0 +1,11 @@
+.cache/
+out/
+__pycache__/
+*.dtb
+*.img
+*.elf
+*.mbn
+*.bin
+*.dts
+/reports/
+build.log

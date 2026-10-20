@@ -1,0 +1,46 @@
+"""Prepare pinned sources for the UEFI-only giulia bring-up. Does not access USB."""
+import argparse
+import json
+import pathlib
+import shutil
+import subprocess
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+def run(*cmd, cwd=None):
+    subprocess.run([str(x) for x in cmd], cwd=cwd, check=True)
+
+def checkout(source, destination):
+    if not destination.exists():
+        run('git', 'init', destination)
+        run('git', 'remote', 'add', 'origin', source['url'], cwd=destination)
+        run('git', 'fetch', '--depth', '1', 'origin', source['commit'], cwd=destination)
+        run('git', 'checkout', '--detach', 'FETCH_HEAD', cwd=destination)
+    actual = subprocess.check_output(['git', '-C', str(destination), 'rev-parse', 'HEAD'], text=True).strip()
+    if actual != source['commit']:
+        raise SystemExit(f'{destination}: unexpected source commit {actual}')
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--workspace', type=pathlib.Path, required=True)
+    args = parser.parse_args()
+    work = args.workspace.resolve()
+    work.mkdir(parents=True, exist_ok=True)
+    pins = json.loads((ROOT / 'sources.json').read_text())
+    paths = {'uefi': work / 'uefi-giulia', 'unixnu': work / 'UniXNU', 'darwinboot': work / 'DarwinBoot'}
+    for name, path in paths.items():
+        checkout(pins[name], path)
+    uefi = paths['uefi']
+    patch = ROOT / 'patches/giulia-unixnu.patch'
+    applied = subprocess.run(['git', 'apply', '--reverse', '--check', str(patch)], cwd=uefi, capture_output=True)
+    if applied.returncode:
+        run('git', 'apply', '--check', patch, cwd=uefi)
+        run('git', 'apply', patch, cwd=uefi)
+    run('git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', cwd=uefi)
+    shutil.copytree(paths['unixnu'] / 'package', uefi / 'UniXNU/package', dirs_exist_ok=True)
+    shutil.copytree(paths['darwinboot'], uefi / 'UniXNU/drivers/DarwinBoot', dirs_exist_ok=True,
+                    ignore=shutil.ignore_patterns('.git', '__pycache__'))
+    print(f'Prepared {uefi}; build with build-uefi.sh')
+
+if __name__ == '__main__':
+    main()

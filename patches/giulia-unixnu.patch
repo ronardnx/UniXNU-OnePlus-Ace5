@@ -1,0 +1,75 @@
+diff --git a/Platforms/OnePlus/giuliaPkg/DeviceBuild.py b/Platforms/OnePlus/giuliaPkg/DeviceBuild.py
+index dc55110..947af21 100644
+--- a/Platforms/OnePlus/giuliaPkg/DeviceBuild.py
++++ b/Platforms/OnePlus/giuliaPkg/DeviceBuild.py
+@@ -30,6 +30,8 @@ class CommonPlatform ():
+     Scopes = ('giulia', 'gcc_aarch64_linux', 'edk2-build')
+     WorkspaceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+     PackagesPath = (
++        "UniXNU/package",
++        "UniXNU/drivers/DarwinBoot",
+         "Platforms/OnePlus",
+         "Common/Mu",
+         "Common/Mu_OEM_Sample",
+diff --git a/Platforms/OnePlus/giuliaPkg/giulia.dsc b/Platforms/OnePlus/giuliaPkg/giulia.dsc
+index e3ce375..26826b4 100755
+--- a/Platforms/OnePlus/giuliaPkg/giulia.dsc
++++ b/Platforms/OnePlus/giuliaPkg/giulia.dsc
+@@ -57,7 +57,7 @@
+   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"giulia"
+ !if $(DEVICE_MODEL) == 0
+   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Ace 5"
+-  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"PJK110"
++  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"PKG110"
+ !elseif $(DEVICE_MODEL) == 1
+   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"13R"
+   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"CPH2645"
+@@ -77,6 +77,8 @@
+   gQcomPkgTokenSpaceGuid.PcdPlatformType|"LA"
+ 
+ [LibraryClasses]
++  UniXNULib|UniXNUPkg/Library/UniXNULib/UniXNULib.inf
++  FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
+   #
+   # Memory Libraries
+   #
+@@ -88,6 +90,9 @@
+   ConfigurationMapLib|giuliaPkg/Library/ConfigurationMapLib/ConfigurationMapLib.inf
+ 
+ [Components]
++  UniXNUPkg/Application/UniXNU/UniXNU.inf
++  UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
++  DarwinBootPkg/Driver/DarwinBoot.inf
+   #
+   # ACPI Tables
+   #
+diff --git a/Platforms/OnePlus/giuliaPkg/giulia.fdf b/Platforms/OnePlus/giuliaPkg/giulia.fdf
+index ecafdb7..8551aae 100644
+--- a/Platforms/OnePlus/giuliaPkg/giulia.fdf
++++ b/Platforms/OnePlus/giuliaPkg/giulia.fdf
+@@ -97,6 +97,12 @@ READ_LOCK_STATUS   = TRUE
+   #INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+   #INF RuleOverride = ACPITABLE giulia/AcpiTables.inf
+ 
++  # IORT DT
++  # UniXNU menu and Darwin loader; no XNU payload in the UEFI smoke build.
++  INF UniXNUPkg/Application/UniXNU/UniXNU.inf
++  INF UniXNUPkg/Driver/UniXNUDxe/UniXNUDxe.inf
++  INF DarwinBootPkg/Driver/DarwinBoot.inf
++
+   # IORT DT
+   INF QcomPkg/Drivers/IortDtDxe/IortDtDxe.inf
+ 
+diff --git a/Resources/Configs/giulia.toml b/Resources/Configs/giulia.toml
+index 308d783..01b34e3 100755
+--- a/Resources/Configs/giulia.toml
++++ b/Resources/Configs/giulia.toml
+@@ -29,5 +29,6 @@ append_dtb         = true
+ #
+ [boot_image]
+ header_version = 4
+-os_version     = "16.0.0"
+-os_patch_level = "2026-07"
++# Match the boot header of PKG110_16.0.3.500(CN01), whose GKI base is Android 14.
++os_version     = "14.0.0"
++os_patch_level = "2026-01"
