@@ -10,7 +10,7 @@
     "adt_iomedia_uuid_matching": "passed; optional, not enabled in register survey"
   },
   "kernel_build_run": 39530788066,
-  "next_probe": "giulia-ufs-probe=1: GCC, UFS host and SID60 SMMU register survey",
+  "next_probe": "Retained framebuffer mapping at platform configure; white band then UFS survey",
   "pending": [
     "Confirm XNU platform configuration reached and UFS handoff register state",
     "Qualify SM8650 queue takeover and SMMU DMA mapping",
@@ -26,5 +26,7 @@
   "uefi_build_result": "success",
   "test_image_sha256": "a4cd7015797181e797c781e297af0ca94d4ffc030eda92078646b6d2c1bc312b",
   "fastboot_boot_result": "transfer and boot OKAY",
-  "screen_observation": "awaiting user"
+  "screen_observation": "Photo confirms green/blue/magenta bands; no GIULIA UFS report visible",
+  "post_mmu_execution_confirmed": true,
+  "next_uefi_run": 39533313836
 }

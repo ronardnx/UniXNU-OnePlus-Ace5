@@ -195,6 +195,7 @@ def assemble_c(source, va, workdir, symbols):
     font_dir = Path(os.environ.get('UNIXNU_UEFI') or ROOT / 'uefi-sheng') / 'Silicon/Silicium/SiliciumPkg/Library/FrameBufferSerialPortLib'
     obj, elf, binary = (workdir / name for name in ('panic.o', 'panic.elf', 'panic.bin'))
     definitions = []
+    definitions.append(f'-DFALLBACK_VINFO={symbols["_vinfo"]:#x}UL')
     for macro, name, width in (('MAX_MEM', '_max_mem', 8),
                                ('PAGE_TOTAL', '_vm_page_pages', 4),
                                ('PAGE_FREE', '_vm_page_free_count', 4)):
@@ -331,7 +332,7 @@ def rebase(kernel, data):
         # Board diagnostics seed this ABI-compatible prefix from valid console
         # mappings, then pin it to their retained GOP mapping. Ordinary source
         # kernels without the observer retain the original vinfo path.
-        VINFO_VA = names.get('_boot_progress_panic_vinfo', names['_vinfo'])
+        VINFO_VA = names.get('_giulia_panic_vinfo', names.get('_boot_progress_panic_vinfo', names['_vinfo']))
     return names
 
 

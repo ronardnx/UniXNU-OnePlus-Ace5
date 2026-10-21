@@ -4,6 +4,17 @@
 // Register survey only: no controller, queue, SMMU or disk writes.
 #include <IOKit/IOMemoryDescriptor.h>
 #include <kern/debug.h>
+#include <pexpert/arm64/boot.h>
+
+// Same prefix used by the freestanding panic renderer; no dependency on the
+// normal console becoming active. Mapping lifetime covers the stopping survey.
+extern "C" {
+struct GiuliaPanicVideo {
+  uint32_t height, width, depth, stride;
+  uint64_t base;
+};
+GiuliaPanicVideo giulia_panic_vinfo;
+}
 
 static uintptr_t giuliaMap(uint64_t physical, uint64_t bytes,
                           OSSharedPtr<IOMemoryMap> &mapping)
@@ -25,6 +36,26 @@ static void giuliaUfsProbe(void)
   unsigned requested = 0;
   PE_parse_boot_argn("giulia-ufs-probe", &requested, sizeof(requested));
   if (requested != 1) return;
+  OSSharedPtr<IOMemoryMap> framebufferMap;
+  const boot_args *boot = static_cast<const boot_args *>(PE_state.bootArgs);
+  if (boot) {
+    const Boot_Video &video = boot->Video;
+    // Bound to this board's captured cont_splash_region, not arbitrary MMIO.
+    if (video.v_width == 1264 && video.v_height == 2780 &&
+        (video.v_depth & 0xff) == 32 && video.v_rowBytes >= 1264 * 4 &&
+        video.v_rowBytes <= 16384 && video.v_baseAddr >= 0xd5100000ULL &&
+        video.v_baseAddr < 0xd7c00000ULL &&
+        video.v_rowBytes * video.v_height <= 0xd7c00000ULL - video.v_baseAddr) {
+      uintptr_t frame = giuliaMap(video.v_baseAddr, video.v_rowBytes * video.v_height, framebufferMap);
+      if (frame) {
+        giulia_panic_vinfo = {2780, 1264, 32, static_cast<uint32_t>(video.v_rowBytes), frame};
+        for (unsigned y = 2780 * 3 / 16; y < 2780 * 4 / 16; ++y)
+          for (unsigned x = 0; x < 1264; ++x)
+            *reinterpret_cast<volatile uint32_t *>(frame + y * video.v_rowBytes + x * 4) = 0xffffffffU;
+        __asm__ volatile("dsb sy" ::: "memory");
+      }
+    }
+  }
   OSSharedPtr<IOMemoryMap> clocksMap, memoryMap, hostMap, smmuMap;
   uintptr_t clocks = giuliaMap(0x177000, 0x1000, clocksMap);
   uintptr_t memory = giuliaMap(0x19e000, 0x1000, memoryMap);

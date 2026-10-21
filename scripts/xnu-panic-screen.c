@@ -218,6 +218,9 @@ static void hex (struct ctx *g, const char *label, u64 v)
 __attribute__((noreturn, used, section(".text.b_main"))) void panic_screen_main (const char *fmt, const u64 *args)
 {
   volatile struct vc_info *v = (volatile struct vc_info *)VINFO;
+#ifdef FALLBACK_VINFO
+  if (!v->v_baseaddr) v = (volatile struct vc_info *)FALLBACK_VINFO;
+#endif
   struct ctx g;
   u32 row, col;
 

@@ -1,0 +1,10 @@
+{
+  "uefi_run": 39533313836,
+  "image_sha256": "1d35125a43d68eaf0a81db249b7c4ef353b968531ee4e53de45967f7b657158b",
+  "boot_method": "fastboot boot",
+  "boot_command_ok": true,
+  "screen_observation": "User confirms fourth yellow band",
+  "post_mmu_confirmed": true,
+  "stops_intentionally": true,
+  "automatic_reset": false
+}
