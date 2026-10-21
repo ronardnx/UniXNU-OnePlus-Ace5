@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-21",
+  "system_image_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "user_reports_flash_success": true,
+  "host_checks": {
+    "production_root_layout": "passed with captured PKG110 GPT and actual image manifest",
+    "root_window_read_bounds": "passed ASan/UBSan",
+    "root_publication": "passed ASan/UBSan",
+    "root_diagnostics": "passed ASan/UBSan",
+    "adt_iomedia_uuid_matching": "passed; optional, not enabled in register survey"
+  },
+  "kernel_build_run": 39530788066,
+  "next_probe": "giulia-ufs-probe=1: GCC, UFS host and SID60 SMMU register survey",
+  "pending": [
+    "Confirm XNU platform configuration reached and UFS handoff register state",
+    "Qualify SM8650 queue takeover and SMMU DMA mapping",
+    "Read GPT, SHNGROOT and OS/SystemOS from device through XNU",
+    "Qualify original IOStorageFamily ABI and verified root policies",
+    "Publish OS/SystemOS IOMedia, select root UUID and mount Data"
+  ],
+  "device_readback_verified": false,
+  "xnu_ufs_read_verified": false,
+  "root_mounted": false
+}
