@@ -6,7 +6,15 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
 尚未进入可操作界面；正在定位安装服务阻塞，触控芯片身份和触点报文已验证。
 
-## 当前整合修复包（2026-10-21，待一次实机验证）
+## 当前整合修复包（2026-10-21，查询接口已生效，迁移仍等待）
+
+本次串口实测：官方缓存查询服务已注册，`lsd` 和 `installd` 的 selector 6
+均返回匹配成功。当前卡在 SystemAppMigrator **第一组**安装回调等待
+（返回地址 `0x8178`），尚未到第二组验证／降级等待。`appstored` 和
+`securityd` 等账户服务；`accountsd` 等数据迁移；数据迁移等待当前插件结束。
+存在循环依赖迹象，但尚未识别具体未完成的应用协调器／回调。画面提交计数
+仍增加到 68,000，USB dropped=0，无捕获到的 kernel panic。
+证据：`hardware/ios16-startup-repair-test.json`。本次只读取日志，未刷写或重启。
 
 - userdata：`out/ios16/userdata-startup-repair/giulia-ios16-userdata.img`，
   单份 16 GiB 原始镜像；SHA256
@@ -15,7 +23,7 @@ GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面�
   SHA256 `590e7787673e402d1b079468545602dbcb5d393475590a4ec3981966b0a3cc2e`。
 - 内核构建 `39620286640` 成功，提交 `6f5b6db`。整盘文件系统检查、稳定哈希、
   独立内容读回、内存交接及启动包配对检查通过；此轮没有刷写或重启手机。
-  userdata 仍由用户手动刷入，之后临时启动上述配套镜像一次统一检查。
+  userdata 仍由用户手动刷入；当前运行中的信任查询已验证，完整迁移仍未通过。
 
 - 先整合内核和 userdata，再做一次配套实机验证。
 - `SystemAppMigrator` 的第二个等待组（返回地址 `0x8370`）负责验证后的

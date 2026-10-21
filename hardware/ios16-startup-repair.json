@@ -1,6 +1,6 @@
 {
   "date": "2026-10-21",
-  "status": "Complete coordinated userdata and temporary boot build; host checks passed; awaiting user manual flash and one integrated hardware test",
+  "status": "Runtime trust query service works; GUI remains blocked in first SystemAppMigrator install group; see hardware/ios16-startup-repair-test.json",
   "kernel_source_commit": "6f5b6db",
   "kernel_build_run": 39620286640,
   "manual_userdata_flash": true,
@@ -507,5 +507,6 @@
     "dram_handoff_cases": 22,
     "full_filesystem_check_with_stable_sha256": true,
     "payload_and_boot_identity_verified": true
-  }
+  },
+  "runtime_observation": "hardware/ios16-startup-repair-test.json"
 }

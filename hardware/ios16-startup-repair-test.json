@@ -1,0 +1,131 @@
+{
+  "date": "2026-10-21",
+  "status": "Live serial capture complete; still blocked in system application migration",
+  "device": "OnePlus Ace 5 PKG110",
+  "port": "COM21",
+  "usb_serial": "ACE5DBG001",
+  "actions": [
+    "replay 30 seconds",
+    "sample 25 seconds",
+    "status 10 seconds"
+  ],
+  "rebooted": false,
+  "flashed": false,
+  "new_trust_query_provider_observed": true,
+  "trust_modules": 3,
+  "trust_entries": 2851,
+  "successful_query_log_records": {
+    "lsd": 2,
+    "installd": 5
+  },
+  "log_count_note": "Replay can duplicate startup lines; record counts are not unique applications",
+  "exact_on_device_userdata_digest_verified": false,
+  "system_app_migration": {
+    "pid": 224,
+    "plugin": "SystemAppMigrator",
+    "stage": "first install completion group, before post-install trust validation/demotion group",
+    "call_site": "0x8174",
+    "return_address": "0x8178",
+    "wait_return_address": "0x49b0",
+    "observed_thread": 2
+  },
+  "confirmed_waits": [
+    {
+      "process": "appstored",
+      "thread": 0,
+      "wait": "ACAccountStore accountTypeWithAccountTypeIdentifier:error: synchronous XPC reply"
+    },
+    {
+      "process": "accountsd",
+      "thread": 2,
+      "wait": "DMPerformMigration / DMConnection migrateCheckingNecessity synchronous XPC reply",
+      "target_plugin_from_offline_binary": "com.apple.accounts.migrator"
+    },
+    {
+      "process": "accountsd",
+      "wait": "Many request handlers queued behind initialization"
+    },
+    {
+      "process": "com.apple.datamigrator",
+      "thread": 3,
+      "wait": "DMMigrationPluginWrapperConnection runPluginAtPath:withParameters:completion:"
+    },
+    {
+      "process": "securityd",
+      "wait": "ACAccountStore accountsWithAccountTypeIdentifiers:preloadedProperties:error:"
+    },
+    {
+      "process": "backboardd",
+      "thread": 11,
+      "wait": "DMPerformMigration"
+    },
+    {
+      "process": "SpringBoard",
+      "thread": 0,
+      "wait": "BKSSystemShellService _checkIn"
+    },
+    {
+      "process": "appstored",
+      "thread": 6,
+      "wait": "AMSFairPlayGetDeviceType"
+    }
+  ],
+  "install_daemons": "installd and installcoordinationd main loops, idle workers in current snapshot",
+  "interpretation": "Migration/account initialization dependency cycle is suspected; outstanding installation coordinator or callback is not identified by these read-only stacks. Successful trust queries alone have not resolved this wait.",
+  "background_crash_headers": [
+    {
+      "process": "driverkitd",
+      "signal": 9,
+      "count": 1
+    },
+    {
+      "process": "SiriTTSSynthesiz",
+      "signal": 6,
+      "count": 12
+    },
+    {
+      "process": "KonaSynthesizer",
+      "signal": 6,
+      "count": 12
+    },
+    {
+      "process": "MacinTalkAUSP",
+      "signal": 6,
+      "count": 12
+    }
+  ],
+  "panic_seen": false,
+  "last_frame_counter": 68000,
+  "usb_status": "VERMEER DEBUG: ACE5DBG001 events=695 tx=475479 rx=21 log=472668 dropped=0",
+  "runtime_migration_fixed": false,
+  "evidence": [
+    {
+      "path": "out/ios16/startup-repair-test-1/usb-replay.log",
+      "sha256": "7d6e58ad47d21e2b11bcbb21d045eb2d46b00c6634b3f957fbf5da88ee9a4fed"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/usb-current-sample.log",
+      "sha256": "57296b5c34abdc7f460723739b7818f2158bc254f688cf00537ae31564b8a67c"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/usb-current-sample.symbols.txt",
+      "sha256": "1e37600266d83ab93cc7dcb884f712f8f98df8a32967251e46c44e4be1e5cf4d"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/usb-current-sample.plugins.txt",
+      "sha256": "6a7674e37fd5f9a17f14b058dedf949e9a72973cd870820f1f0277c19d6dff15"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/current-stacks-compact.txt",
+      "sha256": "548262d967c6f1de0e8466340c9b4e12ee995181a03f4f7855d7b24317f3f68e"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/usb-status.log",
+      "sha256": "ef3df41cf6154805abe2d90578d92f1ced59f5c6150f2a5115ed12d55e215ce9"
+    },
+    {
+      "path": "out/ios16/startup-repair-test-1/migrator-manifest.json",
+      "sha256": "7ba0ebb59513b01ca33bbb1166f2a4b4b118601dd8256ad81b1d1fc2282d4ec5"
+    }
+  ]
+}
