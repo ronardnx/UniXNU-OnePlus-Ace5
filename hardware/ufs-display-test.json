@@ -6,6 +6,7 @@
   "boot_method": "fastboot boot",
   "transfer_and_boot_ok": true,
   "framebuffer_mapping": "boot_args Video bounded to PKG110 cont_splash_region",
-  "screen_observation": "awaiting user",
-  "root_mounted": false
+  "screen_observation": "User reports green/blue/magenta only; no white marker or UFS text",
+  "root_mounted": false,
+  "platform_probe_reached": null
 }

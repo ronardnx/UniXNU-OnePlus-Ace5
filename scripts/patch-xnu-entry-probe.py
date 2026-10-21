@@ -146,6 +146,16 @@ _start:
   isb
 """ + PAINT.format(args='x20', band=3, lo='0xFF00', hi='0xFFFF') + "2:\n  wfe\n  b 2b\n"
 
+# At arm_init entry x22/x23 still carry the assembly bootstrap VA/PA bases.
+# Move to the live physical alias before turning translation off to draw.
+ARM_INIT_MARKER = POST_MMU_MARKER.replace('_start:\n', '''_start:
+  adr x8, physical
+  sub x8, x8, x22
+  add x8, x8, x23
+  br x8
+physical:
+''', 1)
+
 
 def kernel_symbols(kernel):
     """Address -> name for the kernel's symbols, from llvm-nm."""
@@ -383,11 +393,15 @@ def main():
     parser.add_argument('--no-reset', action='store_true', help='no reset probe at all')
     parser.add_argument('--post-mmu-marker', action='store_true',
                         help='After MMU enable, disable translation, draw yellow and park')
+    parser.add_argument('--arm-init-marker', action='store_true',
+                        help='At C arm_init entry, switch to physical alias, draw yellow and park')
     parser.add_argument('--occurrence', type=int, default=1, help='which call to SYMBOL (1 = first)')
     parser.add_argument('--in', dest='function', default='_arm_init', help='function that makes the call (default _arm_init)')
     args = parser.parse_args()
     if args.post_mmu_marker and (args.panic_screen or args.reset_after or args.reset_before):
         parser.error('Post-MMU marker is a standalone stopping probe, without panic/reset probes')
+    if args.arm_init_marker and (args.post_mmu_marker or args.panic_screen or args.reset_after or args.reset_before):
+        parser.error('arm_init marker is a standalone stopping probe')
     if args.reset_before and not args.reset_after:
         raise SystemExit('--reset-before requires --reset-after')
     data = bytearray(args.kernel.read_bytes())
@@ -408,7 +422,13 @@ def main():
     # (site, cave stage, symbols the cave is linked with)
     sites = [(ENTRY_VA, 1, {'target': START_FIRST_CPU}),
              (MMU_ENABLE_VA, 2, {'target': MMU_ENABLE_VA + 4})]
-    if args.post_mmu_marker:
+    if args.arm_init_marker:
+        arm_init = kernel_names['_arm_init']
+        if word(arm_init) != 0xD10343FF:
+            raise SystemExit('arm_init prologue differs from the disassembled sub sp, sp, #0xd0')
+        sites.append((arm_init, 3, {}))
+        description = 'yellow at C arm_init entry; translation off and parked, no reset'
+    elif args.post_mmu_marker:
         sites.append((AFTER_MMU_VA, 3, {}))
         description = 'stage 3 yellow after MMU enable, translation off and parked; no reset'
     elif args.no_reset:
@@ -424,11 +444,13 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         for site, stage, symbols in sites:
-            source = (POST_MMU_MARKER if args.post_mmu_marker and stage == 3 else
+            source = (ARM_INIT_MARKER if args.arm_init_marker and stage == 3 else
+                      POST_MMU_MARKER if args.post_mmu_marker and stage == 3 else
                       RESET_BEFORE if (stage == 4 and args.reset_before) else
                       SOURCES[stage].format(ticks=TIMEBASE * args.reset_delay))
             code = assemble(source, CAVES[stage], symbols, Path(tmp))
-            if len(code) > CAVE_SIZE:
+            limit = 0x100 if args.arm_init_marker and stage == 3 else CAVE_SIZE
+            if len(code) > limit or not is_padding(data, CAVES[stage], (len(code) + 3) & ~3):
                 raise SystemExit(f'Stage {stage} code is too large')
             data[file_offset(CAVES[stage]):file_offset(CAVES[stage]) + len(code)] = code
     for site, stage, _ in sites:
