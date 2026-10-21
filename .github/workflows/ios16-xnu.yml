@@ -40,6 +40,8 @@ jobs:
           /tmp/touch-wire-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_gpio.c -o /tmp/touch-gpio-test
           /tmp/touch-gpio-test
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_trust_catalog.c -o /tmp/trust-test
+          /tmp/trust-test < /dev/null
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
@@ -73,6 +75,9 @@ jobs:
           python3 tests/ios16_platform_match.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
           if [ '${{ inputs.touch }}' = true ]; then
             python3 -c "from pathlib import Path; assert b'GIULIA TOUCH: controller result=' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
+          fi
+          if [ '${{ inputs.profile }}' = gui ]; then
+            python3 -c "from pathlib import Path; assert b'GIULIA AMFI: trust catalogue ready;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho

@@ -11,6 +11,7 @@ import tempfile
 import tomllib
 import zlib
 from ios16_platform import check_platform
+from ios16_trust_catalog import modules
 
 def sha(p):
     with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -19,6 +20,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument('--kernel',type=Path,required=True)
     p.add_argument('--adt',type=Path,required=True)
+    p.add_argument('--trust-catalog',type=Path,help='Verified official firmware trust catalogue')
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
     p.add_argument('--default-root',action='store_true')
@@ -34,6 +36,16 @@ def main():
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
     platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    catalog=None
+    if a.trust_catalog:
+        catalog=json.loads((a.trust_catalog.parent/'trust-catalog.json').read_text())
+        pinned=json.loads((Path(__file__).resolve().parents[1]/'ios16/firmware.json').read_text())
+        parsed=modules(a.trust_catalog.read_bytes())
+        if (catalog['sha256']!=sha(a.trust_catalog) or catalog['source_ipsw_sha256']!=pinned['sha256']
+                or len(catalog['modules'])!=len(parsed) or not a.root_report
+                or not platform_match.get('gui')
+                or b'GIULIA AMFI: trust catalogue ready;' not in a.kernel.read_bytes()):
+            raise ValueError('Official trust catalogue/kernel binding failed')
     if a.trace_services and (not a.root_report or not platform_match.get('gui')):
         raise ValueError('Service sampling requires the GUI kernel and root entry')
     if a.enable_touch and (not a.root_report or not platform_match.get('gui') or b'GIULIA TOUCH: controller result=' not in a.kernel.read_bytes()):
@@ -92,6 +104,7 @@ def main():
         stage=Path(td);payload=stage/'EFI/UniXNU/Payloads';payload.mkdir(parents=True)
         shutil.copyfile(a.kernel,payload/'kernel.macho')
         shutil.copyfile(a.adt,payload/'kernel.macho.adt')
+        if a.trust_catalog:shutil.copyfile(a.trust_catalog,payload/'kernel.macho.trustcache')
         (payload.parent/'unixnu.toml').write_text(config)
         for path in [stage,*stage.rglob('*')]:os.utime(path,(315532800,315532800))
         subprocess.run(['mformat','-C','-F','-T','131072','-v','GIULIAESP','-N','47495531','-i',str(image),'::'],env=env,check=True)
@@ -116,6 +129,8 @@ def main():
             result['physical_touch_worker']=True
             result['touch_clock_handoff']=True
         if a.touch_gpio:result['touch_gpio']=True
+    if catalog:
+        result['trust_catalog']={k:catalog[k] for k in ('sha256','bytes','build','source_ipsw_sha256','unique_hashes')}
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

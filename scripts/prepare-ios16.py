@@ -137,6 +137,27 @@ def main():
     if a.gui:
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
                         a.out/'0071-giulia-on-demand-samples.patch')
+        patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
+                 '@@ -13,2 +13,3 @@\n'
+                 ' iokit/Kernel/arm/SweetEntitlements.cpp                           optional iokitcpp\n'
+                 ' iokit/Kernel/arm/SweetKeyStore.cpp                               optional iokitcpp\n'
+                 '+iokit/Kernel/arm/GiuliaAMFI.cpp                                  optional iokitcpp\n'
+                 '--- a/iokit/KernelConfigTables.cpp\n+++ b/iokit/KernelConfigTables.cpp\n'
+                 '@@ -51,3 +51,8 @@\n'
+                 '     "     \'IOMatchCategory\' = AppleKeyStore;"\n'
+                 '     "   },"\n'
+                 '+    "   {"\n'
+                 '+    "     \'IOClass\'         = AppleMobileFileIntegrity;"\n'
+                 '+    "     \'IOProviderClass\' = IOResources;"\n'
+                 '+    "     \'IOMatchCategory\' = AppleMobileFileIntegrity;"\n'
+                 '+    "   },"\n'
+                 '     "   {"\n')
+        for name in ('GiuliaAMFI.cpp', 'giulia_trust_catalog.h'):
+            data = (Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
+            data = data.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
+            patch += ''.join(difflib.unified_diff([], data.splitlines(True),
+                              fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
+        (a.out/'0072-giulia-read-only-trust-catalog.patch').write_text(patch)
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
@@ -145,6 +166,7 @@ def main():
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
+        'read_only_trust_catalog_query':a.gui,
         'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

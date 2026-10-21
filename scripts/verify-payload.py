@@ -8,6 +8,7 @@ import sys
 import tempfile
 import tomllib
 from ios16_platform import check_platform
+from ios16_trust_catalog import modules
 
 folder=Path(sys.argv[1]).resolve()
 report=json.loads((folder/'payload.json').read_text())
@@ -113,6 +114,21 @@ with tempfile.TemporaryDirectory() as directory:
         if not 0x10000000<=memory<=0x200000000 or memory&0x1fffff:
             raise SystemExit('Invalid DarwinBoot memory window')
         print('Darwin22 DRAM placeholders and requested memory window verified')
+        placeholder=nodes.get('/device-tree/chosen/memory-map',{}).get('TrustCache')
+        if bool(report.get('trust_catalog')) != (placeholder is not None):
+            raise SystemExit('Trust catalogue/ADT handoff mismatch')
+        if report.get('trust_catalog'):
+            if placeholder!=bytes(16):raise SystemExit('TrustCache handoff must start at zero')
+            cache=temporary/'kernel.macho.trustcache'
+            subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/Payloads/kernel.macho.trustcache',str(cache)],check=True)
+            trust=report['trust_catalog']; parsed=modules(cache.read_bytes())
+            if digest(cache)!=trust['sha256'] or cache.stat().st_size!=trust['bytes']:
+                raise SystemExit('Embedded trust catalogue digest/size mismatch')
+            if len({h for m in parsed for h in m['hashes']})!=trust['unique_hashes']:
+                raise SystemExit('Embedded trust catalogue inventory mismatch')
+            if b'GIULIA AMFI: trust catalogue ready;' not in (temporary/'kernel.macho').read_bytes():
+                raise SystemExit('Read-only trust query provider missing')
+            print('Official trust catalogue and bounded loader handoff verified')
     if report.get('data_ramdisk_sha256'):
         if entry.get('initrd')!='Payloads/scratch-data.img':
             raise SystemExit('Missing Data initrd configuration')

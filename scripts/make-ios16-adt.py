@@ -12,10 +12,12 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--memory',type=lambda x:int(x,0),default=0x80000000)
     p.add_argument('--gui',action='store_true')
+    p.add_argument('--trust-catalog',action='store_true',help='Reserve DarwinBoot TrustCache memory-map handoff')
     p.add_argument('--wifi-mac',help='Stable unicast address for MobileGestalt identity; does not enable Wi-Fi transport')
     p.add_argument('--product-adt',type=Path,help='Local unwrapped D22AP ADT from the verified IPSW')
     a=p.parse_args()
     if a.gui and not a.product_adt:p.error('GUI requires the verified local D22AP product ADT')
+    if a.trust_catalog and not a.gui:p.error('Trust catalogue requires GUI')
     wifi_mac=None
     if a.wifi_mac:
         if not a.gui or not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',a.wifi_mac):
@@ -49,6 +51,13 @@ def main():
                   'firmware-version':b'giulia-darwin22-uefi\0'})
     if a.gui:
         props(chosen,{'unique-chip-id':struct.pack('<Q',0x4749554C49410001)})
+        if a.trust_catalog:
+            maps=[n for n in chosen.children if n.name=='memory-map']
+            if len(maps)>1:raise ValueError('Duplicate memory-map')
+            if not maps:
+                maps=[reference['node']('memory-map')]
+                chosen.children.extend(maps)
+            props(maps[0],{'TrustCache':bytes(16)})
         if wifi_mac is not None:
             # iOS16 MobileGestalt reads this CFData before falling back to
             # IONetworkController matching. The port has no network transport
