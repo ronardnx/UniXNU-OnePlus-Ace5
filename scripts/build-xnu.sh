@@ -47,14 +47,14 @@ if [[ ! -f "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/
   test -s "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json"
   test -s "$tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/link.filelist"
 fi
-kernel_options=()
+kernel_command=(python3 unixnu build kernel -D "$port_root" -j 3)
 cache_root="${UNIXNU_IPSW_CACHE:-$work/UniXNU/out/ipsw}"
 if [[ "$(python3 "$port_root/scripts/firmware-cache.py" validate-kernel --cache "$cache_root")" == "valid=true" ]]; then
   build_id=$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb"))["ipsw"]["build"])' "$port_root/board.toml")
-  kernel_options=(--kernelcache "$cache_root/$build_id/kernelcache.decompressed")
+  kernel_command+=(--kernelcache "$cache_root/$build_id/kernelcache.decompressed")
   echo 'Using cached, SHA256-verified kernelcache; no IPSW network access needed for prelink'
 fi
-python3 unixnu build kernel -D "$port_root" -j 3 "${kernel_options[@]}"
+"${kernel_command[@]}"
 python3 unixnu build payload -D "$port_root"
 python3 "$port_root/scripts/verify-payload.py" "$work/UniXNU/out/giulia/payload"
 if [[ -n "${GIULIA_DATA_SEED_DIR:-}" ]]; then

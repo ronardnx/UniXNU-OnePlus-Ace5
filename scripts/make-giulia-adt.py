@@ -11,6 +11,7 @@ from pathlib import Path
 import os
 import struct
 import zlib
+import uuid
 
 def node(name, properties=(), children=()):
     props = [('name', name.encode() + b'\0'), *properties]
@@ -48,6 +49,8 @@ def main():
     p.add_argument('--cpu-regs', choices=['0'], default='0')
     p.add_argument('--psci-method', choices=['smc'], default='smc')
     p.add_argument('--trust-cache', action='store_true')
+    p.add_argument('--root-match-volume-uuid', type=uuid.UUID,
+                   help='Match a published IOMedia volume UUID after UFS qualification')
     p.add_argument('--data-ramdisk', action='store_true',
                    help='Hand a dense APFS Data seed to the standard XNU RAMDisk path')
     args = p.parse_args()
@@ -66,6 +69,10 @@ def main():
                         ('dram-base', u64(0x80000000)), ('dram-size', u64(args.dram_size)),
                         ('darwinboot-memory-size', u64(args.owned_memory_size)),
                         ('crypto-hash-method', b'sha2-384\0'),
+                        *([('root-matching', ('<dict><key>IOProviderClass</key><string>IOMedia</string>'
+                           '<key>IOPropertyMatch</key><dict><key>UUID</key><string>' +
+                           str(args.root_match_volume_uuid).upper() + '</string></dict></dict>\0').encode())]
+                          if args.root_match_volume_uuid else []),
                         ('amfi-only-platform-code', u32(1)), *nvram_proxy()],
              [node('memory-map', ([('RAMDisk', bytes(16))] if args.data_ramdisk else []) +
                                  ([('TrustCache', bytes(16))] if args.trust_cache else [])),
