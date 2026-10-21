@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-21",
+  "image": "out/ios16/gui-boot-39583173365/giulia-ios16-gui.img",
+  "sha256": "1fcdeffa431fd8986f7518abb02f31506411be1f9aab5525dc27af70271e5971",
+  "kernel_run": 39583173365,
+  "build_repository": "jasper2863/UniXNU-giulia",
+  "boot_method": "fastboot boot",
+  "fastboot_transfer_ok": true,
+  "fastboot_boot_command_ok": true,
+  "userdata_reflashed": false,
+  "screen_observation": "Apple logo and progress bar; user reports stalled around 80 percent",
+  "graphics_initialized": true,
+  "first_presentation_confirmed": true,
+  "gui_session_stable": false,
+  "physical_touch_verified": false,
+  "observations": {
+    "display": [
+      1264,
+      2780,
+      5056
+    ],
+    "canvas": [
+      1125,
+      2436
+    ],
+    "swaps_observed": 77000,
+    "SpringBoard_execs": 1,
+    "backboardd_execs": 1,
+    "ui_crashes_seen": false,
+    "serial_dropped": 0,
+    "migration_wrapper_started": true,
+    "cause_of_stall": "unconfirmed; migration/service wait under investigation"
+  },
+  "logs": [
+    {
+      "path": "out/ios16/gui-boot-39583173365/usb-gui-status.log",
+      "sha256": "0eda35c25b6d4d032203ba361682bb5bbafd0a0e0fe65f231211ffbd0dc58579"
+    },
+    {
+      "path": "out/ios16/gui-boot-39583173365/usb-gui.log",
+      "sha256": "e97460a2df21193722b52782b3bd7af44406f9614223799c06389f03ee6bc787"
+    },
+    {
+      "path": "out/ios16/gui-boot-39583173365/usb-stalled-status.log",
+      "sha256": "a6d6cf9e0dd3f9196c6c7d1119423bb0de33b6ec0d543ed9175c94e37f3aaa5c"
+    }
+  ]
+}

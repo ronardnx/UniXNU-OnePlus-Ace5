@@ -50,6 +50,14 @@ with tempfile.TemporaryDirectory() as directory:
             expected+=' launchd_unsecure_cache=1'
         if report.get('platform_match',{}).get('gui'):
             expected+=' sweetfb_hz=30 sweetfb_noconsole=1'
+        if report.get('trace_services'):
+            if not report.get('platform_match',{}).get('gui') or b'sweetsample\0' not in (temporary/'kernel.macho').read_bytes():
+                raise SystemExit('Service sampler is not present in the GUI kernel')
+            expected+=' sweetsample=SpringBoard,backboardd,datamigrator,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+        if report.get('physical_touch_worker'):
+            if not report.get('platform_match',{}).get('gui') or b'GIULIA TOUCH: controller result=' not in (temporary/'kernel.macho').read_bytes():
+                raise SystemExit('Ace 5 touch worker missing from the GUI kernel')
+            expected+=' giulia_touch=1'
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

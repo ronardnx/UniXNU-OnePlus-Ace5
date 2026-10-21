@@ -3,7 +3,8 @@
 当前实机调试使用 Darwin 22.6.0 / iOS 16 内核。已验证 UEFI 交接、XNU
 内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 读取、
 USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和系统服务启动。
-SpringBoard / backboardd 会反复崩溃，图形界面尚未显示。
+GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
+进度条停在约 80%，尚未进入可操作界面；正在采样迁移服务，并适配物理触摸。
 
 ## 图形版构建产物（2026-10-21）
 
@@ -11,19 +12,26 @@ SpringBoard / backboardd 会反复崩溃，图形界面尚未显示。
 - GUI kernel run `39583173365` 已成功，源码提交 `8859fc4`；构建、图形服务检查、内核重定位检查全部通过。
 - Artifact `12339141121` 已下载并核验 GitHub SHA256 / ZIP CRC；内核 SHA256 为 `9271cb37d8a5602f425a14787dbc3bcdc1919ce9e0683177f4a00ad2b19d04a8`。
 - 配套临时启动镜像：`out/ios16/gui-boot-39583173365/giulia-ios16-gui.img`，SHA256 `1fcdeffa431fd8986f7518abb02f31506411be1f9aab5525dc27af70271e5971`。
-- 已核验 GUI ADT / 平台与 CPU 驱动匹配、DRAM 交接、根卷标识、Android 启动头和负载校验；该图形版本尚未实机启动。
+- 已核验 GUI ADT / 平台与 CPU 驱动匹配、DRAM 交接、根卷标识、Android 启动头和负载校验；实机已确认首次呈现，测试记录见 `hardware/ios16-gui-test.json`。
 - 系统入口使用 `sweetfb_hz=30 sweetfb_noconsole=1`，首次呈现后才静默普通屏幕日志；USB 和 panic 日志继续保留。
 - 后续下载新仓库产物使用 `scripts/fetch-action-artifact.py --repo jasper2863/UniXNU-giulia ...`。账号凭据仅保存在本机登录会话／凭据库，不在源码中。
+
+## 触摸与服务采样
+
+- `prepare-ios16.py --gui --touch` 加入 Ace 5 的 GENI SPI / TouchCom v1 驱动；`make-ios16-payload.py --enable-touch --trace-services` 启动驱动并扩展迁移服务采样。
+- 驱动先验证时钟、SPI 固件、FIFO、DMA 空闲和引脚状态，再识别触控应用、切到 LBP 并读回触摸报文配置；收到有效报文才发 HID 事件。
+- 当前不支持缺失时钟/电源/固件的恢复、GPI-only 控制器以及 TouchCom v2/CRC 扩展；未通过实机触控验证，不能据此认定触摸已可用。
+- 寄存器来源、引脚和限制见 `hardware/sm8650-touch.json`。触摸解析测试不代替实机测试。
 
 ## 根卷和用户态进展（2026-10-21）
 
 - 用户自行刷入已校验的 userdata 原始镜像后，实机确认 GPT、卷标识匹配以及 HFSX `iOSRoot` 读写挂载。
 - `OS_REASON_EXEC / 0xe` 是 `WRONG_PLATFORM`。已通过开发内核自带的 `unentitled_ios_sim_launch=1` 解决，没有修改 launchd、dyld 或关闭代码页哈希校验。
 - 原始任务缓存加载器在没有 AMFI IOService 时退出；`launchd_unsecure_cache=1` 已通过实机验证，随后开始启动系统服务。
-- 最新已启动镜像：`out/ios16/root-job-cache/giulia-ios16-root-job-cache.img`；SHA256 `e62850f45f2853010a407a4b5c0359528a831c03fee202bc19cfe25715a456f9`。
+- 此前基础内核镜像：`out/ios16/root-job-cache/giulia-ios16-root-job-cache.img`；SHA256 `e62850f45f2853010a407a4b5c0359528a831c03fee202bc19cfe25715a456f9`。
 - 完整本地日志：`out/ios16/root-job-cache/usb-replay.log`。进度与签名页审计分别见 `hardware/ios16-root-mount-test.json` 和 `hardware/ios16-launchd-platform-audit.json`。
 - 当前基础内核没有编入 IOSurface / IOMobileFramebuffer / HID 服务。已准备可选 `--gui` 源码配置及 `make-ios16-adt.py --gui --product-adt LOCAL_D22AP.adt`，实际物理屏幕限制为 `0xd5100000 / 1264×2780 / stride 5056`，UIKit 兼容画布为 `1125×2436`。
-- 本地通过了 65 个补丁格式检查、8 个实际屏幕几何限制表达式测试、基础配置回归，以及 GUI ADT 与旧内核误配拒绝检查；尚未完成 GUI 内核整体编译和实机图形验证。
+- 本地通过了 65 个补丁格式检查、8 个实际屏幕几何限制表达式测试、基础配置回归，以及 GUI ADT 与旧内核误配拒绝检查；GUI 内核整体编译和实机首次呈现现已完成。
 - `ios16-xnu.yml` 选择 `profile=gui` 会构建图形内核，随后需在本地结合已校验的产品 ADT 打包。GUI 构建不自动使用基础 ADT 生成启动镜像。
 - 旧仓库 GUI run `39581534474` 曾在编译启动前因账号付款／消费限额被 GitHub 拦截；已在上述新私仓完成构建。
 - 物理触控、GPU 加速和稳定图形会话均未验证。当前已验证结果不等于完整 iOS 移植完成。

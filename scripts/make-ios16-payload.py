@@ -22,6 +22,8 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
     p.add_argument('--default-root',action='store_true')
+    p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
+    p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
     a=p.parse_args()
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
@@ -29,6 +31,10 @@ def main():
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
     platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    if a.trace_services and (not a.root_report or not platform_match.get('gui')):
+        raise ValueError('Service sampling requires the GUI kernel and root entry')
+    if a.enable_touch and (not a.root_report or not platform_match.get('gui') or b'GIULIA TOUCH: controller result=' not in a.kernel.read_bytes()):
+        raise ValueError('Touch requires a GUI kernel containing the Ace 5 hardware driver')
     args='-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
     probe=args+' giulia_ufs_probe=1'
     config=('version = 1\n[boot]\ntimeout = 3\ndefault = "xnu"\n[kits]\nautoload = false\n'
@@ -52,6 +58,12 @@ def main():
             # The GUI driver mutes only ordinary screen text after its first
             # presentation. USB logging and panic text remain available.
             root_args+=' sweetfb_hz=30 sweetfb_noconsole=1'
+        if a.trace_services:
+            if b'sweetsample\0' not in a.kernel.read_bytes():
+                raise ValueError('Kernel lacks the process sampler')
+            # proc_name uses a 32-byte buffer in the pinned sampler.
+            root_args+=' sweetsample=SpringBoard,backboardd,datamigrator,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+        if a.enable_touch:root_args+=' giulia_touch=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -78,6 +90,8 @@ def main():
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
                       root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
+        if a.trace_services:result['trace_services']=True
+        if a.enable_touch:result['physical_touch_worker']=True
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

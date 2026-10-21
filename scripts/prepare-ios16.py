@@ -6,6 +6,7 @@ import sys
 import runpy
 import re
 import json
+import difflib
 from pathlib import Path
 
 def edit(path, old, new, count=1):
@@ -20,7 +21,9 @@ def main():
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--gui', action='store_true', help='Include bounded display/surface/HID compatibility services')
+    p.add_argument('--touch', action='store_true', help='Include opt-in Ace 5 TouchCom v1 hardware bring-up')
     a = p.parse_args()
+    if a.touch and not a.gui:p.error('--touch requires --gui')
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
     if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
         raise RuntimeError('Unpinned reference checkout')
@@ -104,8 +107,19 @@ def main():
             text=re.sub(r'\b1440\b','1264',text)
             text=re.sub(r'\b3200\b','2780',text)
             text=text.replace('1440x3200','1264x2780').replace('VERMEER FB:','GIULIA FB:')
+            text=text.replace('x > 1439 ? 1439','x > 1263 ? 1263').replace('y > 3199 ? 3199','y > 2779 ? 2779')
             text=text.replace('K70 framebuffer','Ace 5 framebuffer').replace('K70 panel','Ace 5 panel')
         path.write_text(text,errors='surrogateescape')
+    if a.touch:
+        patch=('--- a/bsd/conf/files\n+++ b/bsd/conf/files\n@@ -110,1 +110,2 @@\n'
+               ' bsd/dev/sweet_sample.c\t\t\tstandard\n+bsd/dev/giulia_touch.c\t\t\tstandard\n'
+               '--- a/bsd/kern/bsd_init.c\n+++ b/bsd/kern/bsd_init.c\n@@ -1108,1 +1108,3 @@\n'
+               ' \tsweet_sample_start();\n+\textern void giulia_touch_start(void);\n+\tgiulia_touch_start();\n')
+        for name in ('giulia_touch.c','giulia_touch_report.h','giulia_touch_wire.h'):
+            data=(Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
+            data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
+            patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',tofile='b/bsd/dev/'+name))
+        (a.out/'0069-giulia-touch.patch').write_text(patch)
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
@@ -113,6 +127,7 @@ def main():
     (a.out/'check-kernel.py').write_text(checker)
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
-        'physical_touch_driver_included':False,'hardware_tested':False},indent=2)+'\n')
+        'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO' if a.touch else None,
+        'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

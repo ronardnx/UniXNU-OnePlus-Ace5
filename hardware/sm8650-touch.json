@@ -1,0 +1,180 @@
+{
+  "device": "OnePlus Ace 5 PKG110",
+  "status": "bring-up implementation; no physical touch verified",
+  "evidence": "local running-device.dts plus pinned public controller sources; raw dumps stay local",
+  "spi": {
+    "base": "0xa90000",
+    "size": "0x4000",
+    "gic_spi": 357,
+    "cs": 0,
+    "mode": 0,
+    "maximum_hz": 19000000,
+    "pins": {
+      "miso": 48,
+      "mosi": 49,
+      "clock": 50,
+      "cs": 51
+    },
+    "mux": 1
+  },
+  "touch": {
+    "enabled_dt_compatible": "synaptics,tcm-spi-hbp",
+    "dt_chip_name": "S3910",
+    "irq_gpio": 162,
+    "reset_gpio": 161,
+    "avdd_gpio": 108,
+    "irq_active": 0,
+    "reset_active": 0,
+    "reset_ms": 10,
+    "reset_delay_ms": 80,
+    "power_on": 1,
+    "power_delay_ms": 200,
+    "dt_coordinate_max": [
+      20224,
+      44480
+    ],
+    "decoder_coordinates": "must use confirmed application-info response"
+  },
+  "tlmm": {
+    "base": "0xf000000",
+    "gpio_register_offset": "0x100000 + gpio * 0x1000",
+    "mux_shift": 2,
+    "output_enable_bit": 9,
+    "output_bit": 1
+  },
+  "gcc": {
+    "base": "0x100000",
+    "branch": "0x183bc",
+    "vote": "0x52008",
+    "vote_bit": 26,
+    "root_command": "0x183c8"
+  },
+  "implementation": {
+    "opt_in_boot_arg": "giulia_touch=1",
+    "transport": "polled GENI FIFO full duplex with FF dummy transmit for reads",
+    "supported_wire": "TouchCom v1 legacy; exact continuation marker and EOM required",
+    "report": "0x11, exact configuration readback required; only finger/glove contacts emitted",
+    "local_processing_mode": "dynamic config 0x11 = 2; readback required",
+    "hardware_gate": "clock running; SPI firmware; FIFO available; DMA inactive; inherited power/reset and SPI pinmux",
+    "not_implemented": [
+      "clock/regulator/firmware recovery",
+      "GPI-only engines",
+      "TouchCom v2/CRC extensions"
+    ],
+    "persistent_firmware_writes": false
+  },
+  "sources": [
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "files": [
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2.c",
+          "git_blob": "15a09932fd4c76f5af683294434bd8e979fc5ba0",
+          "sha256": "aaaf33b7a248ea9eb4ac980255172ff628f9b9a9135d3076620488f103788fca",
+          "bytes": 122035
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2.h",
+          "git_blob": "55403738bc945746c20a04dc161bdfa59521e6f3",
+          "sha256": "e2a926a74b1aefa875d2dbc62cc9fcb2b611dce4d92dacc7380d17e500d2180a",
+          "bytes": 25596
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2_platform_spi.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2_platform_spi.c",
+          "git_blob": "8e98e16798accd19b1d1ff169e6457a03444c39c",
+          "sha256": "2a67ca8674248254bfac5ed0a319391acf1f88eac8f8494c06f9b3528586c013",
+          "bytes": 37795
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2_platform.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/syna_tcm2_platform.h",
+          "git_blob": "186c7bd39c339aa2dfb641a3cbe30676f45d383e",
+          "sha256": "2903c570ef31d5cf319716e587ba866e0c3930520ebc4d9e4c1622d548505a37",
+          "bytes": 9243
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_dev.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_dev.h",
+          "git_blob": "c408d2fd560a942b7d9a0cde09d002db4cdad528",
+          "sha256": "afede71b55509b11794e018460de5794909f867c6e730ec0072df3744dd20040",
+          "bytes": 38403
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_v1.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_v1.c",
+          "git_blob": "043bce3379944cc66b7fd70b1417dae3be6583e2",
+          "sha256": "8d7255d6e9ce600c0b207fbec8f72dc9a2aa14b274ebb1c3b3d1cccd6cc648e8",
+          "bytes": 36978
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_v2.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_core_v2.c",
+          "git_blob": "2ac14b8706e3bfc5394650f8fb0468450f851e40",
+          "sha256": "0d072294ba93a974b09a27b4d639a6c74b8dfb15a240c4c4467c8134a7f161a2",
+          "bytes": 38656
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_touch.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_touch.c",
+          "git_blob": "8d6c6ff95a3688aa8a33d3bd12e9a206032b460c",
+          "sha256": "89a1db9a9eeb9b6464120e6fbff86e6227b153232d718da9fe16bde69fe5f731",
+          "bytes": 28076
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_touch.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_touch.h",
+          "git_blob": "8d66844a4f89d13a7bf53541d1b4095fafc6ec89",
+          "sha256": "0bcbd55d9b4805f6e9a52e78e646a818d368248daf31a10321780d47ffc2099d",
+          "bytes": 9032
+        },
+        {
+          "path": "vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_base.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/touchpanel/synaptics_hbp/tcm/synaptics_touchcom_func_base.h",
+          "git_blob": "57a6f37c56b452237dc652747cbcd0821b35c20d",
+          "sha256": "e15ec94fcb8994911bab894bd8ed949cab594ce073b8aa35aac480b8c831f7ca",
+          "bytes": 15246
+        }
+      ]
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "files": [
+        {
+          "path": "drivers/spi/spi-msm-geni.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/spi/spi-msm-geni.c",
+          "sha256": "d4114304977ed422f34e2dc8277ee8f42be3c31ecfe31172d7de3963f2a06997",
+          "git_blob": "9135dc36e897dc2dd9149e4d933a08407c67a3de"
+        },
+        {
+          "path": "drivers/spi/spi-geni-qcom.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/spi/spi-geni-qcom.c",
+          "sha256": "21720898de01ee6e6203faf2abb1617929683aa42847840ad9ce5abb4d9812cb",
+          "git_blob": "9b589e4bd2c38d4876685133ae03f034cc67a811"
+        },
+        {
+          "path": "drivers/soc/qcom/qcom-geni-se.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/qcom-geni-se.c",
+          "sha256": "78bcf31ecf14ded884f75ff000c7216c0ca304be334ce932849d1d3a737281c9",
+          "git_blob": "e9c6e70c3786f3e8474fe90700c559de12b68224"
+        },
+        {
+          "path": "drivers/pinctrl/qcom/pinctrl-pineapple.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/pinctrl/qcom/pinctrl-pineapple.c",
+          "sha256": "50e41a6478b1939b674c2d4dd2e195a9a49a4b2f5a639d1f2693e1e65477c4ee",
+          "git_blob": "b832eb87e2cda401f59183fd5e4b062a37cccf82"
+        },
+        {
+          "path": "include/linux/qcom-geni-se-common.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/qcom-geni-se-common.h",
+          "sha256": "88aaf6d5bc26d0c0250987c0cf756dcadd24d3ba76f836dd0dacb39b5c9ab2e2",
+          "git_blob": "eacf2d0ec0879916348799f4d79f1c2c3b3912fe"
+        }
+      ]
+    }
+  ]
+}

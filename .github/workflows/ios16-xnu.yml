@@ -10,6 +10,10 @@ on:
         options:
           - base
           - gui
+      touch:
+        description: Include the opt-in Ace 5 hardware touch driver (requires GUI)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -30,13 +34,17 @@ jobs:
         run: |
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_smmu.c -o /tmp/smmu-test
           /tmp/smmu-test
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_reports.c -o /tmp/touch-report-test
+          /tmp/touch-report-test
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_wire.c -o /tmp/touch-wire-test
+          /tmp/touch-wire-test
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }}
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }}
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
@@ -61,6 +69,9 @@ jobs:
         run: |
           python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet ${{ inputs.profile == 'gui' && '--gui' || '' }}
           python3 tests/ios16_platform_match.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+          if [ '${{ inputs.touch }}' = true ]; then
+            python3 -c "from pathlib import Path; assert b'GIULIA TOUCH: controller result=' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
+          fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4
