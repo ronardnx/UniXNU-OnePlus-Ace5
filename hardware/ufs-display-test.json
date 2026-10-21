@@ -1,0 +1,11 @@
+{
+  "kernel_run": 39534515217,
+  "uefi_run": 39535648542,
+  "image_sha256": "426aa6f73e24f66ec0079a66e79f478dcaaffbc3349cca97c3902dc61bcdffa2",
+  "kernel_sha256": "f3d3871feba4934e09d916ae04316db6649afaee20902ae54d97b783afefd7d6",
+  "boot_method": "fastboot boot",
+  "transfer_and_boot_ok": true,
+  "framebuffer_mapping": "boot_args Video bounded to PKG110 cont_splash_region",
+  "screen_observation": "awaiting user",
+  "root_mounted": false
+}
