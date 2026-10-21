@@ -230,6 +230,10 @@ static void gt_thread(__unused void *arg,__unused wait_result_t result)
     printf("GIULIA TOUCH: controller result=%d\n",err);
     if(err)goto done;
     err=gw_read(&bus,&msg);
+    /* A cold touch controller can hold MISO low until its application boots. */
+    for(unsigned retry=0;err==2 && retry<100 && !gt.dead;retry++) {
+        gt_wait(10);err=gw_read(&bus,&msg);
+    }
     printf("GIULIA TOUCH: first message result=%d code=%#x bytes=%u irq=%#x\n",
         err,err?0:msg.code,err?0:msg.size,gt.last_irq);
     if(err)goto done;

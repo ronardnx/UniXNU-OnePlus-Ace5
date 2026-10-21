@@ -213,5 +213,22 @@
       ]
     }
   },
-  "clock_handoff_verified": true
+  "clock_handoff_verified": true,
+  "vdd": {
+    "dt_phandle": "0x389",
+    "regulator": "pm_humu_l4",
+    "rpmh_resource": "ldob4",
+    "microvolts": 1800000,
+    "implementation": "UEFI CmdDb query and native RPMh ACTIVE vote through HLOS client 2",
+    "hardware_voltage_verified": false,
+    "api_reference": "https://github.com/Daniel224455/xbl2nd/tree/7531648266d2b06f2224d0abb6864831fb655259/QcomPkg/Include",
+    "rpmh_protocol_version": "0x10001",
+    "command_db_protocol_version": "0x10000",
+    "native_protocol_guids_found_in_pinned_binaries": true,
+    "source_header_hashes": {
+      "EFIRpmh.h": "12cac1106d092e5f50f470585b613311a783283c98c01db9cf9c32e54ad8f58e",
+      "EFICmdDb.h": "176b729ca51a8012dff2b607dc9405e8996977aecf03539662053b6ea77c84bb",
+      "rpmh_common.h": "cd1d119b4ad45af6d0caea151e9ead441bb0ce341269187880899ff8615529ab"
+    }
+  }
 }

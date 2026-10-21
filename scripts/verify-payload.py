@@ -53,7 +53,16 @@ with tempfile.TemporaryDirectory() as directory:
         if report.get('trace_services'):
             if not report.get('platform_match',{}).get('gui') or b'sweetsample\0' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('Service sampler is not present in the GUI kernel')
-            expected+=' sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat'
+            names=report.get('service_sample_names')
+            if names is None:
+                names=report['root_kernel_args'].split(' sweetsample=',1)[1].split()[0]
+            if names not in (
+                'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd',
+                'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat',
+                'SpringBoard,backboardd,com.apple.datami,com.apple.migrat',
+                'SpringBoard,backboardd,datamigrator,com.apple.datamigrator,com.apple.migrationpluginwrappe'):
+                raise SystemExit('Unrecognized service-sampling selector set')
+            expected+=' sweetsample='+names
         if report.get('service_stderr_trace'):
             if not report.get('trace_services'):raise SystemExit('Service stderr tracing requires service sampling')
             expected+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'

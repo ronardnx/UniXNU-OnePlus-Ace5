@@ -9,6 +9,7 @@
   GiuliaInitrdDxe.c
   ScanPolicy.h
   TouchClock.c
+  TouchPower.c
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec

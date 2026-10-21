@@ -58,7 +58,8 @@ def main():
     header.write_text(f'// Generated from hardware/xnu-payload.json\n'
                       f'#define GIULIA_PAYLOAD_BYTES {size}U\n'
                       f'#define GIULIA_PAYLOAD_CRC32 0x{crc:08x}U\n'
-                      f'#define GIULIA_TOUCH_CLOCK {int(identity.get("touch_clock_handoff") is True)}\n')
+                      f'#define GIULIA_TOUCH_CLOCK {int(identity.get("touch_clock_handoff") is True)}\n'
+                      f'#define GIULIA_TOUCH_POWER {int(identity.get("touch_gpio") is True)}\n')
     shutil.copytree(paths['unixnu'] / 'package', uefi / 'UniXNU/package', dirs_exist_ok=True)
     shutil.copytree(paths['darwinboot'], uefi / 'UniXNU/drivers/DarwinBoot', dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('.git', '__pycache__'))

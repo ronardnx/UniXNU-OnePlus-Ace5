@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-21",
+  "source_commit": "be3d89b",
+  "repository": "jasper2863/UniXNU-giulia",
+  "build_run": 39592967728,
+  "artifact_id": 12342309814,
+  "artifact_sha256": "1e1b3e1b2c23fae3a080d440649d9d4f050fdfcca68899a9f0d5e728f3930cae",
+  "kernel_sha256": "09a218f3d24be0761efe011089ba27fa7fa206f49c28d526d60300a10791b949",
+  "image": "out/ios16/gpio-touch-39592967728/giulia-ios16-touch-trace.img",
+  "image_sha256": "9625bc8f07e2008ed5e5785526e7f37f24fa7ac51ff97cd5d49dcc438ea41eb7",
+  "offline_checks_passed": true,
+  "boot_method": "fastboot boot",
+  "transfer_ok": true,
+  "boot_command_ok": true,
+  "serial_connected": true,
+  "physical_touch_verified": false,
+  "plugin_image_sampling_verified": true,
+  "userdata_reflashed": false,
+  "touch_observation": {
+    "clock_enabled": true,
+    "gpio_configuration_readback_passed": true,
+    "ap_gpi_channels_idle": true,
+    "reset_sequence_completed": true,
+    "initial_rx": "00000000",
+    "controller_identified": false,
+    "next_investigation": "DT VDD resource ldob4 at 1800 mV"
+  },
+  "migration_blocker": {
+    "plugin": "/System/Library/DataClassMigrators/SystemAppMigrator.migrator/SystemAppMigrator",
+    "method": "-[MISystemAppMigrator synchronouslyCancelAllAppStoreRequests]",
+    "wait_offset": "0x726c",
+    "caller_offset": "0x8070",
+    "wait_for": "ASDRequest cancelAllRequestsWithErrorHandler: completion",
+    "declared_timeout_ns": 45000000000,
+    "timeout_cause": "Earlier 45-second cancellation wait was left; no evidence of broken timeout",
+    "later_wait": "-[MISystemAppMigrator waitForSystemAppInstallDispatchGroup]",
+    "later_wait_offset": "0x49b0",
+    "later_caller_offset": "0x8370",
+    "install_group_timeout": "40 seconds per pending installation (disassembled count * 40 * NSEC_PER_SEC)"
+  },
+  "appstored_wait": "ACAccountStore accountTypeWithAccountTypeIdentifier:error: synchronous XPC reply"
+}

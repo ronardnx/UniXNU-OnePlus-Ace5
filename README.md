@@ -22,7 +22,8 @@ GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面�
 - 驱动先验证时钟、SPI 固件、FIFO、DMA 空闲和引脚状态，再识别触控应用、切到 LBP 并读回触摸报文配置；收到有效报文才发 HID 事件。
 - ClockDxe 的触摸时钟交接已实机验证。控制器回报 GPI-only（FIFO 禁用）；新增 `--touch-gpio` 调试后端使用已确认的 GPIO 模拟 SPI，不配置 DMA/SMMU。GPIO 后端尚待实机验证。
 - 当前未实现 PMIC 电源恢复、GPI DMA 传输及 TouchCom v2/CRC 扩展；尚不能认定物理触摸已可用。
-- 迁移采样已捕获 `com.apple.datami` / `com.apple.migrat`：前者等待插件包装进程，后者等待插件的信号量。已加入插件加载地址诊断，供下一轮定位。
+- 迁移采样与插件地址已定位到 `SystemAppMigrator`。早期 App Store 取消请求的 45 秒等待已结束；持续等待点是 `waitForSystemAppInstallDispatchGroup`，其超时为每项待安装应用 40 秒。`appstored` 正在等待 `ACAccountStore` 同步 XPC 回复，继续追踪账户/钥匙串服务。
+- 新 GUI 构建增加只读串口命令 `sample`，唤醒同一个采样线程；配套 `capture-debug.ps1 -Command sample` 可在同次启动中请求采样。最多 40 轮，返回 0 表示采样线程已停用或结束。
 - 寄存器来源、引脚和限制见 `hardware/sm8650-touch.json`。触摸解析测试不代替实机测试。
 
 ## 根卷和用户态进展（2026-10-21）

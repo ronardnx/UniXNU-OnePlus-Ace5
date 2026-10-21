@@ -90,6 +90,13 @@ def main():
          '+\t\t\t/* Keep the scheduler alive for CDC enumeration after a failed read. */\n'
          '+\t\t\tfor (;;) IOSleep(1000);\n+\t\t}\n'
          '+\t\tint error = vermeer_ufs_ios_rootdev(root);')
+    if a.gui:
+        edit(usb,'static void command_line(void)','extern int sweet_sample_request(void);\nstatic void command_line(void)')
+        edit(usb,'    else if (!strcmp(u.command,"status"))',
+             '    else if (!strcmp(u.command,"sample")) printf("GIULIA DEBUG: sample wake requested=%d\\n",sweet_sample_request());\n'
+             '    else if (!strcmp(u.command,"status"))')
+        edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
+        edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -127,6 +134,10 @@ def main():
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
                         a.out/'0070-giulia-service-images.patch')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
+    if a.gui:
+        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
+                        a.out/'0071-giulia-on-demand-samples.patch')
+        capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
     if a.gui:checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')

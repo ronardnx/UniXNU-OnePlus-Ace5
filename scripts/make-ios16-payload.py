@@ -66,7 +66,9 @@ def main():
                 raise ValueError('Kernel lacks the process sampler')
             # proc_name copies p_comm[MAXCOMLEN+1]; XNU MAXCOMLEN is 16.
             # The sampler's larger destination buffer does not recover p_name.
-            root_args+=' sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat'
+            sample_names='SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd'
+            if len(sample_names)>=128:raise ValueError('Service selector buffer exceeded')
+            root_args+=' sweetsample='+sample_names
             # The /dev/null tee uses proc_selfname (p_name), unlike proc_name.
             root_args+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
         if a.enable_touch:root_args+=' giulia_touch=1'
@@ -99,6 +101,7 @@ def main():
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
         if a.trace_services:
             result['trace_services']=True
+            result['service_sample_names']=sample_names
             result['service_stderr_trace']=True
         if a.enable_touch:
             result['physical_touch_worker']=True
