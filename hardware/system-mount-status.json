@@ -20,5 +20,11 @@
   ],
   "device_readback_verified": false,
   "xnu_ufs_read_verified": false,
-  "root_mounted": false
+  "root_mounted": false,
+  "kernel_build_result": "success",
+  "uefi_build_run": 39531893586,
+  "uefi_build_result": "success",
+  "test_image_sha256": "a4cd7015797181e797c781e297af0ca94d4ffc030eda92078646b6d2c1bc312b",
+  "fastboot_boot_result": "transfer and boot OKAY",
+  "screen_observation": "awaiting user"
 }

@@ -31,7 +31,8 @@ with tempfile.TemporaryDirectory() as directory:
     cfg.write_text(text)
     subprocess.run(['mcopy','-o','-i',str(image),str(cfg),'::/EFI/UniXNU/unixnu.toml'],check=True)
 r.update(payload_kernel_sha256=audit['patched_sha256'],payload_sha256=sha(image),
-         purpose='XNU entry/MMU/panic diagnostics with unchanged Data seed',entry_probe=audit,hardware_tested=False)
+         purpose='XNU entry/MMU/panic diagnostics with unchanged Data seed',entry_probe=audit,
+         panic_screen=audit['panic_screen'],hardware_tested=False)
 (a.out/'payload.json').write_text(json.dumps(r,indent=2)+'\n')
 crc=0
 with image.open('rb') as f:
