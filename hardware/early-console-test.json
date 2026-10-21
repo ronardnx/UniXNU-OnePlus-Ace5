@@ -1,0 +1,12 @@
+{
+  "kernel_run": 39538748416,
+  "uefi_run": 39539841936,
+  "image_sha256": "ce17be27e3e93c261b1226fab2f3c5b78d729ac30d1baefa624f826c91933cce",
+  "boot_method": "fastboot boot",
+  "transfer_and_boot_ok": true,
+  "arm_vm_init_call": "0xfffffff0079afcd0",
+  "console_hook_call": "0xfffffff0079afcd4",
+  "call_order_verified_by_disassembly": true,
+  "screen_observation": "awaiting user",
+  "root_mounted": false
+}
