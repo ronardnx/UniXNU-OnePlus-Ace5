@@ -55,3 +55,29 @@ The GPT parser also passes against the actual saved LUN0 header/table
 (32 entries, 4096-byte table), and rejects a corrupted table.
 Kernel/UEFI builds and hardware tests remain separate gates; no new image
 has been temporarily booted and no working USB COM port is claimed.
+
+## Integrated image pipeline
+
+Commit c0c7954 adds a complete kernel -> FAT payload -> matching UEFI ->
+Android boot v3 pipeline. The UEFI uses a 32 MiB-aligned kernel virtual/physical
+base as required by the 16 KiB-page startup code. Chained pointers are validated
+and resolved when present; the actual c0c7954 kernel had no chained fixups.
+Its verified SHA256 is
+`0743e01a8f10d4ebe0f3e04a1dacadc2614440dde17cd57945072c225949702d`.
+
+`giulia_ufs_probe=1` keeps the scheduler running after the read probe so the CDC
+worker can enumerate even after a failed UFS test. It does not mount or write
+the system volume. Normal root selection still follows the HFSX identity and
+write-boundary checks when this diagnostic option is absent.
+
+User's latest order: deliver the userdata image for the user to flash manually;
+only temporarily boot after the user reports that flashing has finished.
+Do not auto-flash userdata. Windows fastboot must use FASTBOOT_USE_LIBUSB=0
+with C:\adb\fastboot.exe; this resolves empty device enumeration despite a
+healthy WinUSB bootloader interface.
+
+Host delivery: `prepare-ios16-userdata.py` verifies the gzip-expanded HFSX
+digest/volume identity, runs img2simg and verifies its logical expansion hash.
+Sparse round-trip, truncation, trailing data and skip-extent tests pass.
+Additional reference CDC descriptor/request/RAM-ring and media-policy tests
+passed against the adapted headers under ASan/UBSan.
