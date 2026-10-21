@@ -55,7 +55,7 @@ def main():
         sources = {key: attach(args.source / name, True) for key, name in
                    [('OS', 'OS.dmg'), ('SystemOS', 'SystemOS.dmg'), ('AppOS', 'AppOS.dmg')]}
         run('hdiutil', 'create', '-size', '16g', '-layout', 'NONE', '-fs', 'JHFS+X',
-            '-volname', 'iOSRoot', '-format', 'UDRW', dmg)
+            '-volname', 'iOSRoot', dmg)
         root = attach(dmg, False)
         for key, target in [('OS', root), ('SystemOS', root / 'private/preboot/Cryptexes/OS'),
                             ('AppOS', root / 'private/preboot/Cryptexes/App')]:

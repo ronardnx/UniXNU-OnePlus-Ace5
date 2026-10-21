@@ -1,0 +1,47 @@
+name: Ace 5 iOS16 UEFI boot ABI
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GIULIA_BOOT_ABI: darwin22
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono
+      - name: Build and verify UEFI image
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-port" 2>&1 | tee build.log
+      - name: Upload verified image
+        uses: actions/upload-artifact@v4
+        with:
+          name: giulia-ios16-uefi-debug
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Mu-giulia-0.img
+            ${{ runner.temp }}/ace5-port/image-verification.json
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/giuliaPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd
+            ${{ runner.temp }}/ace5-port/uefi-giulia/BootShim/BootShim.bin
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/DTBs/giulia.dtb
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/Configs/giulia.toml
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/ramdisk
+          retention-days: 14
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios16-uefi-build-logs
+          path: |
+            build.log
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/*.txt
+            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/giuliaPkg/*.txt
+          retention-days: 14

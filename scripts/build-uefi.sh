@@ -3,6 +3,9 @@ set -euo pipefail
 port_root="$(cd "$(dirname "$0")/.." && pwd)"
 work="${1:?Usage: build-uefi.sh /absolute/build/workspace}"
 python3 "$port_root/scripts/prepare.py" --workspace "$work"
+if [ "${GIULIA_BOOT_ABI:-darwin23}" = darwin22 ]; then
+  python3 "$port_root/scripts/ios16-loader.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
+fi
 python3 -m venv "$work/.venv"
 "$work/.venv/bin/pip" install -r "$work/uefi-giulia/pip-requirements.txt"
 cd "$work/uefi-giulia"

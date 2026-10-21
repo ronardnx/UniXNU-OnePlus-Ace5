@@ -1,0 +1,92 @@
+"""Generate Ace 5 patches from the pinned Vermeer integration, not Redmi binaries."""
+import argparse
+import shutil
+import subprocess
+import sys
+import runpy
+from pathlib import Path
+
+def edit(path, old, new, count=1):
+    text = path.read_text(errors='surrogateescape')
+    if text.count(old) != count:
+        raise RuntimeError(f'Source drift: {path.name}: {old!r}: {text.count(old)} != {count}')
+    path.write_text(text.replace(old, new), errors='surrogateescape')
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--reference', type=Path, required=True)
+    p.add_argument('--work', type=Path, required=True)
+    p.add_argument('--out', type=Path, required=True)
+    a = p.parse_args()
+    revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
+    if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
+        raise RuntimeError('Unpinned reference checkout')
+    shutil.copytree(a.reference / 'xnu', a.work)
+    v = a.work / 'vermeer'
+    usb, probe, block = [v / f'vermeer_{n}.c' for n in ['usb_debug','ufs_probe','ufs_block']]
+    # Allocator-owned physically contiguous pages, bounded by the boot memory
+    # actually passed to XNU. Never infer an owned range from the K70 addresses.
+    for name in ['vermeer_ufs_dma.h','vermeer_usb_protocol.h']:
+        path = v / name
+        edit(path, '#include <sys/types.h>', '#include <sys/types.h>\nextern uint64_t gPhysBase, gPhysSize;')
+    edit(v/'vermeer_ufs_dma.h', 'if (pa >= 0xc0000000ULL && pa <= 0xd0000000ULL - VU_DMA_SIZE) return 1;',
+         'if (pa < gPhysBase || gPhysSize < VU_DMA_SIZE || pa - gPhysBase > gPhysSize - VU_DMA_SIZE) return 0;\n    if (pa <= 0x100000000ULL - VU_DMA_SIZE) return 1;')
+    edit(v/'vermeer_ufs_dma.h', 'pa >= 0x8c0000000ULL && pa <= 0x940000000ULL - VU_DMA_SIZE',
+         'pa <= (1ULL << 36) - VU_DMA_SIZE')
+    edit(v/'vermeer_usb_protocol.h', 'pa<0x8c0000000ULL ||\n        pa>=0x940000000ULL || size>0x940000000ULL-pa',
+         'pa<gPhysBase ||\n        gPhysSize<size || pa-gPhysBase>gPhysSize-size')
+    for path in [usb, probe]:
+        edit(path, '0x4c017e69', '0x4c017e6b')
+        edit(path, '0x60000046', '0x60000047')
+    edit(usb, 'i<105', 'i<107')
+    edit(usb, 'cb>=70', 'cb>=71')
+    edit(usb, '0xd0000', '0x100000')
+    edit(usb, 'K70DBG004', 'ACE5DBG001', 4)
+    edit(usb, 'Vermeer Lab', 'Giulia Lab')
+    edit(usb, 'Vermeer XNU Debug', 'Ace 5 XNU Debug')
+    # SCR0 is logged, not compared to an unobserved K70 value; stream and
+    # context policy remains mandatory, including VA64 for high addresses.
+    edit(usb, 'read_reg(s,0)!=0x00280406 || ', '')
+    edit(usb, 'return vusb_route_identity(route,cbar,sctlr)!=0;',
+         'return vusb_route_identity(route,cbar,sctlr)!=0 &&\n        (((route>>16)&3)==1 || (read_reg(s,0x1800+4*cb)&1));')
+    edit(probe, '0x90000', '0x100000')
+    edit(probe, '61842431U', '61321215U')
+    edit(probe, '0x45fbee46U', '0xc319db94U')
+    # Embed a C-compatible guarded context handoff; the generated source patch
+    # then carries the entire implementation with correct hunk lengths.
+    guard = (Path(__file__).resolve().parents[1]/'ios16/giulia_smmu.h').read_text()
+    guard = guard.replace('#include <stdint.h>', '')
+    edit(probe, 'static int identity_candidate(void)', guard + '\nstatic uint32_t gs_r(unsigned o) { return rd(SMMU+o); }\n'
+         'static void gs_w(unsigned o,uint32_t v) { *(volatile uint32_t *)(SMMU+o)=v; __asm__ volatile("dsb sy" ::: "memory"); }\n'
+         'static int giulia_take(void) { return gs_take(gs_r,gs_w,!rd(UFS+0x60)&&!rd(UFS+0x58)&&!rd(UFS+0x78)); }\n'
+         'static int giulia_restore(void) { return gs_restore(gs_r,gs_w,!rd(UFS+0x60)&&!rd(UFS+0x58)&&!rd(UFS+0x78)); }\n'
+         'static int identity_candidate(void)')
+    text=probe.read_text(); start=text.index('    if (rd(SMMU + 0x20)',text.index('static int identity_candidate'))
+    end=text.index('    /* Static buffer range',start)
+    text=text[:start]+'    if (gs_plan(gs_r)) return 1;\n'+text[end:]; probe.write_text(text)
+    edit(probe,'    wr(0x50, vu_lo(dma_pa));','    if (giulia_take()) return ENXIO;\n    wr(0x50, vu_lo(dma_pa));')
+    edit(probe,'            wr(0x50, oldlo);','            if (giulia_restore()) return ENXIO;\n            wr(0x50, oldlo);')
+    edit(probe,'0x80058','0xc6058')
+    edit(block,'    wr(0x50, vu_lo(dma_pa));','    if (giulia_take()) return ENXIO;\n    wr(0x50, vu_lo(dma_pa));')
+    edit(block,'    wr(0x50, vb.oldlo);','    if (giulia_restore()) { vb.failed=true; return; }\n    wr(0x50, vb.oldlo);')
+    edit(v/'vermeer_media_policy.h','2570304ULL','3920350ULL')
+    edit(v/'vermeer_media_policy.h','59272123ULL','57400861ULL')
+    # Start the scheduler-based CDC worker at root selection, BEFORE UFS I/O.
+    hook=v/'0021-vermeer-ios-root-hook.patch'
+    edit(hook,'+766,22','+766,24')
+    edit(hook,'+\t\tint error = vermeer_ufs_ios_rootdev(root);',
+         '+\t\textern void vermeer_usb_debug_start(void);\n+\t\tvermeer_usb_debug_start();\n+\t\tint error = vermeer_ufs_ios_rootdev(root);')
+    sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios']
+    runpy.run_path(sys.argv[0], run_name='__main__')
+    for path in a.out.glob('*.patch'):
+        text=path.read_text(errors='surrogateescape')
+        for old,new in [('0xb8000000','0xd5100000'),('1440u','1264u'),('3200u','2780u'),
+                        ('5760','5056'),('3168','2748'),('arm,cortex-a510','qcom,kryo'),('VERMEER USB:','GIULIA USB:')]:
+            text=text.replace(old,new)
+        path.write_text(text,errors='surrogateescape')
+    capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
+    (a.out/'capture-debug.ps1').write_text(capture)
+    checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
+    (a.out/'check-kernel.py').write_text(checker)
+
+if __name__=='__main__': main()

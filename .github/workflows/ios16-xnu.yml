@@ -1,0 +1,57 @@
+name: Ace 5 iOS16 XNU UFS USB
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MACOS_VERSION: '13.5'
+  KERNEL_CONFIG: DEVELOPMENT
+  MACHINE_CONFIG: SWEET
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: xyyyds0106/ios-vermeer-lab
+          ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
+          path: reference
+      - name: Validate SM8650 context isolation
+        run: |
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_smmu.c -o /tmp/smmu-test
+          /tmp/smmu-test
+      - name: Prepare pinned XNU build and Ace 5 profile
+        run: |
+          git init -q dxb
+          git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
+          git -C dxb checkout -q FETCH_HEAD
+          python3 reference/tools/strict_profile_patches.py dxb/build.sh
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile
+          cp profile/*.patch profile/*.sh dxb/patches/
+          sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
+      - name: Select compatible Xcode and dependencies
+        run: |
+          brew install jq gum bash cmake ninja
+          printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
+          sudo chmod +x /usr/local/bin/xcodes
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | head -1)
+          echo "DEVELOPER_DIR=$XC/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - name: Build kernel
+        working-directory: dxb
+        run: |
+          set -o pipefail
+          bash build.sh 2>&1 | tee ../xnu-build.log
+      - name: Verify linked services
+        run: python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ace5-ios16-xnu
+          path: |
+            dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+            xnu-build.log
+            profile/
+          retention-days: 14
