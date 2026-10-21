@@ -15,5 +15,8 @@
   "fix_hardware_verified": false,
   "arm_vm_init_returned": true,
   "early_console_rendered_panic": true,
-  "ufs_read_verified": false
+  "ufs_read_verified": false,
+  "fixed_kernel_run": 39540830765,
+  "fixed_kernel_original_sha256": "30b71b5be1691ae64808a88ebac3b94ecd7177371d58695c7339167ff24a7455",
+  "dt_path_verified_by_disassembly": true
 }
