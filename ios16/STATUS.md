@@ -28,3 +28,30 @@ Rollback source: branch `checkpoint/unixnu-ufs-read` at `2d86154`.
 Unfinished stage display work is preserved in git stash
 `9757d0145bef52e47f192142299a7d5ab894b05e`.
 The previously flashed userdata image has not been replaced by this switch.
+
+## Current implementation
+
+- `scripts/ios16-loader.py` patches a separate UEFI build for the 608-byte
+  command line, 736-byte boot_args and 16 KiB alignment. It also shrinks the
+  local copy buffer, so CopyMem cannot overwrite BootFlags/MemorySizeActual.
+- `scripts/prepare-ios16.py` generates the non-GUI iOS profile from the
+  pinned Vermeer integration. UFS uses the captured Ace 5 GPT bounds and
+  first-two-block CRC. Its SID60 route is moved from preserved CB2 to CB70
+  only after queue quiescence and checks that CB70 is disabled/unreferenced.
+  Restoration switches SID60 back before restoring firmware descriptors.
+- DMA buffers must be contiguous allocator-owned pages inside XNU's actual
+  gPhysBase/gPhysSize, with controller and SMMU address-width checks.
+- Native CDC ACM uses ACE5DBG001 and starts at UFS root selection before
+  disk probing/mounting. It still depends on an initialized scheduler and
+  firmware USB PHY/clocks plus an identity SID40 route; earlier arm_init
+  failures and panic-time polling are not covered yet.
+- The ADT requests a 2 GiB UEFI allocation. Allocation failure is reported;
+  no K70 physical RAM address is assumed. Framebuffer is d5100000,
+  1264x2780 with 5056-byte stride; GIC and timer match captured Ace 5 DT.
+
+Local checks: boot_args offsets/size compiled; generated patches parse;
+ASan/UBSan tests pass for SMMU isolation, DMA/window and write bounds.
+The GPT parser also passes against the actual saved LUN0 header/table
+(32 entries, 4096-byte table), and rejects a corrupted table.
+Kernel/UEFI builds and hardware tests remain separate gates; no new image
+has been temporarily booted and no working USB COM port is claimed.

@@ -18,6 +18,7 @@ def main():
                      ('== 0x478', '== 0x2d8'), ('== 0x480', '== 0x2e0')]:
         h = replace(h, old, new)
     c = replace(c, 'CommandLine[1024]', 'CommandLine[608]')
+    c = replace(c, '(Kernel->Base & EFI_PAGE_MASK)', '(Kernel->Base & (SIZE_16KB - 1))')
     c = replace(c, 'TreeAddress = ArgsAddress + EFI_PAGE_SIZE;', 'TreeAddress = ArgsAddress + SIZE_16KB;')
     c = replace(c, 'ALIGN_VALUE (TreeAddress + TreeSize, EFI_PAGE_SIZE)',
                 'ALIGN_VALUE (TreeAddress + TreeSize, SIZE_16KB)')

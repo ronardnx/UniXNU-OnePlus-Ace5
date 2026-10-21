@@ -28,7 +28,7 @@ def main():
     # actually passed to XNU. Never infer an owned range from the K70 addresses.
     for name in ['vermeer_ufs_dma.h','vermeer_usb_protocol.h']:
         path = v / name
-        edit(path, '#include <sys/types.h>', '#include <sys/types.h>\nextern uint64_t gPhysBase, gPhysSize;')
+        edit(path, '#include <sys/types.h>', '#include <sys/types.h>\nextern unsigned long gPhysBase, gPhysSize;')
     edit(v/'vermeer_ufs_dma.h', 'if (pa >= 0xc0000000ULL && pa <= 0xd0000000ULL - VU_DMA_SIZE) return 1;',
          'if (pa < gPhysBase || gPhysSize < VU_DMA_SIZE || pa - gPhysBase > gPhysSize - VU_DMA_SIZE) return 0;\n    if (pa <= 0x100000000ULL - VU_DMA_SIZE) return 1;')
     edit(v/'vermeer_ufs_dma.h', 'pa >= 0x8c0000000ULL && pa <= 0x940000000ULL - VU_DMA_SIZE',
@@ -71,6 +71,7 @@ def main():
     edit(block,'    wr(0x50, vb.oldlo);','    if (giulia_restore()) { vb.failed=true; return; }\n    wr(0x50, vb.oldlo);')
     edit(v/'vermeer_media_policy.h','2570304ULL','3920350ULL')
     edit(v/'vermeer_media_policy.h','59272123ULL','57400861ULL')
+    edit(block,'g.first != 2570304 || g.blocks != 59272123','g.first != 3920350 || g.blocks != 57400861')
     # Start the scheduler-based CDC worker at root selection, BEFORE UFS I/O.
     hook=v/'0021-vermeer-ios-root-hook.patch'
     edit(hook,'+766,22','+766,24')
