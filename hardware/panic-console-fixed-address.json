@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-21",
+  "kernel_run": 39538748416,
+  "image_sha256": "ce17be27e3e93c261b1226fab2f3c5b78d729ac30d1baefa624f826c91933cce",
+  "observation": "Photo shows Kernel data abort",
+  "pc": "0xfffffff00793d61c",
+  "lr": "0xfffffff00793d5f8",
+  "far": "0xfffffff054d68000",
+  "esr": "0x96000010",
+  "symbol": "PE_create_console",
+  "fault_instruction": "ldr w8, [x0]",
+  "preceding_operation": "ml_io_map_wcomb(0x3c0fc000, 16384)",
+  "source": "pexpert/pexpert/arm64/BCM2837.h PLATFORM_PANIC_LOG_PADDR",
+  "fix": "Enable existing XNU_DT_PANIC_REGION; use validated DT pram or return when absent",
+  "fix_hardware_verified": false,
+  "arm_vm_init_returned": true,
+  "early_console_rendered_panic": true,
+  "ufs_read_verified": false
+}

@@ -7,6 +7,8 @@
   "arm_vm_init_call": "0xfffffff0079afcd0",
   "console_hook_call": "0xfffffff0079afcd4",
   "call_order_verified_by_disassembly": true,
-  "screen_observation": "awaiting user",
-  "root_mounted": false
+  "screen_observation": "Photo: Kernel data abort in PE_create_console while reading BCM2837 panic buffer",
+  "root_mounted": false,
+  "arm_vm_init_returned": true,
+  "panic_output_verified": true
 }
