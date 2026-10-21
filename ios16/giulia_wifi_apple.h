@@ -32,6 +32,19 @@ static inline int gwi_scan_request(const struct gwi_request *r) {
      * results. The hardware scan remains passive and uses its bounded list. */
     return r->set && r->type==10 && r->bytes==GWI_SCAN_REQUEST_BYTES && gwq_u32(r->data)==1;
 }
+static inline int gwi_channels(void *out,size_t bytes) {
+    /* 20H392 request 27 allocates 0x12d8 bytes, reads count at +4, then
+     * channel/flags at +12/+16 with a 12-byte stride. Advertise exactly the
+     * bounded passive list accepted by the transport, with ACTIVE unset. */
+    if(!out || bytes!=0x12d8)return 0;
+    uint8_t *p=(uint8_t *)out;for(size_t i=0;i<bytes;i++)p[i]=0;
+    gwq_w32(p,1);gwq_w32(p+4,GWW_SCAN_CHANNELS);
+    for(unsigned i=0;i<GWW_SCAN_CHANNELS;i++) {
+        unsigned frequency=gww_scan_frequencies[i];uint8_t *c=p+8+i*12;
+        gwq_w32(c,1);gwq_w32(c+4,gww_channel(frequency));gwq_w32(c+8,2|(frequency<3000?8:16));
+    }
+    return 1;
+}
 static inline int gwi_result(void *out,size_t bytes,const struct gww_bss *b,uint64_t now) {
     if(!out || bytes<GWI_SCAN_RESULT_BYTES || !b || b->ssid_len>32 || b->rate_count>16 || b->ie_bytes>1024 || !gww_channel(b->frequency))return 0;
     uint8_t *p=(uint8_t *)out;for(unsigned i=0;i<GWI_SCAN_RESULT_BYTES;i++)p[i]=0;

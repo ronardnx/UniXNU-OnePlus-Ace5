@@ -335,6 +335,8 @@ IOReturn IO80211Controller::query(const struct gwi_request &q,void *output,size_
     case 15: if(*bytes!=4){result=kIOReturnBadArgument;break;}gwq_w32(output,1);break;
     case 19: if(*bytes!=24){result=kIOReturnBadArgument;break;}gwq_w32(output,1);gwq_w32((uint8_t *)output+4,1);gwq_w32((uint8_t *)output+8,r->powered);break;
     case 23: strlcpy((char *)output,"OnePlus Ace 5 WCN7850",*bytes);break;
+    case 27: if(!gwi_channels(output,*bytes))result=kIOReturnBadArgument;break;
+    case 51: if(*bytes!=3){result=kIOReturnBadArgument;break;}memcpy(output,"CN",3);break;
     case 43: case 44: strlcpy((char *)output,"Giulia WCN7850 iOS16 passive-scan 1",*bytes);break;
     default:result=kIOReturnUnsupported;break;
     }

@@ -18,6 +18,8 @@ int main(void){
     assert(gwi_result(result,GWI_SCAN_RESULT_BYTES,&b,125));assert(gwq_u32(result)==1&&gwq_u32(result+8)==1);
     assert(result[0x60]==3&&!memcmp(result+0x61,"AP1",3)&&gwq_u16(result+0x8a)==5&&gwq_u32(result+0x84)==25);
     assert(result[GWI_SCAN_RESULT_BYTES]==0xaa);assert(!gwi_result(result,GWI_SCAN_RESULT_BYTES-1,&b,125));
-    b.ie_bytes=1025;assert(!gwi_result(result,sizeof(result),&b,125));free(p);
+    b.ie_bytes=1025;assert(!gwi_result(result,sizeof(result),&b,125));
+    assert(gwi_channels(p,0x12d8));assert(gwq_u32(p+4)==22&&gwq_u32(p+12)==1&&gwq_u32(p+8+21*12+4)==165);
+    assert(!(gwq_u32(p+16)&0x80));assert(!gwi_channels(p,0x12d7));free(p);
     puts("iOS16 IO80211 ABI: distinct GET/SET envelopes, ignored user pointers, scan request and 1164-byte result boundaries passed");return 0;
 }

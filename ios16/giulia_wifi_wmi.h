@@ -9,6 +9,9 @@
 #include "giulia_wifi_qmi.h"
 #define GWW_BSS_MAX 64u
 #define GWW_IE_MAX 1024u
+static const uint16_t gww_scan_frequencies[]={2412,2417,2422,2427,2432,2437,2442,2447,2452,2457,2462,2467,2472,
+    5180,5200,5220,5240,5745,5765,5785,5805,5825};
+#define GWW_SCAN_CHANNELS (sizeof(gww_scan_frequencies)/sizeof(gww_scan_frequencies[0]))
 enum gww_error { GWW_OK,GWW_ARGUMENT,GWW_FRAME,GWW_CREDITS,GWW_TRANSPORT,GWW_TIMEOUT,GWW_STATE,GWW_FIRMWARE,GWW_BUSY };
 struct gww_bss { uint8_t bssid[6],ssid[32],ssid_len,rates[16],rate_count;
     uint16_t frequency,beacon,capability,ie_bytes;int16_t rssi,noise;uint64_t timestamp;
@@ -183,15 +186,13 @@ static inline int gww_scan(struct gww_state *s,const struct gww_io *io) {
     if(s->error || !s->vdev || !io->now_ms)return GWW_STATE;if(s->scanning)return GWW_BUSY;
     /* CN device, passive receive only; DFS/6 GHz are not requested by this
      * initial transport. Firmware's OEM regdb still decides what is allowed. */
-    static const uint16_t channels[]={2412,2417,2422,2427,2432,2437,2442,2447,2452,2457,2462,2467,2472,
-        5180,5200,5220,5240,5745,5765,5785,5805,5825};
     uint8_t cmd[280]={0};gwq_w32(cmd,0x3001);gww_tlv(cmd+4,77,156);uint8_t *p=cmd+4;
     s->scan_id=0xa000|((s->scan_id+1)&0xfff);gwq_w32(p+4,s->scan_id);gwq_w32(p+8,0xa001);
     gwq_w32(p+16,2);gwq_w32(p+20,0x7f);gwq_w32(p+24,60);gwq_w32(p+28,110);
     gwq_w32(p+32,50);gwq_w32(p+36,500);gwq_w32(p+48,50);gwq_w32(p+52,15000);
-    gwq_w32(p+60,0x10001);gwq_w32(p+68,sizeof(channels)/sizeof(channels[0]));
-    size_t off=164;gww_tlv(cmd+off,16,sizeof(channels)/2*4);off+=4;
-    for(unsigned i=0;i<sizeof(channels)/2;i++,off+=4)gwq_w32(cmd+off,channels[i]);
+    gwq_w32(p+60,0x10001);gwq_w32(p+68,GWW_SCAN_CHANNELS);
+    size_t off=164;gww_tlv(cmd+off,16,GWW_SCAN_CHANNELS*4);off+=4;
+    for(unsigned i=0;i<GWW_SCAN_CHANNELS;i++,off+=4)gwq_w32(cmd+off,gww_scan_frequencies[i]);
     gww_tlv(cmd+off,19,0);off+=4;gww_tlv(cmd+off,19,0);off+=4;gww_tlv(cmd+off,17,0);off+=4;
     s->bss_count=0;for(unsigned i=0;i<GWW_BSS_MAX;i++)s->bss[i].ssid_len=0;
     s->scanning=1;s->scan_started=0;s->scan_deadline=io->now_ms(io->context)+20000;
