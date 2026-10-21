@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from ios16_platform import check_platform
 
 folder=Path(sys.argv[1]).resolve()
 report=json.loads((folder/'payload.json').read_text())
@@ -29,6 +30,10 @@ with tempfile.TemporaryDirectory() as directory:
         magic,cpu,subtype=struct.unpack('<3I',f.read(12))
     if (magic,cpu,subtype)!=(0xfeedfacf,0x100000c,0):
         raise SystemExit('Unexpected kernel ABI')
+    if report.get('platform_match'):
+        match=check_platform((temporary/'kernel.macho.adt').read_bytes(),(temporary/'kernel.macho').read_bytes())
+        if match!=report['platform_match']:raise SystemExit('Platform binding differs from build report')
+        print('Embedded ADT matches the built-in platform and CPU drivers')
     config=tomllib.loads((temporary/'unixnu.toml').read_text())
     entry=next(e for e in config['entry'] if e['id']=='xnu')
     if entry['type']!='xnu' or entry['args']!=report['kernel_args']:

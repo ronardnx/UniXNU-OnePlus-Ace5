@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 import tomllib
 import zlib
+from ios16_platform import check_platform
 
 def sha(p):
     with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -27,6 +28,7 @@ def main():
     report=json.loads(a.kernel.with_suffix('.json').read_text())
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
+    platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
     args='-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
     probe=args+' giulia_ufs_probe=1'
     config=('version = 1\n[boot]\ntimeout = 3\ndefault = "xnu"\n[kits]\nautoload = false\n'
@@ -57,7 +59,7 @@ def main():
     if data[82:90]!=b'FAT32   ' or struct.unpack_from('<I',data,32)[0]*512!=len(data):raise ValueError('FAT geometry')
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
-            'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window',
+            'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window','platform_match':platform_match,
             'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',

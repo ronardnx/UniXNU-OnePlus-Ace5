@@ -20,7 +20,10 @@ def main():
     def props(node, values):
         node.props=[(k,f,v) for k,f,v in node.props if k not in values]
         node.props += [(k,0,v) for k,v in values.items() if v is not None]
-    props(tree,{'compatible':b'oneplus,giulia\0qcom,sm8650\0AppleARM\0',
+    # The existing kernel registers the shared DT platform expert under this
+    # legacy match key. Keep it last for old kernels; native Ace 5 builds match
+    # oneplus,giulia. This alias does not supply hardware addresses or topology.
+    props(tree,{'compatible':b'oneplus,giulia\0qcom,sm8650\0AppleARM\0xiaomi,sweet\0',
                 'model':b'OnePlus Ace 5\0','target-type':b'giulia\0','manufacturer':b'OnePlus\0'})
     chosen=next(n for n in tree.children if n.name=='chosen')
     # DarwinBoot fills these from its actual allocation before handing off.

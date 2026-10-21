@@ -49,7 +49,9 @@ jobs:
           set -o pipefail
           bash build.sh 2>&1 | tee ../xnu-build.log
       - name: Verify linked services
-        run: python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+        run: |
+          python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+          python3 tests/ios16_platform_match.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4

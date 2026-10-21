@@ -89,7 +89,10 @@ def main():
     for path in a.out.glob('*.patch'):
         text=path.read_text(errors='surrogateescape')
         for old,new in [('0xb8000000','0xd5100000'),('1440u','1264u'),('3200u','2780u'),
-                        ('5760','5056'),('3168','2748'),('arm,cortex-a510','qcom,kryo'),('VERMEER USB:','GIULIA USB:')]:
+                        ('5760','5056'),('3168','2748'),('arm,cortex-a510','qcom,kryo'),('VERMEER USB:','GIULIA USB:'),
+                        ('xiaomi,sweet','oneplus,giulia'),
+                        ('strlcpy(name, "sweet",','strlcpy(name, "giulia",'),
+                        ('strlcpy(name, "Redmi Note 10 Pro",','strlcpy(name, "OnePlus Ace 5",')]:
             text=text.replace(old,new)
         path.write_text(text,errors='surrogateescape')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
