@@ -26,6 +26,8 @@ def append_pack(kernel: bytes, pack: bytes, digest: bytes, required=True):
     if required:
         require(digest in kernel and b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in kernel,
                 'Kernel does not contain the matching native Wi-Fi driver/digest')
+        require(b'GIULIA WIFI: firmware pack mapped read-only and digest verified' in kernel,
+                'Kernel does not contain the explicit firmware RAM mapping')
         require(b'GIULIA FB: native panel 1264x2780 full coverage;' in kernel,
                 'Kernel does not contain full-panel display adaptation')
     end = 32 + size

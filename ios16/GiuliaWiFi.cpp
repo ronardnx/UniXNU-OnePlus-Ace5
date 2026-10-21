@@ -50,6 +50,7 @@ struct giulia_wifi_runtime {
     IO80211Controller *owner;IOLock *lock;
     vm_offset_t root,config,parf,smmu,bar;
     IOBufferMemoryDescriptor *arena,*tables;
+    IOMemoryDescriptor *firmware_memory;IOMemoryMap *firmware_map;
     uint8_t *memory;uint64_t arena_pa,table_pa;size_t allocated;
     struct gwp_state pci;struct gwp_sid_state sid;struct gwp_msi_state msi;
     struct gws_state translation;struct gwm_state mhi;struct gwq_state qmi;
@@ -179,7 +180,16 @@ static bool gw_firmware(giulia_wifi_runtime *r) {
         firmware.vmsize<firmware.filesize || firmware.vmaddr-gVirtBase>gPhysSize ||
         firmware.vmsize>gPhysSize-(firmware.vmaddr-gVirtBase))return false;
     uint64_t physical=gPhysBase+firmware.vmaddr-gVirtBase;
-    return gwf_open(&r->firmware,(void *)ml_static_ptovirt((vm_offset_t)physical),firmware.filesize,gw_firmware_pack_sha256)!=0;
+    /* arm_vm_prot_init only maps its known segment names. The loader reserves
+     * __WIFI_FW through TopOfKernelData, but it must not be dereferenced via
+     * an assumed static virtual mapping. Map that bounded physical RAM here. */
+    r->firmware_memory=IOMemoryDescriptor::withPhysicalAddress(physical,firmware.filesize,kIODirectionIn);
+    if(!r->firmware_memory)return false;
+    r->firmware_map=r->firmware_memory->map(kIOMapReadOnly|kIOMapCopybackCache);
+    if(!r->firmware_map)return false;
+    const void *data=(const void *)r->firmware_map->getVirtualAddress();
+    if(!gwf_open(&r->firmware,data,firmware.filesize,gw_firmware_pack_sha256))return false;
+    IOLog("GIULIA WIFI: firmware pack mapped read-only and digest verified\n");return true;
 }
 static bool gw_allocate(giulia_wifi_runtime *r) {
     r->arena=IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,kIODirectionInOut|kIOMemoryPhysicallyContiguous|kIOMapInhibitCache,GW_ARENA_BYTES,0x200000);
@@ -225,6 +235,8 @@ static int gw_bringup(giulia_wifi_runtime *r) {
 }
 static void gw_shutdown(giulia_wifi_runtime *r) {
     r->ready=0;r->powered=0;
+    /* DMA uses copies in the owned arena, never this original pack mapping. */
+    r->firmware.valid=0;OSSafeReleaseNULL(r->firmware_map);OSSafeReleaseNULL(r->firmware_memory);
     if(r->ce.active && !gwc_stop(&r->ce,&r->cio))r->quarantine=1;
     if(r->mhi.bus_master && !gwm_stop(&r->mio,&r->mhi))r->quarantine=1;
     if(r->pci.ready && !gwp_master(&r->pio,&r->pci,0,0))r->quarantine=1;
@@ -263,6 +275,7 @@ bool IO80211Controller::start(IOService *provider) {
 void IO80211Controller::free(void) {
     if(r && !r->quarantine && !r->mhi.quarantined && !r->interface) {
         OSSafeReleaseNULL(r->arena);OSSafeReleaseNULL(r->tables);
+        OSSafeReleaseNULL(r->firmware_map);OSSafeReleaseNULL(r->firmware_memory);
         if(r->lock)IOLockFree(r->lock);IOFree(r,sizeof(*r));r=NULL;
     }
     IONetworkController::free();
