@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-21",
+  "device": "OnePlus Ace 5 PKG110",
+  "build_run": 39565899829,
+  "commit": "c0c795447aeb64cf485512f0ce00ba6ec55b5e6f",
+  "image": "out/ios16/boot-c0c7954/_temp/giulia-ios16-ufs-usb.img",
+  "image_sha256": "72fa1fe3586edcd37b089665cedaa6ac450aee3d0d3af14f75e7b00e10b89358",
+  "offline_checks": [
+    "image SHA256 and size",
+    "Android v3 header",
+    "payload SHA256 and CRC32",
+    "embedded default entry is read-only UFS/USB probe"
+  ],
+  "boot_method": "fastboot boot",
+  "fastboot_transfer_ok": true,
+  "fastboot_boot_command_ok": true,
+  "userdata_written_this_test": false,
+  "usb_debug_enumerated": false,
+  "screen_observation": "User photo: UEFI DefaultExceptionHandler ASSERT, Data abort: Synchronous external abort",
+  "xnu_execution_confirmed": false,
+  "next_step": "Build corrected UEFI using kernel artifact from run 39565899829, then temporary boot and inspect device screen.",
+  "fault_address": "0x827001fe",
+  "esr": "0x96000010",
+  "uefi_execution_confirmed": true,
+  "diagnosis": "FAR equals tz_stat_region start plus FAT signature offset 510; fallback payload scan can read this low-DDR firmware carveout because the UEFI map misclassifies it as usable.",
+  "fix": "Limit fallback scanning to captured high DDR banks intersected with readable UEFI data/free descriptors; do not scan low DDR."
+}

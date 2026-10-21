@@ -3,8 +3,8 @@
   Block I/O callbacks adapted from UniXNU uefi-sheng ShengBootMemoryDxe.
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
-  Does not add RAM or access UFS. Only accepts an initrd contained in the
-  upstream giulia MemoryMapLib Kernel reservation [0xA8000000,0xB8000000).
+  Does not add RAM or access UFS. Searches the Kernel reservation first, then
+  verified high DDR banks intersected with readable UEFI data/free memory.
 */
 #include <Uefi.h>
 #include <Library/BaseLib.h>
@@ -19,6 +19,7 @@
 #include <Protocol/BlockIo.h>
 #include <Protocol/DevicePath.h>
 #include "PayloadIdentity.h"
+#include "ScanPolicy.h"
 
 #define RAM_BLOCK_SIZE  512
 
@@ -194,9 +195,9 @@ STATIC EFI_STATUS ScanBootRam (VOID)
 {
   EFI_MEMORY_DESCRIPTOR *Map;
   EFI_MEMORY_DESCRIPTOR *Entry;
-  UINTN Size = 0, Key, DescriptorSize, At;
+  UINTN Size = 0, Key, DescriptorSize, At, Bank;
   UINT32 Version;
-  UINT64 End;
+  UINT64 Start, End;
   EFI_STATUS Status;
   Status = gBS->GetMemoryMap (&Size, NULL, &Key, &DescriptorSize, &Version);
   if (Status != EFI_BUFFER_TOO_SMALL) { return Status; }
@@ -205,15 +206,18 @@ STATIC EFI_STATUS ScanBootRam (VOID)
   if (Map == NULL) { return EFI_OUT_OF_RESOURCES; }
   Status = gBS->GetMemoryMap (&Size, Map, &Key, &DescriptorSize, &Version);
   if (EFI_ERROR (Status)) { FreePool (Map); return Status; }
+  if (DescriptorSize < sizeof (*Entry)) { FreePool (Map); return EFI_COMPROMISED_DATA; }
   for (At = 0; At + DescriptorSize <= Size; At += DescriptorSize) {
     Entry = (EFI_MEMORY_DESCRIPTOR *)((UINT8 *)Map + At);
-    // Only RAM explicitly usable by UEFI: no reserved, runtime, code, MMIO or ACPI ranges.
-    if ((Entry->Type != EfiConventionalMemory) && (Entry->Type != EfiLoaderData) &&
-        (Entry->Type != EfiBootServicesData)) { continue; }
-    if (Entry->NumberOfPages > (MAX_UINT64 - Entry->PhysicalStart) / EFI_PAGE_SIZE) { continue; }
-    End = Entry->PhysicalStart + EFI_PAGES_TO_SIZE (Entry->NumberOfPages);
-    Status = ScanRamRange (Entry->PhysicalStart, End, TRUE, 14);
-    if (Status != EFI_NOT_FOUND) { FreePool (Map); return Status; }
+    for (Bank = 0; Bank < ARRAY_SIZE (mScanBanks); Bank++) {
+      if (!GiuliaScanIntersection (Entry->PhysicalStart, Entry->NumberOfPages,
+          Entry->Type, Entry->Attribute, Bank, GIULIA_PAYLOAD_BYTES, &Start, &End)) {
+        continue;
+      }
+      DEBUG ((DEBUG_INFO, "GIULIAINITRD: bounded scan 0x%lx-0x%lx\n", Start, End));
+      Status = ScanRamRange (Start, End, TRUE, 14);
+      if (Status != EFI_NOT_FOUND) { FreePool (Map); return Status; }
+    }
   }
   FreePool (Map);
   Report (17, 0, 0, EFI_NOT_FOUND);

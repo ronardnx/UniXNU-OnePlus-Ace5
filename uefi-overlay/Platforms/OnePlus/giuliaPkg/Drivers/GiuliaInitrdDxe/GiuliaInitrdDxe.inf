@@ -7,6 +7,7 @@
   ENTRY_POINT = GiuliaInitrdDxeEntry
 [Sources]
   GiuliaInitrdDxe.c
+  ScanPolicy.h
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec

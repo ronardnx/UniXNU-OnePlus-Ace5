@@ -1,0 +1,30 @@
+{
+  "device": "OnePlus Ace 5 PKG110",
+  "evidence": "Locally captured running-device.dts /memory/reg and /proc/iomem; raw device dumps are not published",
+  "excluded_low_ddr": true,
+  "faulting_reserved_region": {
+    "name": "tz_stat_region",
+    "start": "0x82700000",
+    "end": "0x82800000",
+    "no_map": true
+  },
+  "fallback_banks": [
+    [
+      "0x880000000",
+      "0x8af900000"
+    ],
+    [
+      "0x8b0000000",
+      "0x8b7f00000"
+    ],
+    [
+      "0x8c0000000",
+      "0xb00000000"
+    ]
+  ],
+  "previous_verified_payload": [
+    "0xaa0213000",
+    "0xaac213000"
+  ],
+  "policy": "Intersect each bank with live UEFI descriptors of ConventionalMemory, LoaderData or BootServicesData without runtime/read-protect attributes. Require complete payload to fit. Never bridge descriptor boundaries or bank holes. Reserved Kernel window retains its separate existing search."
+}

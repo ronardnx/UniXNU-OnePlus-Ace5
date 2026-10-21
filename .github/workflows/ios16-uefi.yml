@@ -1,47 +1,66 @@
-name: Ace 5 iOS16 UEFI boot ABI
+name: Ace 5 iOS16 UEFI only
 on:
   workflow_dispatch:
-
+    inputs:
+      kernel_run:
+        description: Successful iOS16 kernel build run to reuse
+        required: true
+        default: '39565899829'
+        type: string
 permissions:
   contents: read
-
-env:
-  GIULIA_BOOT_ABI: darwin22
+  actions: read
 jobs:
-  build:
+  boot-image:
     runs-on: ubuntu-24.04
+    env:
+      GIULIA_BOOT_ABI: darwin22
     steps:
       - uses: actions/checkout@v4
-      - name: Install build dependencies
+      - uses: actions/download-artifact@v4
+        with:
+          name: ace5-ios16-xnu
+          path: kernel-artifact
+          run-id: ${{ inputs.kernel_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install UEFI and packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono
-      - name: Build and verify UEFI image
-        shell: bash
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono mtools
+      - name: Check initrd scan boundaries
+        run: |
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/giulia_initrd_scan.c -o /tmp/initrd-scan-test
+          /tmp/initrd-scan-test
+      - name: Make matching FAT payload
+        run: |
+          python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt kernel-artifact/profile/giulia-ios16.adt --out "$RUNNER_TEMP/ios16-payload"
+          python3 scripts/verify-payload.py "$RUNNER_TEMP/ios16-payload"
+      - name: Build iOS16 UEFI with this payload identity
         run: |
           set -o pipefail
-          bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-port" 2>&1 | tee build.log
-      - name: Upload verified image
-        uses: actions/upload-artifact@v4
+          export GIULIA_PAYLOAD_IDENTITY="$RUNNER_TEMP/ios16-payload/identity.json"
+          bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-ios16" 2>&1 | tee uefi-build.log
+      - name: Pack temporary boot v3 image
+        run: |
+          python3 scripts/pack-payload.py --firmware "$RUNNER_TEMP/ace5-ios16/uefi-giulia/Mu-giulia-0.img" --firmware-report "$RUNNER_TEMP/ace5-ios16/image-verification.json" --payload "$RUNNER_TEMP/ios16-payload/payload.img" --payload-report "$RUNNER_TEMP/ios16-payload/payload.json" --header-version 3 --output "$RUNNER_TEMP/giulia-ios16-ufs-usb.img"
+      - uses: actions/upload-artifact@v4
         with:
-          name: giulia-ios16-uefi-debug
+          name: giulia-ios16-ufs-usb
           if-no-files-found: error
           path: |
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Mu-giulia-0.img
-            ${{ runner.temp }}/ace5-port/image-verification.json
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/giuliaPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd
-            ${{ runner.temp }}/ace5-port/uefi-giulia/BootShim/BootShim.bin
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/DTBs/giulia.dtb
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/Configs/giulia.toml
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Resources/ramdisk
+            ${{ runner.temp }}/giulia-ios16-ufs-usb.img
+            ${{ runner.temp }}/giulia-ios16-ufs-usb.json
+            ${{ runner.temp }}/ios16-payload/payload.json
+            ${{ runner.temp }}/ios16-payload/identity.json
+            kernel-artifact/profile/capture-debug.ps1
           retention-days: 14
-      - name: Upload logs
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: ios16-uefi-build-logs
+          name: ios16-boot-build-log
           path: |
-            build.log
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/*.txt
-            ${{ runner.temp }}/ace5-port/uefi-giulia/Build/giuliaPkg/*.txt
+            uefi-build.log
+            ${{ runner.temp }}/ace5-ios16/uefi-giulia/Build/**/GiuliaInitrdDxe.map
+            ${{ runner.temp }}/ace5-ios16/uefi-giulia/Build/**/GiuliaInitrdDxe.dll
+            ${{ runner.temp }}/ace5-ios16/image-verification.json
           retention-days: 14
