@@ -4,7 +4,69 @@
 内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 读取、
 USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和系统服务启动。
 GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
-进度条停在约 80%，尚未进入可操作界面；正在采样迁移服务，并适配物理触摸。
+尚未进入可操作界面；正在定位安装服务阻塞，触控芯片身份和触点报文已验证。
+
+## 当前修复与刷写交接（2026-10-21）
+
+- 当前 userdata：`out/ios16/userdata-service-repair/giulia-ios16-userdata.img`，
+  单份 16 GiB 原始镜像。SHA256：
+  `ed662ef08b289ae56591d3166dc0e34f4a7241111df256c107383a0a3c1185c0`。
+- 从已校验的官方系统基底重建，补齐容器目录，不写入 `LastSystemVersion`
+  或 `DMUserDataDisposition` 完成标记，保留真实首次迁移流程。
+  文件系统、卷标识、属主权限和整盘哈希复检通过；旧原始镜像未变。
+- 配套临时启动镜像位于 `out/ios16/service-repair-boot/`，复用先前实机跑通的
+  `65ef183f...` 内核，增加 `lsd` / 容器服务采样及设备树 Wi-Fi 身份输入。
+- 已定位 `lsd` 在初始化应用数据库、生成内置应用安装标识时，被
+  MobileGestalt 对 `IONetworkController` 的等待阻塞。原设备树缺少其先行
+  查询的 `/chosen/mac-address-wifi0`。修正版补入六字节本地管理地址；
+  这是移植环境的稳定身份，不是工厂 MAC，也不代表 Wi-Fi 已实现。
+- **停用** `gui-seed-candidate` 的跳过迁移方案，以及
+  `migration-restore-repair` 的内核改偏好实验。后者在根文件系统仍只读时
+  重命名返回 EROFS（30）并 panic，备份未提交；相关内核代码已在 `79ad14e`
+  移除。不要再启动其 `09236d6b...` 镜像。
+- 按用户约定：userdata 由用户手动刷入，报告完成后再临时启动配套镜像。
+  此版尚未实机验证，不能宣称进度条或安装／账户服务已经修好。
+
+证据及状态：`hardware/ios16-service-repair.json`。
+
+## 历史：加载卡点复核与已停用的候选镜像（2026-10-21）
+
+- 同次启动的两次只读采样确认 `SystemAppMigrator` 等待系统应用安装；
+  `appstored` 此时等待 `DMPerformMigration`，另有线程阻塞在
+  `AMSFairPlayGetDeviceType`。此前的账户查询栈不能代表当前等待点。
+  `accountsd` / `installd` 在采样时处于主循环或空闲工作线程。
+- 原始、哈希匹配的基础镜像缺少 `com.apple.migration.plist` 和上游 GUI
+  初始化要求的容器目录。手机上已经变化的文件系统尚未读回。
+- `scripts/prepare-ios16-gui-root.py` 在隔离的写时复制副本中补齐新根卷的
+  `LastSystemVersion` / `DMUserDataDisposition` 与容器目录；核对固件版本、
+  文件系统、卷标识及 sparse 还原哈希。它不连接或刷写手机。
+- 这是针对全新系统镜像的启动候选方案，不是安装、账户或 FairPlay 服务的
+  完整修复，也不能用于覆盖已有用户数据的迁移记录。实机效果仍待验证。
+- 后续 `ios16-root.yml` 已改为 `gui_layout`，只创建容器目录；不再提供
+  跳过迁移的构建选项。下面保留早期候选的验证历史，不用于继续刷写。
+- 内存日志确认 XNU 分配窗口为 2 GiB，启动初期空闲约 2006 MiB、固定占用约
+  42 MiB。当前串口仅支持传输状态与栈采样，不能查询实时可用内存或 RSS；
+  已采集日志未见 OOM 终止，但有 Jetsam 高水位设置返回 EINVAL 的记录。
+
+复核证据见 `hardware/ios16-service-stall-audit.json`；本机日志位于
+`out/ios16/service-stall-investigation/`。镜像制作命令（Linux/WSL）：
+
+```sh
+sudo python3 scripts/prepare-ios16-gui-root.py \
+  --source out/ios16/userdata/giulia-ios16-userdata.img \
+  --report out/ios16/root.json --out out/ios16/gui-seed-candidate
+```
+
+输出目录必须尚不存在。刷入候选镜像会覆盖 userdata，应由用户明确决定并
+手动执行；保留原始镜像和分区备份。通过主机校验不等于手机已越过加载画面。
+
+本机候选 `out/ios16/gui-seed-candidate/giulia-ios16-gui-seed.sparse.img`
+已完成打包（11,826,057,188 字节），SHA256 为
+`9cfe02137fad51c27d85a4766cf4f35a8e1c2095f0d2bb756ee703fec25f7c56`。
+其 16 GiB 还原哈希为
+`cb70191c4e23a330b6e613c7319bd242f151e36d5160473518f48f9d1c8e093b`。
+容器属主、偏好权限、卷标识、整盘 fsck 与复检前后哈希一致性均通过；原始
+镜像未变，5 项初始化保护测试通过。手机未重启、未刷写，尚无实机通过结论。
 
 ## 图形版构建产物（2026-10-21）
 

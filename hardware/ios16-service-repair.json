@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-21",
+  "status": "host verification complete; awaiting user manual userdata flash and device validation",
+  "source_commit": "79ad14e",
+  "manual_userdata_flash": true,
+  "deliver_single_raw_image": true,
+  "root_cause": {
+    "service": "lsd",
+    "operation": "LaunchServices database seeding / GenerateBuiltInAppInstallSessionID",
+    "waiting_library": "libMobileGestalt",
+    "waiting_provider": "IONetworkController",
+    "missing_fast_path": "IODeviceTree:/chosen mac-address-wifi0",
+    "evidence": "out/ios16/launchservices-trace/usb-sample-1.symbols.txt"
+  },
+  "repair": {
+    "userdata": "Fresh verified firmware base with container directories; no LastSystemVersion or DMUserDataDisposition completion override",
+    "boot": "Previously working kernel 65ef183fb685437a59fd22bb65009f311b7f2f34d5f4d6c8a40c05ec63678183 plus six-byte locally administered Wi-Fi identity in ADT",
+    "network_transport_implemented": false
+  },
+  "withdrawn_experiment": {
+    "kernel_commit": "2315390",
+    "image_sha256": "09236d6b742129867c2efc60114890fe3fdaf316bf56500ed0150674d32084c8",
+    "failure": "Migration preference rename was attempted before the filesystem remounted read-write; errno 30 EROFS and first-boot preparation panic",
+    "backup_committed": false,
+    "kernel_mutation_helper_removed_in": "79ad14e",
+    "do_not_boot": true
+  },
+  "validation": {
+    "root_layout_tests_passed": 5,
+    "adt_only_changes": [
+      "chosen/random-seed",
+      "chosen/mac-address-wifi0"
+    ],
+    "invalid_wifi_identities_rejected": 5,
+    "independent_content_inspection": {
+      "migration_preference_absent": true,
+      "directories": [
+        {
+          "path": "/private/var/containers/Bundle",
+          "uid": 33,
+          "gid": 33,
+          "mode": "0o755"
+        },
+        {
+          "path": "/private/var/containers/Data/System",
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o755"
+        },
+        {
+          "path": "/private/var/containers/Shared/SystemGroup",
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o755"
+        },
+        {
+          "path": "/private/var/containers/Temp",
+          "uid": 0,
+          "gid": 0,
+          "mode": "0o755"
+        }
+      ],
+      "original_system_files_preserved": [
+        {
+          "path": "/usr/libexec/lsd",
+          "sha256": "c46e8e7330ab1c008aa50873d230a44f68eb57d675e3fe0b01e0917f9596b2e1"
+        },
+        {
+          "path": "/System/Library/xpc/launchd.plist",
+          "sha256": "810070302b5c4d7c5f00bdc8df20aaea2dd33cd8342d2402fcdf7ff6397d374c"
+        },
+        {
+          "path": "/usr/libexec/backboardd",
+          "sha256": "7aa6f8bf5ea2c3634fb8c8916a4e9c3c84508de78eccf57ca65c1ae4f676267c"
+        }
+      ]
+    }
+  },
+  "hardware_verified": false,
+  "userdata": {
+    "build": "20H392",
+    "migration_completion_seeded": false,
+    "normal_migration_enabled": true,
+    "container_directories": [
+      "/private/var/containers",
+      "/private/var/containers/Bundle",
+      "/private/var/containers/Data",
+      "/private/var/containers/Data/System",
+      "/private/var/containers/Shared",
+      "/private/var/containers/Shared/SystemGroup",
+      "/private/var/containers/Temp"
+    ],
+    "scope": "container directories only; normal first-boot migration",
+    "hardware_verified": false,
+    "source_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+    "source_unchanged": true,
+    "bytes": 17179869184,
+    "sha256": "ed662ef08b289ae56591d3166dc0e34f4a7241111df256c107383a0a3c1185c0",
+    "block_size": 4096,
+    "hfs_finder_id": "34320965bfe52d66",
+    "raw_file": "giulia-ios16-userdata.img",
+    "partition_table": false,
+    "filesystem_check_passed": true,
+    "filesystem_check_mode": "full fsck with stable verification SHA256",
+    "numeric_ownership_verified": true,
+    "target_partition": "userdata",
+    "flashed": false
+  },
+  "boot_image": {
+    "path": "out/ios16/service-repair-boot/giulia-ios16-touch-trace.img",
+    "firmware_sha256": "1bb1848cf5285e9f596fe872b7d23b8426ea7c4ec1787d687523fe8c271c6cc4",
+    "payload_sha256": "02a15e2508d314cf3f94340f3d45265044f99e7514e5c0044e18c30b645ce268",
+    "sha256": "3d3cab90e332051fc1283da4227777b5a7d7155f6d252bf2e91f921962f767fa",
+    "bytes": 69275648,
+    "header_version": 3,
+    "payload_crc32": "e56ee8bc",
+    "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
+    "hardware_tested": false
+  }
+}
