@@ -33,6 +33,33 @@ with tempfile.TemporaryDirectory() as directory:
     entry=next(e for e in config['entry'] if e['id']=='xnu')
     if entry['type']!='xnu' or entry['args']!=report['kernel_args']:
         raise SystemExit('Unexpected boot entry')
+    if report.get('dram_handoff'):
+        blob=(temporary/'kernel.macho.adt').read_bytes()
+        nodes={}
+        def read_node(at,parent,depth=0):
+            if depth>64 or at+8>len(blob):raise SystemExit('Invalid ADT node')
+            properties,children=struct.unpack_from('<II',blob,at);at+=8
+            props={}
+            for _ in range(properties):
+                if at+36>len(blob):raise SystemExit('Truncated ADT property')
+                key,length=struct.unpack_from('<32sI',blob,at);at+=36
+                key=key.rstrip(b'\0').decode()
+                if key in props or at+length>len(blob):raise SystemExit('Invalid ADT property')
+                props[key]=blob[at:at+length];at+=(length+3)&~3
+            path=parent+'/'+props['name'].rstrip(b'\0').decode()
+            if path in nodes:raise SystemExit('Duplicate ADT node')
+            nodes[path]=props
+            for _ in range(children):at=read_node(at,path,depth+1)
+            return at
+        if read_node(0,'')!=len(blob):raise SystemExit('Invalid ADT length')
+        chosen=nodes['/device-tree/chosen']
+        if report['dram_handoff']!='darwinboot-allocated-window' or any(
+                chosen.get(key)!=bytes(8) for key in ['dram-base','dram-size']):
+            raise SystemExit('Missing zero-initialized Darwin22 DRAM handoff placeholders')
+        memory=struct.unpack('<Q',chosen['darwinboot-memory-size'])[0]
+        if not 0x10000000<=memory<=0x200000000 or memory&0x1fffff:
+            raise SystemExit('Invalid DarwinBoot memory window')
+        print('Darwin22 DRAM placeholders and requested memory window verified')
     if report.get('data_ramdisk_sha256'):
         if entry.get('initrd')!='Payloads/scratch-data.img':
             raise SystemExit('Missing Data initrd configuration')

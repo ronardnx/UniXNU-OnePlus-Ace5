@@ -18,10 +18,51 @@
   "usb_debug_enumerated": false,
   "screen_observation": "User photo: UEFI DefaultExceptionHandler ASSERT, Data abort: Synchronous external abort",
   "xnu_execution_confirmed": false,
-  "next_step": "Build corrected UEFI using kernel artifact from run 39565899829, then temporary boot and inspect device screen.",
+  "next_step": "Read phone screen after temporary boot of the DRAM handoff fix; passing arm_init is not yet confirmed.",
   "fault_address": "0x827001fe",
   "esr": "0x96000010",
   "uefi_execution_confirmed": true,
   "diagnosis": "FAR equals tz_stat_region start plus FAT signature offset 510; fallback payload scan can read this low-DDR firmware carveout because the UEFI map misclassifies it as usable.",
-  "fix": "Limit fallback scanning to captured high DDR banks intersected with readable UEFI data/free descriptors; do not scan low DDR."
+  "fix": "Limit fallback scanning to captured high DDR banks intersected with readable UEFI data/free descriptors; do not scan low DDR.",
+  "retest": {
+    "commit": "e891b9889dcf6122b8bc09de78ea34b112c14ac1",
+    "build_host": "Local WSL Ubuntu 26.04, Clang 21",
+    "cloud_run": 39570877691,
+    "cloud_result": "Job not started: account payment or spending limit; actor tycykp",
+    "image": "out/ios16/uefi-scan-fix-e891b98/giulia-ios16-uefi-fixed.img",
+    "image_sha256": "63ef05ac523815fb446419b8a93def8a8d58a120404b7e29d7336032ee5424e8",
+    "payload_unchanged": true,
+    "source_kernel_run": 39565899829,
+    "validation": [
+      "ASan/UBSan scan boundary regression",
+      "UEFI build success",
+      "53 PE image validations",
+      "Android boot header, shim, firmware volume and DTB",
+      "Embedded payload, kernel, ADT and config digests"
+    ],
+    "fastboot_transfer_ok": true,
+    "fastboot_boot_command_ok": true,
+    "userdata_written": false,
+    "screen_observation": "User photo: panic(cpu 0 ...): arm_init: Unable to find 'dram-base' entry in the 'chosen' DT node",
+    "scan_fix_hardware_confirmed": true,
+    "xnu_execution_confirmed": true,
+    "usb_debug_enumerated": false
+  },
+  "dram_handoff_retest": {
+    "image": "out/ios16/dram-handoff/giulia-ios16-dram-fixed.img",
+    "image_sha256": "dec9d9364e8d75283613f5f2cb69f7c2417dfa382481faa16a534186056a6783",
+    "kernel_sha256": "0743e01a8f10d4ebe0f3e04a1dacadc2614440dde17cd57945072c225949702d",
+    "kernel_unchanged": true,
+    "fix": "Zero u64 dram-base/dram-size ADT placeholders filled from actual allocated boot_args PhysicalBase/MemorySize before ExitBootServices",
+    "host_test_cases": 22,
+    "asan_ubsan_passed": true,
+    "firmware_build_passed": true,
+    "pe_images_validated": 53,
+    "payload_checks_passed": true,
+    "fastboot_transfer_ok": true,
+    "fastboot_boot_command_ok": true,
+    "userdata_written": false,
+    "screen_observation": null,
+    "fix_hardware_confirmed": false
+  }
 }

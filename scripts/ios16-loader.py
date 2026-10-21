@@ -27,6 +27,43 @@ def main():
                 'ALIGN_VALUE (TreeAddress + TreeSize, SIZE_16KB)')
     c = replace(c, 'ALIGN_VALUE (KeepPacked ? Request->RamdiskSize : RamdiskExpandedSize, EFI_PAGE_SIZE)',
                 'ALIGN_VALUE (KeepPacked ? Request->RamdiskSize : RamdiskExpandedSize, SIZE_16KB)')
+    c = replace(c, 'UINT64 *WindowSize, BOOLEAN *KeepPacked)',
+                'UINT64 *WindowSize, BOOLEAN *KeepPacked, UINTN *DramBaseOffset, UINTN *DramSizeOffset)')
+    c = replace(c, '  UINTN  MemoryCandidate;',
+                '  UINTN  MemoryCandidate;\n  UINTN  DramBaseCandidate;\n  UINTN  DramSizeCandidate;')
+    c = replace(c, '  MemoryCandidate = MAX_UINTN;',
+                '  MemoryCandidate = MAX_UINTN;\n  DramBaseCandidate = MAX_UINTN;\n  DramSizeCandidate = MAX_UINTN;')
+    c = replace(c, '    *Offset += Length;', '''    if (AsciiStrCmp ((CONST CHAR8 *)(Data + *Offset - 36), "dram-base") == 0) {
+      if ((DramBaseCandidate != MAX_UINTN) || (Length != 8)) { return FALSE; }
+      DramBaseCandidate = *Offset;
+    }
+    if (AsciiStrCmp ((CONST CHAR8 *)(Data + *Offset - 36), "dram-size") == 0) {
+      if ((DramSizeCandidate != MAX_UINTN) || (Length != 8)) { return FALSE; }
+      DramSizeCandidate = *Offset;
+    }
+    *Offset += Length;''')
+    c = replace(c, '  if (MemoryCandidate != MAX_UINTN) {', '''  if (DramBaseCandidate != MAX_UINTN) {
+    if ((Path != 1) || (*DramBaseOffset != MAX_UINTN) || (U64 (Data + DramBaseCandidate) != 0)) { return FALSE; }
+    *DramBaseOffset = DramBaseCandidate;
+  }
+  if (DramSizeCandidate != MAX_UINTN) {
+    if ((Path != 1) || (*DramSizeOffset != MAX_UINTN) || (U64 (Data + DramSizeCandidate) != 0)) { return FALSE; }
+    *DramSizeOffset = DramSizeCandidate;
+  }
+  if (MemoryCandidate != MAX_UINTN) {''')
+    c = replace(c, 'WindowSize, KeepPacked))',
+                'WindowSize, KeepPacked, DramBaseOffset, DramSizeOffset))')
+    c = replace(c, '  UINTN                           TrustCacheOffset;',
+                '  UINTN                           TrustCacheOffset;\n  UINTN                           DramBaseOffset;\n  UINTN                           DramSizeOffset;')
+    c = replace(c, '  TrustCacheOffset = MAX_UINTN;',
+                '  TrustCacheOffset = MAX_UINTN;\n  DramBaseOffset = MAX_UINTN;\n  DramSizeOffset = MAX_UINTN;')
+    c = replace(c, '&WindowSize, &KeepPacked) || (Offset != TreeSize)',
+                '&WindowSize, &KeepPacked, &DramBaseOffset, &DramSizeOffset) || (Offset != TreeSize) || '
+                '(DramBaseOffset == MAX_UINTN) || (DramSizeOffset == MAX_UINTN)')
+    c = replace(c, '  CopyMem ((VOID *)(UINTN)TreeAddress, Tree, TreeSize);', '''  CopyMem ((VOID *)(UINTN)TreeAddress, Tree, TreeSize);
+  // Keep the ADT and boot_args consistent with the owned contiguous window.
+  WriteUnaligned64 ((UINT64 *)(UINTN)(TreeAddress + DramBaseOffset), Args->PhysicalBase);
+  WriteUnaligned64 ((UINT64 *)(UINTN)(TreeAddress + DramSizeOffset), Args->MemorySize);''')
     header.write_text(h)
     source.write_text(c)
 

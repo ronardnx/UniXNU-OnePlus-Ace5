@@ -17,6 +17,11 @@ jobs:
       GIULIA_BOOT_ABI: darwin22
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: xyyyds0106/ios-vermeer-lab
+          ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
+          path: reference
       - uses: actions/download-artifact@v4
         with:
           name: ace5-ios16-xnu
@@ -33,7 +38,8 @@ jobs:
           /tmp/initrd-scan-test
       - name: Make matching FAT payload
         run: |
-          python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt kernel-artifact/profile/giulia-ios16.adt --out "$RUNNER_TEMP/ios16-payload"
+          python3 scripts/make-ios16-adt.py --reference reference --out "$RUNNER_TEMP/giulia-ios16.adt"
+          python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt "$RUNNER_TEMP/giulia-ios16.adt" --out "$RUNNER_TEMP/ios16-payload"
           python3 scripts/verify-payload.py "$RUNNER_TEMP/ios16-payload"
       - name: Build iOS16 UEFI with this payload identity
         run: |

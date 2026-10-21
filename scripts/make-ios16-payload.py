@@ -57,7 +57,8 @@ def main():
     if data[82:90]!=b'FAT32   ' or struct.unpack_from('<I',data,32)[0]*512!=len(data):raise ValueError('FAT geometry')
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
-            'kernel_args':probe,'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
+            'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window',
+            'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')

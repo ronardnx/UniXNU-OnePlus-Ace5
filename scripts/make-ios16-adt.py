@@ -23,7 +23,9 @@ def main():
     props(tree,{'compatible':b'oneplus,giulia\0qcom,sm8650\0AppleARM\0',
                 'model':b'OnePlus Ace 5\0','target-type':b'giulia\0','manufacturer':b'OnePlus\0'})
     chosen=next(n for n in tree.children if n.name=='chosen')
-    props(chosen,{'dram-base':None,'dram-size':None,
+    # DarwinBoot fills these from its actual allocation before handing off.
+    # Darwin 22 arm_init requires both, in addition to the boot_args fields.
+    props(chosen,{'dram-base':bytes(8),'dram-size':bytes(8),
                   'darwinboot-memory-size':struct.pack('<Q',a.memory),
                   'firmware-version':b'giulia-darwin22-uefi\0'})
     cpus=next(n for n in tree.children if n.name=='cpus')
