@@ -10,6 +10,7 @@
 // pexpert private compilation. This built-in board helper links the source
 // kernel's exported symbol; do not change all IOKit private feature macros.
 extern "C" vm_offset_t ml_io_map_wcomb(vm_offset_t phys_addr, vm_size_t size);
+extern "C" void giulia_ufs_read_root(void);
 
 // Same prefix used by the freestanding panic renderer; no dependency on the
 // normal console becoming active. Mapping lifetime covers the stopping survey.
@@ -40,7 +41,7 @@ extern "C" void giulia_early_console(void)
 {
   unsigned requested = 0;
   PE_parse_boot_argn("giulia-ufs-probe", &requested, sizeof(requested));
-  if (requested != 1 || giulia_panic_vinfo.base) return;
+  if ((requested != 1 && requested != 2) || giulia_panic_vinfo.base) return;
   const boot_args *boot = static_cast<const boot_args *>(PE_state.bootArgs);
   if (boot) {
     const Boot_Video &video = boot->Video;
@@ -66,7 +67,7 @@ static void giuliaUfsProbe(void)
 {
   unsigned requested = 0;
   PE_parse_boot_argn("giulia-ufs-probe", &requested, sizeof(requested));
-  if (requested != 1) return;
+  if (requested != 1 && requested != 2) return;
   giulia_early_console();
   OSSharedPtr<IOMemoryMap> clocksMap, memoryMap, hostMap, smmuMap;
   uintptr_t clocks = giuliaMap(0x177000, 0x1000, clocksMap);
@@ -76,6 +77,7 @@ static void giuliaUfsProbe(void)
   uint32_t axi = giuliaRead(clocks, 0x18), ahb = giuliaRead(clocks, 0x24);
   if (!(power & 0x80000000U) || !(axi & 1) || !(ahb & 1))
     panic("GIULIA UFS: power/clocks unavailable\ngdsc=%08x mem=%08x axi=%08x ahb=%08x", power, memPower, axi, ahb);
+  if (requested == 2) giulia_ufs_read_root();
   uintptr_t host = giuliaMap(0x1d84000, 0x3000, hostMap);
   uintptr_t smmu = giuliaMap(0x15000000, 0x1000, smmuMap);
   if (!host || !smmu) panic("GIULIA UFS: host/SMMU mapping failed");

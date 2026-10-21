@@ -124,5 +124,17 @@ if deployment != (2, 0x110000):
     raise SystemExit(f'Unexpected platform deployment {deployment}')
 archive = out / ('lib' + component + '.a')
 archive.unlink(missing_ok=True)
-subprocess.run(['xcrun', 'ar', 'rcs', archive, destination], check=True)
+objects = [destination]
+if component == 'ArmDTPlatform' and (ROOT/'scripts/ufs-read/GiuliaUfsRead.cpp').is_file():
+    transport = ROOT/'scripts/ufs-read/GiuliaUfsRead.cpp'
+    transport_object = out/'GiuliaUfsRead.o'
+    transport_command = [str(transport) if value == str(source) else
+                         str(transport_object) if value == str(destination) else value for value in command]
+    transport_command += ['-mgeneral-regs-only']
+    (out/'ufs-compile-command.json').write_text(json.dumps(transport_command,indent=2)+'\n')
+    result = subprocess.run(transport_command,cwd=record['directory'],capture_output=True,text=True)
+    (out/'ufs-compile.log').write_text(result.stdout+result.stderr)
+    if result.returncode:raise SystemExit((result.stdout+result.stderr)[-5000:])
+    objects.append(transport_object)
+subprocess.run(['xcrun', 'ar', 'rcs', archive, *objects], check=True)
 print(f'{component}: -Werror build and actual ARM64/iOS 17 object audit passed')

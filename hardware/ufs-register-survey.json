@@ -1,0 +1,22 @@
+{
+  "device": "PKG110",
+  "kernel_run": 39540830765,
+  "uefi_run": 39542221205,
+  "source": "user photo of GIULIA UFS SM8650 register survey",
+  "hcs": "0x0000010f",
+  "hce": "0x00000001",
+  "version": "0x00000400",
+  "request_list": "0xd1fe3000",
+  "doorbell": "0x00000000",
+  "run_stop": "0x00000001",
+  "smmu_idr0": "0x4c017e6b",
+  "smmu_idr1": "0x60000047",
+  "smmu_idr2": "0x00005111",
+  "stream": "0x60",
+  "stream_slot": 2,
+  "smr": "0x80000060",
+  "s2cr": "0x00000002",
+  "register_read_verified": true,
+  "disk_read_verified": false,
+  "root_mounted": false
+}

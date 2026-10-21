@@ -12,7 +12,7 @@
   "preceding_operation": "ml_io_map_wcomb(0x3c0fc000, 16384)",
   "source": "pexpert/pexpert/arm64/BCM2837.h PLATFORM_PANIC_LOG_PADDR",
   "fix": "Enable existing XNU_DT_PANIC_REGION; use validated DT pram or return when absent",
-  "fix_hardware_verified": false,
+  "fix_hardware_verified": true,
   "arm_vm_init_returned": true,
   "early_console_rendered_panic": true,
   "ufs_read_verified": false,
@@ -22,5 +22,5 @@
   "test_uefi_run": 39542221205,
   "test_image_sha256": "a8cf5627d8b6c6599196d4b3a07d5d8a1904767411cebea99532bef506011250",
   "fastboot_transfer_and_boot_ok": true,
-  "test_observation": "awaiting user"
+  "test_observation": "Photo confirms GIULIA UFS register survey reached"
 }
