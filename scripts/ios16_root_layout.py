@@ -46,6 +46,16 @@ class MountedRoot:
         os.chown(path, uid, uid)
         os.chmod(path, 0o755)
 
+    def write(self, name, data, uid=0, mode=0o644):
+        path = self.path(name)
+        path.write_bytes(data)
+        os.chown(path, uid, uid)
+        os.chmod(path, mode)
+
+    def move(self, source, destination):
+        if self.exists(destination): raise ValueError('Move destination exists')
+        self.path(source).rename(self.path(destination))
+
 
 class GuestRoot:
     def __init__(self, guest):
@@ -65,6 +75,16 @@ class GuestRoot:
         self.guest.mkdir(name)
         self.guest.chown(uid, uid, name)
         self.guest.chmod(0o755, name)
+
+    def write(self, name, data, uid=0, mode=0o644):
+        if self.guest.is_symlink(name): raise ValueError('Symlink write target')
+        self.guest.write(name, data)
+        self.guest.chown(uid, uid, name)
+        self.guest.chmod(mode, name)
+
+    def move(self, source, destination):
+        if self.exists(destination): raise ValueError('Move destination exists')
+        self.guest.mv(source, destination)
 
 
 def prepare_layout(root, build):

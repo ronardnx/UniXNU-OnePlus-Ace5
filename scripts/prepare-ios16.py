@@ -138,10 +138,11 @@ def main():
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
                         a.out/'0071-giulia-on-demand-samples.patch')
         patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
-                 '@@ -13,2 +13,3 @@\n'
+                 '@@ -13,3 +13,4 @@\n'
                  ' iokit/Kernel/arm/SweetEntitlements.cpp                           optional iokitcpp\n'
                  ' iokit/Kernel/arm/SweetKeyStore.cpp                               optional iokitcpp\n'
                  '+iokit/Kernel/arm/GiuliaAMFI.cpp                                  optional iokitcpp\n'
+                 ' iokit/Kernel/arm/SweetWatchdog.cpp                               optional iokitcpp\n'
                  '--- a/iokit/KernelConfigTables.cpp\n+++ b/iokit/KernelConfigTables.cpp\n'
                  '@@ -51,3 +51,8 @@\n'
                  '     "     \'IOMatchCategory\' = AppleKeyStore;"\n'

@@ -51,6 +51,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--startup-compat', action='store_true', help='Apply evidenced no-baseband/audio/GPU startup configuration')
     parser.add_argument('--native-python', type=Path,
                         help='Optional Windows Python executable for fast WSL-mounted-file hashing')
     args = parser.parse_args()
@@ -82,6 +83,10 @@ def main():
         guest.launch()
         guest.mount_vfs('force,rw', 'hfsplus', '/dev/sda', '/')
         result = prepare_layout(GuestRoot(guest), baseline['build'])
+        if args.startup_compat:
+            from ios16_startup_compat import prepare_startup
+            result.update(prepare_startup(GuestRoot(guest)))
+            result['scope']='normal first-boot migration with explicit hardware startup compatibility'
         for name, uid in DIRECTORIES:
             st = guest.statns(name)
             if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (uid, uid, 0o755):
