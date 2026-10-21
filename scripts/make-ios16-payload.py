@@ -39,8 +39,17 @@ def main():
         ident=root['hfs_finder_id']
         if root['bytes']!=16*1024**3 or root['block_size']!=4096 or len(ident)!=16 or int(ident,16)==0:
             raise ValueError('Unexpected HFSX root identity')
+        # The pinned DEVELOPMENT kernel is built with XNU_TARGET_OS_OSX. Its
+        # exec platform gate requires this existing development option for
+        # native iOS executables (OS_REASON_EXEC / WRONG_PLATFORM == 9 / 14).
+        # CodeDirectory/page validation is unchanged; this is not cs_enforcement_disable.
+        if b'unentitled_ios_sim_launch\0' not in a.kernel.read_bytes():
+            raise ValueError('Kernel lacks the iOS platform-launch development option')
+        # The original launchd_cache_loader exposes this separate development
+        # mode for its job cache when no Apple AMFI IOService is available.
+        root_args=args+f' vermeer_ufs_rw=1 vermeer_root_uuid={ident} unentitled_ios_sim_launch=1 launchd_unsecure_cache=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
-                 'path = "Payloads/kernel.macho"\nargs = '+json.dumps(args+f' vermeer_ufs_rw=1 vermeer_root_uuid={ident}')+'\n')
+                 'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
     for e in tomllib.loads(config)['entry']:
         if len(e['args'].encode('ascii'))>=608:raise ValueError('Boot line too long')
@@ -63,6 +72,7 @@ def main():
             'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
+                      root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')

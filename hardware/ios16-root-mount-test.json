@@ -12,18 +12,52 @@
   "fastboot_boot_command_ok": true,
   "default_entry": "ios16",
   "read_write_requested": true,
-  "root_header_verified_on_device": false,
-  "root_mounted": false,
-  "userspace_started": false,
-  "observations_pending": true,
+  "root_header_verified_on_device": true,
+  "root_mounted": true,
+  "userspace_started": true,
+  "observations_pending": false,
   "first_attempt_usb": "User screenshot: Windows unknown USB device, descriptor request failed, code 43",
   "retry": {
     "user_reentered_fastboot": true,
     "fastboot_transfer_ok": true,
     "fastboot_boot_command_ok": true,
     "same_image": true,
-    "screen_observation": null,
+    "screen_observation": "User photo confirms GPT/volume UUID checks, READ-WRITE root device, HFS iOSRoot mounted, then launchd exec rejected with namespace 9 code 0xe",
     "usb_observation": "Windows again reports Unknown USB Device (Device Descriptor Request Failed); ACE5DBG001 serial port not available"
   },
-  "next_step": "Obtain current handset screen to distinguish kernel panic/root-mount failure from USB enumeration failure. Do not infer root mount success from fastboot OKAY."
+  "next_step": "Use the original launchd_cache_loader development boot argument to load the root job cache in this lab environment.",
+  "root_mount_mode": "READ-WRITE",
+  "filesystem": "HFSX iOSRoot",
+  "launchd_exec_attempted": true,
+  "panic_namespace": 9,
+  "panic_code": 14,
+  "panic_reason": "EXEC_EXIT_REASON_WRONG_PLATFORM",
+  "ios_platform_launch_retest": {
+    "image": "out/ios16/root-ios-platform/giulia-ios16-root-platform.img",
+    "image_sha256": "4726700c047d230b15ccfc4de61c477a416b9d18e85af7f42bd971e7679268fa",
+    "additional_bootarg": "unentitled_ios_sim_launch=1",
+    "kernel_unchanged": true,
+    "userdata_reflashed": false,
+    "fastboot_transfer_ok": true,
+    "fastboot_boot_command_ok": true,
+    "hardware_result_pending": false,
+    "platform_exec_rejection_resolved": true,
+    "userspace_started": true,
+    "usb_debug_port": "COM21",
+    "launchd_started": true,
+    "observed_boot_tasks": [
+      "mount-phase-1",
+      "mount-phase-2",
+      "auearlyboot",
+      "fips",
+      "keybag",
+      "launchd_cache_loader"
+    ],
+    "next_blocker": "launchd_cache_loader exits namespace 7 subcode 1: Unable to find AMFI",
+    "log": {
+      "path": "out/ios16/root-ios-platform/usb-replay.log",
+      "bytes": 55788,
+      "sha256": "abfe6daafbf19ff5cb077cf6318f787def53d70aa2b287f5d0948e6379a7ed56"
+    }
+  }
 }

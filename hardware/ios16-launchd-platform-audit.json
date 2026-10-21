@@ -1,0 +1,50 @@
+{
+  "kernel_version": "xnu-8796.141.3",
+  "panic_namespace": 9,
+  "panic_code": 14,
+  "decoded_reason": "EXEC_EXIT_REASON_WRONG_PLATFORM",
+  "source": "https://github.com/apple-oss-distributions/xnu/blob/xnu-8796.141.3/bsd/kern/kern_exec.c",
+  "development_bootarg": "unentitled_ios_sim_launch=1",
+  "scope": "Root boot entry only; no binary edits or page-hash bypass",
+  "cms_certificate_chain_verified": false,
+  "files": [
+    {
+      "file": "launchd",
+      "bytes": 541600,
+      "sha256": "12370e5ee35bf28ae479b6c4b4455f4f4693ab803e37c5eb3032537c18cac61c",
+      "cpu": "arm64",
+      "macho_platform": 2,
+      "code_directories": [
+        {
+          "slot": 0,
+          "hash_type": 2,
+          "page_bytes": 4096,
+          "code_slots": 127,
+          "all_code_page_hashes_match": true
+        }
+      ]
+    },
+    {
+      "file": "dyld",
+      "bytes": 922912,
+      "sha256": "5806834564fe6462ae981d0915d612b1eb2f6f168822b5d278bee56254933757",
+      "cpu": "arm64",
+      "macho_platform": 2,
+      "code_directories": [
+        {
+          "slot": 0,
+          "hash_type": 2,
+          "page_bytes": 4096,
+          "code_slots": 220,
+          "all_code_page_hashes_match": true
+        }
+      ]
+    }
+  ],
+  "job_cache_loader": {
+    "sha256": "e1f0b581b73222465a36778af0c3260d7f52ab0e24c374b9111c599830b1e00f",
+    "bytes": 72336,
+    "supported_bootarg": "launchd_unsecure_cache=1",
+    "evidence": "Original extracted loader contains the option and both AMFI-failure/development-cache messages; reference-ios-sweet README documents this boot argument."
+  }
+}

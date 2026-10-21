@@ -42,6 +42,14 @@ with tempfile.TemporaryDirectory() as directory:
         roots=[e for e in config['entry'] if e['id']=='ios16']
         expected=report['kernel_args'].replace(' giulia_ufs_probe=1','')
         expected+=' vermeer_ufs_rw=1 vermeer_root_uuid='+report['root_finder_id']
+        if report.get('ios_platform_launch_compat'):
+            expected+=' unentitled_ios_sim_launch=1'
+            if b'unentitled_ios_sim_launch\0' not in (temporary/'kernel.macho').read_bytes():
+                raise SystemExit('iOS platform-launch option is not supported or not bound to the root entry')
+        if report.get('launchd_job_cache_compat'):
+            expected+=' launchd_unsecure_cache=1'
+        if report.get('root_kernel_args',expected)!=expected:
+            raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']
                 or roots[0]['args']!=expected or config['boot']['default']!=report['default_entry']):
             raise SystemExit('Root entry/default/volume identity mismatch')
