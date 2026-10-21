@@ -1,11 +1,28 @@
 # UniXNU giulia — OnePlus Ace 5 UEFI bring-up
 
-当前目标：OnePlus Ace 5 上的 iPadOS 17.7.11。用户已恢复这条原始路线；
-`targets/iphone17.json` 仅保留一次架构审计，未切换生产配置。
-已构建 UEFI、单核 XNU 和 FAT 启动负载。UEFI 已实机完成负载发现、
-配置读取和 DarwinBoot 交接；XNU 执行和完整系统启动尚未确认。
+当前实机调试使用 Darwin 22.6.0 / iOS 16 内核。已验证 UEFI 交接、XNU
+内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 只读探测
+和 USB CDC 调试串口。系统卷挂载与用户态启动仍未验证。
 
-## 已验证状态（2026-10-21）
+## 当前实机结果（2026-10-21）
+
+- 修复低 DDR 保留区扫描、DRAM 设备树交接参数和平台驱动匹配。
+- 启动镜像：`out/ios16/platform-match/giulia-ios16-platform-fixed.img`。
+- SHA256：`e1692b6d31d9aa1d067c26535c8a20757acc8969d0e8fcff33eafbfde1beab1f`。
+- 源码提交 `6625ca0`；本地 WSL 构建 UEFI，复用 run `39565899829` 的内核。
+- USB 串口 `ACE5DBG001` / COM21 已完成 `replay`、`status` 双向通信；状态查询报告 `dropped=0`。
+- UFS 读取 8192 字节成功，CRC32 `c319db94` 与 Android 基线一致，探测返回 0。
+- 当前启动项 `giulia_ufs_probe=1` 会在探测后保持调度器运行，等待 USB 调试命令。
+- 本轮仅使用 `fastboot boot`，未刷写 userdata；未尝试挂载未准备好的系统根卷。
+- 详细证据、边界及日志 SHA256 见 `hardware/ios16-bringup-verified.json`；完整串口日志保存在本机 `out/ios16/platform-match/`。
+
+当前内核仍沿用 `SweetPlatformExpert` 的历史匹配名，设备树在保留
+`oneplus,giulia`、`qcom,sm8650` 和 Ace 5 型号的同时提供兼容项。
+后续内核源码配置已改为原生 Ace 5 匹配名；打包时会核对实际内核中的平台和 CPU 匹配规则。
+
+以下为早期 iPadOS 17.7.11 / Darwin 23 路线的构建与测试记录，不能代替上述当前状态。
+
+## 早期 UEFI 验证状态（2026-10-21）
 
 - Ubuntu 24.04 GitHub Actions 构建及镜像结构检查通过。
 - 下载到本机后复核通过，镜像大小 2,179,072 字节。

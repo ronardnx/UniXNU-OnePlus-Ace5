@@ -18,7 +18,7 @@
   "usb_debug_enumerated": false,
   "screen_observation": "User photo: UEFI DefaultExceptionHandler ASSERT, Data abort: Synchronous external abort",
   "xnu_execution_confirmed": false,
-  "next_step": "Inspect device screen/USB after platform binding fix to establish platform and boot CPU initialization.",
+  "next_step": "UEFI/XNU/CPU/UFS read/USB diagnostic milestone verified. Preserve current boot; root mount and userspace await prepared userdata and a separate test.",
   "fault_address": "0x827001fe",
   "esr": "0x96000010",
   "uefi_execution_confirmed": true,
@@ -83,7 +83,12 @@
     "fastboot_transfer_ok": true,
     "fastboot_boot_command_ok": true,
     "userdata_written": false,
-    "screen_observation": null,
-    "fix_hardware_confirmed": false
+    "screen_observation": "User photo: platform expert registered, CPU0 registered, SGI1 verified; USB replay confirms UFS read PASS and intentional diagnostic wait",
+    "fix_hardware_confirmed": true,
+    "boot_cpu_initialized": true,
+    "usb_debug_enumerated": true,
+    "usb_port": "COM21",
+    "ufs_read_verified": true,
+    "ufs_probe_result": 0
   }
 }

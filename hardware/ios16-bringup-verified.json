@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-21",
+  "device": "OnePlus Ace 5 PKG110",
+  "source_commit": "6625ca0",
+  "kernel_version": "Darwin 22.6.0 xnu-8796.141.3",
+  "kernel_build_run": 39565899829,
+  "image_sha256": "e1692b6d31d9aa1d067c26535c8a20757acc8969d0e8fcff33eafbfde1beab1f",
+  "kernel_sha256": "0743e01a8f10d4ebe0f3e04a1dacadc2614440dde17cd57945072c225949702d",
+  "method": "fastboot boot, read-only UFS diagnostic entry",
+  "verified": {
+    "uefi_to_xnu": true,
+    "dram_handoff": true,
+    "vm_bootstrap": true,
+    "platform_expert": true,
+    "cpu0_registration": true,
+    "sgi1_selftest": true,
+    "usb_cdc_acm": true,
+    "usb_replay_command": true,
+    "usb_status_command": true,
+    "ufs_capacity_query": true,
+    "ufs_read_sample": true
+  },
+  "ufs": {
+    "read_bytes": 8192,
+    "read_crc32": "c319db94",
+    "android_baseline_crc32": "c319db94",
+    "last_lba": "0x03a7afff",
+    "logical_block_bytes": 4096,
+    "dma_buffer_physical": "0x8c29f8000",
+    "final_result": 0,
+    "firmware_transfer_list_restoration_logged": true,
+    "context_fsr": "0x400",
+    "context_fsr_note": "Observed diagnostic value; no before/after comparison was captured. The passing read sample does not establish a fault-free SMMU lifecycle or sustained storage reliability."
+  },
+  "usb": {
+    "serial": "ACE5DBG001",
+    "port": "COM21",
+    "status_log_bytes": 8802,
+    "status_dropped_bytes": 0
+  },
+  "logs": {
+    "usb-replay.log": {
+      "path": "out/ios16/platform-match/usb-replay.log",
+      "bytes": 17435,
+      "sha256": "e706117f4d7eaeaa4d8ef8baaf297c428d6ceadbce5a08154e2bfc819890b68e"
+    },
+    "usb-status.log": {
+      "path": "out/ios16/platform-match/usb-status.log",
+      "bytes": 136,
+      "sha256": "6d94e44552d02703d980bb543e109f5d97f70e7aa2e1d328914ce40ff1e3a363"
+    }
+  },
+  "not_yet_verified": [
+    "System filesystem mount",
+    "Userspace startup",
+    "Persistent writes",
+    "SMP",
+    "GPU acceleration",
+    "Touchscreen"
+  ],
+  "userdata_written": false,
+  "intentional_wait": "giulia_ufs_probe=1 enters IOSleep after the read probe to keep USB diagnostics alive."
+}
