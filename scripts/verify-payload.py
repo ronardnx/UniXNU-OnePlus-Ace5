@@ -54,6 +54,9 @@ with tempfile.TemporaryDirectory() as directory:
             if not report.get('platform_match',{}).get('gui') or b'sweetsample\0' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('Service sampler is not present in the GUI kernel')
             expected+=' sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat'
+        if report.get('service_stderr_trace'):
+            if not report.get('trace_services'):raise SystemExit('Service stderr tracing requires service sampling')
+            expected+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
         if report.get('physical_touch_worker'):
             if not report.get('platform_match',{}).get('gui') or b'GIULIA TOUCH: controller result=' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('Ace 5 touch worker missing from the GUI kernel')

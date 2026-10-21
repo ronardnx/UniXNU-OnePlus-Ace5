@@ -67,6 +67,8 @@ def main():
             # proc_name copies p_comm[MAXCOMLEN+1]; XNU MAXCOMLEN is 16.
             # The sampler's larger destination buffer does not recover p_name.
             root_args+=' sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat'
+            # The /dev/null tee uses proc_selfname (p_name), unlike proc_name.
+            root_args+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
         if a.enable_touch:root_args+=' giulia_touch=1'
         if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
@@ -95,7 +97,9 @@ def main():
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
                       root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
-        if a.trace_services:result['trace_services']=True
+        if a.trace_services:
+            result['trace_services']=True
+            result['service_stderr_trace']=True
         if a.enable_touch:
             result['physical_touch_worker']=True
             result['touch_clock_handoff']=True

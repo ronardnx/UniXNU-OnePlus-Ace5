@@ -96,7 +96,7 @@ static int gt_gpio_prepare(void)
     }
     for(unsigned i=0;i<7;i++) {
         gt.old_cfg[i]=gr(gt.pin[i],0);gt.old_io[i]=gr(gt.pin[i],4);
-        if(gt.old_cfg[i]&(1u<<12))return 22; /* externally controlled pin */
+        if(!gg_pin_owned(gt.old_cfg[i]))return 22;
     }
     gt.gpio_changed=true;
     /* Preload deasserted CS, low clock and released reset before GPIO OE.

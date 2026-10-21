@@ -10,6 +10,12 @@ struct gg_bus {
     unsigned (*sample)(void);
     void (*pause)(void);
 };
+/* Vendor pinctrl-msm: on eGPIO-capable pins, bit 12 set means AP ownership;
+ * bit 12 clear hands the pin to the external controller. */
+static inline int gg_pin_owned(uint32_t cfg)
+{
+    return !(cfg&(1u<<11)) || !!(cfg&(1u<<12));
+}
 static inline int gg_transfer(const struct gg_bus *b,const uint8_t *tx,uint8_t *rx,unsigned n)
 {
     if(!b || !b->set || !b->sample || !b->pause || !n || n>519 || (!tx && !rx))return 1;

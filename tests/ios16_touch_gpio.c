@@ -26,6 +26,8 @@ static void reset(void){edges=samples=pauses=cs_changes=0;memset(sent,0,sizeof(s
 int main(void)
 {
     const struct gg_bus b={set,sample,pause_us};uint8_t tx[519],rx[519];
+    assert(gg_pin_owned(0) && gg_pin_owned(0x1000) && gg_pin_owned(0x1800));
+    assert(!gg_pin_owned(0x800));
     for(unsigned i=0;i<519;i++){tx[i]=(uint8_t)i;receive[i]=(uint8_t)(255-i);}
     reset();assert(!gg_transfer(&b,tx,rx,519));
     assert(!memcmp(sent,tx,519) && !memcmp(rx,receive,519));
