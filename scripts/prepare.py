@@ -23,6 +23,7 @@ def checkout(source, destination):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--workspace', type=pathlib.Path, required=True)
+    parser.add_argument('--payload-identity', type=pathlib.Path, default=ROOT / 'hardware/xnu-payload.json')
     args = parser.parse_args()
     work = args.workspace.resolve()
     work.mkdir(parents=True, exist_ok=True)
@@ -48,7 +49,7 @@ def main():
     run('git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', cwd=uefi)
     if (ROOT / 'uefi-overlay').is_dir():
         shutil.copytree(ROOT / 'uefi-overlay', uefi, dirs_exist_ok=True)
-    identity = json.loads((ROOT / 'hardware/xnu-payload.json').read_text())
+    identity = json.loads(args.payload_identity.read_text())
     size = identity['payload_bytes']
     crc = int(identity['payload_crc32'], 16)
     if not 0 < size <= 224 * 1024**2 or not 0 <= crc < 2**32:

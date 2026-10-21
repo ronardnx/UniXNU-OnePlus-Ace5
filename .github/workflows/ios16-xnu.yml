@@ -31,6 +31,7 @@ jobs:
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
+          python3 tests/ios16_rebase.py reference
           cp profile/*.patch profile/*.sh dxb/patches/
           sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
       - name: Select compatible Xcode and dependencies
@@ -49,6 +50,8 @@ jobs:
           bash build.sh 2>&1 | tee ../xnu-build.log
       - name: Verify linked services
         run: python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+      - name: Prepare DarwinBoot kernel pointers
+        run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -57,4 +60,48 @@ jobs:
             dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
             xnu-build.log
             profile/
+          retention-days: 14
+  boot-image:
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      GIULIA_BOOT_ABI: darwin22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ace5-ios16-xnu
+          path: kernel-artifact
+      - name: Install UEFI and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono mtools
+      - name: Make matching FAT payload
+        run: |
+          python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt kernel-artifact/profile/giulia-ios16.adt --out "$RUNNER_TEMP/ios16-payload"
+          python3 scripts/verify-payload.py "$RUNNER_TEMP/ios16-payload"
+      - name: Build iOS16 UEFI with this payload identity
+        run: |
+          set -o pipefail
+          export GIULIA_PAYLOAD_IDENTITY="$RUNNER_TEMP/ios16-payload/identity.json"
+          bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-ios16" 2>&1 | tee uefi-build.log
+      - name: Pack temporary boot v3 image
+        run: |
+          python3 scripts/pack-payload.py --firmware "$RUNNER_TEMP/ace5-ios16/uefi-giulia/Mu-giulia-0.img" --firmware-report "$RUNNER_TEMP/ace5-ios16/image-verification.json" --payload "$RUNNER_TEMP/ios16-payload/payload.img" --payload-report "$RUNNER_TEMP/ios16-payload/payload.json" --header-version 3 --output "$RUNNER_TEMP/giulia-ios16-ufs-usb.img"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: giulia-ios16-ufs-usb
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/giulia-ios16-ufs-usb.img
+            ${{ runner.temp }}/giulia-ios16-ufs-usb.json
+            ${{ runner.temp }}/ios16-payload/payload.json
+            ${{ runner.temp }}/ios16-payload/identity.json
+            kernel-artifact/profile/capture-debug.ps1
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios16-boot-build-log
+          path: uefi-build.log
           retention-days: 14

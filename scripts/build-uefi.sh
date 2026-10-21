@@ -2,7 +2,11 @@
 set -euo pipefail
 port_root="$(cd "$(dirname "$0")/.." && pwd)"
 work="${1:?Usage: build-uefi.sh /absolute/build/workspace}"
-python3 "$port_root/scripts/prepare.py" --workspace "$work"
+prepare_args=(--workspace "$work")
+if [ -n "${GIULIA_PAYLOAD_IDENTITY:-}" ]; then
+  prepare_args+=(--payload-identity "$GIULIA_PAYLOAD_IDENTITY")
+fi
+python3 "$port_root/scripts/prepare.py" "${prepare_args[@]}"
 if [ "${GIULIA_BOOT_ABI:-darwin23}" = darwin22 ]; then
   python3 "$port_root/scripts/ios16-loader.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 fi

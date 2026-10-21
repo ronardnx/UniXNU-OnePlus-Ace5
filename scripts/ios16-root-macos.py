@@ -5,6 +5,7 @@ device-specific GUI tweaks or establish that the kernel can mount this image.
 """
 import argparse
 import hashlib
+import gzip
 import json
 import os
 import plistlib
@@ -29,7 +30,7 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     dmg = args.out / 'ios16-base.dmg'
     raw = args.out / 'ios16-base.cdr'
-    if dmg.exists() or raw.exists():
+    if dmg.exists() or raw.exists() or Path(str(raw)+'.gz').exists():
         raise RuntimeError('Refusing to overwrite an existing root image')
     report = json.loads((args.source / 'source.json').read_text())
     if not report['ipsw_verified']:
@@ -101,25 +102,38 @@ def main():
     finally:
         for device in reversed(devices):
             subprocess.run(['hdiutil', 'detach', device], check=True)
-    run('hdiutil', 'convert', dmg, '-format', 'UDTO', '-o', raw)
-    with raw.open('rb') as f:
+    # Stream the verified volume's raw block device into gzip. Converting to a
+    # second 16 GiB file first exhausts the hosted runner's available storage.
+    info=plistlib.loads(run('hdiutil','attach','-readonly','-nomount','-plist',dmg))
+    device=info['system-entities'][0]['dev-entry']
+    try:
+      with open(device.replace('/dev/disk','/dev/rdisk'),'rb') as f:
         f.seek(1024)
         header = f.read(512)
         if header[:4] != b'HX\x00\x05':
             raise RuntimeError('Output is not unpartitioned HFSX')
         attributes = struct.unpack_from('>I', header, 4)[0]
         block_size, total_blocks = struct.unpack_from('>II', header, 40)
-        if not attributes & (1 << 13) or block_size * total_blocks != raw.stat().st_size:
+        volume_bytes=block_size*total_blocks
+        if not attributes & (1 << 13) or volume_bytes != 16*1024**3 or block_size != 4096:
             raise RuntimeError('Journal or volume geometry validation failed')
         f.seek(0)
-        sha = hashlib.file_digest(f, 'sha256').hexdigest()
+        sha_state=hashlib.sha256()
+        remaining=volume_bytes
+        with gzip.open(str(raw)+'.gz','wb',compresslevel=1) as out:
+            while remaining:
+                chunk=f.read(min(8*1024**2,remaining))
+                if not chunk: raise RuntimeError('Truncated raw HFSX volume')
+                out.write(chunk); sha_state.update(chunk); remaining-=len(chunk)
+        sha=sha_state.hexdigest()
+    finally:
+        run('hdiutil','detach',device)
     result = {'route': 'ios-sweet base root', 'build': report['firmware']['build'],
-              'bytes': raw.stat().st_size, 'sha256': sha, 'block_size': block_size,
+              'bytes': volume_bytes, 'sha256': sha, 'block_size': block_size,
               'hfs_finder_id': header[104:112].hex(), 'hardware_verified': False,
               'device_gui_tweaks_applied': False, 'partition_table': False}
     (args.out / 'root.json').write_text(json.dumps(result, indent=2) + '\n')
     dmg.unlink()
-    run('gzip', '-1', raw)
     print(json.dumps(result, indent=2))
 
 
