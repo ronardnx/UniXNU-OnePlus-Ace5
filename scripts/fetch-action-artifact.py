@@ -20,8 +20,10 @@ def main():
     p.add_argument('--artifact',type=int,required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--workers',type=int,default=8)
+    p.add_argument('--chunk-kib',type=int,default=0)
     a=p.parse_args()
-    if not 1<=a.workers<=64: p.error('Workers must be between 1 and 64')
+    if not 1<=a.workers<=128: p.error('Workers must be between 1 and 128')
+    if a.chunk_kib and not 64<=a.chunk_kib<=4096:p.error('Chunk size must be 64..4096 KiB')
     base=f'https://api.github.com/repos/tycykp/UniXNU-giulia/actions/artifacts/{a.artifact}'
     token=subprocess.check_output(['gh','auth','token'],text=True).strip()
     headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}
@@ -39,14 +41,14 @@ def main():
     if urllib.parse.urlsplit(url).scheme!='https': raise ValueError('Non-HTTPS artifact')
     if a.out.exists(): raise ValueError('Output exists')
     parts=a.out.with_suffix('.parts');parts.mkdir(parents=True,exist_ok=True)
-    identity={'artifact':a.artifact,'bytes':size,'digest':metadata.get('digest')}
+    chunk=a.chunk_kib*1024 if a.chunk_kib else (4*1024**2 if size>128*1024**2 else 512*1024)
+    identity={'artifact':a.artifact,'bytes':size,'digest':metadata.get('digest'),'chunk_bytes':chunk}
     identity_path=parts/'artifact.json'
     if identity_path.exists():
         if json.loads(identity_path.read_text())!=identity: raise ValueError('Resume identity mismatch')
     elif any(parts.iterdir()):
         raise ValueError('Resume directory lacks artifact identity')
     else: identity_path.write_text(json.dumps(identity))
-    chunk=4*1024**2 if size>128*1024**2 else 512*1024
     lock=threading.Lock(); completed=0; last_report=0
     def progress(length):
         nonlocal completed,last_report
