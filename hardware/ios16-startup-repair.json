@@ -1,0 +1,511 @@
+{
+  "date": "2026-10-21",
+  "status": "Complete coordinated userdata and temporary boot build; host checks passed; awaiting user manual flash and one integrated hardware test",
+  "kernel_source_commit": "6f5b6db",
+  "kernel_build_run": 39620286640,
+  "manual_userdata_flash": true,
+  "single_raw_userdata": true,
+  "runtime_before_repair": "Progress bar restored, stopped around 50%; lsd and installcoordinationd returned to normal runloops; appstored waits for accountsd migration",
+  "diagnosis": {
+    "SystemAppMigrator_wait": "second dispatch-group wait returns at 0x8370; demotion after TrustCacheOnly validation",
+    "libmis_interface": {
+      "service": "AppleMobileFileIntegrity",
+      "open_type": 0,
+      "selector": 6,
+      "scalar_input": [
+        1
+      ],
+      "structure_input_bytes": 20,
+      "outputs": 0,
+      "not_found_ioreturn": "0xe00002f0",
+      "not_found_mis_error": "0xe8008027"
+    },
+    "accountsd_migration_plugin": "com.apple.accounts.migrator",
+    "certainty": "Missing query interface and consumer ABI confirmed offline; resolution of device wait requires integrated boot"
+  },
+  "trust_catalog": {
+    "build": "20H392",
+    "source_ipsw_sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+    "audited_root_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+    "sha256": "2d97b2a4e114c7303f5521814b8ae67bb85c66e4628fefbb13fe38a3fdba555d",
+    "bytes": 68512,
+    "modules": [
+      {
+        "component": "StaticTrustCache",
+        "path": "Firmware/087-86698-044.dmg.trustcache",
+        "sha256": "63e01c03b31e1532a5581a24865490673f0b5c297b0199fe0095637c6100ef4b",
+        "uuid": "9f368a73d90b40ce943c827e13e72eee",
+        "entries": 2760
+      },
+      {
+        "component": "Cryptex1,SystemTrustCache",
+        "path": "Firmware/087-86593-047.dmg.trustcache",
+        "sha256": "9cc478fe3525e2683b5b9ea1eea0851eaebebdab21d206556233400e59d2e361",
+        "uuid": "7373a1ad52e545829fb9caba397998fc",
+        "entries": 61
+      },
+      {
+        "component": "Cryptex1,AppTrustCache",
+        "path": "Firmware/087-86715-047.dmg.trustcache",
+        "sha256": "4e5fc21a171e7fc0e05698c83b9c080307e7cf57a3e88b09cfe0b4e135674067",
+        "uuid": "e80bce1c547f45a0bafe9704a557ce85",
+        "entries": 30
+      }
+    ],
+    "unique_hashes": 2851,
+    "staged_applications": [
+      {
+        "path": "/private/var/staged_system_apps/AppleTV.app",
+        "bundle_id": "com.apple.tv",
+        "cdhashes": [
+          "3fcf8582655faa2309661af8916c25a715d3604b"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Books.app",
+        "bundle_id": "com.apple.iBooks",
+        "cdhashes": [
+          "1012e36a87cf07cfa6078bb37d46450a4cfdf848"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Bridge.app",
+        "bundle_id": "com.apple.Bridge",
+        "cdhashes": [
+          "b88ced14123c3338dcf1cdf8361a1c94041f8bec"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Calculator.app",
+        "bundle_id": "com.apple.calculator",
+        "cdhashes": [
+          "6b5dc1195375ba0f64d7c30f570fa65ffc89b1e2"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Compass.app",
+        "bundle_id": "com.apple.compass",
+        "cdhashes": [
+          "98cec582101c74a6dea62260c2ed01aa5c7c8bff"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Contacts.app",
+        "bundle_id": "com.apple.MobileAddressBook",
+        "cdhashes": [
+          "98e3dd8d9175d16f3622a4c54991958e431b80ee"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/FaceTime.app",
+        "bundle_id": "com.apple.facetime",
+        "cdhashes": [
+          "328ced103c79164b13517d0f16692cd1351e9c4a"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Files.app",
+        "bundle_id": "com.apple.DocumentsApp",
+        "cdhashes": [
+          "c0c0b0da9701fd6fca6e7508d236eb092f350d62"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/FindMy.app",
+        "bundle_id": "com.apple.findmy",
+        "cdhashes": [
+          "babd477572c463acadc3840789aad7cf01c0f181"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Fitness.app",
+        "bundle_id": "com.apple.Fitness",
+        "cdhashes": [
+          "f6d21f0aa4d37a9694dfdaca4a10018698555684"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Freeform.app",
+        "bundle_id": "com.apple.freeform",
+        "cdhashes": [
+          "3245f9d2e04b24149969366adec02b88ac361bd0"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Health.app",
+        "bundle_id": "com.apple.Health",
+        "cdhashes": [
+          "4e499bff34f3cf30429b99f28c7105121b83d28b"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Home.app",
+        "bundle_id": "com.apple.Home",
+        "cdhashes": [
+          "c36d644dfffbef9d038f864fa5a2fa01e4bb1edb"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Magnifier.app",
+        "bundle_id": "com.apple.Magnifier",
+        "cdhashes": [
+          "917e41807819d3a5d85bf97414e535f88056aa5f"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Maps.app",
+        "bundle_id": "com.apple.Maps",
+        "cdhashes": [
+          "3e76859378923ee1f5fa33fdd7451b637fc12752"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Measure.app",
+        "bundle_id": "com.apple.measure",
+        "cdhashes": [
+          "824dbeb43708903d14d8f506125801c5b0749425"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/MobileCal.app",
+        "bundle_id": "com.apple.mobilecal",
+        "cdhashes": [
+          "af3b7e0a15eaac0cf8d375b744b0a5beb16980b3"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/MobileMail.app",
+        "bundle_id": "com.apple.mobilemail",
+        "cdhashes": [
+          "0cb435c57dd9ee9b48fc36b071d5afffe0f7813c"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/MobileNotes.app",
+        "bundle_id": "com.apple.mobilenotes",
+        "cdhashes": [
+          "a258a89fccbf33164a5db54c4bb8acbe5568b72c"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/MobileStore.app",
+        "bundle_id": "com.apple.MobileStore",
+        "cdhashes": [
+          "b1a076a02565698c2ef07cfb08b02afab5ed1be3"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/MobileTimer.app",
+        "bundle_id": "com.apple.mobiletimer",
+        "cdhashes": [
+          "1a02f2f47513f584d2df66d52893b61de57fd4f8"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Music.app",
+        "bundle_id": "com.apple.Music",
+        "cdhashes": [
+          "bf2383ea5be7fcea21cecda2aa843b186e9781d6"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/News.app",
+        "bundle_id": "com.apple.news",
+        "cdhashes": [
+          "ff09bbe5288e19fcdc2be64a45367ef96a1195ae"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Passbook.app",
+        "bundle_id": "com.apple.Passbook",
+        "cdhashes": [
+          "5371fabd72d88f42bd53ddfab180ba57a94b9c1c"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Podcasts.app",
+        "bundle_id": "com.apple.podcasts",
+        "cdhashes": [
+          "f52c0046f2c007a3664d68ecd1404dd6c5314cd3"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Reminders.app",
+        "bundle_id": "com.apple.reminders",
+        "cdhashes": [
+          "d192ed3efddfa4730c2e66b4841e73a1ac4b194b"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/SequoiaTranslator.app",
+        "bundle_id": "com.apple.Translate",
+        "cdhashes": [
+          "b91fa3a6fd2edfe848d0281e5bc43d1194f5ac58"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Shortcuts.app",
+        "bundle_id": "com.apple.shortcuts",
+        "cdhashes": [
+          "5602068360368db71ad825c75841dd2e7960af0f"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Stocks.app",
+        "bundle_id": "com.apple.stocks",
+        "cdhashes": [
+          "9eeff940868bf88cf046162adfa98785e62c5cef"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Tips.app",
+        "bundle_id": "com.apple.tips",
+        "cdhashes": [
+          "1e6ddbe580e385cb9280ef9902df01d5e28425fc"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/VoiceMemos.app",
+        "bundle_id": "com.apple.VoiceMemos",
+        "cdhashes": [
+          "6e4ee937cd89895cc20c3a4be1dfe9358c208874"
+        ],
+        "all_hashes_present": true
+      },
+      {
+        "path": "/private/var/staged_system_apps/Weather.app",
+        "bundle_id": "com.apple.weather",
+        "cdhashes": [
+          "db3d240b1424e8fc7d43fd9c76e8ec4d64b7acc4"
+        ],
+        "all_hashes_present": true
+      }
+    ],
+    "query_only": true,
+    "hardware_verified": false
+  },
+  "preserved": {
+    "normal_migration": true,
+    "setup": true,
+    "account_services": true,
+    "code_page_hash_checks": true,
+    "progress_display": true
+  },
+  "not_implemented": [
+    "Wi-Fi transport",
+    "cellular/baseband",
+    "audio hardware",
+    "GPU/recording",
+    "FairPlay hardware"
+  ],
+  "hardware_verified": false,
+  "device_actions_this_batch": [],
+  "evidence": [
+    {
+      "path": "out/ios16/service-repair-test-1/MIS-validation.asm.txt",
+      "sha256": "1d0c44ea5a44fdca7a960cd865b8a6a06ada345da69fa68b50f64a8d6d9e9e3a"
+    },
+    {
+      "path": "out/ios16/service-symbols/SystemAppMigrator-full.asm.txt",
+      "sha256": "dec3f9406efabaa2cacd340bb783dc3347a9c0e98eb4ac262ce58614a2e9a3a3"
+    },
+    {
+      "path": "out/ios16/service-symbols/launchd-cache-loader.asm.txt",
+      "sha256": "ddb65a816cb61106193ec1fde2e69d0514b1f1056908bb8ccc21c8bdb3f0adb2"
+    }
+  ],
+  "kernel_build_conclusion": "success",
+  "kernel_artifact_id": 12354542264,
+  "kernel_artifact_sha256": "a083678320dda4a7b5b439a2f38187872bf5caaf3f9b6f1908c7c86c4046535e",
+  "kernel_sha256": "e38c1c116c00895578fcac703e8908b88b5ccad41471e97d90f4baedf987d181",
+  "userdata": {
+    "path": "out/ios16/userdata-startup-repair/giulia-ios16-userdata.img",
+    "build": "20H392",
+    "migration_completion_seeded": false,
+    "normal_migration_enabled": true,
+    "container_directories": [
+      "/private/var/containers",
+      "/private/var/containers/Bundle",
+      "/private/var/containers/Data",
+      "/private/var/containers/Data/System",
+      "/private/var/containers/Shared",
+      "/private/var/containers/Shared/SystemGroup",
+      "/private/var/containers/Temp"
+    ],
+    "scope": "normal first-boot migration with explicit hardware startup compatibility",
+    "hardware_verified": false,
+    "startup_compatibility": {
+      "disabled_launchd_jobs": [
+        "/System/Library/LaunchDaemons/com.apple.CommCenter.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenter-noncellular.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenterRootHelper.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenterMobileHelper.plist"
+      ],
+      "configuration_changes": [
+        {
+          "path": "/System/Library/xpc/launchd.plist",
+          "before_sha256": "810070302b5c4d7c5f00bdc8df20aaea2dd33cd8342d2402fcdf7ff6397d374c",
+          "after_sha256": "4a70a9d2df1c4df78e9ab47aa0035b5424ee4fa7c9d53b6e69950301429c21bb"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/D22/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/D221/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/Default/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        }
+      ],
+      "audio_plugin_moved_to": "/Library/Audio/Plug-Ins/HAL.disabled/VirtualAudio.plugin",
+      "springboard_preferences": {
+        "BKNoWatchdogs": true,
+        "FBLaunchWatchdogExceptions": {
+          "com.apple.purplebuddy": 100
+        }
+      },
+      "reason": "No baseband/audio/GPU drivers; single-CPU software GUI bring-up",
+      "setup_completion_seeded": false,
+      "activation_state_seeded": false,
+      "migration_completion_seeded": false,
+      "hardware_verified": false
+    },
+    "source_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+    "source_unchanged": true,
+    "bytes": 17179869184,
+    "sha256": "e201e552695443d134ac3926d690ac6856cf7ca4130779b30d14826a933c6f21",
+    "block_size": 4096,
+    "hfs_finder_id": "34320965bfe52d66",
+    "raw_file": "giulia-ios16-userdata.img",
+    "partition_table": false,
+    "filesystem_check_passed": true,
+    "filesystem_check_mode": "full fsck with stable verification SHA256",
+    "numeric_ownership_verified": true,
+    "target_partition": "userdata",
+    "flashed": false
+  },
+  "boot": {
+    "path": "out/ios16/startup-repair-boot/giulia-ios16-touch-trace.img",
+    "firmware_sha256": "235e48adb71deaaf0b0a2f43856df79fd50987392e291f6b9290bbaf9559679d",
+    "payload_sha256": "1140e3c510c3b794905e6b4a48fe623708170de3d81740a651c4528ada63f978",
+    "sha256": "590e7787673e402d1b079468545602dbcb5d393475590a4ec3981966b0a3cc2e",
+    "bytes": 69275648,
+    "header_version": 3,
+    "payload_crc32": "94dc87c8",
+    "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
+    "hardware_tested": false
+  },
+  "payload": {
+    "payload_bytes": 67108864,
+    "payload_sha256": "1140e3c510c3b794905e6b4a48fe623708170de3d81740a651c4528ada63f978",
+    "payload_crc32": "94dc87c8",
+    "payload_kernel_sha256": "e38c1c116c00895578fcac703e8908b88b5ccad41471e97d90f4baedf987d181",
+    "kernel_sha256": "e38c1c116c00895578fcac703e8908b88b5ccad41471e97d90f4baedf987d181",
+    "adt_sha256": "f7573d49683cb109c730886fec35aad25ee215f7812ba169a7561dcf1a12428d",
+    "kernel_args": "-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1 giulia_ufs_probe=1",
+    "dram_handoff": "darwinboot-allocated-window",
+    "platform_match": {
+      "platform_class": "SweetPlatformExpert",
+      "platform_match": "oneplus,giulia",
+      "cpu_class": "SweetCPU",
+      "cpu_match": "qcom,kryo",
+      "legacy_platform_alias": false,
+      "gui": true
+    },
+    "hardware_tested": false,
+    "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
+    "root_sha256": "e201e552695443d134ac3926d690ac6856cf7ca4130779b30d14826a933c6f21",
+    "root_finder_id": "34320965bfe52d66",
+    "default_entry": "ios16",
+    "root_kernel_args": "-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1 vermeer_ufs_rw=1 vermeer_root_uuid=34320965bfe52d66 unentitled_ios_sim_launch=1 launchd_unsecure_cache=1 sweetfb_hz=30 sweetfb_noconsole=1 sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe giulia_touch=1 giulia_touch_gpio=1",
+    "ios_platform_launch_compat": true,
+    "launchd_job_cache_compat": true,
+    "trace_services": true,
+    "service_sample_names": "SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd",
+    "service_stderr_trace": true,
+    "service_stderr_names": "SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe",
+    "service_trace_profile": "migration",
+    "physical_touch_worker": true,
+    "touch_clock_handoff": true,
+    "touch_gpio": true,
+    "trust_catalog": {
+      "sha256": "2d97b2a4e114c7303f5521814b8ae67bb85c66e4628fefbb13fe38a3fdba555d",
+      "bytes": 68512,
+      "build": "20H392",
+      "source_ipsw_sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+      "unique_hashes": 2851
+    }
+  },
+  "content_verification": {
+    "independent_hfsx_readback": true,
+    "migration_preference_absent": true,
+    "staged_app_hashes_preserved": 32,
+    "only_four_commcenter_jobs_removed": true,
+    "container_and_preference_ownership_checked": true,
+    "virtual_audio_binary_preserved_in_disabled_directory": true,
+    "original_service_binaries": [
+      {
+        "path": "/usr/libexec/lsd",
+        "sha256": "c46e8e7330ab1c008aa50873d230a44f68eb57d675e3fe0b01e0917f9596b2e1"
+      },
+      {
+        "path": "/usr/libexec/backboardd",
+        "sha256": "7aa6f8bf5ea2c3634fb8c8916a4e9c3c84508de78eccf57ca65c1ae4f676267c"
+      },
+      {
+        "path": "/System/Library/Frameworks/Accounts.framework/accountsd",
+        "sha256": "fcc6c180f44690a14f7930a1cf2ea6663868d29066908e48a3cfc0ce3af7b072"
+      },
+      {
+        "path": "/System/Library/PrivateFrameworks/AppStoreDaemon.framework/Support/appstored",
+        "sha256": "2e96c4bfa339726e9c9ca1c0904a47ee26d4bbaa8404ad5a9b73082f0c0f6e17"
+      }
+    ],
+    "free_bytes": 5183410176
+  },
+  "host_validation": {
+    "sanitized_trust_catalog_boundary_tests": true,
+    "all_official_catalog_entries_found": true,
+    "root_layout_tests": 5,
+    "startup_configuration_tests": 2,
+    "dram_handoff_cases": 22,
+    "full_filesystem_check_with_stable_sha256": true,
+    "payload_and_boot_identity_verified": true
+  }
+}

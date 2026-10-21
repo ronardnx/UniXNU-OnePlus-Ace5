@@ -6,7 +6,35 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
 尚未进入可操作界面；正在定位安装服务阻塞，触控芯片身份和触点报文已验证。
 
-## 当前修复与刷写交接（2026-10-21）
+## 当前整合修复包（2026-10-21，待一次实机验证）
+
+- userdata：`out/ios16/userdata-startup-repair/giulia-ios16-userdata.img`，
+  单份 16 GiB 原始镜像；SHA256
+  `e201e552695443d134ac3926d690ac6856cf7ca4130779b30d14826a933c6f21`。
+- 配套临时启动：`out/ios16/startup-repair-boot/giulia-ios16-touch-trace.img`；
+  SHA256 `590e7787673e402d1b079468545602dbcb5d393475590a4ec3981966b0a3cc2e`。
+- 内核构建 `39620286640` 成功，提交 `6f5b6db`。整盘文件系统检查、稳定哈希、
+  独立内容读回、内存交接及启动包配对检查通过；此轮没有刷写或重启手机。
+  userdata 仍由用户手动刷入，之后临时启动上述配套镜像一次统一检查。
+
+- 先整合内核和 userdata，再做一次配套实机验证。
+- `SystemAppMigrator` 的第二个等待组（返回地址 `0x8370`）负责验证后的
+  应用降级。其 `MISValidateSignature` 使用 `TrustCacheOnly`，原内核没有
+  `AppleMobileFileIntegrity` 查询服务。本次添加只读 selector 6：仅对已校验
+  官方固件信任缓存中的精确 20 字节代码哈希返回成功，未匹配返回 NotFound。
+  这不是完整 Image4/AMFI 实现，也没有关闭既有代码页哈希检查。
+- 固定 SHA256 的 20H392 IPSW 提取出 3 份官方缓存，共 2,851 个唯一哈希；
+  userdata 内 32 个完整待安装应用的全部 CodeDirectory 哈希均已离线匹配。
+- 新 userdata 保留正常迁移、设置向导和账户服务。移除 launchd 缓存中的
+  4 个 CommCenter 作业；VirtualAudio 移至 HAL.disabled；D22/D221/Default
+  的录制服务启动关闭。加入上游单 CPU 软件绘图所用的 SpringBoard watchdog
+  配置。基带、音频、GPU、DRM 功能仍未实现。
+- 构建工具：`make-ios16-trust-catalog.py`、`prepare-ios16.py --gui --touch`、
+  `rebuild-ios16-userdata.py --startup-compat`、ADT/Payload 的 `--trust-catalog`。
+- 完整记录位于 `hardware/ios16-startup-repair.json`；实机是否越过 50%
+  必须以后续日志和屏幕观察为准。
+
+## 上一次实机结果（2026-10-21）
 
 - 当前 userdata：`out/ios16/userdata-service-repair/giulia-ios16-userdata.img`，
   单份 16 GiB 原始镜像。SHA256：
@@ -25,7 +53,8 @@ GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面�
   重命名返回 EROFS（30）并 panic，备份未提交；相关内核代码已在 `79ad14e`
   移除。不要再启动其 `09236d6b...` 镜像。
 - 按用户约定：userdata 由用户手动刷入，报告完成后再临时启动配套镜像。
-  此版尚未实机验证，不能宣称进度条或安装／账户服务已经修好。
+  此版已实机验证：进度条恢复并曾前进，随后停在约 50%；后两次采样中
+  `lsd` 与 `installcoordinationd` 已回到正常主循环。安装／账户链仍待修复。
 
 证据及状态：`hardware/ios16-service-repair.json`。
 

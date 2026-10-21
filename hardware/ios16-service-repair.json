@@ -1,6 +1,6 @@
 {
   "date": "2026-10-21",
-  "status": "host verification complete; awaiting user manual userdata flash and device validation",
+  "status": "Tested: progress bar restored and lsd network identity stall resolved; migration still stopped near 50%; next batch under construction",
   "source_commit": "79ad14e",
   "manual_userdata_flash": true,
   "deliver_single_raw_image": true,
@@ -104,7 +104,7 @@
     "filesystem_check_mode": "full fsck with stable verification SHA256",
     "numeric_ownership_verified": true,
     "target_partition": "userdata",
-    "flashed": false
+    "flashed": true
   },
   "boot_image": {
     "path": "out/ios16/service-repair-boot/giulia-ios16-touch-trace.img",
@@ -115,6 +115,67 @@
     "header_version": 3,
     "payload_crc32": "e56ee8bc",
     "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
-    "hardware_tested": false
+    "hardware_tested": true
+  },
+  "runtime_observation": {
+    "date": "2026-10-21",
+    "user_reported_flash_complete": true,
+    "boot_image_sha256": "3d3cab90e332051fc1283da4227777b5a7d7155f6d252bf2e91f921962f767fa",
+    "userdata_source_sha256": "ed662ef08b289ae56591d3166dc0e34f4a7241111df256c107383a0a3c1185c0",
+    "boot_method": "fastboot boot",
+    "transfer_ok": true,
+    "boot_command_ok": true,
+    "serial_connected": true,
+    "hfsx_root_mounted": true,
+    "user_screen_observation": "Apple logo and progress bar restored, then stopped near 50%",
+    "preference_restore_panic_seen": false,
+    "first_sample": {
+      "lsd_network_provider_wait_seen": false,
+      "lsd_work": "MIFilesystemScanner scans app directories; LSDeviceIdentifierCache save/fsync",
+      "installcoordinationd": "Waiting for LaunchServices database seeding"
+    },
+    "gui_completed": false,
+    "migration_completed": false,
+    "assistant_flashed_userdata": false,
+    "evidence": [
+      {
+        "path": "out/ios16/service-repair-test-1/fastboot.log",
+        "sha256": "1fec948b53292e0a13f7dc888dfa2ac99e4e7cca3b5dae843a811a08e1fd5aba"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-boot.log",
+        "sha256": "d661d5d07670c792e52e5ea92b568238b8aace57fbb128a5c390d11029641066"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-sample-1.log",
+        "sha256": "c69925dad7f610728d7d27e58565bb7ffa0c1058a523eb4dd90807ff6291ba13"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-sample-1.symbols.txt",
+        "sha256": "c2ba5f69f7e781f7afb4477661dac86c9c978a0a0609cf7bb8cfe9bc96aeb0b3"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-sample-2.log",
+        "sha256": "5ecda800da6828f041f9abd82d328b8f07b0041d5a463be7002c58ddd1acf029"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-sample-2.symbols.txt",
+        "sha256": "86b9135cf4ec094e335c4519198a920342c211650059bfd65a4979256de3c0de"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-sample-3.log",
+        "sha256": "037811bcaebb74e3f07f1bf2e1d14ab957ba8ecce1dadb98de4f2aa449065406"
+      },
+      {
+        "path": "out/ios16/service-repair-test-1/usb-later-progress.log",
+        "sha256": "af903dabf95786cb690d4ac8950616c817765947524146ed263a9ca7a902c2c8"
+      }
+    ],
+    "later_samples": {
+      "lsd": "main run loop; original IONetworkController wait gone",
+      "installcoordinationd": "main run loop; LaunchServices database wait gone",
+      "appstored": "main waits for ACAccountStore accountTypeWithAccountTypeIdentifier:error:",
+      "accountsd": "DMPerformMigration -> DMConnection migrateCheckingNecessity -> synchronous XPC; target com.apple.accounts.migrator"
+    }
   }
 }
