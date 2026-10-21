@@ -295,11 +295,11 @@ bool IO80211Controller::publishInterface() {
     (void)ifnet_set_flags(r->interface,IFF_BROADCAST|IFF_SIMPLEX|IFF_MULTICAST,0xffff);
     setProperty(kIOUserClientClassKey,"GiuliaWiFiUserClient");setProperty("IOInterfaceName","en0");setProperty("IOBSDName","en0");
     setProperty("IOMACAddress",r->mac,6);setProperty("IOInterfaceUnit",0ULL,32);setProperty("IOInterfaceType",IFT_ETHER,32);
-    setProperty("IO80211InterfaceRole",1,32);setProperty("IO80211CountryCode","CN");setProperty("GiuliaPassiveScan",true);
+    setProperty("IO80211InterfaceRole","Infrastructure");setProperty("IO80211CountryCode","CN");setProperty("GiuliaPassiveScan",true);
     IO80211Interface *interface=new IO80211Interface;
     if(!interface || !interface->init() || !interface->attach(this) || !interface->start(this)){OSSafeReleaseNULL(interface);return false;}
     interface->setProperty("IOBSDName","en0");interface->setProperty("IOInterfaceName","en0");interface->setProperty("IOInterfaceUnit",0ULL,32);
-    interface->setProperty("IOMACAddress",r->mac,6);interface->setProperty("IO80211InterfaceRole",1,32);
+    interface->setProperty("IOMACAddress",r->mac,6);interface->setProperty("IO80211InterfaceRole","Infrastructure");
     interface->setProperty(kIOUserClientClassKey,"GiuliaWiFiUserClient");interface->registerService();interface->release();registerService();return true;
 }
 IOReturn IO80211Controller::query(const struct gwi_request &q,void *output,size_t *bytes,unsigned *cursor) {
