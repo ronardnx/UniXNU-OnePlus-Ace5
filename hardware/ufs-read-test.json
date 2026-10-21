@@ -1,0 +1,12 @@
+{
+  "kernel_run": 39544075750,
+  "kernel_attempt": 2,
+  "uefi_run": 39545767876,
+  "image_sha256": "335555fb8c41c5b6a2ea422fbaaa6f672992bfcc3857aec0f3533078333bae0c",
+  "kernel_sha256": "32041c26bf19b2c7a98cbdc6da953d67c82287afaac2cd2193691ba88138819e",
+  "boot_method": "fastboot boot",
+  "transfer_and_boot_ok": true,
+  "screen_observation": "awaiting user",
+  "disk_read_verified": false,
+  "root_mounted": false
+}
