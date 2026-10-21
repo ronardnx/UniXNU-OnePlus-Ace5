@@ -23,5 +23,12 @@
   },
   "linked_gui_kernel_built": false,
   "graphics_hardware_tested": false,
-  "physical_touch_supported": false
+  "physical_touch_supported": false,
+  "source_commit": "8ffe2b4",
+  "build_run": 39581534474,
+  "build_actor": "tycykp",
+  "build_job": 119160060669,
+  "build_status": "Not started: recent account payments failed or spending limit must be increased",
+  "build_steps_executed": 0,
+  "required_next_resource": "Working macOS Actions capacity for tycykp or an available macOS build host"
 }

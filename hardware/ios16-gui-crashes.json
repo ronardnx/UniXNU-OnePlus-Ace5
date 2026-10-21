@@ -1,0 +1,35 @@
+{
+  "log": "out/ios16/root-job-cache/usb-replay.log",
+  "unique_crashed_pids": {
+    "SpringBoard": [
+      27,
+      93,
+      97,
+      104,
+      107,
+      111,
+      116,
+      121,
+      130,
+      133,
+      140
+    ],
+    "backboardd": [
+      57,
+      98,
+      109,
+      117,
+      128,
+      139
+    ]
+  },
+  "exact_stack_symbols_resolved": false,
+  "current_kernel_graphics_classes_present": false,
+  "missing_built_in_services": [
+    "IOCoreSurfaceRoot",
+    "IOMobileFramebufferUserClient",
+    "HID event service"
+  ],
+  "evidence": "Current base source profile excludes GUI patches; corresponding class/service strings are absent in the tested kernel. Reference notes describe matching GUI failures before those services were added.",
+  "cause_scope": "Missing graphics services are confirmed; not every daemon crash has been diagnosed."
+}

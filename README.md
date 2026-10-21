@@ -1,8 +1,22 @@
 # UniXNU giulia — OnePlus Ace 5 UEFI bring-up
 
 当前实机调试使用 Darwin 22.6.0 / iOS 16 内核。已验证 UEFI 交接、XNU
-内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 只读探测
-和 USB CDC 调试串口。系统卷挂载与用户态启动仍未验证。
+内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 读取、
+USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和系统服务启动。
+SpringBoard / backboardd 会反复崩溃，图形界面尚未显示。
+
+## 根卷和用户态进展（2026-10-21）
+
+- 用户自行刷入已校验的 userdata 原始镜像后，实机确认 GPT、卷标识匹配以及 HFSX `iOSRoot` 读写挂载。
+- `OS_REASON_EXEC / 0xe` 是 `WRONG_PLATFORM`。已通过开发内核自带的 `unentitled_ios_sim_launch=1` 解决，没有修改 launchd、dyld 或关闭代码页哈希校验。
+- 原始任务缓存加载器在没有 AMFI IOService 时退出；`launchd_unsecure_cache=1` 已通过实机验证，随后开始启动系统服务。
+- 最新已启动镜像：`out/ios16/root-job-cache/giulia-ios16-root-job-cache.img`；SHA256 `e62850f45f2853010a407a4b5c0359528a831c03fee202bc19cfe25715a456f9`。
+- 完整本地日志：`out/ios16/root-job-cache/usb-replay.log`。进度与签名页审计分别见 `hardware/ios16-root-mount-test.json` 和 `hardware/ios16-launchd-platform-audit.json`。
+- 当前基础内核没有编入 IOSurface / IOMobileFramebuffer / HID 服务。已准备可选 `--gui` 源码配置及 `make-ios16-adt.py --gui --product-adt LOCAL_D22AP.adt`，实际物理屏幕限制为 `0xd5100000 / 1264×2780 / stride 5056`，UIKit 兼容画布为 `1125×2436`。
+- 本地通过了 65 个补丁格式检查、8 个实际屏幕几何限制表达式测试、基础配置回归，以及 GUI ADT 与旧内核误配拒绝检查；尚未完成 GUI 内核整体编译和实机图形验证。
+- `ios16-xnu.yml` 选择 `profile=gui` 会构建图形内核，随后需在本地结合已校验的产品 ADT 打包。GUI 构建不自动使用基础 ADT 生成启动镜像。
+- GUI run `39581534474`（源码 `8ffe2b4`，触发者 `tycykp`）在编译启动前因账号付款／消费限额被 GitHub 拦截；需要恢复 Actions 构建能力或可用的 macOS 构建环境。
+- 物理触控、GPU 加速和稳定图形会话均未验证。当前已验证结果不等于完整 iOS 移植完成。
 
 ## 当前实机结果（2026-10-21）
 
