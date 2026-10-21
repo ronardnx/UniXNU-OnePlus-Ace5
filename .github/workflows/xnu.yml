@@ -6,7 +6,6 @@ permissions:
 jobs:
   kernel:
     runs-on: macos-15
-    timeout-minutes: 90
     env:
       JOBS: 3
       HOMEBREW_NO_AUTO_UPDATE: 1

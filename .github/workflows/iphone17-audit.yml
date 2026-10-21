@@ -6,7 +6,6 @@ permissions:
 jobs:
   audit:
     runs-on: macos-15
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
