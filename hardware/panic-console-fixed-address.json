@@ -18,5 +18,9 @@
   "ufs_read_verified": false,
   "fixed_kernel_run": 39540830765,
   "fixed_kernel_original_sha256": "30b71b5be1691ae64808a88ebac3b94ecd7177371d58695c7339167ff24a7455",
-  "dt_path_verified_by_disassembly": true
+  "dt_path_verified_by_disassembly": true,
+  "test_uefi_run": 39542221205,
+  "test_image_sha256": "a8cf5627d8b6c6599196d4b3a07d5d8a1904767411cebea99532bef506011250",
+  "fastboot_transfer_and_boot_ok": true,
+  "test_observation": "awaiting user"
 }
