@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory() as directory:
             if names is None:
                 names=report['root_kernel_args'].split(' sweetsample=',1)[1].split()[0]
             if names not in (
+                'SpringBoard,backboardd,lsd,containermanager,installd,installcoordinat,accountsd,securityd,cfprefsd,appstored',
                 'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd',
                 'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat',
                 'SpringBoard,backboardd,com.apple.datami,com.apple.migrat',
@@ -65,7 +66,12 @@ with tempfile.TemporaryDirectory() as directory:
             expected+=' sweetsample='+names
         if report.get('service_stderr_trace'):
             if not report.get('trace_services'):raise SystemExit('Service stderr tracing requires service sampling')
-            expected+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+            stderr_names=report.get('service_stderr_names','SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe')
+            if stderr_names not in (
+                'SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe',
+                'SpringBoard,backboardd,lsd,containermanagerd,installd,installcoordinationd,accountsd,securityd'):
+                raise SystemExit('Unrecognized service-stderr selector set')
+            expected+=' sweetnull='+stderr_names
         if report.get('physical_touch_worker'):
             if not report.get('platform_match',{}).get('gui') or b'GIULIA TOUCH: controller result=' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('Ace 5 touch worker missing from the GUI kernel')
@@ -74,6 +80,10 @@ with tempfile.TemporaryDirectory() as directory:
             if not report.get('physical_touch_worker') or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('GPIO SPI worker missing from the kernel')
             expected+=' giulia_touch_gpio=1'
+        if report.get('restore_migration_preference'):
+            if b'GIULIA MIGRATION: restore preference rename result=' not in (temporary/'kernel.macho').read_bytes():
+                raise SystemExit('Kernel lacks the guarded migration restore helper')
+            expected+=' giulia_restore_migration=1'
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

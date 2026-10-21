@@ -32,6 +32,8 @@ jobs:
           path: reference
       - name: Validate SM8650 context isolation
         run: |
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_migration_restore.c -o /tmp/migration-restore-test
+          /tmp/migration-restore-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_smmu.c -o /tmp/smmu-test
           /tmp/smmu-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_reports.c -o /tmp/touch-report-test

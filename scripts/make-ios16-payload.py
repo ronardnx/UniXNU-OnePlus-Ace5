@@ -23,9 +23,13 @@ def main():
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
     p.add_argument('--default-root',action='store_true')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
+    p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
+    p.add_argument('--restore-migration',action='store_true',help='Back up the seeded migration preference once and restore normal migration')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
     p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
     a=p.parse_args()
+    if a.trace_launch_services:a.trace_services=True
+    if a.restore_migration and not a.root_report:p.error('Migration restore requires an HFSX root entry')
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
     report=json.loads(a.kernel.with_suffix('.json').read_text())
@@ -67,12 +71,21 @@ def main():
             # proc_name copies p_comm[MAXCOMLEN+1]; XNU MAXCOMLEN is 16.
             # The sampler's larger destination buffer does not recover p_name.
             sample_names='SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd'
+            if a.trace_launch_services:
+                sample_names='SpringBoard,backboardd,lsd,containermanager,installd,installcoordinat,accountsd,securityd,cfprefsd,appstored'
             if len(sample_names)>=128:raise ValueError('Service selector buffer exceeded')
             root_args+=' sweetsample='+sample_names
             # The /dev/null tee uses proc_selfname (p_name), unlike proc_name.
-            root_args+=' sweetnull=SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+            stderr_names='SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+            if a.trace_launch_services:
+                stderr_names='SpringBoard,backboardd,lsd,containermanagerd,installd,installcoordinationd,accountsd,securityd'
+            root_args+=' sweetnull='+stderr_names
         if a.enable_touch:root_args+=' giulia_touch=1'
         if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
+        if a.restore_migration:
+            if b'GIULIA MIGRATION: restore preference rename result=' not in a.kernel.read_bytes():
+                raise ValueError('Kernel lacks the guarded migration restore helper')
+            root_args+=' giulia_restore_migration=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -103,10 +116,13 @@ def main():
             result['trace_services']=True
             result['service_sample_names']=sample_names
             result['service_stderr_trace']=True
+            result['service_stderr_names']=stderr_names
+            result['service_trace_profile']='launchservices' if a.trace_launch_services else 'migration'
         if a.enable_touch:
             result['physical_touch_worker']=True
             result['touch_clock_handoff']=True
         if a.touch_gpio:result['touch_gpio']=True
+        if a.restore_migration:result['restore_migration_preference']=True
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

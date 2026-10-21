@@ -91,6 +91,16 @@ def main():
          '+\t\t\tfor (;;) IOSleep(1000);\n+\t\t}\n'
          '+\t\tint error = vermeer_ufs_ios_rootdev(root);')
     if a.gui:
+        # A boot-argument-controlled, one-time undo of our migration preference
+        # experiment. The helper is dormant in normal builds/boot entries.
+        restore=(Path(__file__).resolve().parents[1]/'ios16/giulia_restore_migration.h').read_text()
+        bootstrap=v/'vermeer_ios_bootstrap.c'
+        edit(bootstrap, 'static int root_directory(', restore+'\nstatic int root_directory(')
+        edit(bootstrap, '    uint32_t prepare = 0;',
+             '    uint32_t restore = 0;\n'
+             '    PE_parse_boot_argn("giulia_restore_migration", &restore, sizeof(restore));\n'
+             '    if (restore == 1) { int err = giulia_restore_migration(); if (err) return err; }\n'
+             '    uint32_t prepare = 0;')
         edit(usb,'static void command_line(void)','extern int sweet_sample_request(void);\nstatic void command_line(void)')
         edit(usb,'    else if (!strcmp(u.command,"status"))',
              '    else if (!strcmp(u.command,"sample")) printf("GIULIA DEBUG: sample wake requested=%d\\n",sweet_sample_request());\n'
@@ -135,6 +145,17 @@ def main():
                         a.out/'0070-giulia-service-images.patch')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     if a.gui:
+        (a.out/'0072-giulia-migration-restore.patch').write_text(
+            '--- a/bsd/vfs/vfs_syscalls.c\n+++ b/bsd/vfs/vfs_syscalls.c\n'
+            '@@ -9677,6 +9677,17 @@\n'
+            ' }\n \n+#if defined(ARM64_BOARD_CONFIG_SWEET)\n'
+            '+int giulia_ios_rename_exclusive(const char *, const char *, vfs_context_t);\n'
+            '+int\n+giulia_ios_rename_exclusive(const char *from, const char *to, vfs_context_t ctx)\n'
+            '+{\n+    return renameat_internal(ctx, AT_FDCWD, CAST_USER_ADDR_T(from),\n'
+            '+        AT_FDCWD, CAST_USER_ADDR_T(to), UIO_SYSSPACE,\n'
+            '+        RENAME_EXCL | RENAME_NOFOLLOW_ANY);\n+}\n+#endif\n+\n'
+            ' int\n rename(__unused proc_t p, struct rename_args *uap, __unused int32_t *retval)\n'
+            ' {\n \treturn renameat_internal(vfs_context_current(), AT_FDCWD, uap->from,\n')
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
                         a.out/'0071-giulia-on-demand-samples.patch')
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
