@@ -7,5 +7,8 @@
   "apfs_superblock_checksum_valid": true,
   "source_regular_files": 39,
   "hardware_tested": false,
-  "integrated_into_kernel": false
+  "integrated_into_kernel": false,
+  "integrated_into_boot_payload": true,
+  "loader_handoff_observed": true,
+  "data_mount_observed": false
 }

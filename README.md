@@ -54,7 +54,18 @@ SM8650 存储寄存器证据在 `hardware/sm8650-ufs.json`。
 Data 卷 run `39521758751` 已成功。32 MiB APFS 种子已下载到本机，
 SHA256、容器大小和超级块校验均通过，包含原始初始 var 树的 39 个文件。
 卷 UUID 为 `9E4C0509-9215-4EC5-872F-0254D84A223C`，验证记录见
-`hardware/data-seed.json`。它尚未接入当前内核，也未在手机上挂载。
+`hardware/data-seed.json`。
+现已把原始 Data 种子作为 dense `RAMDisk` 加入 FAT 负载，设置 `initrd` 路径、
+ADT `RAMDisk` 占位项和易失 Data 属性；现有内核包含标准 memdev 支持。
+本轮未开启依赖未完成根卷链路的自动 Data 挂载，也未引入尚未资格验证的存储类绑定。
+内核/ADT/Data 所需交接内存为 103,743,488 字节，位于 256 MiB 窗口内。
+
+UEFI run `39526260528` 与新负载匹配。实机截图确认 Data 启动项、S14 Success、
+DarwinBoot inputs validated 和绿色交接标记；XNU 执行、Data 设备注册及挂载仍未确认。
+验证记录在 `hardware/data-handoff-verified.json`，本机临时启动镜像在
+`out/verified-data-handoff/`。这是内存 Data，重启不保存运行时改动。
+后续 XNU Actions 会下载固定的 Data 种子 artifact，生成并核验 `giulia-xnu-data`
+负载；对应 `data-uefi-identity.json` 必须随负载一起用于下一次 UEFI 身份绑定。
 同一轮已保存约 5.14 GB 的 OS 固件缓存，后续匹配缓存键的 Data 任务可复用。
 
 设备为 PKG110 / SM8650，当前 Android 16 固件为

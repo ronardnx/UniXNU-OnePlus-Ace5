@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-21",
+  "uefi_run": 39526260528,
+  "kernel_run": 39511969648,
+  "data_seed_run": 39521758751,
+  "image_sha256": "5467a0d3cb0368d663582a5df1726050b112ebef57767a116ac69b82fbfdf8af",
+  "image_bytes": 203501568,
+  "data_bytes": 33554432,
+  "data_sha256": "b8da57026c3ccc7b7e11c2b08495cefbc788fac8d4b678166e39a35928b9a85b",
+  "data_volume_uuid": "9E4C0509-9215-4EC5-872F-0254D84A223C",
+  "data_transport": "dense RAMDisk",
+  "observed": {
+    "payload_found_and_crc_valid": true,
+    "data_entry_visible": true,
+    "darwinboot_inputs_validated": true,
+    "darwin_enter_green_bar": true,
+    "xnu_execution_confirmed": false,
+    "data_mounted": false
+  },
+  "storage_writes_performed": false,
+  "boot_method": "fastboot boot"
+}
