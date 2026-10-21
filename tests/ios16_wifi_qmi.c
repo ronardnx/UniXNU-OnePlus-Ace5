@@ -52,7 +52,7 @@ static int send_packet(void *ctx,const void *v,size_t n) {
     if(msg==0x3c) {
         a=gwq_field(t,len,1,&z);assert(a&&z==8);uint64_t pa=gwq_u64(a);
         assert(pa>=0x20000000 && pa-0x20000000<=sizeof(f->ram)-sizeof(f->phy));
-        assert(!memcmp(f->ram+pa-0x20000000,f->phy,sizeof(f->phy)));
+        assert(!memcmp(f->ram+(pa-0x20000000),f->phy,sizeof(f->phy)));
         a=gwq_field(t,len,2,&z);assert(a&&z==4&&gwq_u32(a)==sizeof(f->phy));f->phase=4;
     }
     if(msg==0x23)f->configs++;
