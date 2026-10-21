@@ -1,6 +1,7 @@
 """Generate Ace 5 Darwin 22 ADT; RAM is allocated by UEFI, not hardcoded."""
 import argparse
 import runpy
+import re
 import struct
 import sys
 from pathlib import Path
@@ -11,9 +12,17 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--memory',type=lambda x:int(x,0),default=0x80000000)
     p.add_argument('--gui',action='store_true')
+    p.add_argument('--wifi-mac',help='Stable unicast address for MobileGestalt identity; does not enable Wi-Fi transport')
     p.add_argument('--product-adt',type=Path,help='Local unwrapped D22AP ADT from the verified IPSW')
     a=p.parse_args()
     if a.gui and not a.product_adt:p.error('GUI requires the verified local D22AP product ADT')
+    wifi_mac=None
+    if a.wifi_mac:
+        if not a.gui or not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',a.wifi_mac):
+            p.error('--wifi-mac requires GUI and six colon-separated hexadecimal octets')
+        wifi_mac=bytes.fromhex(a.wifi_mac.replace(':',''))
+        if not any(wifi_mac) or wifi_mac[0]&1:
+            p.error('Wi-Fi identity must be a nonzero unicast address')
     if not 0x10000000<=a.memory<=0x200000000 or a.memory&0x1fffff:
         p.error('Memory request must match the DarwinBoot window bounds')
     sys.path.insert(0,str(a.reference/'tools'))
@@ -40,6 +49,11 @@ def main():
                   'firmware-version':b'giulia-darwin22-uefi\0'})
     if a.gui:
         props(chosen,{'unique-chip-id':struct.pack('<Q',0x4749554C49410001)})
+        if wifi_mac is not None:
+            # iOS16 MobileGestalt reads this CFData before falling back to
+            # IONetworkController matching. The port has no network transport
+            # driver yet; without identity data, lsd can wait here indefinitely.
+            props(chosen,{'mac-address-wifi0':wifi_mac})
     cpus=next(n for n in tree.children if n.name=='cpus')
     props(cpus.children[0],{'compatible':b'qcom,kryo\0ARM,v8\0'})
     fb=next(n for n in tree.children if n.name=='sweet-fbcon')
