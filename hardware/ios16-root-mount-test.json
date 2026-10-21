@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-21",
+  "device": "OnePlus Ace 5 PKG110",
+  "user_reported_userdata_flash_complete": true,
+  "userdata_image_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+  "root_finder_id": "34320965bfe52d66",
+  "boot_image": "out/ios16/root-mount/giulia-ios16-root-mount.img",
+  "boot_image_sha256": "398d3707a4b3b6652e2cd5c6c34bff32b6dcb4863a2eb812b8957b865eea0190",
+  "kernel_sha256": "0743e01a8f10d4ebe0f3e04a1dacadc2614440dde17cd57945072c225949702d",
+  "boot_method": "fastboot boot",
+  "fastboot_transfer_ok": true,
+  "fastboot_boot_command_ok": true,
+  "default_entry": "ios16",
+  "read_write_requested": true,
+  "root_header_verified_on_device": false,
+  "root_mounted": false,
+  "userspace_started": false,
+  "observations_pending": true,
+  "first_attempt_usb": "User screenshot: Windows unknown USB device, descriptor request failed, code 43",
+  "retry": {
+    "user_reentered_fastboot": true,
+    "fastboot_transfer_ok": true,
+    "fastboot_boot_command_ok": true,
+    "same_image": true,
+    "screen_observation": null,
+    "usb_observation": "Windows again reports Unknown USB Device (Device Descriptor Request Failed); ACE5DBG001 serial port not available"
+  },
+  "next_step": "Obtain current handset screen to distinguish kernel panic/root-mount failure from USB enumeration failure. Do not infer root mount success from fastboot OKAY."
+}

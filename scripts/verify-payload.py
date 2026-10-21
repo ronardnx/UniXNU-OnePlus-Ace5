@@ -38,6 +38,14 @@ with tempfile.TemporaryDirectory() as directory:
     entry=next(e for e in config['entry'] if e['id']=='xnu')
     if entry['type']!='xnu' or entry['args']!=report['kernel_args']:
         raise SystemExit('Unexpected boot entry')
+    if report.get('root_finder_id'):
+        roots=[e for e in config['entry'] if e['id']=='ios16']
+        expected=report['kernel_args'].replace(' giulia_ufs_probe=1','')
+        expected+=' vermeer_ufs_rw=1 vermeer_root_uuid='+report['root_finder_id']
+        if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']
+                or roots[0]['args']!=expected or config['boot']['default']!=report['default_entry']):
+            raise SystemExit('Root entry/default/volume identity mismatch')
+        print('Root mount entry, explicit write enable, volume identity and default selection verified')
     if report.get('dram_handoff'):
         blob=(temporary/'kernel.macho.adt').read_bytes()
         nodes={}
