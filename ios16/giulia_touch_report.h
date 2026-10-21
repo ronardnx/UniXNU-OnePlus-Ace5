@@ -28,8 +28,11 @@ struct gt_frame { uint16_t active; unsigned count; struct gt_event events[GT_CON
 
 static inline int gt_config_matches(const uint8_t *config,size_t size)
 {
-    if (!config || size!=sizeof(gt_report_config)) return 0;
-    for(size_t i=0;i<size;i++) if(config[i]!=gt_report_config[i]) return 0;
+    if (!config || size<sizeof(gt_report_config) || size>512) return 0;
+    for(size_t i=0;i<sizeof(gt_report_config);i++) if(config[i]!=gt_report_config[i]) return 0;
+    /* The application may return its complete fixed-size configuration buffer.
+     * Only zero END padding is accepted after our exact descriptor. */
+    for(size_t i=sizeof(gt_report_config);i<size;i++) if(config[i]) return 0;
     return 1;
 }
 

@@ -177,15 +177,17 @@ static void gt_thread(__unused void *arg,__unused wait_result_t result)
     if(bus.max_write<sizeof(gt_report_config)+3){err=12;goto done;}
     err=gw_command(&bus,0x20,NULL,0,&msg);if(err)goto done;
     if(msg.size<40 || gw_le16(msg.data+2) || gw_le16(msg.data+36)>GT_CONTACTS){err=13;goto done;}
-    unsigned mx=gw_le16(msg.data+32),my=gw_le16(msg.data+34);
-    if(!mx || !my){err=14;goto done;}
+    unsigned mx=gw_le16(msg.data+32),my=gw_le16(msg.data+34),config_size=gw_le16(msg.data+12);
+    if(!mx || !my || config_size<sizeof(gt_report_config) || config_size>GW_MAX ||
+       config_size+3>bus.max_write){err=14;goto done;}
     printf("GIULIA TOUCH: app max=%ux%u objects=%u\n",mx,my,gw_le16(msg.data+36));
     uint8_t raw=0x23,lbp[3]={0x11,2,0},touch=0x11;
     err=gw_command(&bus,6,&raw,1,&msg);if(err)goto done;
     err=gw_command(&bus,0x24,lbp,3,&msg);if(err)goto done;
     err=gw_command(&bus,0x23,lbp,1,&msg);if(err)goto done;
     if(msg.size!=2 || gw_le16(msg.data)!=2){err=15;goto done;}
-    err=gw_command(&bus,0x26,gt_report_config,sizeof(gt_report_config),&msg);if(err)goto done;
+    uint8_t config[GW_MAX]={0};memcpy(config,gt_report_config,sizeof(gt_report_config));
+    err=gw_command(&bus,0x26,config,config_size,&msg);if(err)goto done;
     err=gw_command(&bus,0x25,NULL,0,&msg);if(err)goto done;
     if(!gt_config_matches(msg.data,msg.size)){err=16;goto done;}
     err=gw_command(&bus,5,&touch,1,&msg);if(err)goto done;

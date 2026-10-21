@@ -1,0 +1,26 @@
+{
+  "image_sha256": "1fcdeffa431fd8986f7518abb02f31506411be1f9aab5525dc27af70271e5971",
+  "source_log": "out/ios16/gui-boot-39583173365/usb-stalled-status.log",
+  "symbolicated_log": "out/ios16/gui-boot-39583173365/symbolicated-waits.txt",
+  "symbolicated_sha256": "1caddc676ed82cbbe69544d74f2d25f22907fd4bdde66277d990f6a11537b238",
+  "symbol_source": "dyld cache extracted read-only from the verified local iOS16 userdata image",
+  "tool": "blacktop/ipsw v3.1.739, official release SHA256 verified",
+  "slide": "0x32498000",
+  "SpringBoard_main_wait": [
+    "BKSSystemShellService _checkIn",
+    "BSXPCServiceConnectionMessage sendSynchronouslyWithError:",
+    "xpc_connection_send_message_with_reply_sync",
+    "mach_msg2_trap"
+  ],
+  "backboardd_migration_wait": [
+    "DMPerformMigration",
+    "DMClientAPIController _migrateWithConnection:checkNecessity:lastRelevantPlugin:testMigrationInfrastructureOnly:",
+    "DMConnection migrateCheckingNecessity:lastRelevantPlugin:testMigrationInfrastructureOnly:",
+    "DMXPCConnection sendMessageSync:",
+    "xpc_connection_send_message_with_reply_sync"
+  ],
+  "conclusion": "GUI startup waits for DataMigration; deeper migration blocker not yet sampled",
+  "physical_touch_causation": "not established",
+  "original_image_migration_preference_exists": false,
+  "live_phone_migration_preferences": "not read; original image is not the current mutated phone volume"
+}

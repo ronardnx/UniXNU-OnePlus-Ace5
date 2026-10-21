@@ -22,6 +22,9 @@ int main(void)
     config[4]=4;assert(!gt_config_matches(config,sizeof(config)));
     assert(!gt_config_matches(NULL,0));
     assert(!gt_config_matches(gt_report_config,sizeof(gt_report_config)-1));
+    uint8_t padded[128]={0};memcpy(padded,gt_report_config,sizeof(gt_report_config));
+    assert(gt_config_matches(padded,sizeof(padded)));
+    padded[127]=1;assert(!gt_config_matches(padded,sizeof(padded)));
     uint8_t data[61]={1};contact(data+1,0,1,20224,44480);
     struct gt_state s={0};struct gt_frame frame={0};
     assert(!gt_decode(0x11,data,7,20224,44480,1,&s,&frame));
