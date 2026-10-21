@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
   kernel:
     runs-on: macos-15
@@ -32,10 +33,17 @@ jobs:
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
       - name: Check first-entry device tree
         run: python3 -m unittest discover -s tests -v
+      - name: Fetch the verified Data seed artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          seed_run=$(python3 -c 'import json; print(json.load(open("hardware/data-seed.json"))["run_id"])')
+          gh run download "$seed_run" --repo "$GITHUB_REPOSITORY" --name giulia-initial-data-seed --dir "$RUNNER_TEMP/data-seed"
       - name: Build XNU and first-entry payload
         env:
           GH_TOKEN: ${{ github.token }}
           UNIXNU_IPSW_CACHE: ${{ runner.temp }}/kernel-ipsw
+          GIULIA_DATA_SEED_DIR: ${{ runner.temp }}/data-seed
         shell: bash
         run: |
           set -o pipefail
@@ -71,4 +79,13 @@ jobs:
             xnu-build.log
             ${{ runner.temp }}/ace5-xnu/bootstrap.log
             ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/logs/
+          retention-days: 14
+      - name: Upload Data-integrated payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: giulia-xnu-data
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/payload-data/
+            ${{ runner.temp }}/ace5-xnu/UniXNU/out/giulia/data-uefi-identity.json
           retention-days: 14

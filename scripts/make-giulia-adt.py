@@ -48,6 +48,8 @@ def main():
     p.add_argument('--cpu-regs', choices=['0'], default='0')
     p.add_argument('--psci-method', choices=['smc'], default='smc')
     p.add_argument('--trust-cache', action='store_true')
+    p.add_argument('--data-ramdisk', action='store_true',
+                   help='Hand a dense APFS Data seed to the standard XNU RAMDisk path')
     args = p.parse_args()
     if args.dram_size != 0x10000000 or args.owned_memory_size != 0x10000000:
         p.error('First-entry profile requires a 256 MiB handoff window')
@@ -60,11 +62,13 @@ def main():
     ], [
         node('chosen', [('random-seed', os.urandom(64)),
                         ('osenvironment', b'main\0'),
+                        *([('ephemeral-storage', u32(1))] if args.data_ramdisk else []),
                         ('dram-base', u64(0x80000000)), ('dram-size', u64(args.dram_size)),
                         ('darwinboot-memory-size', u64(args.owned_memory_size)),
                         ('crypto-hash-method', b'sha2-384\0'),
                         ('amfi-only-platform-code', u32(1)), *nvram_proxy()],
-             [node('memory-map', [('TrustCache', bytes(16))] if args.trust_cache else []),
+             [node('memory-map', ([('RAMDisk', bytes(16))] if args.data_ramdisk else []) +
+                                 ([('TrustCache', bytes(16))] if args.trust_cache else [])),
               node('manifest-properties')]),
         node('cpus', children=[node('cpu0', [('state', b'running\0'), ('reg', u32(0)),
              ('device_type', b'cpu\0'), ('compatible', b'qcom,kryo\0'),

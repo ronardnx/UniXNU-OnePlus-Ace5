@@ -57,3 +57,11 @@ fi
 python3 unixnu build kernel -D "$port_root" -j 3 "${kernel_options[@]}"
 python3 unixnu build payload -D "$port_root"
 python3 "$port_root/scripts/verify-payload.py" "$work/UniXNU/out/giulia/payload"
+if [[ -n "${GIULIA_DATA_SEED_DIR:-}" ]]; then
+  python3 "$port_root/scripts/integrate-data.py" \
+    --base "$work/UniXNU/out/giulia/payload" \
+    --seed "$GIULIA_DATA_SEED_DIR/owner-data-32.cdr" \
+    --out "$work/UniXNU/out/giulia/payload-data" \
+    --identity "$work/UniXNU/out/giulia/data-uefi-identity.json"
+  python3 "$port_root/scripts/verify-payload.py" "$work/UniXNU/out/giulia/payload-data"
+fi

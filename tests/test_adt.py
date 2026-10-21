@@ -63,5 +63,15 @@ class FirstEntryDeviceTree(unittest.TestCase):
             self.assertNotEqual(result.returncode,0)
             self.assertFalse(path.exists())
 
+    def test_dense_data_handoff(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'data.adt'
+            subprocess.run([sys.executable,str(ROOT/'scripts/make-giulia-adt.py'),
+                '--output',str(path),'--dram-size','0x10000000','--data-ramdisk'],check=True)
+            nodes=decode(path.read_bytes())
+        self.assertEqual(nodes['/device-tree/chosen/memory-map']['RAMDisk'],bytes(16))
+        self.assertNotIn('PackedRAMDisk',nodes['/device-tree/chosen/memory-map'])
+        self.assertEqual(nodes['/device-tree/chosen']['ephemeral-storage'],struct.pack('<I',1))
+
 if __name__ == '__main__':
     unittest.main()

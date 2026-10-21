@@ -1,8 +1,10 @@
 {
-  "run_id": 39511969648,
+  "base_kernel_run": 39511969648,
+  "data_seed_run": 39521758751,
   "payload_bytes": 201326592,
-  "payload_crc32": "e31d6c72",
-  "payload_sha256": "57d64c06e51faf1adac0a219d2b3304e6b9d15cef169e5a60b4bd94e5f9b55e6",
+  "payload_crc32": "24c03007",
+  "payload_sha256": "4fea89d736bc3820696364a899ec710256a03d650802b1d281f894ddcf83b1d3",
   "kernel_sha256": "5de566bab4ffbcf7b67905249fdeff50037996bb6f22bfe20b446fab48d2e5f6",
-  "purpose": "Qualified identity for accidental-stale-data rejection, not a signature replacement"
+  "data_sha256": "b8da57026c3ccc7b7e11c2b08495cefbc788fac8d4b678166e39a35928b9a85b",
+  "purpose": "XNU with APFS Data seed handoff; system root not yet mounted"
 }
