@@ -1,0 +1,9 @@
+{
+  "uefi_run": 39536886378,
+  "image_sha256": "524c5e70e2f8b63f6700591fefeb333d1f2eefdc9d665989ef1773f46e14c107",
+  "boot_method": "fastboot boot",
+  "transfer_and_boot_ok": true,
+  "screen_observation": "User confirms fourth yellow band",
+  "arm_init_entry_confirmed": true,
+  "automatic_reset": false
+}

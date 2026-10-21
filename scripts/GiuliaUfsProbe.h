@@ -5,6 +5,7 @@
 #include <IOKit/IOMemoryDescriptor.h>
 #include <kern/debug.h>
 #include <pexpert/arm64/boot.h>
+#include <machine/machine_routines.h>
 
 // Same prefix used by the freestanding panic renderer; no dependency on the
 // normal console becoming active. Mapping lifetime covers the stopping survey.
@@ -31,12 +32,11 @@ static uint32_t giuliaRead(uintptr_t base, unsigned offset)
   return *reinterpret_cast<volatile const uint32_t *>(base + offset);
 }
 
-static void giuliaUfsProbe(void)
+extern "C" void giulia_early_console(void)
 {
   unsigned requested = 0;
   PE_parse_boot_argn("giulia-ufs-probe", &requested, sizeof(requested));
-  if (requested != 1) return;
-  OSSharedPtr<IOMemoryMap> framebufferMap;
+  if (requested != 1 || giulia_panic_vinfo.base) return;
   const boot_args *boot = static_cast<const boot_args *>(PE_state.bootArgs);
   if (boot) {
     const Boot_Video &video = boot->Video;
@@ -46,7 +46,7 @@ static void giuliaUfsProbe(void)
         video.v_rowBytes <= 16384 && video.v_baseAddr >= 0xd5100000ULL &&
         video.v_baseAddr < 0xd7c00000ULL &&
         video.v_rowBytes * video.v_height <= 0xd7c00000ULL - video.v_baseAddr) {
-      uintptr_t frame = giuliaMap(video.v_baseAddr, video.v_rowBytes * video.v_height, framebufferMap);
+      uintptr_t frame = ml_io_map_wcomb(video.v_baseAddr, video.v_rowBytes * video.v_height);
       if (frame) {
         giulia_panic_vinfo = {2780, 1264, 32, static_cast<uint32_t>(video.v_rowBytes), frame};
         for (unsigned y = 2780 * 3 / 16; y < 2780 * 4 / 16; ++y)
@@ -56,6 +56,14 @@ static void giuliaUfsProbe(void)
       }
     }
   }
+}
+
+static void giuliaUfsProbe(void)
+{
+  unsigned requested = 0;
+  PE_parse_boot_argn("giulia-ufs-probe", &requested, sizeof(requested));
+  if (requested != 1) return;
+  giulia_early_console();
   OSSharedPtr<IOMemoryMap> clocksMap, memoryMap, hostMap, smmuMap;
   uintptr_t clocks = giuliaMap(0x177000, 0x1000, clocksMap);
   uintptr_t memory = giuliaMap(0x19e000, 0x1000, memoryMap);
