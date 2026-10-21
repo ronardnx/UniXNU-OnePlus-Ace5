@@ -1,0 +1,230 @@
+{
+  "date": "2026-10-21",
+  "status": "Coordinated baseline userdata and full-log boot complete; host verification passed; awaiting one integrated device boot after manual userdata flash",
+  "authorized_choice": "Use upstream clean-root migration baseline; prioritize reaching Setup while retaining Setup itself",
+  "source_commit": "1e81a4f",
+  "kernel_build_run": 39629676117,
+  "upstream_evidence": [
+    {
+      "project": "ios-vermeer-lab",
+      "revision": "d1dcb06ff1d8fa57acc54051ae87d31c97e771db",
+      "url": "https://github.com/xyyyds0106/ios-vermeer-lab/blob/d1dcb06ff1d8fa57acc54051ae87d31c97e771db/README.md",
+      "finding": "Same app installation/account migration wait; version baseline applied and Hello observed; not proof that migration plugins completed"
+    },
+    {
+      "project": "ios-vermeer-lab",
+      "url": "https://github.com/xyyyds0106/ios-vermeer-lab/blob/d1dcb06ff1d8fa57acc54051ae87d31c97e771db/xnu/vermeer/vermeer_migration_transaction.h",
+      "finding": "Exact LastSystemVersion and DMUserDataDisposition schema adopted at host image construction"
+    },
+    {
+      "project": "ios-topaz",
+      "revision": "89451b811a4e6cc5cdcf734c45887163d92c599e",
+      "url": "https://github.com/MakrSas/ios-topaz/blob/89451b811a4e6cc5cdcf734c45887163d92c599e/tools/sweet-root-tweaks.py",
+      "finding": "Same baseline plus additional Setup/activation changes; Setup/activation changes not adopted"
+    },
+    {
+      "project": "UniXNU",
+      "revision": "97de9e715e06d77b8ebe7b80f6e556ee7ab9a7e9",
+      "url": "https://github.com/UniXNU/UniXNU/blob/97de9e715e06d77b8ebe7b80f6e556ee7ab9a7e9/docs/zh/guide/skip-setup.md",
+      "finding": "17.x root uses its corresponding build baseline and setup skip; version-specific values not copied"
+    },
+    {
+      "project": "ios-sweet",
+      "url": "https://github.com/dipa-studio/ios-sweet/blob/425b25102b6a9ee4b68fb2b9ca5d6a086b8a4116/xnu/patches/0070-sweet-pid-hibernate.patch",
+      "finding": "iOS lifecycle pid_hibernate compatibility prevents SpringBoard SIGSYS on returning from an app; generic patch adopted"
+    }
+  ],
+  "logging": {
+    "ram_ring_bytes": 33554432,
+    "stdout_stderr": "all processes; short hexadecimal records preserve every byte including NUL and split UTF-8",
+    "process_lifecycle": "EXEC and EXIT for healthy and failing services",
+    "stack_sampling": "all user processes; every 120 seconds; no fixed round-count shutdown; up to 64 frames per thread with explicit end/limit records",
+    "host_capture": "continuous raw stream, 64 MiB parts, reconnect and status counters, UTC host events",
+    "decoder": "per-process byte streams plus kernel events; supports a record spanning rotated files",
+    "transport_loss_must_be_checked_on_device": true
+  },
+  "userdata": {
+    "build": "20H392",
+    "migration_completion_seeded": true,
+    "normal_migration_enabled": false,
+    "container_directories": [
+      "/private/var/containers",
+      "/private/var/containers/Bundle",
+      "/private/var/containers/Data",
+      "/private/var/containers/Data/System",
+      "/private/var/containers/Shared",
+      "/private/var/containers/Shared/SystemGroup",
+      "/private/var/containers/Temp"
+    ],
+    "scope": "fresh-root migration baseline; setup retained; no runtime preference mutation",
+    "hardware_verified": false,
+    "startup_compatibility": {
+      "disabled_launchd_jobs": [
+        "/System/Library/LaunchDaemons/com.apple.CommCenter.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenter-noncellular.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenterRootHelper.plist",
+        "/System/Library/LaunchDaemons/com.apple.CommCenterMobileHelper.plist"
+      ],
+      "configuration_changes": [
+        {
+          "path": "/System/Library/xpc/launchd.plist",
+          "before_sha256": "810070302b5c4d7c5f00bdc8df20aaea2dd33cd8342d2402fcdf7ff6397d374c",
+          "after_sha256": "4a70a9d2df1c4df78e9ab47aa0035b5424ee4fa7c9d53b6e69950301429c21bb"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/D22/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/D221/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        },
+        {
+          "path": "/System/Library/Frameworks/MediaToolbox.framework/Default/SubServerConfiguration.plist",
+          "before_sha256": "73f332a1eb51d9244f3ebf4df793c538c0d5d77b61c8301925a2de1f030e1d85",
+          "after_sha256": "97c5b5839cdac6de8eef5decce0845d1af29d2ef085910683329451ccfc7f648"
+        }
+      ],
+      "audio_plugin_moved_to": "/Library/Audio/Plug-Ins/HAL.disabled/VirtualAudio.plugin",
+      "springboard_preferences": {
+        "BKNoWatchdogs": true,
+        "FBLaunchWatchdogExceptions": {
+          "com.apple.purplebuddy": 100
+        }
+      },
+      "reason": "No baseband/audio/GPU drivers; single-CPU software GUI bring-up",
+      "setup_completion_seeded": false,
+      "activation_state_seeded": false,
+      "migration_completion_seeded": false,
+      "hardware_verified": false
+    },
+    "migration_baseline_source": "https://github.com/xyyyds0106/ios-vermeer-lab/blob/d1dcb06ff1d8fa57acc54051ae87d31c97e771db/xnu/vermeer/vermeer_migration_transaction.h",
+    "migration_baseline": {
+      "LastSystemVersion": "20H392",
+      "DMUserDataDisposition": {
+        "SyntheticDidUpgrade": false,
+        "buildVersion": "20H392"
+      }
+    },
+    "setup_completion_seeded": false,
+    "activation_state_seeded": false,
+    "full_boot_logging": {
+      "launch_daemon_count": 528,
+      "environment": {
+        "OS_ACTIVITY_DT_MODE": "YES",
+        "OS_ACTIVITY_MODE": "debug",
+        "CFLOG_FORCE_STDERR": "YES",
+        "ACTIVITY_LOG_STDERR": "YES"
+      },
+      "launchd_before_sha256": "4a70a9d2df1c4df78e9ab47aa0035b5424ee4fa7c9d53b6e69950301429c21bb",
+      "launchd_after_sha256": "67d5251f2b3bb5621b0a5ebfefe99f3325e40131774602f2f05a95d8ee8bd295"
+    },
+    "source_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+    "source_unchanged": true,
+    "bytes": 17179869184,
+    "sha256": "8136ac0905a90af79430c4ebc56231f2ad3ec947fe3c9b9c120fd9b58857ba3e",
+    "block_size": 4096,
+    "hfs_finder_id": "34320965bfe52d66",
+    "raw_file": "giulia-ios16-userdata.img",
+    "partition_table": false,
+    "filesystem_check_passed": true,
+    "filesystem_check_mode": "full fsck with stable verification SHA256",
+    "numeric_ownership_verified": true,
+    "target_partition": "userdata",
+    "flashed": false,
+    "path": "out/ios16/userdata-baseline-full-log/giulia-ios16-userdata.img"
+  },
+  "content_verification": {
+    "independent_hfsx_readback": true,
+    "baseline_matches_upstream": true,
+    "baseline_owner_mode": [
+      501,
+      501,
+      "0600"
+    ],
+    "launchd_jobs_with_full_log_environment": 528,
+    "setup_preferences_unchanged": [
+      "/private/var/mobile/Library/Preferences/com.apple.purplebuddy.plist",
+      "/private/var/mobile/Library/Preferences/com.apple.purplebuddy.notbackedup.plist",
+      "/private/var/mobile/Library/Preferences/com.apple.managedconfiguration.notbackedup.plist"
+    ],
+    "account_and_install_service_binaries_unchanged": true,
+    "application_relocation_applied": false
+  },
+  "setup_retained": true,
+  "activation_state_seeded": false,
+  "application_relocation_applied": false,
+  "no_runtime_preference_mutation_helper": true,
+  "hardware_verified": false,
+  "handset_rebooted_this_batch": false,
+  "handset_flashed_this_batch": false,
+  "kernel_build_conclusion": "success",
+  "kernel_artifact_id": 12359400087,
+  "kernel_artifact_sha256": "81176bc120865f1debec2cef930dadaa7354de982567f62b3bc8c77e06b6f725",
+  "kernel_sha256": "ce118313ebc5b9dc49166f410958fa4fd0bb6da9d3d248904abb67819a5b665f",
+  "boot_image": {
+    "path": "out/ios16/baseline-full-log-boot/giulia-ios16-touch-trace.img",
+    "firmware_sha256": "e01c045429f0c756e1d24544ce5062ceb171ccce15984979441f96b8d19a34bd",
+    "payload_sha256": "b03c3dc9e14a5341a79c86a1d7442a497e3ed3d45faec58064d0fc7aa7befa89",
+    "sha256": "7c3775509a8108e1c7dc6ffefb75a23f42c086f4e8a9a426943b9be2d73cbf97",
+    "bytes": 69275648,
+    "header_version": 3,
+    "payload_crc32": "f7ad6783",
+    "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
+    "hardware_tested": false
+  },
+  "payload": {
+    "payload_bytes": 67108864,
+    "payload_sha256": "b03c3dc9e14a5341a79c86a1d7442a497e3ed3d45faec58064d0fc7aa7befa89",
+    "payload_crc32": "f7ad6783",
+    "payload_kernel_sha256": "ce118313ebc5b9dc49166f410958fa4fd0bb6da9d3d248904abb67819a5b665f",
+    "kernel_sha256": "ce118313ebc5b9dc49166f410958fa4fd0bb6da9d3d248904abb67819a5b665f",
+    "adt_sha256": "f7573d49683cb109c730886fec35aad25ee215f7812ba169a7561dcf1a12428d",
+    "kernel_args": "-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1 giulia_ufs_probe=1",
+    "dram_handoff": "darwinboot-allocated-window",
+    "platform_match": {
+      "platform_class": "SweetPlatformExpert",
+      "platform_match": "oneplus,giulia",
+      "cpu_class": "SweetCPU",
+      "cpu_match": "qcom,kryo",
+      "legacy_platform_alias": false,
+      "gui": true
+    },
+    "hardware_tested": false,
+    "purpose": "iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash",
+    "root_sha256": "8136ac0905a90af79430c4ebc56231f2ad3ec947fe3c9b9c120fd9b58857ba3e",
+    "root_finder_id": "34320965bfe52d66",
+    "default_entry": "ios16",
+    "root_kernel_args": "-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1 vermeer_ufs_rw=1 vermeer_root_uuid=34320965bfe52d66 unentitled_ios_sim_launch=1 launchd_unsecure_cache=1 sweetfb_hz=30 sweetfb_noconsole=1 sweetsample=* sweetnull=* giulia_bootlog=1 giulia_touch=1 giulia_touch_gpio=1",
+    "ios_platform_launch_compat": true,
+    "launchd_job_cache_compat": true,
+    "trace_services": true,
+    "service_sample_names": "*",
+    "service_stderr_trace": true,
+    "service_stderr_names": "*",
+    "service_trace_profile": "all",
+    "complete_boot_logging": true,
+    "physical_touch_worker": true,
+    "touch_clock_handoff": true,
+    "touch_gpio": true,
+    "trust_catalog": {
+      "sha256": "2d97b2a4e114c7303f5521814b8ae67bb85c66e4628fefbb13fe38a3fdba555d",
+      "bytes": 68512,
+      "build": "20H392",
+      "source_ipsw_sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+      "unique_hashes": 2851
+    }
+  },
+  "verification": {
+    "filesystem_and_stable_whole_image_digest": true,
+    "independent_content_readback": true,
+    "baseline_schema_tests": 2,
+    "byte_encoding_all_256_values_and_bounds": true,
+    "decoder_rotation_and_replay_tests": 2,
+    "capture_script_syntax": true,
+    "dram_handoff_cases": 22,
+    "payload_and_boot_binding": true
+  }
+}

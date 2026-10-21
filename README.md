@@ -6,7 +6,32 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
 尚未进入可操作界面；正在定位安装服务阻塞，触控芯片身份和触点报文已验证。
 
-## 当前整合修复包（2026-10-21，查询接口已生效，迁移仍等待）
+## 当前交付：上游迁移基线与全量启动日志（待实机）
+
+采用 K70 `ios-vermeer-lab` 已实机进入设置界面的干净根卷迁移基线，
+在镜像构建阶段写入 `LastSystemVersion=20H392` 和对应 `DMUserDataDisposition`。
+这是明确选择的启动初始化方案，不表示原来的安装回调已经完成。
+设置向导与激活状态保持原样；不再使用内核运行时修改迁移偏好的旧实验。
+
+- 新 userdata：`out/ios16/userdata-baseline-full-log/giulia-ios16-userdata.img`，
+  单份 16 GiB 原始镜像，SHA256
+  `8136ac0905a90af79430c4ebc56231f2ad3ec947fe3c9b9c120fd9b58857ba3e`。
+  文件系统复检、整盘稳定哈希、501:501/0600 基线权限和设置偏好保留检查通过。
+- 配套启动包：`out/ios16/baseline-full-log-boot/giulia-ios16-touch-trace.img`，
+  SHA256 `7c3775509a8108e1c7dc6ffefb75a23f42c086f4e8a9a426943b9be2d73cbf97`。
+  负载、内存交接与启动头检查通过。新内核 CI
+  `39629676117`（源码 `1e81a4f`）编译通过；含官方信任查询和 `pid_hibernate`
+  兼容修复，保留之前的触摸、显示与内存交接。
+- 全量日志：所有进程的标准输出／错误按短十六进制记录保留原字节；记录正常
+  启动、正常退出、异常退出及退出原因；全进程周期栈采样不再在 40 轮后停止。
+  每线程最多 64 帧，逐帧输出并注明结束或深度限制；RAM 日志环为 32 MiB。
+- 528 个启动作业开启详细日志环境。`scripts/capture-ios16-full.ps1` 连续接收、
+  64 MiB 自动分卷、断线重连并保存状态计数；`scripts/decode-ios16-full-log.py`
+  还原各进程原始输出，处理跨卷记录，汇总丢失计数和记录不完整的证据。
+- 所有主机检查与上游依据记录在 `hardware/ios16-baseline-full-log.json`。
+  userdata 由用户手动刷入后，再临时启动配套镜像并连续记录整次启动。
+
+## 历史整合包：查询接口已生效，迁移仍等待
 
 本次串口实测：官方缓存查询服务已注册，`lsd` 和 `installd` 的 selector 6
 均返回匹配成功。当前卡在 SystemAppMigrator **第一组**安装回调等待
