@@ -6,7 +6,7 @@
   "kernel_sha256": "32041c26bf19b2c7a98cbdc6da953d67c82287afaac2cd2193691ba88138819e",
   "boot_method": "fastboot boot",
   "transfer_and_boot_ok": true,
-  "screen_observation": "awaiting user",
+  "screen_observation": "User photo: green, blue, magenta and white bands; no UFS READ OK or failure text visible",
   "disk_read_verified": false,
   "root_mounted": false
 }

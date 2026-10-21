@@ -1,0 +1,20 @@
+{
+  "system_route": "ios-sweet iPhone X iOS 16.7.16 on journaled HFSX",
+  "sweet": {
+    "url": "https://github.com/dipa-studio/ios-sweet.git",
+    "readme_revision": "4c7cc91ea672b3ec539ad1d45f5c96784aa43f25",
+    "reference_patch_revision": "11da58bd050672960c0a83b5bef2176047eea479"
+  },
+  "vermeer": {
+    "url": "https://github.com/xyyyds0106/ios-vermeer-lab.git",
+    "revision": "d68e05df683f863f054b0f9c063c54d2b1342b2a",
+    "purpose": "Reference SM8550 integration and native USB CDC ACM; hardware settings must be adapted to SM8650"
+  },
+  "build_tool": {
+    "url": "https://github.com/blacktop/darwin-xnu-build.git",
+    "revision": "663906528d1cd5ea8fde7de6f16de73db9511549",
+    "macos_version": "13.5"
+  },
+  "target": {"model": "PKG110", "soc": "SM8650", "cpu_count": 1},
+  "hardware_verified": false
+}

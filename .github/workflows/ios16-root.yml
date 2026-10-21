@@ -1,0 +1,39 @@
+name: Ace 5 ios-sweet HFSX base root
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  root:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore pinned firmware
+        id: firmware
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/ios16/source.ipsw
+          key: ios16-20H392-ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb
+      - name: Verify firmware and extract erase identity
+        run: python3 -u scripts/ios16-source.py --out "$RUNNER_TEMP/ios16"
+      - name: Save firmware independently of root build
+        if: steps.firmware.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/ios16/source.ipsw
+          key: ios16-20H392-ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb
+      - name: Create and verify HFSX root
+        run: sudo "$(command -v python3)" -u scripts/ios16-root-macos.py --source "$RUNNER_TEMP/ios16" --out "$RUNNER_TEMP/ios16-root"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ace5-ios16-hfsx-base
+          compression-level: 0
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/ios16-root/ios16-base.cdr.gz
+            ${{ runner.temp }}/ios16-root/root.json
+            ${{ runner.temp }}/ios16/source.json
+          retention-days: 14

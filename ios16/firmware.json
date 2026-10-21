@@ -1,0 +1,12 @@
+{
+  "product": "iPhone10,3",
+  "device_class": "d22ap",
+  "version": "16.7.16",
+  "build": "20H392",
+  "url": "https://updates.cdn-apple.com/2025FallFCS/fullrestores/122-77006/1158E502-D76D-4226-AA06-ED5E30CD1111/iPhone10,3,iPhone10,6_16.7.16_20H392_Restore.ipsw",
+  "bytes": 6171035648,
+  "sha1": "5606c298c1d908f8a48f617f0ceaf71f2a9f0193",
+  "sha256": "ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb",
+  "metadata_source": "https://api.ipsw.me/v4/device/iPhone10,3?type=ipsw",
+  "download_verified": false
+}
