@@ -192,7 +192,10 @@ def main():
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
-    if a.gui:checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
+    if a.gui:
+        checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
+        checker=checker.replace('logical canvas 1125x2436 centered in 1264x2780',
+                                'native panel 1264x2780 full coverage; UIKit canvas 1125x2436')
     (a.out/'check-kernel.py').write_text(checker)
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,

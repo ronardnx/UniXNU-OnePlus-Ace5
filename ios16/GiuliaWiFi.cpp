@@ -32,7 +32,6 @@ extern "C" {
 #include <net/kpi_interface.h>
 extern unsigned long gPhysBase,gPhysSize,gVirtBase;
 extern vm_offset_t ml_io_map(vm_offset_t,vm_size_t);
-extern const struct mach_header_64 _mh_execute_header;
 }
 #include "giulia_wifi_pci.h"
 #include "giulia_wifi_smmu.h"
@@ -78,7 +77,7 @@ static uint32_t gr32(vm_offset_t base,unsigned offset) {
 static void gw32(vm_offset_t base,unsigned offset,uint32_t n) {
     *(volatile uint32_t *)(base+offset)=n;__asm__ volatile("dsb oshst" ::: "memory");
 }
-static void gw_delay(void *,unsigned us) {if(us>=1000)IOSleep((us+999)/1000);else IODelay(us);}
+static void gw_delay(void *,unsigned us) {if(us>=1000)IOSleep((us+999)/1000);else if(us)IODelay(us);}
 static uint64_t gw_now(void *) {uint64_t ns=0;absolutetime_to_nanoseconds(mach_absolute_time(),&ns);return ns/1000000;}
 static uint32_t gp_read(void *v,unsigned space,unsigned offset) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
@@ -163,21 +162,24 @@ static int gw_handoff(void) {
 static bool gw_firmware(giulia_wifi_runtime *r) {
     const struct mach_header_64 *h=&_mh_execute_header;
     if(h->magic!=MH_MAGIC_64 || h->ncmds>128 || h->sizeofcmds>0x10000)return false;
-    const uint8_t *p=(const uint8_t *)(h+1);size_t left=h->sizeofcmds;const struct segment_command_64 *found=NULL;
+    const uint8_t *p=(const uint8_t *)(h+1);size_t left=h->sizeofcmds;struct segment_command_64 firmware;bzero(&firmware,sizeof(firmware));bool found=false;
     for(unsigned i=0;i<h->ncmds;i++) {
-        if(left<sizeof(struct load_command))return false;const struct load_command *c=(const struct load_command *)p;
-        if(c->cmdsize<8 || c->cmdsize>left)return false;
-        if(c->cmd==LC_SEGMENT_64 && c->cmdsize>=sizeof(struct segment_command_64)) {
-            const struct segment_command_64 *seg=(const struct segment_command_64 *)c;
-            if(!strncmp(seg->segname,"__WIFI_FW",16)){if(found)return false;found=seg;}
+        if(left<sizeof(struct load_command))return false;struct load_command command;memcpy(&command,p,sizeof(command));
+        if(command.cmdsize<8 || command.cmdsize>left || (command.cmdsize&7))return false;
+        if(command.cmd==LC_SEGMENT_64 && command.cmdsize>=sizeof(struct segment_command_64)) {
+            struct segment_command_64 seg;memcpy(&seg,p,sizeof(seg));
+            if(!strncmp(seg.segname,"__WIFI_FW",16)){
+                if(found || command.cmdsize!=sizeof(seg) || seg.nsects || seg.flags || seg.initprot!=VM_PROT_READ || seg.maxprot!=VM_PROT_READ)return false;
+                firmware=seg;found=true;
+            }
         }
-        p+=c->cmdsize;left-=c->cmdsize;
+        p+=command.cmdsize;left-=command.cmdsize;
     }
-    if(left || !found || found->filesize!=GW_FIRMWARE_PACK_BYTES || found->vmaddr<gVirtBase ||
-        found->vmsize<found->filesize || found->vmaddr-gVirtBase>gPhysSize ||
-        found->vmsize>gPhysSize-(found->vmaddr-gVirtBase) || (found->initprot&VM_PROT_WRITE))return false;
-    uint64_t physical=gPhysBase+found->vmaddr-gVirtBase;
-    return gwf_open(&r->firmware,(void *)ml_static_ptovirt((vm_offset_t)physical),found->filesize,gw_firmware_pack_sha256)!=0;
+    if(left || !found || firmware.filesize!=GW_FIRMWARE_PACK_BYTES || firmware.vmaddr<gVirtBase ||
+        firmware.vmsize<firmware.filesize || firmware.vmaddr-gVirtBase>gPhysSize ||
+        firmware.vmsize>gPhysSize-(firmware.vmaddr-gVirtBase))return false;
+    uint64_t physical=gPhysBase+firmware.vmaddr-gVirtBase;
+    return gwf_open(&r->firmware,(void *)ml_static_ptovirt((vm_offset_t)physical),firmware.filesize,gw_firmware_pack_sha256)!=0;
 }
 static bool gw_allocate(giulia_wifi_runtime *r) {
     r->arena=IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,kIODirectionInOut|kIOMemoryPhysicallyContiguous|kIOMapInhibitCache,GW_ARENA_BYTES,0x200000);
@@ -292,11 +294,11 @@ bool IO80211Controller::publishInterface() {
     (void)ifnet_set_lladdr(r->interface,r->mac,6);(void)ifnet_set_mtu(r->interface,1500);
     (void)ifnet_set_flags(r->interface,IFF_BROADCAST|IFF_SIMPLEX|IFF_MULTICAST,0xffff);
     setProperty(kIOUserClientClassKey,"GiuliaWiFiUserClient");setProperty("IOInterfaceName","en0");setProperty("IOBSDName","en0");
-    setProperty("IOMACAddress",r->mac,6);setProperty("IOInterfaceUnit",0,32);setProperty("IOInterfaceType",IFT_ETHER,32);
+    setProperty("IOMACAddress",r->mac,6);setProperty("IOInterfaceUnit",0ULL,32);setProperty("IOInterfaceType",IFT_ETHER,32);
     setProperty("IO80211InterfaceRole",1,32);setProperty("IO80211CountryCode","CN");setProperty("GiuliaPassiveScan",true);
     IO80211Interface *interface=new IO80211Interface;
     if(!interface || !interface->init() || !interface->attach(this) || !interface->start(this)){OSSafeReleaseNULL(interface);return false;}
-    interface->setProperty("IOBSDName","en0");interface->setProperty("IOInterfaceName","en0");interface->setProperty("IOInterfaceUnit",0,32);
+    interface->setProperty("IOBSDName","en0");interface->setProperty("IOInterfaceName","en0");interface->setProperty("IOInterfaceUnit",0ULL,32);
     interface->setProperty("IOMACAddress",r->mac,6);interface->setProperty("IO80211InterfaceRole",1,32);
     interface->setProperty(kIOUserClientClassKey,"GiuliaWiFiUserClient");interface->registerService();interface->release();registerService();return true;
 }
@@ -315,9 +317,9 @@ IOReturn IO80211Controller::query(const struct gwi_request &q,void *output,size_
             if(!gwq_u32(q.data+8) && (r->scan_pending||r->wmi.scanning)){result=kIOReturnBusy;goto done;}
             r->powered=gwq_u32(q.data+8);
         } else {result=kIOReturnUnsupported;goto done;}
-        /* Set proxy expects its original output capacity (often the same
-         * input structure). Return initialized bytes, never heap contents. */
-        if(output&&*bytes)bzero(output,*bytes);goto done;
+        /* The framework reuses the SET buffer afterwards. Preserve the
+         * validated input and zero any extra output, as an in-place ioctl. */
+        if(output&&*bytes){bzero(output,*bytes);size_t copy=q.bytes<*bytes?q.bytes:*bytes;if(copy)memcpy(output,q.data,copy);}goto done;
     }
     if(!output || !*bytes){result=kIOReturnBadArgument;goto done;}
     bzero(output,*bytes);
@@ -374,6 +376,6 @@ IOReturn GiuliaWiFiUserClient::externalMethod(uint32_t selector,IOExternalMethod
         if(a->structureOutputDescriptor){if(a->structureOutputDescriptor->writeBytes(0,buffer,used)!=used)result=kIOReturnBadArgument;}
         else if(a->structureOutput)memcpy(a->structureOutput,buffer,used);else result=kIOReturnBadArgument;
     }
-    a->structureOutputSize=used;if(buffer)IOFreeData(buffer,out);IOFreeData(input,n);return result;
+    a->structureOutputSize=(uint32_t)used;if(buffer)IOFreeData(buffer,out);IOFreeData(input,n);return result;
 }
 #endif

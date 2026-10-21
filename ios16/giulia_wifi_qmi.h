@@ -36,7 +36,7 @@ struct gwq_state {
     struct gwq_span allocated[GWQ_SEGMENTS+4];
     uint8_t response[2048],mem_request[1824],request[7000],wire[GWQ_PACKET];
 };
-static inline uint16_t gwq_u16(const void *v) { const uint8_t *p=(const uint8_t *)v;return p[0]|(uint16_t)p[1]<<8; }
+static inline uint16_t gwq_u16(const void *v) { const uint8_t *p=(const uint8_t *)v;return (uint16_t)(p[0]|(unsigned)p[1]<<8); }
 static inline uint32_t gwq_u32(const void *v) { const uint8_t *p=(const uint8_t *)v;return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
 static inline uint64_t gwq_u64(const void *v) { const uint8_t *p=(const uint8_t *)v;return gwq_u32(p)|(uint64_t)gwq_u32(p+4)<<32; }
 static inline void gwq_w16(void *v,uint16_t n) { uint8_t *p=(uint8_t *)v;p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8); }
