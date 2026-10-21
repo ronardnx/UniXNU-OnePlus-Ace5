@@ -1,0 +1,24 @@
+{
+  "source": "checksum-valid volume superblocks in the first 64 MiB of verified original images",
+  "format_reference": "https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf",
+  "OS": {
+    "image_sha256": "e5634d04a8ac35f024845f583394e0a35deb26a04cb0c00286a8674e25a9a4f2",
+    "container_offset": 17408,
+    "container_uuid": "50F8A67F-AFC1-4A1B-BCBB-82162674C67F",
+    "volume_uuid": "04769D26-2CA0-4825-B443-E2E5F88300F2",
+    "volume_name": "DawnUpdate21H461.J120J121J207J208OS",
+    "observed_superblock": 15896,
+    "observed_xid": 418
+  },
+  "SystemOS": {
+    "image_sha256": "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f",
+    "container_offset": 0,
+    "container_uuid": "E886F82C-EE56-4B52-AF5F-E70BF46320C4",
+    "volume_uuid": "8846FE78-2910-4297-AF97-D59BB6F8FC16",
+    "volume_name": "DawnUpdate21H461.J120J121J207J208SystemCryptex",
+    "observed_superblocks": [4543,4545,4795],
+    "observed_xids": [11,7,12]
+  },
+  "current_checkpoint_resolved": false,
+  "mounted": false
+}

@@ -1,4 +1,4 @@
-name: Ace 5 XNU first entry
+name: Ace 5 XNU UFS bring-up
 on:
   workflow_dispatch:
 permissions:
