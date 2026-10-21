@@ -28,6 +28,15 @@ jobs:
           path: kernel-artifact
           run-id: ${{ inputs.kernel_run }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Require local packaging for a GUI kernel
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('kernel-artifact/profile/profile.json')
+          if p.exists() and json.loads(p.read_text()).get('requires_local_gui_adt'):
+              raise SystemExit('GUI kernel requires local packaging with the verified D22AP product ADT and Ace 5 GUI nodes')
+          PY
       - name: Install UEFI and packaging dependencies
         run: |
           sudo apt-get update

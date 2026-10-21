@@ -1,6 +1,15 @@
 name: Ace 5 iOS16 XNU UFS USB
 on:
   workflow_dispatch:
+    inputs:
+      profile:
+        description: GUI builds produce a kernel for local packaging with the verified product ADT
+        type: choice
+        required: true
+        default: base
+        options:
+          - base
+          - gui
 permissions:
   contents: read
 env:
@@ -27,7 +36,7 @@ jobs:
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }}
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
@@ -50,7 +59,7 @@ jobs:
           bash build.sh 2>&1 | tee ../xnu-build.log
       - name: Verify linked services
         run: |
-          python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+          python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet ${{ inputs.profile == 'gui' && '--gui' || '' }}
           python3 tests/ios16_platform_match.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
@@ -64,6 +73,7 @@ jobs:
             profile/
           retention-days: 14
   boot-image:
+    if: ${{ inputs.profile != 'gui' }}
     needs: build
     runs-on: ubuntu-24.04
     env:

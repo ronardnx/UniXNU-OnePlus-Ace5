@@ -1,0 +1,27 @@
+{
+  "device": "OnePlus Ace 5 PKG110",
+  "profile": "gui",
+  "reference_commit": "d68e05df683f863f054b0f9c063c54d2b1342b2a",
+  "framebuffer": {
+    "base": "0xd5100000",
+    "width": 1264,
+    "height": 2780,
+    "row_bytes": 5056
+  },
+  "logical_canvas": [
+    1125,
+    2436
+  ],
+  "product_adt_source_sha256": "480e8b0888949b4128b7aa2cd254497581c69e1bafa596a760b2fa955a8a6368",
+  "local_gui_adt": "out/ios16/gui/giulia-gui.adt",
+  "local_gui_adt_sha256": "a6484e5bb4f3ff933049b30fb7ced5512c04c00cb514702969fbc7f8c763ebbd",
+  "validation": {
+    "patch_syntax_count": 65,
+    "compiled_geometry_gate_cases": 8,
+    "base_profile_regressions": 9,
+    "old_kernel_with_gui_adt_rejected": true
+  },
+  "linked_gui_kernel_built": false,
+  "graphics_hardware_tested": false,
+  "physical_touch_supported": false
+}

@@ -25,7 +25,7 @@
     "screen_observation": "User photo confirms GPT/volume UUID checks, READ-WRITE root device, HFS iOSRoot mounted, then launchd exec rejected with namespace 9 code 0xe",
     "usb_observation": "Windows again reports Unknown USB Device (Device Descriptor Request Failed); ACE5DBG001 serial port not available"
   },
-  "next_step": "Use the original launchd_cache_loader development boot argument to load the root job cache in this lab environment.",
+  "next_step": "Build the opt-in GUI kernel and pair it with the locally verified GUI ADT. The current kernel lacks IOSurface/IOMobileFramebuffer/HID services.",
   "root_mount_mode": "READ-WRITE",
   "filesystem": "HFSX iOSRoot",
   "launchd_exec_attempted": true,
@@ -58,6 +58,26 @@
       "path": "out/ios16/root-ios-platform/usb-replay.log",
       "bytes": 55788,
       "sha256": "abfe6daafbf19ff5cb077cf6318f787def53d70aa2b287f5d0948e6379a7ed56"
+    }
+  },
+  "job_cache_retest": {
+    "image": "out/ios16/root-job-cache/giulia-ios16-root-job-cache.img",
+    "image_sha256": "e62850f45f2853010a407a4b5c0359528a831c03fee202bc19cfe25715a456f9",
+    "fastboot_transfer_ok": true,
+    "fastboot_boot_command_ok": true,
+    "job_cache_loaded": true,
+    "launchd_running": true,
+    "system_services_started": true,
+    "springboard_started": true,
+    "backboardd_started": true,
+    "springboard_repeated_crashes": true,
+    "backboardd_repeated_crashes": true,
+    "gui_presented": false,
+    "usb_port": "COM21",
+    "log": {
+      "path": "out/ios16/root-job-cache/usb-replay.log",
+      "bytes": 78897,
+      "sha256": "1cf62bcba1bfecb6df1fa51a7318e4135ef7ae648193097b83f8d1c2a0b65342"
     }
   }
 }

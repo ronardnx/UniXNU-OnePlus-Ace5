@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 import runpy
+import re
+import json
 from pathlib import Path
 
 def edit(path, old, new, count=1):
@@ -17,6 +19,7 @@ def main():
     p.add_argument('--reference', type=Path, required=True)
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--gui', action='store_true', help='Include bounded display/surface/HID compatibility services')
     a = p.parse_args()
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
     if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
@@ -84,7 +87,7 @@ def main():
          '+\t\t\t/* Keep the scheduler alive for CDC enumeration after a failed read. */\n'
          '+\t\t\tfor (;;) IOSleep(1000);\n+\t\t}\n'
          '+\t\tint error = vermeer_ufs_ios_rootdev(root);')
-    sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios']
+    sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
         text=path.read_text(errors='surrogateescape')
@@ -94,10 +97,22 @@ def main():
                         ('strlcpy(name, "sweet",','strlcpy(name, "giulia",'),
                         ('strlcpy(name, "Redmi Note 10 Pro",','strlcpy(name, "OnePlus Ace 5",')]:
             text=text.replace(old,new)
+        if a.gui:
+            # Rewrite added, removed and context lines alike so the complete
+            # display patch series still applies atomically. These standalone
+            # decimal constants describe the reference panel/HID coordinates.
+            text=re.sub(r'\b1440\b','1264',text)
+            text=re.sub(r'\b3200\b','2780',text)
+            text=text.replace('1440x3200','1264x2780').replace('VERMEER FB:','GIULIA FB:')
+            text=text.replace('K70 framebuffer','Ace 5 framebuffer').replace('K70 panel','Ace 5 panel')
         path.write_text(text,errors='surrogateescape')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
+    if a.gui:checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
     (a.out/'check-kernel.py').write_text(checker)
+    (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
+        'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
+        'physical_touch_driver_included':False,'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

@@ -69,9 +69,17 @@ def check_platform(adt, kernel):
         raise ValueError(f'ADT does not match built-in platform driver: {platform.decode()}')
     if cpu not in compatible(cpus[0]):
         raise ValueError(f'ADT does not match built-in CPU driver: {cpu.decode()}')
-    if (compatible(root)[0] != b'oneplus,giulia' or b'qcom,sm8650' not in compatible(root)
-            or root.get('model') != b'OnePlus Ace 5\0'):
+    ids=compatible(root)
+    native=ids[0]==b'oneplus,giulia' and root.get('model')==b'OnePlus Ace 5\0'
+    gui=(ids[:2]==[b'D22AP',b'iPhone10,3'] and root.get('model')==b'iPhone10,3\0'
+         and root.get('physical-model')==b'OnePlus Ace 5\0')
+    if (not (native or gui) or b'oneplus,giulia' not in ids or b'qcom,sm8650' not in ids):
         raise ValueError('ADT lost the actual Ace 5 device identity')
+    if gui:
+        for name in [b'IOMobileFramebufferUserClient',b'IOCoreSurfaceRoot',b'SWEET HID: touch registered']:
+            if name not in kernel:raise ValueError('GUI ADT requires compiled service: '+name.decode())
+        if '/device-tree/arm-io/disp0' not in nodes or '/device-tree/product' not in nodes:
+            raise ValueError('GUI ADT lacks its display/product nodes')
     return {'platform_class': 'SweetPlatformExpert', 'platform_match': platform.decode(),
             'cpu_class': 'SweetCPU', 'cpu_match': cpu.decode(),
             'legacy_platform_alias': platform == b'xiaomi,sweet'}
