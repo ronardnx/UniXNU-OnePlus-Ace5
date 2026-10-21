@@ -1,7 +1,8 @@
 """Build an unpartitioned HFSX base root from verified iPhone firmware.
 
-Equivalent base layout to ios-sweet/tools/mkiosroot.sh. This does not apply
-device-specific GUI tweaks or establish that the kernel can mount this image.
+Equivalent base layout to ios-sweet/tools/mkiosroot.sh. --gui-layout optionally
+creates container directories while preserving normal migration. It does not establish
+that the kernel can mount this image or that account/activation services work.
 """
 import argparse
 import hashlib
@@ -15,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ios16_root_layout import MountedRoot, prepare_layout
+
 
 def run(*args):
     return subprocess.check_output([str(a) for a in args])
@@ -24,6 +27,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--gui-layout', action='store_true',
+                   help='Create container directories without seeding migration completion')
     args = p.parse_args()
     if sys.platform != 'darwin' or os.geteuid() != 0:
         raise RuntimeError('Run as root on macOS to preserve numeric file owners')
@@ -98,6 +103,8 @@ def main():
         keybag = bags / 'systembag.kb'
         keybag.write_bytes(plistlib.dumps({'KeyBagKeys': b'SWEET'}))
         os.chmod(keybag, 0o600)
+        if args.gui_layout:
+            prepare_layout(MountedRoot(root), report['firmware']['build'])
         run('diskutil', 'verifyVolume', root)
     finally:
         for device in reversed(devices):
@@ -131,7 +138,9 @@ def main():
     result = {'route': 'ios-sweet base root', 'build': report['firmware']['build'],
               'bytes': volume_bytes, 'sha256': sha, 'block_size': block_size,
               'hfs_finder_id': header[104:112].hex(), 'hardware_verified': False,
-              'device_gui_tweaks_applied': False, 'partition_table': False}
+              'device_gui_tweaks_applied': args.gui_layout, 'partition_table': False,
+              'normal_migration_enabled': True, 'migration_completion_seeded': False,
+              'gui_layout_scope': 'container directories only' if args.gui_layout else None}
     (args.out / 'root.json').write_text(json.dumps(result, indent=2) + '\n')
     dmg.unlink()
     print(json.dumps(result, indent=2))

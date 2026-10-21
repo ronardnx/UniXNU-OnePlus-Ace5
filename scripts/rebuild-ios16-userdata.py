@@ -1,0 +1,128 @@
+"""Rebuild one raw userdata image from the verified local firmware base.
+
+Uses the exact OS/SystemOS/AppOS content already assembled and verified on
+macOS. Edits an isolated overlay, exports a new image, checks its filesystem,
+and preserves normal migration. No handset connection or flashing commands.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import struct
+import subprocess
+
+from ios16_root_layout import DIRECTORIES, GuestRoot, MIGRATION, prepare_layout
+
+
+def digest(path, native_python=None):
+    if native_python:
+        windows_path = subprocess.check_output(['wslpath', '-w', str(path)], text=True).strip()
+        code = ('import hashlib,sys\nh=hashlib.sha256()\n'
+                'with open(sys.argv[1],"rb") as f:\n'
+                ' while b:=f.read(8*1024**2):h.update(b)\n'
+                'print(h.hexdigest())')
+        value = subprocess.check_output([str(native_python), '-c', code, windows_path], text=True).strip()
+        if not re.fullmatch('[0-9a-f]{64}', value):
+            raise ValueError('Invalid digest returned by native reader')
+        return value
+    state = hashlib.sha256()
+    with path.open('rb') as stream:
+        while chunk := stream.read(8*1024**2):
+            state.update(chunk)
+    return state.hexdigest()
+
+
+def volume_header(path):
+    with path.open('rb') as stream:
+        stream.seek(1024)
+        data = stream.read(512)
+    if data[:4] != b'HX\0\x05' or struct.unpack_from('>II', data, 40) != (4096, 4194304):
+        raise ValueError('Unexpected HFSX volume or geometry')
+    if struct.unpack_from('>I', data, 4)[0] & 0x2900 != 0x2100:
+        raise ValueError('Expected a consistent, cleanly unmounted journaled HFSX volume')
+    return data
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--native-python', type=Path,
+                        help='Optional Windows Python executable for fast WSL-mounted-file hashing')
+    args = parser.parse_args()
+    source = args.source.resolve(strict=True)
+    baseline = json.loads(args.report.read_text())
+    if (baseline['build'] != '20H392' or baseline['route'] != 'ios-sweet base root'
+            or baseline['partition_table'] or baseline['device_gui_tweaks_applied']
+            or baseline['bytes'] != 16*1024**3 or source.stat().st_size != baseline['bytes']):
+        raise ValueError('Expected the verified, untouched iOS16 firmware base')
+    hash_file = lambda path: digest(path, args.native_python)
+    if hash_file(source) != baseline['sha256']:
+        raise ValueError('Base image SHA256 mismatch')
+    before = volume_header(source)
+    if before[104:112].hex() != baseline['hfs_finder_id']:
+        raise ValueError('Base volume identity mismatch')
+    out = args.out.resolve()
+    out.mkdir(parents=True, exist_ok=False)
+    overlay = out / 'rebuild-work.qcow2'
+    subprocess.run(['qemu-img', 'create', '-q', '-f', 'qcow2', '-F', 'raw',
+                    '-b', str(source), str(overlay)], check=True)
+    print('Verified official-content base; building new userdata in an isolated overlay', flush=True)
+    os.environ.setdefault('LIBGUESTFS_BACKEND', 'direct')
+    import guestfs
+    guest = guestfs.GuestFS(python_return_dict=True)
+    guest.set_network(False)
+    guest.set_memsize(1024)
+    guest.add_drive_opts(str(overlay), format='qcow2')
+    try:
+        guest.launch()
+        guest.mount_vfs('force,rw', 'hfsplus', '/dev/sda', '/')
+        result = prepare_layout(GuestRoot(guest), baseline['build'])
+        for name, uid in DIRECTORIES:
+            st = guest.statns(name)
+            if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (uid, uid, 0o755):
+                raise ValueError(f'Unexpected container ownership: {name}')
+        if guest.exists(MIGRATION):
+            raise ValueError('Migration completion preference must be absent')
+        guest.sync()
+        guest.umount_all()
+        guest.shutdown()
+    finally:
+        guest.close()
+    print('Container ownership verified; normal migration retained; exporting userdata', flush=True)
+    raw = out / 'giulia-ios16-userdata.img'
+    subprocess.run(['qemu-img', 'convert', '-p', '-O', 'raw', str(overlay), str(raw)],
+                   check=True, stdout=(out/'export-progress.log').open('w'))
+    fsck = shutil.which('fsck.hfsplus') or '/usr/sbin/fsck.hfsplus'
+    with (out/'filesystem-repair.log').open('wb') as log:
+        subprocess.run([fsck, '-fy', str(raw)], stdout=log, stderr=subprocess.STDOUT, check=True)
+    sha = hash_file(raw)
+    # hfsprogs 540.1's -n dirty-bit path can leak a cache reference. Require a
+    # successful full verification pass and an unchanged whole-image hash.
+    with (out/'filesystem-check.log').open('wb') as log:
+        subprocess.run([fsck, '-fy', str(raw)], stdout=log, stderr=subprocess.STDOUT, check=True)
+    if hash_file(raw) != sha:
+        raise ValueError('Filesystem verification still modified the image')
+    after = volume_header(raw)
+    if after[104:112] != before[104:112] or raw.stat().st_size != baseline['bytes']:
+        raise ValueError('Export changed volume identity or size')
+    if hash_file(source) != baseline['sha256']:
+        raise ValueError('Original base image changed')
+    result.update(source_sha256=baseline['sha256'], source_unchanged=True,
+                  bytes=raw.stat().st_size, sha256=sha, block_size=4096,
+                  hfs_finder_id=after[104:112].hex(), raw_file=raw.name,
+                  partition_table=False, filesystem_check_passed=True,
+                  filesystem_check_mode='full fsck with stable verification SHA256',
+                  numeric_ownership_verified=True, target_partition='userdata',
+                  flashed=False)
+    (out/'root.json').write_text(json.dumps(result, indent=2)+'\n')
+    overlay.unlink()
+    print(json.dumps(result, indent=2), flush=True)
+
+
+if __name__ == '__main__':
+    main()

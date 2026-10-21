@@ -1,6 +1,11 @@
 name: Ace 5 ios-sweet HFSX base root
 on:
   workflow_dispatch:
+    inputs:
+      gui_layout:
+        description: Create GUI container directories and retain normal first-boot migration
+        type: boolean
+        default: true
 permissions:
   contents: read
 jobs:
@@ -26,7 +31,9 @@ jobs:
           path: ${{ runner.temp }}/ios16/source.ipsw
           key: ios16-20H392-ece1194f7e233e9109c5790a8d23a4564a10a254e15ec5b09978a343265568fb
       - name: Create and verify HFSX root
-        run: sudo "$(command -v python3)" -u scripts/ios16-root-macos.py --source "$RUNNER_TEMP/ios16" --out "$RUNNER_TEMP/ios16-root"
+        run: |
+          sudo "$(command -v python3)" tests/ios16_root_layout.py
+          sudo "$(command -v python3)" -u scripts/ios16-root-macos.py --source "$RUNNER_TEMP/ios16" --out "$RUNNER_TEMP/ios16-root" ${{ inputs.gui_layout && '--gui-layout' || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: ace5-ios16-hfsx-base
