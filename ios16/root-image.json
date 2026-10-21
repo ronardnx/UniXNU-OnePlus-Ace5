@@ -1,0 +1,13 @@
+{
+  "route": "ios-sweet base root",
+  "build": "20H392",
+  "bytes": 17179869184,
+  "sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+  "block_size": 4096,
+  "hfs_finder_id": "34320965bfe52d66",
+  "hardware_verified": false,
+  "device_gui_tweaks_applied": false,
+  "partition_table": false,
+  "source_run": 39565906918,
+  "artifact_id": 12330546379
+}

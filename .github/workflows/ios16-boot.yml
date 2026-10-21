@@ -1,0 +1,57 @@
+name: Ace 5 iOS16 HFSX boot image
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run:
+        description: Successful iOS16 XNU workflow run
+        required: true
+        default: '39565899829'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  boot-image:
+    runs-on: ubuntu-24.04
+    env:
+      GIULIA_BOOT_ABI: darwin22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ace5-ios16-xnu
+          path: kernel-artifact
+          run-id: ${{ inputs.kernel_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install UEFI and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono mtools
+      - name: Create HFSX root and USB diagnostic entries
+        run: |
+          python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt kernel-artifact/profile/giulia-ios16.adt --root-report ios16/root-image.json --default-root --out "$RUNNER_TEMP/ios16-payload"
+          python3 scripts/verify-payload.py "$RUNNER_TEMP/ios16-payload"
+      - name: Build UEFI for the new payload identity
+        run: |
+          set -o pipefail
+          export GIULIA_PAYLOAD_IDENTITY="$RUNNER_TEMP/ios16-payload/identity.json"
+          bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-ios16" 2>&1 | tee uefi-build.log
+      - name: Pack temporary boot v3 image
+        run: |
+          python3 scripts/pack-payload.py --firmware "$RUNNER_TEMP/ace5-ios16/uefi-giulia/Mu-giulia-0.img" --firmware-report "$RUNNER_TEMP/ace5-ios16/image-verification.json" --payload "$RUNNER_TEMP/ios16-payload/payload.img" --payload-report "$RUNNER_TEMP/ios16-payload/payload.json" --header-version 3 --output "$RUNNER_TEMP/giulia-ios16-hfsx.img"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: giulia-ios16-hfsx-boot
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/giulia-ios16-hfsx.img
+            ${{ runner.temp }}/giulia-ios16-hfsx.json
+            ${{ runner.temp }}/ios16-payload/payload.json
+            ${{ runner.temp }}/ios16-payload/identity.json
+            kernel-artifact/profile/capture-debug.ps1
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios16-hfsx-boot-log
+          path: uefi-build.log
+          retention-days: 14

@@ -20,7 +20,9 @@ def main():
     p.add_argument('--adt',type=Path,required=True)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
+    p.add_argument('--default-root',action='store_true')
     a=p.parse_args()
+    if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
     report=json.loads(a.kernel.with_suffix('.json').read_text())
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
@@ -37,6 +39,7 @@ def main():
             raise ValueError('Unexpected HFSX root identity')
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(args+f' vermeer_ufs_rw=1 vermeer_root_uuid={ident}')+'\n')
+        if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
     for e in tomllib.loads(config)['entry']:
         if len(e['args'].encode('ascii'))>=608:raise ValueError('Boot line too long')
     a.out.mkdir(parents=True)
@@ -55,6 +58,9 @@ def main():
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
             'kernel_args':probe,'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
+    if a.root_report:
+        result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
+                      purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

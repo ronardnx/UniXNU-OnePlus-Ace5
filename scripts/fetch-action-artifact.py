@@ -19,7 +19,9 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument('--artifact',type=int,required=True)
     p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--workers',type=int,default=8)
     a=p.parse_args()
+    if not 1<=a.workers<=64: p.error('Workers must be between 1 and 64')
     base=f'https://api.github.com/repos/tycykp/UniXNU-giulia/actions/artifacts/{a.artifact}'
     token=subprocess.check_output(['gh','auth','token'],text=True).strip()
     headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}
@@ -60,7 +62,7 @@ def main():
         for attempt in range(4):
             try:
                 req=urllib.request.Request(url,headers={'Range':f'bytes={start}-{end}'})
-                with urllib.request.urlopen(req,timeout=45) as r:
+                with urllib.request.urlopen(req,timeout=90) as r:
                     if r.status!=206 or r.headers.get('Content-Range')!=f'bytes {start}-{end}/{size}':
                         raise ValueError('Range mismatch')
                     b=r.read(end-start+2)
@@ -70,7 +72,7 @@ def main():
                 if attempt==3: raise RuntimeError(f'Artifact part {i} failed') from None
                 time.sleep(1)
     n=(size+chunk-1)//chunk
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8 if size>128*1024**2 else 4) as pool:list(pool.map(fetch,range(n)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=a.workers) as pool:list(pool.map(fetch,range(n)))
     with a.out.open('xb') as f:
         for i in range(n):f.write((parts/str(i)).read_bytes())
     if metadata.get('digest','').startswith('sha256:'):
