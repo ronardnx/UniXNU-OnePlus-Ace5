@@ -132,6 +132,18 @@ _start:
   b 1b
 """
 
+# Executed through the bootstrap identity map. Return to physical addressing
+# before writing the physical framebuffer, then park; never resume XNU here.
+POST_MMU_MARKER = """.text
+.global _start
+_start:
+  mrs x7, SCTLR_EL1
+  bic x7, x7, #1
+  dsb sy
+  msr SCTLR_EL1, x7
+  isb
+""" + PAINT.format(args='x20', band=3, lo='0xFF00', hi='0xFFFF') + "2:\n  wfe\n  b 2b\n"
+
 
 def kernel_symbols(kernel):
     """Address -> name for the kernel's symbols, from llvm-nm."""
@@ -366,9 +378,13 @@ def main():
     parser.add_argument('--reset-before', action='store_true', help='reset at the call site before invoking SYMBOL (requires --reset-after)')
     parser.add_argument('--panic-screen', action='store_true', help='draw panic() messages on the screen')
     parser.add_argument('--no-reset', action='store_true', help='no reset probe at all')
+    parser.add_argument('--post-mmu-marker', action='store_true',
+                        help='After MMU enable, disable translation, draw yellow and park')
     parser.add_argument('--occurrence', type=int, default=1, help='which call to SYMBOL (1 = first)')
     parser.add_argument('--in', dest='function', default='_arm_init', help='function that makes the call (default _arm_init)')
     args = parser.parse_args()
+    if args.post_mmu_marker and (args.panic_screen or args.reset_after or args.reset_before):
+        parser.error('Post-MMU marker is a standalone stopping probe, without panic/reset probes')
     if args.reset_before and not args.reset_after:
         raise SystemExit('--reset-before requires --reset-after')
     data = bytearray(args.kernel.read_bytes())
@@ -389,7 +405,10 @@ def main():
     # (site, cave stage, symbols the cave is linked with)
     sites = [(ENTRY_VA, 1, {'target': START_FIRST_CPU}),
              (MMU_ENABLE_VA, 2, {'target': MMU_ENABLE_VA + 4})]
-    if args.no_reset:
+    if args.post_mmu_marker:
+        sites.append((AFTER_MMU_VA, 3, {}))
+        description = 'stage 3 yellow after MMU enable, translation off and parked; no reset'
+    elif args.no_reset:
         description = 'no reset probe'
     elif args.reset_after:
         symbols = kernel_symbols(args.kernel)
@@ -402,7 +421,9 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         for site, stage, symbols in sites:
-            source = RESET_BEFORE if (stage == 4 and args.reset_before) else SOURCES[stage].format(ticks=TIMEBASE * args.reset_delay)
+            source = (POST_MMU_MARKER if args.post_mmu_marker and stage == 3 else
+                      RESET_BEFORE if (stage == 4 and args.reset_before) else
+                      SOURCES[stage].format(ticks=TIMEBASE * args.reset_delay))
             code = assemble(source, CAVES[stage], symbols, Path(tmp))
             if len(code) > CAVE_SIZE:
                 raise SystemExit(f'Stage {stage} code is too large')

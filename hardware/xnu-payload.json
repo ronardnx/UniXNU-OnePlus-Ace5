@@ -1,8 +1,8 @@
 {
   "payload_bytes": 201326592,
-  "payload_crc32": "d708c97f",
-  "payload_sha256": "a089779274b5ba2a959fc83aea343a22d11dbd6cc245cd7d03e67af1b3432131",
-  "kernel_sha256": "26013450ae2dc0fb0d73d55822b4058d3bf46cb35000bc2c7001272cede0e22e",
+  "payload_crc32": "36f88412",
+  "payload_sha256": "636f2c7c6dbd71760c1052c63f518c305db36a2414e3c828c55804f7ada605a4",
+  "kernel_sha256": "55b6ad98a1db6c1de417290f55dbc2fd24bce54e1124133cca82caafb3bbae23",
   "data_sha256": "b8da57026c3ccc7b7e11c2b08495cefbc788fac8d4b678166e39a35928b9a85b",
   "purpose": "XNU entry/MMU/panic diagnostics with unchanged Data seed"
 }
