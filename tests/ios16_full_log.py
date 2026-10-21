@@ -12,12 +12,14 @@ class Tests(unittest.TestCase):
             for i,part in enumerate(parts):
                 lines.append(f'ULOG pid=4 name=test ticks={i:x} bytes={len(part)} hex={part.hex()}\n'.encode())
             lines += [lines[1],b'EXIT pid=4 ppid=1 name=test status=0x0\n',
-                      b'EXIT pid=5 ppid=1 name=failed status=0x6\n',b'SMP --- end 0\n']
+                      b'EXIT pid=5 ppid=1 name=failed status=0x6\n',b'SMP --- end 0\n',
+                      b'VERMEER DEBUG: ACE5DBG001 events=1 tx=20 rx=5 log=999 dropped=7 ring_bytes=33554432\n']
             raw.write_bytes(b''.join(lines));r=module.decode([raw],base/'out')
             self.assertEqual((base/'out/processes/test-4.log').read_bytes(),b''.join(parts))
             self.assertEqual(r['counts']['replayed_ulog_records'],1)
             self.assertEqual(r['incomplete_records'],[])
             self.assertEqual(len([x for x in r['events'] if x.startswith('EXIT ')]),2)
+            self.assertEqual(r['transport_audit']['max_kernel_dropped_bytes'],7)
 
     def test_rotation_in_middle_of_record(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -28,5 +30,6 @@ class Tests(unittest.TestCase):
             r=module.decode([a,b],base/'out')
             self.assertEqual((base/'out/processes/test-4.log').read_bytes(),data)
             self.assertEqual(r['incomplete_records'],[])
+            self.assertIsNone(r['transport_audit']['max_kernel_dropped_bytes'])
 
 if __name__=='__main__':unittest.main()

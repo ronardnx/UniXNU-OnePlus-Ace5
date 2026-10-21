@@ -18,9 +18,12 @@ def lines_across_files(inputs,sources):
 
 def decode(inputs,out):
     out.mkdir(parents=True,exist_ok=False); processes=out/'processes';processes.mkdir()
-    handles={};counts=collections.Counter();events=[];bad=[];seen=collections.OrderedDict();sources=[]
+    handles={};counts=collections.Counter();events=[];bad=[];seen=collections.OrderedDict();sources=[];statuses=[];boot_header=False
     with (out/'kernel.log').open('wb') as kernel:
         for path,line in lines_across_files(inputs,sources):
+            if b'Darwin Kernel Version ' in line:boot_header=True
+            if line.startswith(b'VERMEER DEBUG: ACE5DBG001 events='):
+                statuses.append({k.decode():int(v) for k,v in re.findall(rb'(events|tx|rx|log|dropped|ring_bytes)=(\d+)',line)})
             m=ULOG.fullmatch(line)
             if m:
                 pid,name,ticks,length,encoded=m.groups();data=bytes.fromhex(encoded.decode())
@@ -40,7 +43,11 @@ def decode(inputs,out):
                     events.append(line.decode('utf-8','replace').rstrip('\r\n'))
     for handle in handles.values():handle.close()
     report={'sources':sources,'process_log_files':sorted(handles),'counts':dict(counts),
-            'events':events,'incomplete_records':bad,'healthy_and_failed_paths_retained':True}
+            'events':events,'incomplete_records':bad,'healthy_and_failed_paths_retained':True,
+            'transport_audit':{'boot_header_seen':boot_header,'status_samples':statuses,
+                'max_kernel_dropped_bytes':max((s.get('dropped',0) for s in statuses),default=None),
+                'ram_history_evicted_bytes':max((max(0,s.get('log',0)-s.get('ring_bytes',33554432)) for s in statuses),default=None),
+                'ram_history_note':'Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss.'}}
     (out/'index.json').write_text(json.dumps(report,indent=2)+'\n')
     print(f'Decoded {counts["ulog_records"]} records into {len(handles)} process logs; incomplete records={len(bad)}')
     return report
