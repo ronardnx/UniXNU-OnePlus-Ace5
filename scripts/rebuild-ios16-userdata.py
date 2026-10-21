@@ -2,7 +2,8 @@
 
 Uses the exact OS/SystemOS/AppOS content already assembled and verified on
 macOS. Edits an isolated overlay, exports a new image, checks its filesystem,
-and preserves normal migration. No handset connection or flashing commands.
+and retains normal migration unless the user-selected baseline is requested.
+No handset connection or flashing commands.
 """
 import argparse
 import hashlib
@@ -52,9 +53,12 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--startup-compat', action='store_true', help='Apply evidenced no-baseband/audio/GPU startup configuration')
+    parser.add_argument('--migration-baseline', action='store_true', help='User-selected upstream clean-root 20H392 baseline; retain Setup')
+    parser.add_argument('--full-boot-log', action='store_true', help='Enable normal and failure logs for every launch daemon; requires baseline')
     parser.add_argument('--native-python', type=Path,
                         help='Optional Windows Python executable for fast WSL-mounted-file hashing')
     args = parser.parse_args()
+    if args.full_boot_log and not args.migration_baseline:parser.error('--full-boot-log requires --migration-baseline')
     source = args.source.resolve(strict=True)
     baseline = json.loads(args.report.read_text())
     if (baseline['build'] != '20H392' or baseline['route'] != 'ios-sweet base root'
@@ -87,18 +91,25 @@ def main():
             from ios16_startup_compat import prepare_startup
             result.update(prepare_startup(GuestRoot(guest)))
             result['scope']='normal first-boot migration with explicit hardware startup compatibility'
+        if args.migration_baseline:
+            from ios16_boot_baseline import prepare_baseline
+            result.update(prepare_baseline(GuestRoot(guest),args.full_boot_log))
         for name, uid in DIRECTORIES:
             st = guest.statns(name)
             if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (uid, uid, 0o755):
                 raise ValueError(f'Unexpected container ownership: {name}')
-        if guest.exists(MIGRATION):
+        if args.migration_baseline:
+            st=guest.statns(MIGRATION)
+            if (st['st_uid'],st['st_gid'],st['st_mode']&0o777)!=(501,501,0o600):
+                raise ValueError('Migration baseline ownership mismatch')
+        elif guest.exists(MIGRATION):
             raise ValueError('Migration completion preference must be absent')
         guest.sync()
         guest.umount_all()
         guest.shutdown()
     finally:
         guest.close()
-    print('Container ownership verified; normal migration retained; exporting userdata', flush=True)
+    print('Root configuration and ownership verified; exporting userdata', flush=True)
     raw = out / 'giulia-ios16-userdata.img'
     subprocess.run(['qemu-img', 'convert', '-p', '-O', 'raw', str(overlay), str(raw)],
                    check=True, stdout=(out/'export-progress.log').open('w'))

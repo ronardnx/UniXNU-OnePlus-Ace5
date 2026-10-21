@@ -159,6 +159,8 @@ def main():
             patch += ''.join(difflib.unified_diff([], data.splitlines(True),
                               fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
         (a.out/'0072-giulia-read-only-trust-catalog.patch').write_text(patch)
+        for name in ('0073-giulia-complete-boot-log.patch','0074-giulia-ios-pid-hibernate.patch'):
+            shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/name,a.out/name)
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
@@ -168,6 +170,7 @@ def main():
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'read_only_trust_catalog_query':a.gui,
+        'complete_boot_logging_available':a.gui,
         'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

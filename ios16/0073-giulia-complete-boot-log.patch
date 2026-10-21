@@ -1,0 +1,276 @@
+--- a/osfmk/kern/exception.c
++++ b/osfmk/kern/exception.c
+@@ -858,20 +858,15 @@
+ 	    get_saved_state_pc(ss), get_saved_state_lr(ss), get_saved_state_sp(ss), fp,
+ 	    (uint64_t)saved_state64(ss)->far);
+ 
+-	char line[200];
+-	int n = snprintf(line, sizeof(line), "CRASH %s bt", name);
+-	for (int i = 0; i < 10 && fp != 0 && (fp & 7) == 0 && n < (int)sizeof(line) - 20; i++) {
++	unsigned frames = 0;
++	for (; frames < 64 && fp && !(fp & 7); frames++) {
+ 		uint64_t frame[2];
+-		if (copyin((user_addr_t)fp, frame, sizeof(frame)) != 0) {
+-			break;
+-		}
+-		n += snprintf(line + n, sizeof(line) - n, " 0x%llx", frame[1]);
+-		if (frame[0] <= fp) {
+-			break;
+-		}
++		if (copyin((user_addr_t)fp, frame, sizeof(frame))) break;
++		printf("CRASH %s frame %u fp 0x%llx lr 0x%llx\n", name, frames, fp, frame[1]);
++		if (frame[0] <= fp) { frames++; break; }
+ 		fp = frame[0];
+ 	}
+-	printf("%s\n", line);
++	printf("CRASH %s end frames=%u limit=64\n", name, frames);
+ 
+ 	if (sig == 6 || sig == 5) {
+ 		sweet_crash_strings(name);
+@@ -994,14 +989,14 @@
+ 
+ 	/* Resolve separately loaded migration plug-ins, outside the shared cache.
+ 	 * Sample untrusted user memory with bounded copy operations only. */
+-	if (strncmp(name, "com.apple.", 10) == 0 && task->all_image_info_addr) {
++	if (task->all_image_info_addr) {
+ 		struct { uint32_t version, count; uint64_t array; } info;
+ 		if (vm_map_read_user(map, task->all_image_info_addr, &info, sizeof(info)) == KERN_SUCCESS &&
+ 		    info.version >= 1 && info.count <= 2048 && info.array &&
+ 		    info.array < 0x10000000000ULL - (uint64_t)info.count * 24) {
+ 			for (uint32_t i = 0; i < info.count; i++) {
+ 				uint64_t entry[3];
+-				char path[128];
++				char path[192];
+ 				if (vm_map_read_user(map, info.array + (uint64_t)i * 24, entry, sizeof(entry)) != KERN_SUCCESS) break;
+ 				if (!entry[0] || entry[0] >= 0x180000000ULL || !entry[1]) continue;
+ 				path[0] = 0;
+@@ -1019,28 +1014,23 @@
+ 	task_lock(task);
+ 	queue_iterate(&task->threads, thread, thread_t, task_threads) {
+ 		arm_saved_state_t *ss = find_user_regs(thread);
+-		char line[400];
+-		int n;
+ 		uint64_t fp;
+-
+-		if (ss == NULL || !is_saved_state64(ss)) {
+-			continue;
+-		}
++		if (ss == NULL || !is_saved_state64(ss)) continue;
++		unsigned index = (unsigned)tn++;
+ 		fp = get_saved_state_fp(ss);
+-		n = snprintf(line, sizeof(line), "SMP %s t%d pc 0x%llx lr 0x%llx sp 0x%llx bt", name, tn++,
++		printf("SMP %s t%u pc 0x%llx lr 0x%llx sp 0x%llx bt\n", name, index,
+ 		    get_saved_state_pc(ss), get_saved_state_lr(ss), get_saved_state_sp(ss));
+-		for (int i = 0; i < 16 && fp != 0 && (fp & 7) == 0 && n < (int)sizeof(line) - 20; i++) {
++		unsigned count = 0;
++		const char *reason = "end";
++		for (; count < 64 && fp; count++) {
+ 			uint64_t frame[2];
+-			if (vm_map_read_user(map, fp, frame, sizeof(frame)) != KERN_SUCCESS) {
+-				break;
+-			}
+-			n += snprintf(line + n, sizeof(line) - n, " 0x%llx", frame[1]);
+-			if (frame[0] <= fp) {
+-				break;
+-			}
++			if ((fp & 7) || fp >= 0x10000000000ULL - sizeof(frame)) { reason = "invalid-fp"; break; }
++			if (vm_map_read_user(map, fp, frame, sizeof(frame)) != KERN_SUCCESS) { reason = "unreadable"; break; }
++			printf("SMP %s t%u frame %u fp 0x%llx lr 0x%llx\n", name, index, count, fp, frame[1]);
++			if (frame[0] <= fp) { count++; break; }
+ 			fp = frame[0];
+ 		}
+-		printf("%s\n", line);
++		printf("SMP %s t%u end frames=%u reason=%s\n", name, index, count, count == 64 ? "depth-limit" : reason);
+ 	}
+ 	task_unlock(task);
+ }
+--- a/bsd/dev/mem.c
++++ b/bsd/dev/mem.c
+@@ -162,6 +162,8 @@
+  * /dev/null goes to the console (and so to the persistent log) as
+  * "|name| text". sweetnull=- turns it off.
+  */
++#include <mach/mach_time.h>
++#include "giulia_log_bytes.h"
+ static char sweet_null_names[128];
+ static int sweet_null_parsed;
+ 
+@@ -175,6 +177,7 @@
+ 		sweet_null_parsed = 1;
+ 	}
+ 	proc_selfname(name, (int)len);
++	if (!strcmp(sweet_null_names, "*")) return true;
+ 	size_t n = strlen(name);
+ 	for (const char *t = sweet_null_names; *t;) {
+ 		const char *end = strchr(t, ',');
+@@ -258,14 +261,15 @@
+ 			{
+ 				char name[32];
+ 				if (sweet_null_tee(name, sizeof(name))) {
+-					char buf[256];
++					char buf[64], hex[129];
+ 					c = MIN(uio_curriovlen(uio), sizeof(buf));
+ 					error = uiomove(buf, (int)c, uio);
+ 					if (error) {
+ 						break;
+ 					}
+-					printf("|%s| %.*s%s", name, (int)c, buf,
+-					    (c > 0 && buf[c - 1] == '\n') ? "" : "\n");
++					if (glb_hex((const unsigned char *)buf, (size_t)c, hex, sizeof(hex)))
++						printf("ULOG pid=%d name=%s ticks=%llx bytes=%u hex=%s\n",
++						    proc_selfpid(), name, mach_absolute_time(), (unsigned)c, hex);
+ 					continue;
+ 				}
+ 			}
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -6822,6 +6822,30 @@
+ 	init_exec_args.fname = argv0;
+ 	init_exec_args.argp = scratch_addr;
+ 	init_exec_args.envp = USER_ADDR_NULL;
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++	/* The user-selected log mode is inherited by launchd and its children.
++	 * The argument page has room for these four fixed strings and five pointers. */
++	int giulia_bootlog = 0;
++	if (PE_parse_boot_argn("giulia_bootlog", &giulia_bootlog, sizeof(giulia_bootlog)) &&
++	    giulia_bootlog == 1 && proc_is64bit(p)) {
++		static const char * const values[] = { "OS_ACTIVITY_DT_MODE=YES", "OS_ACTIVITY_MODE=debug",
++		    "CFLOG_FORCE_STDERR=YES", "ACTIVITY_LOG_STDERR=YES" };
++		user64_addr_t pointers[5] = {0};
++		user_addr_t env = scratch_addr + 3 * sizeof(user64_addr_t);
++		user_addr_t cursor = env + sizeof(pointers);
++		for (unsigned i = 0; i < 4; i++) {
++			size_t length = strlen(values[i]) + 1;
++			pointers[i] = cursor;
++			error = copyout(values[i], cursor, length);
++			if (error) return error;
++			cursor += length;
++		}
++		error = copyout(pointers, env, sizeof(pointers));
++		if (error) return error;
++		init_exec_args.envp = env;
++		printf("GIULIA LOG: launchd full activity/stderr logging enabled; ring=32MiB\n");
++	}
++#endif
+ 
+ 	/*
+ 	 * So that init task is set with uid,gid 0 token
+@@ -7413,7 +7437,7 @@
+ 			}
+ #if defined(ARM64_BOARD_CONFIG_SWEET)
+ 			/* SWEET runs every iOS binary this way: one short line per exec. */
+-			printf("exec %s\n", p->p_name);
++			printf("EXEC pid=%d ppid=%d name=%s\n", proc_getpid(p), p->p_ppid, p->p_name);
+ #else
+ 			printf("Allowing spawn of iOS binary %s since it has "
+ 			    "com.apple.private.security.no-sandbox entitlement or unentitled_ios_sim_launch "
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -1845,6 +1845,20 @@
+ 	int kr = 0;
+ 	int create_corpse = FALSE;
+ 
++#if defined(ARM64_BOARD_CONFIG_SWEET)
++	printf("EXIT pid=%d ppid=%d name=%s status=0x%x\n", proc_getpid(p), p->p_ppid, p->p_name, rv);
++	if (PROC_HAS_EXITREASON(p)) {
++		char *description = exit_reason_get_string_desc(p->p_exit_reason);
++		printf("EXIT_REASON pid=%d namespace=%u code=0x%llx\n", proc_getpid(p),
++		    p->p_exit_reason->osr_namespace, p->p_exit_reason->osr_code);
++		if (description) {
++			size_t length = strnlen(description, 4096);
++			for (size_t at = 0; at < length; at += 160)
++				printf("EXIT_TEXT pid=%d offset=%lu %.*s\n", proc_getpid(p), (unsigned long)at,
++				    (int)MIN((size_t)160, length-at), description+at);
++		}
++	}
++#endif
+ 	if (p->p_crash_behavior != 0 || p == initproc) {
+ 		proc_handle_critical_exit(p, rv);
+ 	}
+--- a/bsd/dev/sweet_sample.c
++++ b/bsd/dev/sweet_sample.c
+@@ -20,6 +20,8 @@
+ #include <kern/thread.h>
+ #include <mach/thread_act.h>
+ #include <pexpert/pexpert.h>
++#include <kern/clock.h>
++#include <mach/mach_time.h>
+ 
+ extern task_t proc_task(proc_t);
+ extern int hz;
+@@ -43,6 +45,7 @@
+ static bool
+ sweet_sample_wanted(const char *name)
+ {
++	if (!strcmp(sweet_sample_names, "*")) return true;
+ 	size_t n = strlen(name);
+ 	for (const char *t = sweet_sample_names; *t;) {
+ 		const char *end = strchr(t, ',');
+@@ -65,7 +68,7 @@
+ {
+ 	char name[32];
+ 	proc_name(proc_pid(p), name, sizeof(name));
+-	if (sweet_sample_wanted(name)) {
++	if (proc_pid(p) > 0 && sweet_sample_wanted(name)) {
+ 		task_t task = proc_task(p);
+ 		if (task != TASK_NULL) {
+ 			sweet_sample_task(name, proc_pid(p), task);
+@@ -85,14 +88,17 @@
+ 		return;
+ 	}
+ 	__atomic_store_n(&sweet_sample_live, true, __ATOMIC_RELEASE);
+-	(void)tsleep(&sweet_sample_chan, PZERO, "sweetsmp", 90 * hz);
+-	for (int i = 0; i < 40; i++) {
+-		printf("SMP --- sample %d\n", i);
++	printf("GIULIA LOG: all-process sampling available; no fixed round limit; 64 frames per thread\n");
++	(void)tsleep(&sweet_sample_chan, PZERO, "sweetsmp", 30 * hz);
++	for (uint64_t i = 0; ; i++) {
++		uint64_t ns = 0;
++		absolutetime_to_nanoseconds(mach_absolute_time(), &ns);
++		printf("SMP --- sample %llu uptime_ns=%llu\n", i, ns);
+ 		proc_iterate(PROC_ALLPROCLIST, sweet_sample_proc, NULL, NULL, NULL);
++		printf("SMP --- end %llu\n", i);
+ 		(void)tsleep(&sweet_sample_chan, PZERO, "sweetsmp", 120 * hz);
+ 	}
+-	__atomic_store_n(&sweet_sample_live, false, __ATOMIC_RELEASE);
+-	thread_terminate(current_thread());
++
+ }
+ 
+ void
+--- a/bsd/dev/vermeer_log_ring.h
++++ b/bsd/dev/vermeer_log_ring.h
+@@ -7,7 +7,7 @@
+ #include <sys/types.h>
+ #endif
+ #ifndef VL_RING_SIZE
+-#define VL_RING_SIZE (1u << 20)
++#define VL_RING_SIZE (32u << 20)
+ #endif
+ struct vl_ring { uint64_t total; char bytes[VL_RING_SIZE]; };
+ static inline void vl_append(struct vl_ring *r, const char *s, unsigned n)
+--- a/bsd/dev/vermeer_usb_debug.c
++++ b/bsd/dev/vermeer_usb_debug.c
+@@ -261,7 +261,7 @@
+     else if (!strcmp(u.command,"ping")) printf("VERMEER DEBUG: pong ACE5DBG001\n");
+     else if (!strcmp(u.command,"sample")) printf("GIULIA DEBUG: sample wake requested=%d\n",sweet_sample_request());
+     else if (!strcmp(u.command,"status"))
+-        printf("VERMEER DEBUG: ACE5DBG001 events=%u tx=%llu rx=%llu log=%llu dropped=%llu\n",
++        printf("VERMEER DEBUG: ACE5DBG001 events=%u tx=%llu rx=%llu log=%llu dropped=%llu ring_bytes=33554432\n",
+             u.events,u.tx_bytes,u.rx_bytes,vermeer_debug_total(),vermeer_debug_dropped());
+     else if (!strcmp(u.command,"replay")) {
+         u.cursor=0;printf("VERMEER DEBUG: replay retained RAM log\n");
+--- /dev/null
++++ b/bsd/dev/giulia_log_bytes.h
+@@ -0,0 +1,11 @@
++/* Byte-preserving short records, including embedded NUL and split UTF-8. */
++#ifndef GIULIA_LOG_BYTES_H
++#define GIULIA_LOG_BYTES_H
++static inline int glb_hex(const unsigned char *data, size_t length, char *out, size_t capacity) {
++    static const char digits[]="0123456789abcdef";
++    if (!out || length > 64 || capacity < length*2+1 || (!data && length)) return 0;
++    for (size_t i=0;i<length;i++) { out[2*i]=digits[data[i]>>4]; out[2*i+1]=digits[data[i]&15]; }
++    out[2*length]=0;
++    return 1;
++}
++#endif

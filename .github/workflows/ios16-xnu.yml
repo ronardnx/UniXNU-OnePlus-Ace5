@@ -42,6 +42,8 @@ jobs:
           /tmp/touch-gpio-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_trust_catalog.c -o /tmp/trust-test
           /tmp/trust-test < /dev/null
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_log_bytes.c -o /tmp/log-test
+          /tmp/log-test
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
@@ -78,6 +80,7 @@ jobs:
           fi
           if [ '${{ inputs.profile }}' = gui ]; then
             python3 -c "from pathlib import Path; assert b'GIULIA AMFI: trust catalogue ready;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
+            python3 -c "from pathlib import Path; assert b'GIULIA LOG: launchd full activity/stderr logging enabled;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho

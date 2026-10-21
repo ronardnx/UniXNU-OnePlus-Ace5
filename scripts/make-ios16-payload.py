@@ -26,10 +26,12 @@ def main():
     p.add_argument('--default-root',action='store_true')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
     p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
+    p.add_argument('--trace-all',action='store_true',help='All processes, byte-preserving stdout/stderr, unlimited periodic snapshots')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
     p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
+    if a.trace_all:a.trace_services=True
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
     report=json.loads(a.kernel.with_suffix('.json').read_text())
@@ -83,13 +85,19 @@ def main():
             sample_names='SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd'
             if a.trace_launch_services:
                 sample_names='SpringBoard,backboardd,lsd,containermanager,installd,installcoordinat,accountsd,securityd,cfprefsd,appstored'
+            if a.trace_all:
+                if b'GIULIA LOG: launchd full activity/stderr logging enabled;' not in a.kernel.read_bytes():
+                    raise ValueError('Full logging kernel required')
+                sample_names='*'
             if len(sample_names)>=128:raise ValueError('Service selector buffer exceeded')
             root_args+=' sweetsample='+sample_names
             # The /dev/null tee uses proc_selfname (p_name), unlike proc_name.
             stderr_names='SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe'
             if a.trace_launch_services:
                 stderr_names='SpringBoard,backboardd,lsd,containermanagerd,installd,installcoordinationd,accountsd,securityd'
+            if a.trace_all:stderr_names='*'
             root_args+=' sweetnull='+stderr_names
+            if a.trace_all:root_args+=' giulia_bootlog=1'
         if a.enable_touch:root_args+=' giulia_touch=1'
         if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
@@ -124,7 +132,8 @@ def main():
             result['service_sample_names']=sample_names
             result['service_stderr_trace']=True
             result['service_stderr_names']=stderr_names
-            result['service_trace_profile']='launchservices' if a.trace_launch_services else 'migration'
+            result['service_trace_profile']='all' if a.trace_all else ('launchservices' if a.trace_launch_services else 'migration')
+            if a.trace_all:result['complete_boot_logging']=True
         if a.enable_touch:
             result['physical_touch_worker']=True
             result['touch_clock_handoff']=True

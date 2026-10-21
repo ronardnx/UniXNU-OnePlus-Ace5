@@ -58,6 +58,7 @@ with tempfile.TemporaryDirectory() as directory:
             if names is None:
                 names=report['root_kernel_args'].split(' sweetsample=',1)[1].split()[0]
             if names not in (
+                '*',
                 'SpringBoard,backboardd,lsd,containermanager,installd,installcoordinat,accountsd,securityd,cfprefsd,appstored',
                 'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat,accountsd,securityd,cfprefsd',
                 'SpringBoard,backboardd,com.apple.datami,com.apple.migrat,appstored,installd,installcoordinat',
@@ -69,10 +70,16 @@ with tempfile.TemporaryDirectory() as directory:
             if not report.get('trace_services'):raise SystemExit('Service stderr tracing requires service sampling')
             stderr_names=report.get('service_stderr_names','SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe')
             if stderr_names not in (
+                '*',
                 'SpringBoard,backboardd,com.apple.datamigrator,com.apple.migrationpluginwrappe',
                 'SpringBoard,backboardd,lsd,containermanagerd,installd,installcoordinationd,accountsd,securityd'):
                 raise SystemExit('Unrecognized service-stderr selector set')
             expected+=' sweetnull='+stderr_names
+        if report.get('complete_boot_logging'):
+            if (report.get('service_sample_names')!='*' or report.get('service_stderr_names')!='*'
+                    or b'GIULIA LOG: launchd full activity/stderr logging enabled;' not in (temporary/'kernel.macho').read_bytes()):
+                raise SystemExit('Complete log profile/kernel mismatch')
+            expected+=' giulia_bootlog=1'
         if report.get('physical_touch_worker'):
             if not report.get('platform_match',{}).get('gui') or b'GIULIA TOUCH: controller result=' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('Ace 5 touch worker missing from the GUI kernel')
