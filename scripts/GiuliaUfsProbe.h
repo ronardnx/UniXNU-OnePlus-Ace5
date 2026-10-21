@@ -6,6 +6,10 @@
 #include <kern/debug.h>
 #include <pexpert/arm64/boot.h>
 #include <machine/machine_routines.h>
+// osfmk/arm/machine_routines.h exposes this exact prototype only to Mach/
+// pexpert private compilation. This built-in board helper links the source
+// kernel's exported symbol; do not change all IOKit private feature macros.
+extern "C" vm_offset_t ml_io_map_wcomb(vm_offset_t phys_addr, vm_size_t size);
 
 // Same prefix used by the freestanding panic renderer; no dependency on the
 // normal console becoming active. Mapping lifetime covers the stopping survey.
