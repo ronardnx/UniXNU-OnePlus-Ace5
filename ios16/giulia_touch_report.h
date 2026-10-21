@@ -39,7 +39,7 @@ static inline int gt_config_matches(const uint8_t *config,size_t size)
 /* Returns 0 on a complete frame, nonzero without changing state/output.
  * max_x/max_y must come from the device's application-info response, not a
  * guessed coordinate scale. Coordinates passed to HID are physical pixels;
- * SweetHID performs the later translation into the centered UIKit canvas.
+ * SweetHID normalizes over the same full panel used by the display renderer.
  */
 static inline int gt_decode(uint8_t report_code,const uint8_t *data,size_t size,
     uint16_t max_x,uint16_t max_y,int config_confirmed,
