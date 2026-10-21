@@ -1,6 +1,6 @@
 {
   "date": "2026-10-21",
-  "status": "Coordinated baseline userdata and full-log boot complete; host verification passed; awaiting one integrated device boot after manual userdata flash",
+  "status": "Hardware observation: user confirms Hello / Setup; prior migration stall passed",
   "authorized_choice": "Use upstream clean-root migration baseline; prioritize reaching Setup while retaining Setup itself",
   "source_commit": "1e81a4f",
   "kernel_build_run": 39629676117,
@@ -157,7 +157,7 @@
   "activation_state_seeded": false,
   "application_relocation_applied": false,
   "no_runtime_preference_mutation_helper": true,
-  "hardware_verified": false,
+  "hardware_verified": true,
   "handset_rebooted_this_batch": false,
   "handset_flashed_this_batch": false,
   "kernel_build_conclusion": "success",
@@ -226,5 +226,7 @@
     "capture_script_syntax": true,
     "dram_handoff_cases": 22,
     "payload_and_boot_binding": true
-  }
+  },
+  "hardware_verification_scope": "Hello / Setup visible and full-log USB capture; does not assert all handset functions",
+  "runtime_observation": "hardware/ios16-baseline-hello-test.json"
 }

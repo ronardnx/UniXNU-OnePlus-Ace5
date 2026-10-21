@@ -3,10 +3,16 @@
 当前实机调试使用 Darwin 22.6.0 / iOS 16 内核。已验证 UEFI 交接、XNU
 内存管理初始化、平台驱动注册、CPU0 注册及 SGI1 自测、原生 UFS 读取、
 USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和系统服务启动。
-GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面提交，SpringBoard / backboardd 未见崩溃。
-尚未进入可操作界面；正在定位安装服务阻塞，触控芯片身份和触点报文已验证。
+2026-10-22：采用上游迁移基线和全量日志镜像后，用户确认已经出现 Hello／设置界面。
+原来的约 50% 迁移卡点已越过；触控芯片身份和触点报文已验证，完整设备功能尚未验收。
 
-## 当前交付：上游迁移基线与全量启动日志（待实机）
+## 当前交付：上游迁移基线与全量启动日志（实机进入 Hello）
+
+本次实机中迁移服务正常退出，账户服务进入主循环，Setup 已启动。首次启动曾在
+ChronoServices 小组件描述符查询上等待，随后继续进入设置界面。记录到一次
+SBRestartManager 主动重启 Setup，随后新实例启动；未捕获 SpringBoard、backboardd
+或 Setup 的未处理崩溃，USB dropped=0。原迁移进度条随所选基线略过，这是当前策略
+的结果。完整证据见 `hardware/ios16-baseline-hello-test.json`，本次没有再次刷写或重启手机。
 
 采用 K70 `ios-vermeer-lab` 已实机进入设置界面的干净根卷迁移基线，
 在镜像构建阶段写入 `LastSystemVersion=20H392` 和对应 `DMUserDataDisposition`。

@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-22",
+  "status": "User confirms Hello / Setup is visible; prior migration startup stall passed",
+  "user_screen_before": "Apple logo, no migration progress bar",
+  "user_screen_after": "Hello / Setup",
+  "progress_bar_explanation": "The explicitly selected upstream clean-root migration baseline avoids the upgrade migration phase that displayed the bar",
+  "expected_boot_sha256": "7c3775509a8108e1c7dc6ffefb75a23f42c086f4e8a9a426943b9be2d73cbf97",
+  "expected_userdata_sha256": "8136ac0905a90af79430c4ebc56231f2ad3ec947fe3c9b9c120fd9b58857ba3e",
+  "on_device_whole_image_digest_readback": false,
+  "native_full_logging_marker_observed": true,
+  "migration_exit_records": [
+    "EXIT pid=98 ppid=1 name=com.apple.datamigrator status=0x0",
+    "EXIT pid=169 ppid=1 name=com.apple.datamigrator status=0x0",
+    "EXIT pid=265 ppid=1 name=com.apple.datamigrator status=0x0",
+    "EXIT pid=328 ppid=1 name=com.apple.datamigrator status=0x0"
+  ],
+  "setup_start_records": [
+    "EXEC pid=264 ppid=1 name=Setup",
+    "EXEC pid=330 ppid=1 name=Setup"
+  ],
+  "managed_setup_restart": {
+    "first_pid": 264,
+    "exit_status": "0x9",
+    "namespace": 10,
+    "code": "0x5bc1ea44",
+    "explanation": "SBRestartManager",
+    "next_pid": 330,
+    "unhandled_gui_crash_observed": false
+  },
+  "initial_springboard_delay": "First full stack was waiting for CHSChronoServicesConnection descriptors during widget layout; subsequently Setup started and the user observed Hello",
+  "kernel_panic_seen": false,
+  "gui_crash_headers": [],
+  "usb_status_records": [
+    "VERMEER DEBUG: ACE5DBG001 events=974 tx=1181898 rx=14 log=1165522 dropped=0 ring_bytes=33554432",
+    "VERMEER DEBUG: ACE5DBG001 events=1084 tx=1196246 rx=21 log=1179870 dropped=0 ring_bytes=33554432",
+    "VERMEER DEBUG: ACE5DBG001 events=1192 tx=1234316 rx=28 log=1217940 dropped=0 ring_bytes=33554432",
+    "VERMEER DEBUG: ACE5DBG001 events=1531 tx=1289478 rx=35 log=1273102 dropped=0 ring_bytes=33554432"
+  ],
+  "decoded_process_logs": 54,
+  "decoded_ulog_records": 1611,
+  "incomplete_ulog_records": 0,
+  "transport_audit": {
+    "boot_header_seen": true,
+    "status_samples": [
+      {
+        "events": 974,
+        "tx": 1181898,
+        "rx": 14,
+        "log": 1165522,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1084,
+        "tx": 1196246,
+        "rx": 21,
+        "log": 1179870,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1192,
+        "tx": 1234316,
+        "rx": 28,
+        "log": 1217940,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1531,
+        "tx": 1289478,
+        "rx": 35,
+        "log": 1273102,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      }
+    ],
+    "max_kernel_dropped_bytes": 0,
+    "ram_history_evicted_bytes": 0,
+    "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+  },
+  "continuous_capture": {
+    "directory": "out/ios16/baseline-full-log-test-1",
+    "running_at_observation": true,
+    "requested_seconds": 900,
+    "started_utc": "2026-10-21T16:20:08Z"
+  },
+  "rebooted_by_assistant_this_turn": false,
+  "flashed_by_assistant_this_turn": false,
+  "hardware_milestone": "Hello / Setup visible; full device functionality not yet asserted",
+  "evidence": [
+    {
+      "path": "out/ios16/baseline-full-log-test-1/snapshot-hello.log",
+      "sha256": "b34ceeddbffb635b9cea30184f18474eb4d5232f061fcd3d52d16fe3f1698b42"
+    },
+    {
+      "path": "out/ios16/baseline-full-log-test-1/latest-stacks.log",
+      "sha256": "238740fb57b4b236d6971e683535c32a8c640005b47f956b03c718b26ab2928c"
+    },
+    {
+      "path": "out/ios16/baseline-full-log-test-1/latest-stacks.symbols.txt",
+      "sha256": "e636c84edbe712f35473a3d7c98b20e3b4912ede958497782add225c9956d7ad"
+    },
+    {
+      "path": "out/ios16/baseline-full-log-test-1/decoded-hello/index.json",
+      "sha256": "1910ed9c9489e1ded38a500260727d8c5ee92b68688a9083bc60ec8966eb1466"
+    }
+  ]
+}
