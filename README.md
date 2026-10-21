@@ -51,6 +51,12 @@ OS/SystemOS 文件已按 `board.toml` 哈希校验并组装为 9,382,658,048 字
 映像仍未通过实机存储验证，也未刷写 userdata。
 SM8650 存储寄存器证据在 `hardware/sm8650-ufs.json`。
 
+Data 卷 run `39521758751` 已成功。32 MiB APFS 种子已下载到本机，
+SHA256、容器大小和超级块校验均通过，包含原始初始 var 树的 39 个文件。
+卷 UUID 为 `9E4C0509-9215-4EC5-872F-0254D84A223C`，验证记录见
+`hardware/data-seed.json`。它尚未接入当前内核，也未在手机上挂载。
+同一轮已保存约 5.14 GB 的 OS 固件缓存，后续匹配缓存键的 Data 任务可复用。
+
 设备为 PKG110 / SM8650，当前 Android 16 固件为
 PKG110_16.0.3.500(CN01)。设备使用 KernelSU，BL 属性经过隐藏，
 不能以 Android 的 locked/green 属性判断真实解锁状态。

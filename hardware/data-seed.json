@@ -1,0 +1,11 @@
+{
+  "run_id": 39521758751,
+  "bytes": 33554432,
+  "sha256": "b8da57026c3ccc7b7e11c2b08495cefbc788fac8d4b678166e39a35928b9a85b",
+  "volume_uuid_reported_by_diskutil": "9E4C0509-9215-4EC5-872F-0254D84A223C",
+  "apfs_block_size": 4096,
+  "apfs_superblock_checksum_valid": true,
+  "source_regular_files": 39,
+  "hardware_tested": false,
+  "integrated_into_kernel": false
+}
