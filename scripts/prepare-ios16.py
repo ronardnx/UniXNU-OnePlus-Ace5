@@ -111,10 +111,14 @@ def main():
             text=text.replace('K70 framebuffer','Ace 5 framebuffer').replace('K70 panel','Ace 5 panel')
         path.write_text(text,errors='surrogateescape')
     if a.touch:
-        patch=('--- a/bsd/conf/files\n+++ b/bsd/conf/files\n@@ -110,1 +110,2 @@\n'
+        patch=('--- a/bsd/conf/files\n+++ b/bsd/conf/files\n@@ -109,4 +109,5 @@\n'
+               ' bsd/dev/vermeer_usb_debug.c\t\tstandard\n'
                ' bsd/dev/sweet_sample.c\t\t\tstandard\n+bsd/dev/giulia_touch.c\t\t\tstandard\n'
-               '--- a/bsd/kern/bsd_init.c\n+++ b/bsd/kern/bsd_init.c\n@@ -1108,1 +1108,3 @@\n'
-               ' \tsweet_sample_start();\n+\textern void giulia_touch_start(void);\n+\tgiulia_touch_start();\n')
+               ' bsd/dev/memdev.c\t\t\tstandard\n bsd/dev/mem.c\t\t\t\tstandard\n'
+               '--- a/bsd/kern/bsd_init.c\n+++ b/bsd/kern/bsd_init.c\n@@ -1106,5 +1106,7 @@\n'
+               ' \tvermeer_usb_debug_start();\n \textern void sweet_sample_start(void);\n'
+               ' \tsweet_sample_start();\n+\textern void giulia_touch_start(void);\n+\tgiulia_touch_start();\n'
+               ' #endif\n \n')
         for name in ('giulia_touch.c','giulia_touch_report.h','giulia_touch_wire.h'):
             data=(Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
             data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
