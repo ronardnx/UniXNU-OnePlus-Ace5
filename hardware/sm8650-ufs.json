@@ -6,7 +6,8 @@
   "ufs_host": {
     "base": "0x01d84000",
     "size": "0x3000",
-    "source": "captured running DT /soc/ufshc@1d84000"
+    "source": "captured running DT /soc/ufshc@1d84000",
+    "compatible": "qcom,ufshc"
   },
   "smmu_stream_id": "0x60",
   "clocks": {
@@ -69,7 +70,6 @@
   },
   "status": "register facts only; no storage driver or DMA validated",
   "unverified": [
-    "GDSC power-domain registers absent from this clock source",
     "firmware UFS queue state at XNU handoff",
     "SMMU context and DMA mapping",
     "OS/SystemOS read path and root volume"
@@ -85,5 +85,16 @@
       "git_blob": "2b8c35bbf0230535063b8174332745bb7478670c",
       "source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/clk/qcom/tcsrcc-pineapple.c"
     }
-  ]
+  ],
+  "power_domains": {
+    "ufs_phy_gdscr": "0x177004",
+    "ufs_mem_phy_gdscr": "0x19e000",
+    "source": "PKG110 running-device.dts qcom,gdsc nodes"
+  },
+  "smmu": {
+    "base": "0x15000000",
+    "size": "0x100000",
+    "compatible": "qcom,qsmmu-v500",
+    "source": "PKG110 runtime DT phandle 0x52"
+  }
 }

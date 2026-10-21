@@ -48,6 +48,19 @@ if args.negative_aes_kat:
     source = out / 'NativeAES.cpp'
     source.write_text(text.replace(marker, '0x77,0x49,0xab,0xac'))
 destination = out / (component + '.o')
+if component == 'ArmDTPlatform':
+    probe = ROOT / 'scripts/GiuliaUfsProbe.h'
+    if probe.is_file():
+        original = source.read_text()
+        entry = 'bool ArmDTPlatform::configure (IOService *provider)\n{\n'
+        if original.count(entry) != 1:
+            raise SystemExit('Unexpected ArmDTPlatform configure entry')
+        original = original.replace(entry, entry + '  giuliaUfsProbe();\n')
+        original = original.replace('#include <pexpert/pexpert.h>',
+                                    '#include <pexpert/pexpert.h>\n#include "GiuliaUfsProbe.h"')
+        source = out / 'ArmDTPlatform-giulia.cpp'
+        source.write_text(original)
+        (out / 'GiuliaUfsProbe.h').write_bytes(probe.read_bytes())
 arguments = record['arguments']
 command = []
 index = 0

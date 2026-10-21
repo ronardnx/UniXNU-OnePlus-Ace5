@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-21",
+  "device": "PKG110",
+  "partition": "userdata",
+  "image_sha256": "fd43ee7035ce185ce4215ac93fdc006fd784a54b3b7442e21457c226cbe03093",
+  "image_bytes": 9382658048,
+  "result": "User reports all fastboot operations OKAY; remains in fastboot",
+  "device_readback_verified": false,
+  "xnu_ufs_read_verified": false,
+  "root_mounted": false
+}

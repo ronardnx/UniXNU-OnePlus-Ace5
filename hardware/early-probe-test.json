@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-21",
+  "uefi_run": 39527878720,
+  "source_commit": "1e7388a",
+  "image_sha256": "1ef3223b3b8ed64a80cf25b8b28600fff42c9b65e6d888e7428810605b17c480",
+  "image_bytes": 203501568,
+  "boot_method": "fastboot boot",
+  "fastboot_transfer_ok": true,
+  "fastboot_boot_command_ok": true,
+  "storage_writes_performed": false,
+  "screen_observation": "User reports green, blue and magenta bands",
+  "xnu_execution_confirmed": true,
+  "pre_mmu_reached": true,
+  "post_mmu_execution_confirmed": false,
+  "markers": {
+    "green": "DarwinEnter before kernel branch",
+    "blue": "instrumented XNU entry",
+    "magenta": "immediately before XNU MMU enable"
+  },
+  "automatic_reset": false
+}
