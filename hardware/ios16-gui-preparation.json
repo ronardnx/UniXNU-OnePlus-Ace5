@@ -19,16 +19,37 @@
     "patch_syntax_count": 65,
     "compiled_geometry_gate_cases": 8,
     "base_profile_regressions": 9,
-    "old_kernel_with_gui_adt_rejected": true
+    "old_kernel_with_gui_adt_rejected": true,
+    "ci_gui_service_check": true,
+    "local_gui_service_check": true,
+    "gui_payload_platform_match": true,
+    "dram_handoff_cases": 22
   },
-  "linked_gui_kernel_built": false,
+  "linked_gui_kernel_built": true,
   "graphics_hardware_tested": false,
   "physical_touch_supported": false,
-  "source_commit": "8ffe2b4",
-  "build_run": 39581534474,
-  "build_actor": "tycykp",
-  "build_job": 119160060669,
-  "build_status": "Not started: recent account payments failed or spending limit must be increased",
-  "build_steps_executed": 0,
-  "required_next_resource": "Working macOS Actions capacity for tycykp or an available macOS build host"
+  "source_commit": "8859fc403a1c48c76c47c2731c0cc6fb60b42bb8",
+  "build_run": 39583173365,
+  "build_actor": "jasper2863",
+  "build_job": 119165527854,
+  "build_status": "success",
+  "previous_build_failure": {
+    "repo": "tycykp/UniXNU-giulia",
+    "run": 39581534474,
+    "reason": "Not started: recent account payments failed or spending limit must be increased"
+  },
+  "build_repository": "jasper2863/UniXNU-giulia",
+  "artifact": {
+    "id": 12339141121,
+    "sha256": "8881b520d9cc39dbd9147e6e70f40d32202b3b9d328d536249a06ecad59bb29e",
+    "download_verified": true
+  },
+  "kernel_sha256": "9271cb37d8a5602f425a14787dbc3bcdc1919ce9e0683177f4a00ad2b19d04a8",
+  "boot_image": {
+    "path": "out/ios16/gui-boot-39583173365/giulia-ios16-gui.img",
+    "sha256": "1fcdeffa431fd8986f7518abb02f31506411be1f9aab5525dc27af70271e5971",
+    "bytes": 69275648,
+    "offline_verified": true,
+    "hardware_tested": false
+  }
 }

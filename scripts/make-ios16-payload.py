@@ -48,6 +48,10 @@ def main():
         # The original launchd_cache_loader exposes this separate development
         # mode for its job cache when no Apple AMFI IOService is available.
         root_args=args+f' vermeer_ufs_rw=1 vermeer_root_uuid={ident} unentitled_ios_sim_launch=1 launchd_unsecure_cache=1'
+        if platform_match.get('gui'):
+            # The GUI driver mutes only ordinary screen text after its first
+            # presentation. USB logging and panic text remain available.
+            root_args+=' sweetfb_hz=30 sweetfb_noconsole=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')

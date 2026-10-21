@@ -25,7 +25,7 @@
     "screen_observation": "User photo confirms GPT/volume UUID checks, READ-WRITE root device, HFS iOSRoot mounted, then launchd exec rejected with namespace 9 code 0xe",
     "usb_observation": "Windows again reports Unknown USB Device (Device Descriptor Request Failed); ACE5DBG001 serial port not available"
   },
-  "next_step": "Compile the prepared GUI kernel (run 39581534474 blocked before any step by account billing/limit) and package it locally with the verified GUI ADT. Do not reuse the base kernel with GUI nodes.",
+  "next_step": "GUI kernel build 39583173365 succeeded in jasper2863/UniXNU-giulia; verified temporary boot image is out/ios16/gui-boot-39583173365/giulia-ios16-gui.img. Hardware GUI testing remains pending.",
   "root_mount_mode": "READ-WRITE",
   "filesystem": "HFSX iOSRoot",
   "launchd_exec_attempted": true,

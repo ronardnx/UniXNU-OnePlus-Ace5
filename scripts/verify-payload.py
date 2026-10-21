@@ -48,6 +48,8 @@ with tempfile.TemporaryDirectory() as directory:
                 raise SystemExit('iOS platform-launch option is not supported or not bound to the root entry')
         if report.get('launchd_job_cache_compat'):
             expected+=' launchd_unsecure_cache=1'
+        if report.get('platform_match',{}).get('gui'):
+            expected+=' sweetfb_hz=30 sweetfb_noconsole=1'
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

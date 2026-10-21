@@ -1,5 +1,6 @@
 """Download a bounded Actions artifact using resumable, validated HTTPS ranges."""
 import argparse
+import re
 import concurrent.futures
 import hashlib
 import json
@@ -18,13 +19,16 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--artifact',type=int,required=True)
+    p.add_argument('--repo',default='tycykp/UniXNU-giulia')
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--workers',type=int,default=8)
     p.add_argument('--chunk-kib',type=int,default=0)
     a=p.parse_args()
     if not 1<=a.workers<=128: p.error('Workers must be between 1 and 128')
     if a.chunk_kib and not 64<=a.chunk_kib<=4096:p.error('Chunk size must be 64..4096 KiB')
-    base=f'https://api.github.com/repos/tycykp/UniXNU-giulia/actions/artifacts/{a.artifact}'
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',a.repo) or any(v in ('.','..') for v in a.repo.split('/')):
+        p.error('Repository must be owner/name')
+    base=f'https://api.github.com/repos/{a.repo}/actions/artifacts/{a.artifact}'
     token=subprocess.check_output(['gh','auth','token'],text=True).strip()
     headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}
     with urllib.request.urlopen(urllib.request.Request(base,headers=headers),timeout=30) as r:

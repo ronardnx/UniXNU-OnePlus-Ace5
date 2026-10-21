@@ -80,6 +80,8 @@ def check_platform(adt, kernel):
             if name not in kernel:raise ValueError('GUI ADT requires compiled service: '+name.decode())
         if '/device-tree/arm-io/disp0' not in nodes or '/device-tree/product' not in nodes:
             raise ValueError('GUI ADT lacks its display/product nodes')
-    return {'platform_class': 'SweetPlatformExpert', 'platform_match': platform.decode(),
+    result={'platform_class': 'SweetPlatformExpert', 'platform_match': platform.decode(),
             'cpu_class': 'SweetCPU', 'cpu_match': cpu.decode(),
             'legacy_platform_alias': platform == b'xiaomi,sweet'}
+    if gui:result['gui']=True
+    return result

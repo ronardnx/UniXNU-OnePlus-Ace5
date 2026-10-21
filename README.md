@@ -5,6 +5,16 @@
 USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和系统服务启动。
 SpringBoard / backboardd 会反复崩溃，图形界面尚未显示。
 
+## 图形版构建产物（2026-10-21）
+
+- 私有构建仓库：`jasper2863/UniXNU-giulia`，本地 remote 为 `build-jasper`。
+- GUI kernel run `39583173365` 已成功，源码提交 `8859fc4`；构建、图形服务检查、内核重定位检查全部通过。
+- Artifact `12339141121` 已下载并核验 GitHub SHA256 / ZIP CRC；内核 SHA256 为 `9271cb37d8a5602f425a14787dbc3bcdc1919ce9e0683177f4a00ad2b19d04a8`。
+- 配套临时启动镜像：`out/ios16/gui-boot-39583173365/giulia-ios16-gui.img`，SHA256 `1fcdeffa431fd8986f7518abb02f31506411be1f9aab5525dc27af70271e5971`。
+- 已核验 GUI ADT / 平台与 CPU 驱动匹配、DRAM 交接、根卷标识、Android 启动头和负载校验；该图形版本尚未实机启动。
+- 系统入口使用 `sweetfb_hz=30 sweetfb_noconsole=1`，首次呈现后才静默普通屏幕日志；USB 和 panic 日志继续保留。
+- 后续下载新仓库产物使用 `scripts/fetch-action-artifact.py --repo jasper2863/UniXNU-giulia ...`。账号凭据仅保存在本机登录会话／凭据库，不在源码中。
+
 ## 根卷和用户态进展（2026-10-21）
 
 - 用户自行刷入已校验的 userdata 原始镜像后，实机确认 GPT、卷标识匹配以及 HFSX `iOSRoot` 读写挂载。
@@ -15,7 +25,7 @@ SpringBoard / backboardd 会反复崩溃，图形界面尚未显示。
 - 当前基础内核没有编入 IOSurface / IOMobileFramebuffer / HID 服务。已准备可选 `--gui` 源码配置及 `make-ios16-adt.py --gui --product-adt LOCAL_D22AP.adt`，实际物理屏幕限制为 `0xd5100000 / 1264×2780 / stride 5056`，UIKit 兼容画布为 `1125×2436`。
 - 本地通过了 65 个补丁格式检查、8 个实际屏幕几何限制表达式测试、基础配置回归，以及 GUI ADT 与旧内核误配拒绝检查；尚未完成 GUI 内核整体编译和实机图形验证。
 - `ios16-xnu.yml` 选择 `profile=gui` 会构建图形内核，随后需在本地结合已校验的产品 ADT 打包。GUI 构建不自动使用基础 ADT 生成启动镜像。
-- GUI run `39581534474`（源码 `8ffe2b4`，触发者 `tycykp`）在编译启动前因账号付款／消费限额被 GitHub 拦截；需要恢复 Actions 构建能力或可用的 macOS 构建环境。
+- 旧仓库 GUI run `39581534474` 曾在编译启动前因账号付款／消费限额被 GitHub 拦截；已在上述新私仓完成构建。
 - 物理触控、GPU 加速和稳定图形会话均未验证。当前已验证结果不等于完整 iOS 移植完成。
 
 ## 当前实机结果（2026-10-21）
