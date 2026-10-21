@@ -24,6 +24,7 @@ def main():
     p.add_argument('--default-root',action='store_true')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
+    p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
     a=p.parse_args()
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
@@ -35,6 +36,8 @@ def main():
         raise ValueError('Service sampling requires the GUI kernel and root entry')
     if a.enable_touch and (not a.root_report or not platform_match.get('gui') or b'GIULIA TOUCH: controller result=' not in a.kernel.read_bytes()):
         raise ValueError('Touch requires a GUI kernel containing the Ace 5 hardware driver')
+    if a.touch_gpio and (not a.enable_touch or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in a.kernel.read_bytes()):
+        raise ValueError('GPIO SPI requires the corresponding kernel driver and --enable-touch')
     args='-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
     probe=args+' giulia_ufs_probe=1'
     config=('version = 1\n[boot]\ntimeout = 3\ndefault = "xnu"\n[kits]\nautoload = false\n'
@@ -61,9 +64,11 @@ def main():
         if a.trace_services:
             if b'sweetsample\0' not in a.kernel.read_bytes():
                 raise ValueError('Kernel lacks the process sampler')
-            # proc_name uses a 32-byte buffer in the pinned sampler.
-            root_args+=' sweetsample=SpringBoard,backboardd,datamigrator,com.apple.datamigrator,com.apple.migrationpluginwrappe'
+            # proc_name copies p_comm[MAXCOMLEN+1]; XNU MAXCOMLEN is 16.
+            # The sampler's larger destination buffer does not recover p_name.
+            root_args+=' sweetsample=SpringBoard,backboardd,com.apple.datami,com.apple.migrat'
         if a.enable_touch:root_args+=' giulia_touch=1'
+        if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -91,7 +96,10 @@ def main():
                       root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,
                       purpose='iOS16 HFSX root mount and UFS/USB diagnostic entries; use after manual userdata flash')
         if a.trace_services:result['trace_services']=True
-        if a.enable_touch:result['physical_touch_worker']=True
+        if a.enable_touch:
+            result['physical_touch_worker']=True
+            result['touch_clock_handoff']=True
+        if a.touch_gpio:result['touch_gpio']=True
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

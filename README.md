@@ -20,7 +20,9 @@ GUI 内核已显示苹果标志与进度条；串口观察到 7.7 万次画面�
 
 - `prepare-ios16.py --gui --touch` 加入 Ace 5 的 GENI SPI / TouchCom v1 驱动；`make-ios16-payload.py --enable-touch --trace-services` 启动驱动并扩展迁移服务采样。
 - 驱动先验证时钟、SPI 固件、FIFO、DMA 空闲和引脚状态，再识别触控应用、切到 LBP 并读回触摸报文配置；收到有效报文才发 HID 事件。
-- 当前不支持缺失时钟/电源/固件的恢复、GPI-only 控制器以及 TouchCom v2/CRC 扩展；未通过实机触控验证，不能据此认定触摸已可用。
+- ClockDxe 的触摸时钟交接已实机验证。控制器回报 GPI-only（FIFO 禁用）；新增 `--touch-gpio` 调试后端使用已确认的 GPIO 模拟 SPI，不配置 DMA/SMMU。GPIO 后端尚待实机验证。
+- 当前未实现 PMIC 电源恢复、GPI DMA 传输及 TouchCom v2/CRC 扩展；尚不能认定物理触摸已可用。
+- 迁移采样已捕获 `com.apple.datami` / `com.apple.migrat`：前者等待插件包装进程，后者等待插件的信号量。已加入插件加载地址诊断，供下一轮定位。
 - 寄存器来源、引脚和限制见 `hardware/sm8650-touch.json`。触摸解析测试不代替实机测试。
 
 ## 根卷和用户态进展（2026-10-21）

@@ -8,9 +8,11 @@
 [Sources]
   GiuliaInitrdDxe.c
   ScanPolicy.h
+  TouchClock.c
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec
+  QcomPkg/QcomPkg.dec
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
@@ -27,5 +29,6 @@
 [Protocols]
   gEfiBlockIoProtocolGuid
   gEfiDevicePathProtocolGuid
+  gEfiClockProtocolGuid
 [Depex]
   TRUE

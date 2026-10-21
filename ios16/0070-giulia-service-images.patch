@@ -1,0 +1,32 @@
+--- a/osfmk/kern/exception.c
++++ b/osfmk/kern/exception.c
+@@ -994,5 +994,29 @@
+ 	printf("SMP %s[%d] slide 0x%llx mh 0x%llx\n", name, pid, slide, task->mach_header_vm_address);
+ 
++	/* Resolve separately loaded migration plug-ins, outside the shared cache.
++	 * Sample untrusted user memory with bounded copy operations only. */
++	if (strncmp(name, "com.apple.", 10) == 0 && task->all_image_info_addr) {
++		struct { uint32_t version, count; uint64_t array; } info;
++		if (vm_map_read_user(map, task->all_image_info_addr, &info, sizeof(info)) == KERN_SUCCESS &&
++		    info.version >= 1 && info.count <= 2048 && info.array &&
++		    info.array < 0x10000000000ULL - (uint64_t)info.count * 24) {
++			for (uint32_t i = 0; i < info.count; i++) {
++				uint64_t entry[3];
++				char path[128];
++				if (vm_map_read_user(map, info.array + (uint64_t)i * 24, entry, sizeof(entry)) != KERN_SUCCESS) break;
++				if (!entry[0] || entry[0] >= 0x180000000ULL || !entry[1]) continue;
++				path[0] = 0;
++				for (unsigned j = 0; j < sizeof(path) - 1; j++) {
++					if (entry[1] + j < entry[1] || vm_map_read_user(map, entry[1] + j, path + j, 1) != KERN_SUCCESS) {
++						path[j] = 0; break;
++					}
++					if (!path[j]) break;
++				}
++				path[sizeof(path) - 1] = 0;
++				printf("IMG %s base 0x%llx %s\n", name, entry[0], path);
++			}
++		}
++	}
+ 	task_lock(task);
+ 	queue_iterate(&task->threads, thread, thread_t, task_threads) {
+ 		arm_saved_state_t *ss = find_user_regs(thread);

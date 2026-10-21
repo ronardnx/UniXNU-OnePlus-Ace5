@@ -38,6 +38,8 @@ jobs:
           /tmp/touch-report-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_wire.c -o /tmp/touch-wire-test
           /tmp/touch-wire-test
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_gpio.c -o /tmp/touch-gpio-test
+          /tmp/touch-gpio-test
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb

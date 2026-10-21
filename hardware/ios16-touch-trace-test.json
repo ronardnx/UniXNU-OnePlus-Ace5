@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-21",
+  "source_commit": "580753dafcf690ec07ace00c6abf05998ff90a32",
+  "repository": "jasper2863/UniXNU-giulia",
+  "build_run": 39589325137,
+  "build_success": true,
+  "artifact_id": 12341119352,
+  "artifact_sha256": "20b8171ca9604c60a348e4f092633591f4d0ff3a57ddbf6fc9b6b7472f8bff0b",
+  "kernel_sha256": "e5c42cb998847f73d461a06559d9dc3dbc3a70a01b027373b90f89991fb33869",
+  "image": "out/ios16/touch-boot-39589325137/giulia-ios16-touch-trace.img",
+  "image_sha256": "8875b6543efddc7925d53780a0e637f71e832ead4dd2488bd84b48189b976781",
+  "boot_method": "fastboot boot",
+  "transfer_ok": true,
+  "boot_command_ok": true,
+  "serial_connected": true,
+  "physical_touch_verified": false,
+  "service_sampling_verified": false,
+  "userdata_reflashed": false,
+  "first_presentation_confirmed": true,
+  "touch_blocker": {
+    "branch": "0x80004000",
+    "vote": "0x423c0200",
+    "rcgr": "0x80000000",
+    "cfg": "0x100000",
+    "result": 2,
+    "reason": "SE clock halted"
+  },
+  "sampling": {
+    "SpringBoard": true,
+    "backboardd": true,
+    "migration_processes": false,
+    "reason": "proc_name copies a 16-character p_comm; full/truncated-to-31 selectors do not match",
+    "corrected_selectors": [
+      "com.apple.datami",
+      "com.apple.migrat"
+    ]
+  },
+  "log": {
+    "path": "out/ios16/touch-boot-39589325137/usb-touch-trace.log",
+    "sha256": "b493de9555203a5b5a324a9a7557f40326290e191e6162a8a686618ec6c64cd6"
+  },
+  "clock_fix": {
+    "image": "out/ios16/touch-clock-trace/giulia-ios16-touch-trace.img",
+    "sha256": "7a405ebc3bc6c2cb318ef6d983eb63ad425c07e2409b8f323808bb6a5f919a26",
+    "firmware_sha256": "6b0c172650b4a9a72f325ef6b8be5633b7ed7c4c75d1985ff20dc823cd837984",
+    "offline_verified": true,
+    "transfer_ok": true,
+    "boot_command_ok": true,
+    "protocol": "board ClockDxe",
+    "requested_se_hz": 19200000,
+    "clocks": [
+      "gcc_qupv3_wrap_1_m_ahb_clk",
+      "gcc_qupv3_wrap_1_s_ahb_clk",
+      "gcc_qupv3_wrap1_s4_clk"
+    ],
+    "sampling_names": [
+      "SpringBoard",
+      "backboardd",
+      "com.apple.datami",
+      "com.apple.migrat"
+    ],
+    "hardware_verified": true,
+    "branch": "0x4000",
+    "vote": "0x463c0200",
+    "rcgr": "0",
+    "cfg": "0x100000",
+    "spi_firmware": "0x102",
+    "fifo_interface_disabled": true,
+    "physical_touch_verified": false,
+    "service_sampling_verified": true,
+    "migration_pids_observed": {
+      "com.apple.datami": 97,
+      "com.apple.migrat": 170
+    },
+    "log": {
+      "path": "out/ios16/touch-clock-trace/usb-clock-trace.log",
+      "sha256": "999270025c53288c8d28c075a96f8ad90925656f641af48a13f624c5ee36d615"
+    },
+    "migration_wait": "datamigrator waits for a plugin wrapper; wrapper waits in dispatch_semaphore_wait; plugin image mapping needed"
+  }
+}

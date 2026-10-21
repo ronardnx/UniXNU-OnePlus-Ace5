@@ -51,17 +51,20 @@
   },
   "implementation": {
     "opt_in_boot_arg": "giulia_touch=1",
-    "transport": "polled GENI FIFO full duplex with FF dummy transmit for reads",
+    "transport": "GENI FIFO where supported; opt-in GPIO mode 0 SPI for the observed GPI-only SE",
     "supported_wire": "TouchCom v1 legacy; exact continuation marker and EOM required",
     "report": "0x11, exact configuration readback required; only finger/glove contacts emitted",
     "local_processing_mode": "dynamic config 0x11 = 2; readback required",
     "hardware_gate": "clock running; SPI firmware; FIFO available; DMA inactive; inherited power/reset and SPI pinmux",
     "not_implemented": [
-      "clock/regulator/firmware recovery",
-      "GPI-only engines",
+      "PMIC 1.8 V rail recovery",
+      "GPI DMA transport",
       "TouchCom v2/CRC extensions"
     ],
-    "persistent_firmware_writes": false
+    "persistent_firmware_writes": false,
+    "gpio_boot_arg": "giulia_touch_gpio=1",
+    "gpio_guard": "SE idle, DMA inactive, AP GPI instances have no running SE4 channel, pins not externally controlled",
+    "gpio_mutations": "only board-confirmed seven pins; AVDD/reset DT delays; restore saved pin state on failure; no PMIC/SMMU/GPI writes"
   },
   "sources": [
     {
@@ -176,5 +179,39 @@
         }
       ]
     }
-  ]
+  ],
+  "gpi": {
+    "base": "0xa00000",
+    "bytes": "0x60000",
+    "ee_offset_subtract": "0x10000",
+    "ap_dynamic_instances": [
+      2,
+      3
+    ],
+    "touch_se_id": 4,
+    "smmu_sid": "0xb6",
+    "observed_fifo_disabled": true,
+    "source": {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "files": [
+        {
+          "path": "drivers/dma/qcom/msm_gpi.c",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/dma/qcom/msm_gpi.c",
+          "sha256": "8c1b66ddc13c96778eafbac48ba2967589d621818c89bdbca825a0c162b12b84"
+        },
+        {
+          "path": "drivers/dma/qcom/msm_gpi_mmio.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/dma/qcom/msm_gpi_mmio.h",
+          "sha256": "24c2f8b90821d26670e3be2af9258bdea4033f9db1632cf24cd4d1a7a5e9fc77"
+        },
+        {
+          "path": "include/linux/msm_gpi.h",
+          "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/msm_gpi.h",
+          "sha256": "47d8906be70e34ea8c5866b95fe9a3e2e7d1ced9dd31475550d3accd73f569bf"
+        }
+      ]
+    }
+  },
+  "clock_handoff_verified": true
 }

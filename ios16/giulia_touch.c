@@ -16,6 +16,7 @@
 #include <pexpert/pexpert.h>
 #include "giulia_touch_report.h"
 #include "giulia_touch_wire.h"
+#include "giulia_touch_gpio.h"
 
 extern vm_offset_t ml_io_map(vm_offset_t,vm_size_t);
 extern void sweet_hid_touch(int,int,int,int);
@@ -28,7 +29,8 @@ void giulia_touch_start(void);
 static struct {
     vm_offset_t se,gcc,pin[7];
     unsigned depth,rxdepth,last_irq;
-    bool started,dead;
+    bool started,dead,gpio_mode,gpio_changed;
+    uint32_t old_cfg[7],old_io[7];
     struct gt_state state;
 } gt;
 static int gt_wait_chan;
@@ -60,9 +62,62 @@ static void gt_abort(void)
     }
     gt.dead=true;
 }
+static void gt_gpio_set(unsigned pin,unsigned value)
+{
+    uint32_t io=gr(gt.pin[pin],4);
+    gw(gt.pin[pin],4,(io&~2u)|(value?2u:0));
+}
+static unsigned gt_gpio_sample(void){return gr(gt.pin[0],4)&1;}
+static void gt_gpio_pause(void){delay(1);}
+static const struct gg_bus gt_gpio_bus={gt_gpio_set,gt_gpio_sample,gt_gpio_pause};
+
+static void gt_gpio_restore(void)
+{
+    if(!gt.gpio_changed)return;
+    gt_gpio_set(3,1);gt_gpio_set(2,0);
+    for(unsigned i=0;i<7;i++) {
+        gw(gt.pin[i],4,gt.old_io[i]);gw(gt.pin[i],0,gt.old_cfg[i]);
+    }
+    gt.gpio_changed=false;
+}
+static int gt_gpio_prepare(void)
+{
+    /* DT allocates dynamic GPI instances 2/3 to this AP. Inspect only those
+     * instances and never issue a GPI command or modify its SMMU stream. */
+    vm_offset_t gpi=ml_io_map(0xa00000,0x60000);
+    if(!gpi)return 20;
+    for(unsigned n=2;n<=3;n++)for(unsigned ch=0;ch<2;ch++) {
+        unsigned off=0x10000+0x4000*n+0x80*ch;
+        uint32_t cfg=gr(gpi,off),scratch=gr(gpi,off+0x60);
+        unsigned state=(cfg>>20)&15;
+        printf("GIULIA TOUCH: GPI%u ch%u cfg=%#x scratch=%#x\n",n,ch,cfg,scratch);
+        if(cfg==0xffffffffu || scratch==0xffffffffu)return 24;
+        if((scratch&15)==4 && state!=0 && state!=1 && state!=3)return 21;
+    }
+    for(unsigned i=0;i<7;i++) {
+        gt.old_cfg[i]=gr(gt.pin[i],0);gt.old_io[i]=gr(gt.pin[i],4);
+        if(gt.old_cfg[i]&(1u<<12))return 22; /* externally controlled pin */
+    }
+    gt.gpio_changed=true;
+    /* Preload deasserted CS, low clock and released reset before GPIO OE.
+     * AVDD enable and reset delays follow this board's Synaptics DT. */
+    for(unsigned i=0;i<7;i++) {
+        bool output=i!=0 && i!=6;
+        gt_gpio_set(i,i==2?0:1);
+        uint32_t cfg=(gt.old_cfg[i]&~0x3ffu)|(2u<<6)|(output?1u<<9:0);
+        gw(gt.pin[i],0,cfg);
+        if((gr(gt.pin[i],0)&0x3ff)!=(cfg&0x3ff)){gt_gpio_restore();return 23;}
+    }
+    gt_wait(200);
+    gt_gpio_set(5,0);gt_wait(10);gt_gpio_set(5,1);gt_wait(80);
+    gt.gpio_mode=true;
+    printf("GIULIA TOUCH: GPIO SPI mode 0 active; S3910 volatile reset complete\n");
+    return 0;
+}
 static int gt_xfer(const uint8_t *tx,uint8_t *rx,unsigned n)
 {
     if(gt.dead || !n || n>GW_MAX+7 || (!tx && !rx))return 1;
+    if(gt.gpio_mode)return gg_transfer(&gt_gpio_bus,tx,rx,n);
     if((gr(gt.se,0x40)&0x1001) || (gr(gt.se,0x800)&0xfffffff) ||
        (gr(gt.se,0x804)&0x1ffffff))return 2;
     unsigned sent=0,got=0;
@@ -100,7 +155,14 @@ static int gt_xfer(const uint8_t *tx,uint8_t *rx,unsigned n)
     }
     gt_abort();return 8;
 }
-static int gt_read(uint8_t *data,unsigned size){return gt_xfer(NULL,data,size);}
+static int gt_read(uint8_t *data,unsigned size)
+{
+    static unsigned reads;
+    int err=gt_xfer(NULL,data,size);
+    if(reads++<4 && !err && size>=4)printf("GIULIA TOUCH: RX %u bytes: %02x %02x %02x %02x\n",
+        size,data[0],data[1],data[2],data[3]);
+    return err;
+}
 static int gt_write(const uint8_t *data,unsigned size){return gt_xfer(data,NULL,size);}
 
 static int gt_controller(void)
@@ -119,16 +181,21 @@ static int gt_controller(void)
     gt.depth=(tx>>16)&0xff;gt.rxdepth=(rx>>16)&0xff;
     printf("GIULIA TOUCH: GENI fw=%#x iface=%#x status=%#x tx=%#x rx=%#x dma=%#x\n",
         fw,iface,status,tx,rx,gr(gt.se,0x258));
-    if(((fw>>8)&0xff)!=1 || (iface&1) || (status&0x1001) ||
-       ((tx>>24)&0x3f)!=32 || !gt.depth || gt.depth>64 || !gt.rxdepth || gt.rxdepth>64 ||
-       (gr(gt.se,0xe40)&3) || (gr(gt.se,0xc3c)) || (gr(gt.se,0xd3c))) {
-        printf("GIULIA TOUCH: unsupported GENI firmware/FIFO or active DMA; no takeover\n");return 4;
+    if(((fw>>8)&0xff)!=1 || (status&0x1001) || (gr(gt.se,0xe40)&3)) {
+        printf("GIULIA TOUCH: unsupported GENI firmware or active engine; no takeover\n");return 4;
     }
     for(unsigned i=0;i<7;i++) {
         gt.pin[i]=ml_io_map(GT_TLMM+gt_pins[i]*0x1000u,0x1000);
         if(!gt.pin[i])return 5;
         printf("GIULIA TOUCH: gpio%u cfg=%#x io=%#x\n",gt_pins[i],gr(gt.pin[i],0),gr(gt.pin[i],4));
     }
+    if(iface&1) {
+        int gpio_enabled=0;PE_parse_boot_argn("giulia_touch_gpio",&gpio_enabled,sizeof(gpio_enabled));
+        if(gpio_enabled==1)return gt_gpio_prepare();
+        printf("GIULIA TOUCH: GPI-only controller; GPIO backend not enabled\n");return 4;
+    }
+    if(((tx>>24)&0x3f)!=32 || ((rx>>24)&0x3f)!=32 || !gt.depth || gt.depth>64 ||
+       !gt.rxdepth || gt.rxdepth>64 || gr(gt.se,0xc3c) || gr(gt.se,0xd3c))return 4;
     /* Require the board's reset and AVDD enable already deasserted/on. The
      * 1.8 V PMIC rail and pin ownership still belong to firmware. */
     for(unsigned i=4;i<6;i++)if((gr(gt.pin[i],0)&0x23c)!=0x200 || !(gr(gt.pin[i],4)&2))return 6;
@@ -214,6 +281,7 @@ static void gt_thread(__unused void *arg,__unused wait_result_t result)
     }
 done:
     gt_release();
+    gt_gpio_restore();
     printf("GIULIA TOUCH: worker stopped result=%d; GUI continues\n",err);
     thread_terminate(current_thread());
 }

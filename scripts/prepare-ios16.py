@@ -119,11 +119,13 @@ def main():
                ' \tvermeer_usb_debug_start();\n \textern void sweet_sample_start(void);\n'
                ' \tsweet_sample_start();\n+\textern void giulia_touch_start(void);\n+\tgiulia_touch_start();\n'
                ' #endif\n \n')
-        for name in ('giulia_touch.c','giulia_touch_report.h','giulia_touch_wire.h'):
+        for name in ('giulia_touch.c','giulia_touch_report.h','giulia_touch_wire.h','giulia_touch_gpio.h'):
             data=(Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
             data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
             patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',tofile='b/bsd/dev/'+name))
         (a.out/'0069-giulia-touch.patch').write_text(patch)
+        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
+                        a.out/'0070-giulia-service-images.patch')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
@@ -131,7 +133,7 @@ def main():
     (a.out/'check-kernel.py').write_text(checker)
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
-        'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO' if a.touch else None,
+        'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

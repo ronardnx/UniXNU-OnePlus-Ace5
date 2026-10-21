@@ -20,6 +20,7 @@
 #include <Protocol/DevicePath.h>
 #include "PayloadIdentity.h"
 #include "ScanPolicy.h"
+VOID GiuliaTouchClockSchedule (VOID);
 
 #define RAM_BLOCK_SIZE  512
 
@@ -249,6 +250,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   UINTN Pass;
 
   Report (1, 0, 0, EFI_NOT_READY);
+  GiuliaTouchClockSchedule ();
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);
   if ((Hob == NULL) || (GET_GUID_HOB_DATA_SIZE (Hob) < sizeof (UINT64))) {
     Report (2, 0, 0, EFI_NOT_FOUND);
