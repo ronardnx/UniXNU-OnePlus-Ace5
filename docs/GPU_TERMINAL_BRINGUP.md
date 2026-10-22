@@ -112,3 +112,34 @@ HFI 队列、日志和 VRB，完成原厂启动所需的 secure CX、PDC/RSC、I
 python3 tests/ios16_gpu_probe.py
 bash scripts/test-ios16-gpu.sh out/ios16/gpu-stock-firmware/gmu_gen70900.bin
 ```
+
+## HFI 队列与终端准备（尚未实机验收）
+
+后续候选内核增加 17 个原厂 HWSCHED 队列，以及独占日志区和 VRB。
+HFI、日志、VRB 的 IOVA 分别是 `0x60010000`、`0x60030000`、
+`0x60040000`。共享区 CPU 映射使用 Normal NC，固件和页表仍使用
+copyback 加显式 cache publication。固定固件现在对应 8 段预留、
+6 个表页和 139 个叶页；这些数字只说明宿主内存准备完成。
+
+终端增加 `gpu.hfi.status`、`gpu.hfi.pin`、`gpu.hfi.query`、
+`gpu.hfi.poll`、`gpu.hfi.log`。`pin` 将诊断内存保留至重启；没有
+`unpin`，因为原始 MMIO 调试不能证明所有 DMA 已停止。`query`
+只向队列提交 warmboot 属性查询，还需实验控制端写入 doorbell。
+匹配 ACK 时分别记录返回值和错误状态；缺少状态的旧协议响应仅证明
+收到消息，不标为命令成功。每个响应至多匹配一次。
+
+可在临时启动候选镜像后执行只读阶段验收：
+
+```powershell
+python scripts/check-ios16-gpu-device.py --output out/ios16/gpu-hfi-device-check-1
+```
+
+脚本仅连接标识为 `ACE5DBG001` 的 CDC 设备，清除接收缓冲历史后请求
+新的 service/queue 状态，并保存原始日志、SHA256 和 JSON 结果。
+端口被占用、旧内核、缺失/重复队列、非空队列或捕获到 panic 均不能
+通过此阶段。输出目录必须是新目录。此脚本不启动 GMU、不重启手机，
+通过结果不代表原厂 HFI 握手、GPU 命令提交或 Metal 可用。
+
+原厂启动仍需实际完成 secure CX、PDC/RSC、时钟/带宽和 IRQ 配置，
+再验证 FW ready、HFI ready、消息 ACK 与 HWSCHED 初始化。
+随后才可推进 GPU context/提交/fence 和 Metal 用户态接口。
