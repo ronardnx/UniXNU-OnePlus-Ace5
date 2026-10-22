@@ -9,10 +9,6 @@
 > [!WARNING]
 > 本项目处于实验性硬件适配阶段，不适合作为日常使用的操作系统，也不代表完整的 iOS 移植。编译成功不等于相关功能已在手机上正常工作。刷写镜像或修改 userdata 可能造成数据丢失或设备无法启动。仅在充分理解限制、保留经过验证的备份后进行临时启动测试；不要执行未经审查的破坏性操作。
 
-## GitHub 仓库与构建
-
-源码维护于 [tycykp/UniXNU-OnePlus-Ace5](https://github.com/tycykp/UniXNU-OnePlus-Ace5)，同步到 [jasper2863/UniXNU-giulia](https://github.com/jasper2863/UniXNU-giulia)。所有 Actions 作业仅允许在 `jasper2863` 账号下运行。文件规范、同步步骤与构建命令见 [贡献与发布规范](CONTRIBUTING.md)。
-
 ## 项目状态
 
 目前项目采用 iOS 16 / Darwin 22 开发路线。根据最新记录的实机测试（2026-10-22），设备已使用开发镜像进入 Hello / 设置界面。
