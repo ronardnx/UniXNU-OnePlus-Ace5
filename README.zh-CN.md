@@ -21,7 +21,8 @@
 | 用户界面 | 已验证 | 可启动 Hello / 设置界面；完整系统功能仍在开发中 |
 | 显示与触控 | 已验证 | 设置界面铺满 1264×2780 面板，触控对齐；UIKit 使用缩放后的 1125×2436 画布 |
 | Wi-Fi | 尚不可用 | PCIe、BHI/BHIE、AMSS 和 QMI 资源请求已实测；当前等待固件就绪通知超时，扫描尚未运行 |
-| GPU 加速、音频、蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
+| GPU | 已接入准备服务 | A750 固件／RAM 准备、未激活 SMMU 页表及门控观察；尚无 GPU 执行与 Metal 加速 |
+| 音频、蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
 
 显示旋转、电源状态切换和应用兼容性仍需验证。Wi-Fi 关联、认证及网络数据传输尚未实现。
 
@@ -36,6 +37,8 @@
 - XNU 使用 macOS 构建机，当前配置的 GitHub Actions 构建账号为 `jasper2863`。
 
 上游版本由 [`sources.json`](sources.json) 及各目标工作流固定。内核、设备树、固件和负载元数据必须配套使用。
+
+GUI 内核工作流支持同时选择触控、Wi-Fi 和 `gpu=true`。本地统一打包通过 `GIULIA_GPU_PACK` 与 `GIULIA_GPU_MODE=1/2` 启用 GPU，USB `gpu.status`／`gpu.observe` 提供准备状态和门控观察。输入及硬件待办见 [GPU 适配说明](docs/GPU_BRINGUP.md)。
 
 已提交的 UEFI 与 UniXNU 开发源码快照同时以 Git 子模块记录在 `sources/` 下。拉取所记录的版本：
 

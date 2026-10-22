@@ -106,7 +106,7 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
-    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui)
+    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu)
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -239,6 +239,7 @@ def main():
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'wifi_runtime_included':a.wifi,
         'gpu_runtime_included':a.gpu,
+        'gpu_terminal_included':a.gpu,
         'gpu_scope':'pinned firmware, GMU host-memory preparation, optional gated read-only power/SMMU observation; no GPU submission' if a.gpu else None,
         'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211; association/data path excluded' if a.wifi else None,
         'read_only_trust_catalog_query':a.gui,

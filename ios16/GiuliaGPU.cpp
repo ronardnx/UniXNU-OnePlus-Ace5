@@ -12,11 +12,25 @@
 #include <mach-o/loader.h>
 #include <pexpert/pexpert.h>
 #include <libkern/c++/OSData.h>
+#include <kern/thread.h>
 extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_pack.h"
 #include "giulia_gpu_memory.h"
 #include "giulia_gpu_power.h"
+#include "giulia_gpu_terminal.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
+
+static struct gg_terminal_mailbox gpuTerminal;
+extern "C" int giulia_gpu_terminal(const char *command)
+{
+    unsigned request=gg_terminal_command(command);
+    if(!request)return 0;
+    if(!gg_terminal_request(&gpuTerminal,request))
+        IOLog("GIULIA GPU: command=%s service=unavailable stage=%s mode=%u hardware_ready=0 acceleration=0\n",command,
+            gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),
+            __atomic_load_n(&gpuTerminal.mode,__ATOMIC_ACQUIRE));
+    return 1;
+}
 
 class GiuliaGPU : public IOService {
     OSDeclareDefaultStructors(GiuliaGPU)
@@ -26,10 +40,19 @@ class GiuliaGPU : public IOService {
     IOBufferMemoryDescriptor *allocations[GG_FW_MAX_BLOCKS];
     IOMemoryDescriptor *registerMemory[GGP_WINDOWS];
     IOMemoryMap *registerMaps[GGP_WINDOWS];
+    IOLock *runtimeLock;
+    bool workerRunning, stopping, terminalOwner;
+    unsigned mode, reservationCount, tablePages, leafPages, observations;
+    bool firmwareVerified, hostPrepared;
+    struct ggp_report powerObservation;
     bool loadFirmware(struct gg_pack *pack);
     bool prepareMemory(const struct gg_pack *pack);
+    void observePower();
+    void reportStatus();
+    void closeTerminal(unsigned);
     void releaseResources();
     static int readRegister(void *, unsigned, uint32_t, uint32_t *);
+    static void worker(void *,wait_result_t);
 public:
     bool init(OSDictionary *dictionary=0) override;
     bool start(IOService *) override;
@@ -41,9 +64,13 @@ OSDefineMetaClassAndStructors(GiuliaGPU, IOService)
 bool GiuliaGPU::init(OSDictionary *dictionary)
 {
     firmwareMemory=NULL; firmwareMap=NULL; tableMemory=NULL;
+    runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
+    mode=reservationCount=tablePages=leafPages=observations=0;
+    firmwareVerified=hostPrepared=false;bzero(&powerObservation,sizeof(powerObservation));
     bzero(allocations,sizeof(allocations));
     bzero(registerMemory,sizeof(registerMemory)); bzero(registerMaps,sizeof(registerMaps));
-    return IOService::init(dictionary);
+    if(!IOService::init(dictionary))return false;
+    runtimeLock=IOLockAlloc();return runtimeLock!=NULL;
 }
 
 static bool gpuFirmwareError(unsigned code,uint64_t at,const char *reason,uint64_t expected,uint64_t observed)
@@ -107,6 +134,7 @@ bool GiuliaGPU::loadFirmware(struct gg_pack *pack)
         return gpuFirmwareError(21,pa,"container-validation-failed",GG_FIRMWARE_PACK_BYTES,segment.filesize);
     }
     IOLog("GIULIA GPU: firmware pack mapped read-only and digest verified\n");
+    firmwareVerified=true;
     return true;
 }
 
@@ -180,10 +208,14 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
                     status==ArmSmmu4KSuccess?"ok":"fail",(unsigned)status,(unsigned long long)pa,
                     (unsigned long)capacity,(unsigned long)result.table_pages,(unsigned long)result.leaf_pages);
                 ok=status==ArmSmmu4KSuccess;
-                if (ok) setProperty("InactiveSmmuTablePages",(unsigned long long)result.table_pages,32);
+                if (ok) {
+                    tablePages=(unsigned)result.table_pages;leafPages=(unsigned)result.leaf_pages;
+                    setProperty("InactiveSmmuTablePages",(unsigned long long)result.table_pages,32);
+                }
             }
         }
         if (ok) {
+            reservationCount=(unsigned)reservations;hostPrepared=true;
             setProperty("GMUReservationCount",(unsigned long long)reservations,32);
             IOLog("GIULIA GPU: host preparation complete; blocks=%lu reservations=%lu; hardware inactive\n",
                 (unsigned long)count,(unsigned long)reservations);
@@ -206,7 +238,8 @@ int GiuliaGPU::readRegister(void *cookie,unsigned window,uint32_t offset,uint32_
     }
     /* Map lazily: a failed prerequisite cannot even map the later window. */
     if (!self->registerMaps[window]) {
-        self->registerMemory[window]=IOMemoryDescriptor::withPhysicalAddress(bases[window],sizes[window],kIODirectionIn);
+        if(!self->registerMemory[window])
+            self->registerMemory[window]=IOMemoryDescriptor::withPhysicalAddress(bases[window],sizes[window],kIODirectionIn);
         if (!self->registerMemory[window]) {
             IOLog("GIULIA GPU: subsystem=mmio phase=create-descriptor result=fail native_code=2 base=%#llx bytes=%lu window=%u cause=unconfirmed\n",
                 (unsigned long long)bases[window],(unsigned long)sizes[window],window);
@@ -226,8 +259,8 @@ int GiuliaGPU::readRegister(void *cookie,unsigned window,uint32_t offset,uint32_
 
 bool GiuliaGPU::start(IOService *provider)
 {
-    int mode=0;
-    if (!PE_parse_boot_argn("giulia_gpu",&mode,sizeof(mode)) || mode<1 || mode>2) return false;
+    int requested=0;
+    if (!PE_parse_boot_argn("giulia_gpu",&requested,sizeof(requested)) || requested<1 || requested>2) return false;
     IORegistryEntry *root=IORegistryEntry::fromPath("/",gIODTPlane);
     if (!root) return false;
     OSData *model=OSDynamicCast(OSData,root->getProperty("physical-model"));
@@ -235,19 +268,43 @@ bool GiuliaGPU::start(IOService *provider)
     bool board=model && model->getLength()==sizeof(expected) && !memcmp(model->getBytesNoCopy(),expected,sizeof(expected));
     root->release();
     if (!board || !IOService::start(provider)) return false;
+    if(!gg_terminal_open(&gpuTerminal)){IOService::stop(provider);return false;}
+    terminalOwner=true;mode=(unsigned)requested;
+    __atomic_store_n(&gpuTerminal.mode,mode,__ATOMIC_RELEASE);
+    __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_PREPARING,__ATOMIC_RELEASE);
     struct gg_pack pack={};
     if (!loadFirmware(&pack) || !prepareMemory(&pack)) {
         IOLog("GIULIA GPU: preparation failed; no device writes performed\n");
-        releaseResources(); IOService::stop(provider); return false;
+        closeTerminal(GGT_FAILED);
+        releaseResources();gg_terminal_finish(&gpuTerminal);terminalOwner=false;
+        IOService::stop(provider);return false;
     }
     setProperty("GPUChipID",(unsigned long long)0x43051401,32);
     setProperty("GPUModel","Adreno750v2"); setProperty("HardwareReady",false);
     setProperty("BringupStage","host-memory-prepared");
-    if (mode==2) {
-        struct ggp_io io={this,readRegister}; struct ggp_report report;
+    /* The worker retains this service and owns every post-start observation.
+     * A USB command cannot map registers or race stop/free through a pointer. */
+    workerRunning=true;retain();thread_t thread;
+    kern_return_t error=kernel_thread_start(worker,this,&thread);
+    if(error!=KERN_SUCCESS) {
+        workerRunning=false;release();closeTerminal(GGT_FAILED);
+        releaseResources();gg_terminal_finish(&gpuTerminal);terminalOwner=false;
+        IOService::stop(provider);return false;
+    }
+    thread_deallocate(thread);
+    registerService();
+    return true;
+}
+
+void GiuliaGPU::observePower()
+{
+        struct ggp_report &report=powerObservation;
+        struct ggp_io io={this,readRegister};
         ggp_observe(&io,&report);
+        ++observations;
         setProperty("PowerObservation",&report,sizeof(report));
         setProperty("PowerObservationVersion",3ULL,32);
+        setProperty("PowerObservationCount",(unsigned long long)observations,32);
         IOLog("GIULIA GPU: subsystem=power-observation stage=%u valid_fields=%#x hardware_ready=0\n",report.stage,report.valid_fields);
         const char *const names[13]={"gcc_cfg_ahb","gcc_memnoc","gcc_dvm","cx_gdscr","cx_hw_ctrl","gpu_ahb",
             "smmu_vote_clock","gmu_clock","smmu_scr0","smmu_id0","smmu_id1","smmu_id2","smmu_fault"};
@@ -267,9 +324,47 @@ bool GiuliaGPU::start(IOService *provider)
             IOLog("GIULIA GPU: subsystem=power-observation result=fail stage=%u window=%u offset=%#x native_code=%d observed=%#x observed_valid=%u cause=unconfirmed\n",
                 report.stage,report.window,report.offset,report.io_error,report.observed,report.io_error==0);
         }
+}
+
+void GiuliaGPU::reportStatus()
+{
+    IOLog("GIULIA GPU: command=gpu.status stage=%s mode=%u firmware_verified=%u host_prepared=%u reservations=%u table_pages=%u leaf_pages=%u power_acquired=0 smmu_active=0 gmu_started=0 observations=%u observation_stage=%u valid_fields=%#x hardware_ready=0 acceleration=0 device_writes=0\n",
+        gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),mode,
+        firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages,observations,
+        powerObservation.stage,powerObservation.valid_fields);
+}
+
+void GiuliaGPU::worker(void *cookie,wait_result_t)
+{
+    GiuliaGPU *self=(GiuliaGPU *)cookie;
+    IOLockLock(self->runtimeLock);
+    if(!self->stopping) {
+        __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_READY,__ATOMIC_RELEASE);
+        if(self->mode==2)self->observePower();
     }
-    registerService();
-    return true;
+    while(!self->stopping) {
+        unsigned requests=gg_terminal_take(&gpuTerminal);
+        if(requests&GGT_OBSERVE) {
+            IOLog("GIULIA GPU: command=gpu.observe phase=begin device_writes=0\n");
+            self->observePower();
+            IOLog("GIULIA GPU: command=gpu.observe phase=end observation=%u stage=%u valid_fields=%#x hardware_ready=0\n",
+                self->observations,self->powerObservation.stage,self->powerObservation.valid_fields);
+        }
+        if(requests&(GGT_STATUS|GGT_OBSERVE))self->reportStatus();
+        IOLockUnlock(self->runtimeLock);IOSleep(25);IOLockLock(self->runtimeLock);
+    }
+    self->workerRunning=false;
+    IOLockWakeup(self->runtimeLock,&self->workerRunning,false);
+    IOLockUnlock(self->runtimeLock);
+    self->release();thread_terminate(current_thread());
+}
+
+void GiuliaGPU::closeTerminal(unsigned stage)
+{
+    if(!terminalOwner)return;
+    unsigned cancelled=gg_terminal_close(&gpuTerminal);
+    if(cancelled)IOLog("GIULIA GPU: terminal requests_cancelled=%#x stage=%s device_writes=0\n",cancelled,gg_terminal_stage_name(stage));
+    __atomic_store_n(&gpuTerminal.stage,stage,__ATOMIC_RELEASE);
 }
 
 void GiuliaGPU::releaseResources()
@@ -281,6 +376,24 @@ void GiuliaGPU::releaseResources()
     OSSafeReleaseNULL(tableMemory);
     OSSafeReleaseNULL(firmwareMap); OSSafeReleaseNULL(firmwareMemory);
 }
-void GiuliaGPU::stop(IOService *provider) { releaseResources(); IOService::stop(provider); }
-void GiuliaGPU::free() { releaseResources(); IOService::free(); }
+void GiuliaGPU::stop(IOService *provider)
+{
+    IOLockLock(runtimeLock);stopping=true;closeTerminal(GGT_STOPPING);
+    while(workerRunning)IOLockSleep(runtimeLock,&workerRunning,THREAD_UNINT);
+    releaseResources();
+    if(terminalOwner) {
+        __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_STOPPED,__ATOMIC_RELEASE);
+        gg_terminal_finish(&gpuTerminal);terminalOwner=false;
+    }
+    IOLockUnlock(runtimeLock);IOService::stop(provider);
+}
+void GiuliaGPU::free()
+{
+    /* A running worker holds a retain. stop has joined it before releasing
+     * resources; failed starts never leave a worker or an open mailbox. */
+    releaseResources();
+    if(terminalOwner){gg_terminal_finish(&gpuTerminal);terminalOwner=false;}
+    if(runtimeLock){IOLockFree(runtimeLock);runtimeLock=NULL;}
+    IOService::free();
+}
 #endif

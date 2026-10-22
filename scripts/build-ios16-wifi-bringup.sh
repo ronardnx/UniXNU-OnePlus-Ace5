@@ -3,6 +3,8 @@
 # GIULIA_WIFI_SNAPSHOT=1 substitutes a read-only register dump for failed
 # link-training handoffs; decode it with decode-ios16-pcie-snapshot.py.
 # GIULIA_WIFI_XNU_LINK=1 retains prepared resources for XNU link training.
+# GIULIA_GPU_PACK opts into the pinned local GPU pack; GIULIA_GPU_MODE=1/2
+# selects host preparation or gated read-only observation (default: 1).
 set -euo pipefail
 if [ "$#" -ne 8 ] && [ "$#" -ne 9 ]; then
   echo 'Usage: build-ios16-wifi-bringup.sh UEFI UEFI_PYTHON KERNEL ADT ROOT_REPORT TRUST_CATALOG CAPTURED_DTS OUTPUT [LOCAL_FIRMWARE_PACK]' >&2
@@ -20,8 +22,42 @@ dts_input="$(realpath "$7")"
 output_dir="$(realpath -m "$8")"
 runtime_pack=""
 if [ "$#" -eq 9 ]; then runtime_pack="$(realpath "$9")"; fi
+gpu_pack="${GIULIA_GPU_PACK:-}"
+gpu_mode="${GIULIA_GPU_MODE:-1}"
+case "$gpu_mode" in 1|2) ;; *) echo 'GIULIA_GPU_MODE must be 1 or 2' >&2; exit 2;; esac
+if [ -n "$gpu_pack" ]; then gpu_pack="$(realpath "$gpu_pack")"; fi
+if [ -n "${GIULIA_GPU_MODE:-}" ] && [ -z "$gpu_pack" ]; then
+  echo 'GIULIA_GPU_MODE requires explicit GIULIA_GPU_PACK opt-in' >&2
+  exit 2
+fi
 driver_dir="$uefi_root/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 board_driver="$uefi_root/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe"
+python3 - "$port_root" "$kernel_input" "$runtime_pack" "$gpu_pack" <<'PY'
+import hashlib,json,re,runpy,sys
+from pathlib import Path
+root,kernel_path=map(Path,sys.argv[1:3])
+wifi_pack,gpu_pack=sys.argv[3:]
+kernel=kernel_path.read_bytes()
+metadata=json.loads(kernel_path.with_suffix('.json').read_text())
+compiled=b'GIULIA GPU: host preparation complete;' in kernel
+if (compiled or metadata.get('gpu_runtime_included')) and not gpu_pack:
+    raise SystemExit('Compiled GPU driver requires GIULIA_GPU_PACK; GIULIA_GPU_MODE defaults to 1')
+if gpu_pack:
+    if not wifi_pack:
+        raise SystemExit('Unified GPU packaging requires the ninth argument LOCAL_FIRMWARE_PACK for Wi-Fi runtime')
+    if not compiled:
+        raise SystemExit('GIULIA_GPU_PACK requires a kernel compiled with --gpu')
+    if metadata.get('output_sha256')!=hashlib.sha256(kernel).hexdigest() or metadata.get('boot_args_bytes')!=736:
+        raise SystemExit('Kernel handoff metadata mismatch')
+    # Validate the exact insertion order, both pinned packs and header capacity
+    # before tests, loader edits or the expensive UEFI build.
+    for name,path in (('wifi',wifi_pack),('gpu',gpu_pack)):
+        pin=(root/f'ios16/giulia_{name}_firmware_pin.h').read_text()
+        digest=bytes(int(x,16) for x in re.findall(r'0x([0-9a-f]{2})\b',pin))
+        append=runpy.run_path(str(root/f'scripts/embed-{name}-firmware.py'))['append_pack']
+        kernel,_=append(kernel,Path(path).read_bytes(),digest)
+PY
+
 test -x "$uefi_python"
 "$uefi_python" -c 'import coloredlogs'
 test ! -e "$output_dir"
@@ -51,13 +87,35 @@ if [ -n "$runtime_pack" ]; then
 fi
 runtime_checks=()
 terminal_args=()
+gpu_args=()
+if [ -n "$gpu_pack" ]; then gpu_args=(--gpu-mode "$gpu_mode"); fi
 if [ "${GIULIA_DEBUG_TERMINAL:-0}" = 1 ]; then terminal_args+=(--debug-terminal); fi
 if [ "${GIULIA_DEBUG_MMIO:-0}" = 1 ]; then terminal_args+=(--debug-mmio); fi
 if [ "${GIULIA_WIFI_TERMINAL_WAIT:-0}" = 1 ]; then terminal_args+=(--wifi-terminal-wait); fi
 if [ -n "$runtime_pack" ]; then runtime_checks=(--runtime); fi
 python3 tests/ios16_wifi_bundle.py --dts "$dts_input" --out "$output_dir/offline-checks.json" "${runtime_checks[@]}"
+if [ -n "$gpu_pack" ]; then
+  python3 - "$gpu_pack" "$output_dir/gpu-offline-checks.json" <<'PY'
+import json,subprocess,sys
+from pathlib import Path
+checks=[]
+for command in (['bash','scripts/test-ios16-gpu.sh'],
+                [sys.executable,'tests/ios16_gpu_patch.py'],
+                [sys.executable,'tests/ios16_gpu_embed.py',sys.argv[1]]):
+    result=subprocess.run(command,capture_output=True,text=True)
+    print(result.stdout,end='');print(result.stderr,end='',file=sys.stderr)
+    result.check_returncode()
+    checks.append({'command':command,'result':'passed','output':result.stdout.strip()})
+Path(sys.argv[2]).write_text(json.dumps({'status':'offline-checks-passed','hardware_verified':False,'checks':checks},indent=2)+'\n')
+PY
+fi
 if [ -n "$runtime_pack" ]; then
-  python3 scripts/embed-wifi-firmware.py --kernel "$kernel_input" --pack "$runtime_pack" --out "$output_dir/kernel.macho"
+  wifi_kernel="$output_dir/kernel.macho"
+  if [ -n "$gpu_pack" ]; then wifi_kernel="$output_dir/kernel-wifi.macho"; fi
+  python3 scripts/embed-wifi-firmware.py --kernel "$kernel_input" --pack "$runtime_pack" --out "$wifi_kernel"
+  if [ -n "$gpu_pack" ]; then
+    python3 scripts/embed-gpu-firmware.py --kernel "$wifi_kernel" --pack "$gpu_pack" --out "$output_dir/kernel.macho"
+  fi
 else
   cp "$kernel_input" "$output_dir/kernel.macho"
   cp "${kernel_input%.*}.json" "$output_dir/kernel.json"
@@ -71,8 +129,25 @@ python3 scripts/enable-wifi-diagnostics.py "$driver_dir"
 python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
   --adt "$output_dir/giulia-ios16.adt" --trust-catalog "$trust_input" \
   --out "$output_dir/payload" --root-report "$root_report" \
-  --default-root --trace-all --wifi-pcie --enable-touch --touch-gpio "${terminal_args[@]}"
+  --default-root --trace-all --wifi-pcie --enable-touch --touch-gpio "${terminal_args[@]}" "${gpu_args[@]}"
 python3 scripts/verify-payload.py "$output_dir/payload"
+python3 - "$output_dir" <<'PY'
+from pathlib import Path
+import shutil,sys
+out=Path(sys.argv[1]);snapshot=out/'runtime-source'
+files=[*Path('ios16').glob('giulia_wifi_*.h'),Path('ios16/GiuliaWiFi.cpp'),
+       Path('ios16/giulia_display.h'),Path('scripts/ios16_display.py')]
+if (out/'gpu-offline-checks.json').exists():
+    files += [Path('ios16/GiuliaGPU.cpp'),*Path('ios16').glob('giulia_gpu_*.c'),
+              *Path('ios16').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
+              Path('scripts/ios16_gpu_patch.py'),Path('scripts/ios16_gpu_runtime.py'),
+              Path('scripts/embed-gpu-firmware.py')]
+for source in sorted(set(files)):
+    if not source.is_file():continue
+    destination=snapshot/source
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copyfile(source,destination)
+PY
 python3 tests/ios16_dram_handoff.py --driver "$driver_dir" --adt "$output_dir/giulia-ios16.adt"
 python3 - "$output_dir" "$board_driver" <<'PY'
 from pathlib import Path
@@ -118,14 +193,21 @@ files=[*sorted((out/'driver-source').glob('*')),
        Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),
        Path('scripts/pack-payload.py'),Path('scripts/ios16_wifi_pcie.py'),
        Path('scripts/ios16_pcie_diagnostic.py'),Path('scripts/decode-ios16-pcie-snapshot.py')]
-runtime=json.loads((out/'payload/payload.json').read_text()).get('wifi_runtime')
+payload=json.loads((out/'payload/payload.json').read_text())
+runtime=payload.get('wifi_runtime')
+gpu_runtime=payload.get('gpu_runtime')
+files += [*sorted((out/'runtime-source').rglob('*')),out/'kernel.json',out/'gpu-offline-checks.json']
 report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         'pcie_failure_snapshot':os.environ.get('GIULIA_WIFI_SNAPSHOT')=='1',
         'pcie_link_training_owner':'XNU' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else 'UEFI',
         'source_files':[{'path':str(p.resolve()),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
                         for p in files if p.is_file()],
         'hardware_verified':False,'scan_implemented':bool(runtime),'scan_hardware_verified':False,
-        'runtime':runtime,'device_commands_executed':False}
+        'runtime':runtime,'gpu_runtime':gpu_runtime,'gpu_mode':payload.get('gpu_mode'),
+        'gpu_hardware_verified':False,'acceleration':False,
+        'firmware_digests':{'wifi':runtime['firmware']['sha256'] if runtime else None,
+                            'gpu':gpu_runtime['firmware']['sha256'] if gpu_runtime else None},
+        'device_commands_executed':False}
 (out/'source-manifest.json').write_text(json.dumps(report,indent=2)+'\n')
 PY
-echo 'Integrated Wi-Fi bring-up image built; device verification remains separate.'
+echo 'Integrated Wi-Fi/GPU bring-up image built; selected runtimes are recorded in source-manifest.json.'

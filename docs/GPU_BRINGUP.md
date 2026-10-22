@@ -119,6 +119,40 @@ git diff --check
 下一阶段验收点：冷启动电源/时钟交接与 GPU SMMU 所有权可观察，随后
 GMU HFI 握手、一次内存写入命令和真实 fence 完成；再推进渲染及系统合成。
 
+## GUI、触控和 Wi-Fi 统一接入（2026-10-23）
+
+主工作流 `ios16-xnu.yml` 增加 `gpu` 输入，可在同一份 GUI 内核中同时选择
+`touch=true wifi=true gpu=true`。主构建与独立 GPU 构建共用链接检查，要求
+服务、显示适配及电源／SMMU／GMU 控制函数和终端入口均为实际定义的符号。
+固件正文仍只在本地嵌入，CI 产物不含固件。
+
+统一打包沿用 `build-ios16-wifi-bringup.sh` 的九个参数，通过环境变量显式启用：
+
+```bash
+export GIULIA_GPU_PACK="$PWD/out/ios16/gpu-stock-firmware/firmware.pack"
+export GIULIA_GPU_MODE=1   # 2 还会在启动后进行一次门控只读观察
+bash scripts/build-ios16-wifi-bringup.sh \
+  <prepared-uefi> <uefi-python> <unified-kernel.macho> <verified-gui.adt> \
+  <root-report.json> <trust-catalog> <captured-board.dts> <new-output-directory> \
+  <local-wifi-firmware.pack>
+```
+
+脚本在修改 UEFI 前验证内核摘要、两份固件 pin、两次段插入顺序及 Mach-O
+头空间。先加入 `__WIFI_FW`，再加入 `__GPU_FW`，保留两者元数据并写入
+`giulia_gpu=1/2`。包含 GPU 的内核缺少显式固件输入时拒绝打包，防止整合镜像
+静默关闭服务。产物保留完整 GPU C/C++、头文件、ArmSmmu4K 来源及摘要。
+
+USB 新增 `gpu.status` 和 `gpu.observe`。状态包含准备阶段、固件校验、GMU
+RAM 与未激活页表数量、最近观察及有效字段位图。命令通过静态原子邮箱交给
+保留服务引用的工作线程；USB 线程不访问 GPU MMIO，服务停机时等待观察结束
+后才释放映射。模式 1 只有在显式执行 `gpu.observe` 时才读取门控寄存器。
+不包含 GPU 的 base／GUI 配置提供 unavailable 响应，不引入未定义外部符号。
+
+这些接入仍处于准备和观察阶段：电源租约、SMMU 激活、GMU 执行和 Metal
+均未启用。Wi-Fi 的 AOP/QMP 传输当前只有单一所有者，GPU ACD 请求需要共享
+提供者；UEFI Clock 协议也不能直接当作 XNU 运行时函数调用。后续应先完成
+电源／时钟交接与所有权，再推进实际硬件启动。
+
 ## 内核与本地负载
 
 ```bash

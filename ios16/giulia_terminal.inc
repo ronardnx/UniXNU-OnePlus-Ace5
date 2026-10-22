@@ -24,6 +24,7 @@ static int giulia_terminal_proc(proc_t p, void *arg)
 
 static int giulia_terminal_command(const char *cmd)
 {
+    if(giulia_gpu_terminal(cmd))return 1;
     if(gscreen_command(cmd))return 1;
     if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;
     if (!strcmp(cmd,"info")) {
@@ -63,6 +64,7 @@ static int giulia_terminal_command(const char *cmd)
         printf("GIULIA TERM: protocol=2 shell=PTY-daemon giulia_debug=%d reg=map/read/write/rmw/dump/unmap (requires giulia_mmio=1)\n",gs_enabled());
         printf("GIULIA TERM: reboot=reboot.fastboot,reboot.status (requires giulia_debug=1; sync before reset)\n");
         printf("GIULIA TERM: screen=screen.start,screen.stop,screen.snapshot GSC1 RGB565_LE 316x695 max_fps=1\n");
+        printf("GIULIA TERM: gpu=gpu.status,gpu.observe compiled=%u observation=explicit-read-only hardware_ready=0\n",GIULIA_GPU_INCLUDED);
     } else return 0;
     printf("GIULIA TERM: end %s\n",cmd);
     return 1;

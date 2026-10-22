@@ -14,6 +14,11 @@ if [ "$#" = 1 ] && [ -f "$(dirname "$1")/firmware.pack" ]; then
 else
     "$tmp/runtime"
 fi
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -pthread \
+    tests/ios16_gpu_terminal.c -o "$tmp/terminal"
+"$tmp/terminal"
+python3 tests/ios16_gpu_terminal_profile.py
+python3 tests/ios16_gpu_service.py
 vendor=ios16/vendor/ArmSmmu4K
 sources=("$vendor/ArmSmmu4K.c" "$vendor/ArmSmmu4KContext.c" "$vendor/ArmSmmu4KProgram.c" "$vendor/ArmSmmu4KStreams.c")
 python3 scripts/make-gpu-smmu-oracle.py --out "$tmp/source-oracle.c"

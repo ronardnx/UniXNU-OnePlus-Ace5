@@ -21,7 +21,8 @@ Status as of **2026-10-23**. Results apply to the configurations recorded in [`h
 | User interface | Verified | Hello / Setup starts; complete system functionality remains under development |
 | Display and touch | Verified | Full 1264×2780 panel coverage and aligned touch in Setup; UIKit uses a scaled 1125×2436 canvas |
 | Wi-Fi | Not operational | PCIe, BHI/BHIE, AMSS and QMI resource requests verified; currently times out waiting for firmware-ready notification before scanning |
-| GPU acceleration, audio, cellular and DRM | Unverified | No complete implementation or device validation |
+| GPU | Preparation service | A750 firmware/RAM preparation, inactive SMMU tables and gated observation; no GPU execution or Metal acceleration |
+| Audio, cellular and DRM | Unverified | No complete implementation or device validation |
 
 Display rotation, power transitions and application compatibility require further testing. Wi-Fi association, authentication and packet transport are not implemented.
 
@@ -36,6 +37,8 @@ See [development status](docs/DEVELOPMENT_STATUS.md) and the [firmware transfer 
 - A macOS runner for XNU. The configured GitHub Actions build account is `jasper2863`.
 
 Source revisions are fixed in [`sources.json`](sources.json) and the target-specific workflows. Kernel, device tree, firmware and payload metadata must match.
+
+The GUI kernel workflow also accepts `gpu=true` alongside touch and Wi-Fi. Local unified packaging uses `GIULIA_GPU_PACK` and `GIULIA_GPU_MODE=1/2`; USB `gpu.status` / `gpu.observe` expose preparation and gated observation. See [GPU bring-up](docs/GPU_BRINGUP.md) for inputs and remaining hardware work.
 
 Committed UEFI and UniXNU development snapshots are also tracked as Git submodules under `sources/`. Download the recorded revisions with:
 

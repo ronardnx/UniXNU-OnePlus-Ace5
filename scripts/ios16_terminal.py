@@ -33,7 +33,17 @@ def debug_trust_source(manifest):
             '    return false;\n}\n')
 
 
-def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False):
+def gpu_terminal_source(gpu=False):
+    if gpu:
+        return '#define GIULIA_GPU_INCLUDED 1\nextern int giulia_gpu_terminal(const char *);\n'
+    return ('#define GIULIA_GPU_INCLUDED 0\n'
+            'static int giulia_gpu_terminal(const char *command) {\n'
+            '    if(strcmp(command,"gpu.status") && strcmp(command,"gpu.observe"))return 0;\n'
+            '    printf("GIULIA GPU: command=%s service=unavailable stage=not-compiled hardware_ready=0 acceleration=0\\n",command);\n'
+            '    return 1;\n}\n')
+
+
+def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=False):
     if 'giulia_terminal_command' in usb.read_text():
         raise ValueError('Terminal integration already applied')
     root = Path(__file__).resolve().parents[1]
@@ -50,7 +60,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False):
         'extern int giulia_screen_capture(uint8_t *,size_t,unsigned *,unsigned *);' if gui else
         'static int giulia_screen_capture(uint8_t *p,size_t n,unsigned *w,unsigned *h) '
         '{(void)p;(void)n;(void)w;(void)h;return 0;}')
-    code = ('extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
+    code = (gpu_terminal_source(gpu) + 'extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
             (root/'ios16/giulia_mmio.inc').read_text() + '\n' +
             reboot + '\n' + screen + '\n' +
             (root / 'ios16/giulia_terminal.inc').read_text())
@@ -65,7 +75,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False):
          '    else if (giulia_terminal_command(u.command)) {}\n'
          '    else if (!strcmp(u.command,"ping"))')
     edit(usb, 'commands help status ping replay',
-         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot')
+         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot gpu.status gpu.observe')
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')

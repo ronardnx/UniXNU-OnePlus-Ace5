@@ -40,8 +40,16 @@ scripts\debug-terminal.cmd --port COM21
 | `display` | 启动 framebuffer 宽、高、步长、位深；不是当前显示健康检查 |
 | `usb` | CDC 状态、事件、setup、包大小、收发与日志计数 |
 | `ufs` | 驱动现有卷状态、可写标记、几何和设备号；锁忙时立即报告 busy，不额外访问磁盘 |
+| `gpu.status` | GPU 准备阶段、固件校验、RAM／未激活页表数量和最近一次观察；未编译或未启用服务时明确报告 unavailable |
+| `gpu.observe` | 向 GPU 工作线程提交一次有前置门控的只读电源／SMMU 观察，随后输出状态；不使能时钟、电源或 DMA |
 
 这些命令通过 `prepare-ios16.py` 纳入 base/GUI 补丁；CMD 工具及守护进程源码也随 profile 输出。
+
+GPU 查询需包含 `--gpu` 的新 GUI 内核及本地固件，并通过 `giulia_gpu=1/2`
+启动服务。`gpu.status` 可用 `watch gpu.status 2` 定期查询；`gpu.observe`
+必须手动请求，不支持定期轮询。命令只向静态邮箱提交请求，工作线程串行执行
+观察；服务停止时先关闭邮箱并等待线程结束，再释放映射。所有当前状态仍为
+`power_acquired=0 smmu_active=0 gmu_started=0 hardware_ready=0 acceleration=0`。
 
 ## 电脑端调试命令
 

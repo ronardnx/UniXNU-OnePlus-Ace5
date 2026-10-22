@@ -18,6 +18,7 @@ from ios16_screen import ScreenWire, ScreenStore, ScreenViewer
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
+                   'gpu.status','gpu.observe',
                    'screen.start','screen.stop','screen.snapshot')
 TOPICS = {
     'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|QMP|PMU|WMI|IO80211',
@@ -35,6 +36,8 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   info uptime memory ps bootargs display usb ufs features
   help / ping / status / replay / sample (GUI sampler)
   wifi.status / wifi.start   inspect/release an opted-in pre-DMA wait
+  gpu.status              retained GPU preparation/last-observation state
+  gpu.observe             queue gated read-only power/SMMU observation
   reboot.fastboot         sync disks and restart into Fastboot (debug kernel)
   reboot.status           inspect a pending reboot request
   screen.start            real live screen in a local browser, about 1 fps
@@ -287,7 +290,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','reboot.fastboot','screen.start','screen.stop') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:
@@ -299,7 +302,7 @@ class Commands:
             if self.queue or self.save_at is not None:
                 raise ValueError('A collection is already pending.')
             self.watch = None
-            self.queue.extend(('features','info','uptime','memory','ps','bootargs','display','usb','ufs','status'))
+            self.queue.extend(('features','info','uptime','memory','ps','bootargs','display','usb','ufs','gpu.status','status'))
             if cmd == 'collect':
                 self.queue.extend(('replay','sample'))
                 self.save_at = time.monotonic() + 15

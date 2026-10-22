@@ -22,6 +22,7 @@ jobs:
         run: |
           python3 scripts/make-gpu-smmu-oracle.py --fetch --out .cache/gpu-source-oracle.c
           bash scripts/test-ios16-gpu.sh
+          python3 -m unittest discover -s tests -p 'test_gpu*.py' -v
           python3 tests/ios16_gpu_embed.py
           python3 tests/ios16_gpu_patch.py
       - name: Prepare pinned XNU build and Ace 5 profile
@@ -54,8 +55,7 @@ jobs:
       - name: Verify GPU service linked
         run: |
           python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --gui
-          python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA GPU: host preparation complete;' in b; assert b'GIULIA GPU: firmware pack mapped read-only and digest verified' in b; assert b'GiuliaGPU' in b"
-          python3 -c "import subprocess; s=subprocess.check_output(['xcrun','nm','dxb/fakeroot/System/Library/Kernels/kernel.development.sweet'],text=True); assert all('_giulia_gpu_'+n in s for n in ('power_acquire','power_release','smmu_start','smmu_stop','gmu_load','gmu_start','log_event'))"
+          python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --nm xcrun nm
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4
