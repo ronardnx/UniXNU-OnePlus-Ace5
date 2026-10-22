@@ -113,13 +113,28 @@ python3 tests/ios16_gpu_probe.py
 bash scripts/test-ios16-gpu.sh out/ios16/gpu-stock-firmware/gmu_gen70900.bin
 ```
 
-## HFI 队列与终端准备（尚未实机验收）
+## HFI 队列与终端准备（实机准备阶段已验收）
 
 后续候选内核增加 17 个原厂 HWSCHED 队列，以及独占日志区和 VRB。
 HFI、日志、VRB 的 IOVA 分别是 `0x60010000`、`0x60030000`、
 `0x60040000`。共享区 CPU 映射使用 Normal NC，固件和页表仍使用
 copyback 加显式 cache publication。固定固件现在对应 8 段预留、
 6 个表页和 139 个叶页；这些数字只说明宿主内存准备完成。
+
+2026-10-23 06:12（北京时间）已通过 `fastboot boot` 临时启动候选
+`gpu-hfi-boot-20261023-r1` 并完成只读验收。17 个队列均为 `code=0`、
+`read=0`、`write=0`，共享缓冲区初始化成功，采集日志中没有
+`panic(cpu` 或 `Unaligned kernel data abort`。联合内核来自
+[CI 39860963355](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/39860963355)，
+编译提交 `0faf86018401cfea760b9fd94fb6fb933ad20786`。
+证据位于 `out/ios16/gpu-hfi-device-20261023-r1/`。
+
+本次同时确认了下一阶段的具体阻塞：UEFI 电源报告
+`prepared=0 phase=8 code=4 resource=4`，在观察到已开启的 GMU
+时钟 `0x3d9913c=0x2001` 后按策略退出，尚未请求后续时钟和频率。
+运行时只读观察在 `0x3d97000=0x80000000` 停止，GPU SMMU
+时钟未开启。没有绕过这一状态解除 CM3 复位，也没有激活 DMA stream。
+后续必须处理继承时钟的频率/复位验证及电源所有权，再启动原厂固件。
 
 终端增加 `gpu.hfi.status`、`gpu.hfi.pin`、`gpu.hfi.query`、
 `gpu.hfi.poll`、`gpu.hfi.log`。`pin` 将诊断内存保留至重启；没有
