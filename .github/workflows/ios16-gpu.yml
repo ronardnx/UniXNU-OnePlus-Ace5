@@ -55,7 +55,7 @@ jobs:
       - name: Verify GPU service linked
         run: |
           python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --gui
-          python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --nm xcrun nm
+          python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4

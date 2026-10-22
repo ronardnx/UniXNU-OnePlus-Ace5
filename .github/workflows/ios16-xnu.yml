@@ -141,7 +141,7 @@ jobs:
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: awaiting wifi.start before DMA setup' in b and b'GIULIA SMMU: write-request' in b"
           fi
           if [ '${{ inputs.gpu }}' = true ]; then
-            python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --nm xcrun nm
+            python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho

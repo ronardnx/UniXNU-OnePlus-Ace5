@@ -2,7 +2,6 @@
 import argparse
 import json
 import struct
-import subprocess
 from pathlib import Path
 
 
@@ -18,19 +17,72 @@ SYMBOLS = tuple('_giulia_gpu_' + name for name in (
 ))
 
 
-def check_kernel(kernel, symbols):
+def linked_functions(kernel):
+    count, command_bytes = struct.unpack_from('<II', kernel, 16)
+    if count > 128 or command_bytes > len(kernel) - 32:
+        raise ValueError('Invalid Mach-O command bounds')
+    at, end, sections, symtab = 32, 32 + command_bytes, [], None
+    for _ in range(count):
+        if at + 8 > end:
+            raise ValueError('Truncated Mach-O command')
+        command, size = struct.unpack_from('<II', kernel, at)
+        if size < 8 or size % 8 or size > end - at:
+            raise ValueError('Invalid Mach-O command size')
+        if command == 0x19:
+            if size < 72:
+                raise ValueError('Truncated segment')
+            va, vm, offset, length, _, protection, nsects = struct.unpack_from('<QQQQiiI', kernel, at + 24)
+            if size != 72 + 80 * nsects or va + vm > 2**64 or offset > len(kernel) or length > len(kernel) - offset:
+                raise ValueError('Invalid segment bounds')
+            for i in range(nsects):
+                address, amount, file_offset = struct.unpack_from('<QQI', kernel, at + 72 + 80 * i + 32)
+                flags = struct.unpack_from('<I', kernel, at + 72 + 80 * i + 64)[0]
+                sections.append((address, amount, file_offset, flags, protection, va, vm, offset, length))
+        elif command == 2:
+            if size != 24 or symtab is not None:
+                raise ValueError('Invalid or duplicate Mach-O symbol table')
+            symtab = struct.unpack_from('<4I', kernel, at + 8)
+        at += size
+    if at != end or symtab is None:
+        raise ValueError('Missing Mach-O symbol table')
+    offset, count, strings, string_bytes = symtab
+    if offset > len(kernel) or count > (len(kernel) - offset) // 16 or strings > len(kernel) or string_bytes > len(kernel) - strings:
+        raise ValueError('Mach-O symbol table outside kernel')
+    wanted, found = {name.encode() for name in SYMBOLS}, set()
+    for i in range(count):
+        index, kind, section, _, value = struct.unpack_from('<IBBHQ', kernel, offset + 16 * i)
+        if index >= string_bytes:
+            raise ValueError('Symbol name outside string table')
+        stop = kernel.find(b'\0', strings + index, strings + string_bytes)
+        if stop < 0:
+            raise ValueError('Unterminated symbol name')
+        name = bytes(kernel[strings + index:stop])
+        if name not in wanted or kind & 0xe0 or kind & 0x0f != 0x0f:
+            continue
+        if not 1 <= section <= len(sections):
+            raise ValueError('Invalid GPU symbol section')
+        address, amount, file_offset, flags, protection, va, vm, segment_offset, length = sections[section - 1]
+        # XNU uses __TEXT_EXEC,__text, which Darwin nm labels S rather than T.
+        # Check the actual external N_SECT definition and its executable bytes.
+        if (not protection & 4 or not flags & 0x80000400 or value & 3 or
+                not address <= value or value - address + 4 > amount or
+                not va <= address or address - va + amount > vm or
+                file_offset != segment_offset + address - va or
+                value - va + 4 > length):
+            continue
+        if name.decode() in found:
+            raise ValueError('Ambiguous GPU function definition')
+        found.add(name.decode())
+    return found
+
+
+def check_kernel(kernel):
     if len(kernel) < 32:
         raise ValueError('Truncated GPU kernel')
     if struct.unpack_from('<4I', kernel) != (0xfeedfacf, 0x100000c, 0, 2):
         raise ValueError('Expected ARM64 Mach-O executable')
     missing = [m.decode() for m in MARKERS if m not in kernel]
-    # Require actual defined symbols, rather than arbitrary occurrences in a
-    # string or an undefined external reference in nm output.
-    defined = set()
-    for line in symbols.splitlines():
-        fields = line.split()
-        if len(fields) == 3 and fields[1] in ('T', 't'):
-            defined.add(fields[2])
+    defined = linked_functions(kernel)
     missing += [name for name in SYMBOLS if name not in defined]
     if missing:
         raise ValueError('GPU kernel lacks linked implementation: ' + ', '.join(missing))
@@ -42,12 +94,10 @@ def check_kernel(kernel, symbols):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('kernel', type=Path)
-    p.add_argument('--nm', nargs='+', default=['nm'], help='Symbol tool command, e.g. xcrun nm')
     a = p.parse_args()
     try:
-        symbols = subprocess.check_output([*a.nm, str(a.kernel)], text=True)
-        report = check_kernel(a.kernel.read_bytes(), symbols)
-    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        report = check_kernel(a.kernel.read_bytes())
+    except (ValueError, OSError) as error:
         p.exit(1, str(error) + '\n')
     print(json.dumps(report, indent=2))
 
