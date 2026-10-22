@@ -336,3 +336,11 @@ UEFI 电源报告，以便保留下一次启动的交接诊断。
 预留、6 个表页和 104 个叶页。`tests/ios16_gpu_cache.py` 核对原始
 AArch64 汇编，并用明确标注的主机 hook 验证缓存行范围及屏障顺序。
 这些主机测试不模拟 ARM 内存属性，修复后仍需手机启动验证。
+
+随后已完成临时启动和现有 USB 终端实测：本次 panic 不再发生；
+五段 RAM、6 个表页／104 个叶页全部准备完成。继续通过终端验证了
+原厂 TCM 全部 135 个字的写入／回读、SID 5 的配置与撤销、CM3 诊断
+程序经 SMMU 读取／写入宿主 RAM，以及未映射地址的实际翻译故障。
+实验后保持 CM3 复位、断开 stream、关闭 context 并恢复原厂 TCM。
+原厂 GMU/HFI 与 Metal 尚未接通。证据、限制和复现源码见
+[GPU_TERMINAL_BRINGUP.md](GPU_TERMINAL_BRINGUP.md)。

@@ -394,15 +394,33 @@ void GiuliaGPU::observePower()
 
 void GiuliaGPU::reportStatus()
 {
-    IOLog("GIULIA GPU: command=gpu.status stage=%s mode=%u firmware_verified=%u host_prepared=%u reservations=%u table_pages=%u leaf_pages=%u power_acquired=0 smmu_active=0 gmu_started=0 observations=%u observation_stage=%u valid_fields=%#x hardware_ready=0 acceleration=0 device_writes=0\n",
+    /* The target IOLog formatter has a 256-byte buffer. Keep each record
+     * independently bounded so a truncated line cannot erase readiness. */
+    IOLog("GIULIA GPU: command=gpu.status stage=%s mode=%u firmware_verified=%u host_prepared=%u reservations=%u table_pages=%u leaf_pages=%u\n",
         gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),mode,
-        firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages,observations,
-        powerObservation.stage,powerObservation.valid_fields);
+        firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages);
+    IOLog("GIULIA GPU: power_acquired=0 smmu_active=0 gmu_started=0 hardware_ready=0 acceleration=0 device_writes=0\n");
+    IOLog("GIULIA GPU: observations=%u observation_stage=%u valid_fields=%#x\n",
+        observations,powerObservation.stage,powerObservation.valid_fields);
     IOLog("GIULIA GPU: host_cache_published=%u cpu_cache=normal-copyback gpu_memory_attribute=normal-nc runtime_cache_ownership=unassigned\n",hostPrepared);
     IOLog("GIULIA GPU: firmware_power_valid=%u firmware_power_prepared=%u phase=%u code=%u attempted=%#x confirmed=%#x retained=%u flags=%#x qmp_available=%d\n",
         firmwarePowerState!=GGPH_INVALID,firmwarePowerState==GGPH_PREPARED,
         firmwarePower.phase,firmwarePower.code,firmwarePower.attempted,
         firmwarePower.confirmed,firmwarePower.retained,firmwarePower.flags,giulia_gpu_qmp_available());
+    if(firmwarePowerState!=GGPH_INVALID) {
+        IOLog("GIULIA GPU: firmware_failure phase=%u op=%u resource=%u last_read=%u failed_read=%u native_status=%#llx protocol_status=%#llx\n",
+            firmwarePower.failure_phase,firmwarePower.failure_operation,firmwarePower.failure_resource,
+            firmwarePower.last_read,firmwarePower.failed_read,
+            (unsigned long long)firmwarePower.firmware_status,(unsigned long long)firmwarePower.protocol_status);
+        IOLog("GIULIA GPU: firmware_comparison expected=%#llx expected_valid=%u observed=%#llx observed_valid=%u mask=%#llx mask_valid=%u\n",
+            (unsigned long long)firmwarePower.expected,!!(firmwarePower.flags&GPP_EXPECTED_VALID),
+            (unsigned long long)firmwarePower.observed,!!(firmwarePower.flags&GPP_OBSERVED_VALID),
+            (unsigned long long)firmwarePower.mask,!!(firmwarePower.flags&GPP_MASK_VALID));
+        for(unsigned i=0;i<16;++i) {
+            if(firmwarePower.valid_reads&(1u<<i))
+                IOLog("GIULIA GPU: firmware_value index=%u observed=%#x valid=1\n",i,firmwarePower.values[i]);
+        }
+    }
 }
 
 void GiuliaGPU::worker(void *cookie,wait_result_t)

@@ -126,16 +126,28 @@ int main() {
     assert(giulia_gpu_terminal("gpu.status")==1);
     second.stop(nullptr);next.join();
     assert(second.observations==1 && second.released==1 && second.references==1);
-    bool sawStatus=false,sawUnavailable=false;
+    bool sawStatus=false,sawUnavailable=false,sawInactive=false;
+    // Exercise the recorded failure and worst-width values under the target's
+    // actual IOLog bound, including readiness records after the status line.
+    second.firmwarePowerState=GGPH_RECORDED;
+    second.firmwarePower.flags=GPP_EXPECTED_VALID|GPP_OBSERVED_VALID|GPP_MASK_VALID;
+    second.firmwarePower.expected=second.firmwarePower.observed=second.firmwarePower.mask=~0ULL;
+    second.firmwarePower.firmware_status=second.firmwarePower.protocol_status=~0ULL;
+    second.firmwarePower.valid_reads=0xffff;
+    for(unsigned i=0;i<16;++i)second.firmwarePower.values[i]=~0u;
+    second.reportStatus();
     for(const auto &line:logs) {
+        assert(line.size()<256 && line.back()=='\n');
         if(line.find("command=gpu.status stage=")!=std::string::npos) {
-            assert(line.find("power_acquired=0 smmu_active=0 gmu_started=0")!=std::string::npos);
-            assert(line.find("hardware_ready=0 acceleration=0 device_writes=0")!=std::string::npos);
             sawStatus=true;
+        }
+        if(line.find("power_acquired=0 smmu_active=0 gmu_started=0")!=std::string::npos) {
+            assert(line.find("hardware_ready=0 acceleration=0 device_writes=0")!=std::string::npos);
+            sawInactive=true;
         }
         if(line.find("service=unavailable")!=std::string::npos)sawUnavailable=true;
     }
-    assert(sawStatus && sawUnavailable);
+    assert(sawStatus && sawUnavailable && sawInactive);
     puts("Production GPU worker/status/stop: mode gating, queued requests, observation-stop ordering and retained lifetime passed");
 }
 '''
