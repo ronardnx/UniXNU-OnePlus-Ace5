@@ -17,6 +17,7 @@
 extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_pack.h"
 #include "giulia_gpu_memory.h"
+#include "giulia_gpu_cache.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power_handoff.h"
@@ -153,6 +154,25 @@ bool GiuliaGPU::loadFirmware(struct gg_pack *pack)
     return true;
 }
 
+static IOBufferMemoryDescriptor *gpuAllocateHostMemory(size_t bytes)
+{
+    /* InhibitCache is Device memory on arm64: bzero's DC ZVA faults even
+     * at a cache-line-aligned address. GMU RAM and tables are Normal RAM.
+     * Bypass the system mapper: this service owns the GPU SMMU separately. */
+    return IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
+        kIODirectionInOut|kIOMemoryHostPhysicallyContiguous|kIOMemoryMapperNone|
+        kIOMapCopybackCache,bytes,0x4000);
+}
+
+static bool gpuHostRangeValid(const void *cpu,uint64_t pa,uint64_t contiguous,size_t bytes)
+{
+    const uint64_t limit=1ULL<<36;
+    return cpu && !((uintptr_t)cpu&0x3fff) && bytes && !(bytes&0x3fff) &&
+        contiguous>=bytes && !(pa&0x3fff) && pa>=gPhysBase &&
+        bytes<=gPhysSize && pa-gPhysBase<=gPhysSize-bytes &&
+        pa<limit && bytes<=limit-pa;
+}
+
 bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
 {
     /* Keep large parsing scratch off the kernel stack. */
@@ -179,20 +199,20 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
         ok=true;
         for (size_t i=0;i<reservations;++i) {
             size_t bytes=(plan[i].bytes+0x3fff)&~(size_t)0x3fff;
-            allocations[i]=IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
-                kIODirectionInOut|kIOMemoryPhysicallyContiguous|kIOMapInhibitCache,bytes,0x4000);
+            allocations[i]=gpuAllocateHostMemory(bytes);
             if (!allocations[i]) { IOLog("GIULIA GPU: subsystem=memory phase=allocate result=fail reservation=%lu iova=%#x allocation_bytes=%lu reason=descriptor-null\n",(unsigned long)i,plan[i].iova,(unsigned long)bytes); ok=false; break; }
             IOByteCount contiguous=0;
             uint64_t pa=allocations[i]->getPhysicalSegment(0,&contiguous,kIOMemoryMapperNone);
             void *cpu=allocations[i]->getBytesNoCopy();
-            if (!cpu || contiguous<bytes || (pa&0x3fff) || pa<gPhysBase ||
-                bytes>gPhysSize || pa-gPhysBase>gPhysSize-bytes) {
-                IOLog("GIULIA GPU: subsystem=memory phase=validate result=fail reservation=%lu pa=%#llx requested=%lu contiguous=%llu cpu_mapped=%u reason=allocation-outside-owned-window-or-misaligned\n",(unsigned long)i,(unsigned long long)pa,(unsigned long)bytes,(unsigned long long)contiguous,cpu!=NULL);
+            if (!gpuHostRangeValid(cpu,pa,contiguous,bytes)) {
+                IOLog("GIULIA GPU: subsystem=memory phase=validate result=fail reservation=%lu pa=%#llx requested=%lu contiguous=%llu cpu_mapped=%u reason=host-window-or-gpu-36bit-range-or-alignment\n",(unsigned long)i,(unsigned long long)pa,(unsigned long)bytes,(unsigned long long)contiguous,cpu!=NULL);
                 ok=false; break; }
             ranges[i].iova=plan[i].iova; ranges[i].physical=pa; ranges[i].bytes=plan[i].bytes;
             ranges[i].permissions=ArmSmmu4KRead|ArmSmmu4KWrite|ArmSmmu4KPrivileged|
                 (plan[i].region==GG_ICACHE?ArmSmmu4KExecute:0);
             ranges[i].writeback=0; ranges[i].shareability=2;
+            IOLog("GIULIA GPU: subsystem=memory phase=initialize reservation=%lu iova=%#x pa=%#llx bytes=%lu cpu_cache=normal-copyback dma_active=0\n",
+                (unsigned long)i,plan[i].iova,(unsigned long long)pa,(unsigned long)bytes);
             bzero(cpu,bytes);
             /* Prepare only ordinary host RAM. TCM stays untouched. */
             for (size_t j=0;j<count;++j) {
@@ -202,20 +222,26 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
                     memcpy((uint8_t *)cpu+b->address-plan[i].iova,
                         pack->asset[0].data+b->payload_offset,b->size);
             }
+            if (!giulia_gpu_cache_publish(cpu,bytes)) {
+                IOLog("GIULIA GPU: subsystem=memory phase=cache-publish result=fail reservation=%lu\n",(unsigned long)i);
+                ok=false;break;
+            }
             IOLog("GIULIA GPU: GMU RAM iova=%#x bytes=%#x persistent=%u; not mapped to GPU\n",
                 plan[i].iova,plan[i].bytes,plan[i].persistent);
         }
         if (ok) {
             const size_t capacity=16, bytes=capacity*4096;
-            tableMemory=IOBufferMemoryDescriptor::inTaskWithOptions(kernel_task,
-                kIODirectionInOut|kIOMemoryPhysicallyContiguous|kIOMapInhibitCache,bytes,0x4000);
+            tableMemory=gpuAllocateHostMemory(bytes);
             IOByteCount contiguous=0;
             uint64_t pa=tableMemory?tableMemory->getPhysicalSegment(0,&contiguous,kIOMemoryMapperNone):0;
-            if (!tableMemory || !tableMemory->getBytesNoCopy() || contiguous<bytes || (pa&0x3fff) ||
-                pa<gPhysBase || bytes>gPhysSize || pa-gPhysBase>gPhysSize-bytes) {
+            void *cpu=tableMemory?tableMemory->getBytesNoCopy():NULL;
+            if (!gpuHostRangeValid(cpu,pa,contiguous,bytes)) {
                 IOLog("GIULIA GPU: subsystem=smmu phase=table-allocation result=fail pa=%#llx requested=%lu contiguous=%llu reason=invalid-owned-allocation\n",(unsigned long long)pa,(unsigned long)bytes,(unsigned long long)contiguous);
                 ok=false;
             } else {
+                /* Clear the entire owned pool, including unused table pages. */
+                IOLog("GIULIA GPU: subsystem=smmu phase=initialize-table-pool pa=%#llx bytes=%lu cpu_cache=normal-copyback active=0\n",(unsigned long long)pa,(unsigned long)bytes);
+                bzero(cpu,bytes);
                 ArmSmmu4KConfig config={32,36,pa,1024}; ArmSmmu4KResult result;
                 ArmSmmu4KStatus status=ArmSmmu4KBuild(&config,ranges,reservations,
                     (uint64_t *)tableMemory->getBytesNoCopy(),capacity,&result);
@@ -223,6 +249,10 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
                     status==ArmSmmu4KSuccess?"ok":"fail",(unsigned)status,(unsigned long long)pa,
                     (unsigned long)capacity,(unsigned long)result.table_pages,(unsigned long)result.leaf_pages);
                 ok=status==ArmSmmu4KSuccess;
+                if(ok && !giulia_gpu_cache_publish(cpu,bytes)) {
+                    IOLog("GIULIA GPU: subsystem=smmu phase=cache-publish result=fail\n");
+                    ok=false;
+                }
                 if (ok) {
                     tablePages=(unsigned)result.table_pages;leafPages=(unsigned)result.leaf_pages;
                     setProperty("InactiveSmmuTablePages",(unsigned long long)result.table_pages,32);
@@ -231,6 +261,8 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
         }
         if (ok) {
             reservationCount=(unsigned)reservations;hostPrepared=true;
+            setProperty("HostMemoryCachePolicy","normal-copyback-explicit-clean");
+            IOLog("GIULIA GPU: host RAM cache publication complete; buffers=%lu tables=1 dma_active=0\n",(unsigned long)reservations);
             setProperty("GMUReservationCount",(unsigned long long)reservations,32);
             IOLog("GIULIA GPU: host preparation complete; blocks=%lu reservations=%lu; hardware inactive\n",
                 (unsigned long)count,(unsigned long)reservations);
@@ -287,6 +319,8 @@ bool GiuliaGPU::start(IOService *provider)
     terminalOwner=true;mode=(unsigned)requested;
     __atomic_store_n(&gpuTerminal.mode,mode,__ATOMIC_RELEASE);
     __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_PREPARING,__ATOMIC_RELEASE);
+    /* Preserve firmware diagnostics even if subsequent RAM preparation fails. */
+    if(mode==3)readPowerHandoff();
     struct gg_pack pack={};
     if (!loadFirmware(&pack) || !prepareMemory(&pack)) {
         IOLog("GIULIA GPU: preparation failed; no device writes performed\n");
@@ -297,7 +331,6 @@ bool GiuliaGPU::start(IOService *provider)
     setProperty("GPUChipID",(unsigned long long)0x43051401,32);
     setProperty("GPUModel","Adreno750v2"); setProperty("HardwareReady",false);
     setProperty("BringupStage","host-memory-prepared");
-    if(mode==3)readPowerHandoff();
     /* The worker retains this service and owns every post-start observation.
      * A USB command cannot map registers or race stop/free through a pointer. */
     workerRunning=true;retain();thread_t thread;
@@ -365,6 +398,7 @@ void GiuliaGPU::reportStatus()
         gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),mode,
         firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages,observations,
         powerObservation.stage,powerObservation.valid_fields);
+    IOLog("GIULIA GPU: host_cache_published=%u cpu_cache=normal-copyback gpu_memory_attribute=normal-nc runtime_cache_ownership=unassigned\n",hostPrepared);
     IOLog("GIULIA GPU: firmware_power_valid=%u firmware_power_prepared=%u phase=%u code=%u attempted=%#x confirmed=%#x retained=%u flags=%#x qmp_available=%d\n",
         firmwarePowerState!=GGPH_INVALID,firmwarePowerState==GGPH_PREPARED,
         firmwarePower.phase,firmwarePower.code,firmwarePower.attempted,

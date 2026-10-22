@@ -19,6 +19,12 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -pthread \
 "$tmp/terminal"
 python3 tests/ios16_gpu_terminal_profile.py
 python3 tests/ios16_gpu_service.py
+if [ "$#" = 1 ] && [ -f "$(dirname "$1")/firmware.pack" ]; then
+    python3 tests/ios16_gpu_host_memory.py "$(dirname "$1")/firmware.pack"
+else
+    python3 tests/ios16_gpu_host_memory.py
+fi
+python3 tests/ios16_gpu_cache.py
 for name in prepare consumer; do
     cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
         "tests/ios16_gpu_power_$name.c" -o "$tmp/power-$name"

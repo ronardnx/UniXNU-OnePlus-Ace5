@@ -10,10 +10,12 @@ MARKERS = (
     b'GIULIA GPU: firmware pack mapped read-only and digest verified',
     b'GIULIA FB: native panel 1264x2780 full coverage;',
     b'GiuliaGPU',
+    b'cpu_cache=normal-copyback',
+    b'GIULIA GPU: host RAM cache publication complete;',
 )
 SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'power_acquire', 'power_release', 'smmu_start', 'smmu_stop',
-    'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available',
+    'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available', 'cache_publish',
 ))
 
 
