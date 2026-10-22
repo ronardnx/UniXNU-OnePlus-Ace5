@@ -229,3 +229,27 @@ SHA256 `31ea6929402049c8e966e0e974e3b17767f24d96fd1a862561050c29ae2d4a99`。
 本地 890 个控制场景、日志输出契约和独立页表遍历通过；详细边界、
 摘要与未完成项见 `hardware/ios16-gpu-offline-control.json`。
 本轮没有访问手机，没有重新打包或替换旧启动镜像。
+
+## 统一候选验证（2026-10-23）
+
+源码 `aa6cc82ec4f6b8080d73c2b8c94554f54ec5e0fa` 的完整 GUI＋触控＋
+Wi-Fi＋GPU 内核构建通过：
+[run 39843230533](https://github.com/jasper2863/UniXNU-giulia/actions/runs/39843230533)。
+链接检查直接解析 Mach-O 外部符号、指令节和执行权限，确认八个 GPU 控制及
+终端入口位于真实可执行代码中，支持 XNU 的 `__TEXT_EXEC` 布局。
+
+本地统一候选为
+`out/ios16/gpu-wifi-integrated-boot-20261023/giulia-ios16-wifi-pcie.img`，
+69,287,936 字节，SHA256
+`19f7b7c7f4d90202cb76fd31915b60b6ffbe03e7af9106451709e682aa36d694`。
+默认 GPU 模式 1，保留开发版 ADT、现有 userdata、显示、触控、屏幕采集、
+Wi-Fi 终端等待和全量日志。配套 `host-tools/` 使用同次 CI 的终端脚本。
+
+固件、内核、FAT、根卷绑定、UEFI 及最终 boot v3 镜像布局校验通过。
+固定源码快照中的 370 个文件和重新生成的 79 份补丁／构建脚本已与 CI
+核对；构建期间其他聊天中的投屏改动未纳入本候选。完整本地记录为同目录
+`delivery.json`，脱敏记录见
+[`hardware/ios16-gpu-unified-integration.json`](../hardware/ios16-gpu-unified-integration.json)。
+
+该候选尚未启动手机或刷写分区。GPU 仍未取得实际电源租约、激活 SMMU、
+启动 GMU 或执行渲染命令，Metal 和系统 GPU 合成尚未实现。

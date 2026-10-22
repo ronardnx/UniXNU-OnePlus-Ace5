@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-23",
+  "status": "compiled-and-packaged; hardware test pending",
+  "ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39843230533,
+    "commit": "aa6cc82ec4f6b8080d73c2b8c94554f54ec5e0fa",
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39843230533",
+    "conclusion": "success",
+    "profile": "gui",
+    "touch": true,
+    "wifi": true,
+    "gpu": true
+  },
+  "kernel_compilation_commit": "aa6cc82ec4f6b8080d73c2b8c94554f54ec5e0fa",
+  "packaging_source_commit": "aa6cc82ec4f6b8080d73c2b8c94554f54ec5e0fa",
+  "checkout_head_observed_at_finalization": "aa6cc82ec4f6b8080d73c2b8c94554f54ec5e0fa",
+  "fixed_source_inventory_sha256": "75d58b5e490903537e1d396e4afee3dbadb007a98d4f1975cb5aaa1c1b047a2a",
+  "tracked_source_files_verified": 370,
+  "ci_artifact": {
+    "id": 12453727860,
+    "name": "ace5-ios16-xnu",
+    "bytes": 15168962,
+    "sha256": "8ff889550ccf8a5659471366a4b43ef01ede6ff9999c4ce453a9693865c6dc81",
+    "digest_matched_github": true,
+    "zip_crc_verified": true,
+    "extracted_files_matched": true
+  },
+  "boot_image": {
+    "path": "out/ios16/gpu-wifi-integrated-boot-20261023/giulia-ios16-wifi-pcie.img",
+    "bytes": 69287936,
+    "sha256": "19f7b7c7f4d90202cb76fd31915b60b6ffbe03e7af9106451709e682aa36d694"
+  },
+  "image_layout": {
+    "header_version": 3,
+    "payload_offset": 2179072,
+    "payload_bytes": 67108864,
+    "padding_verified": true,
+    "embedded_payload_identical": true,
+    "bootshim_and_uefi_identical": true,
+    "fdt_payload_size_and_crc_verified": true
+  },
+  "raw_kernel_sha256": "84ecf40962bce330f2279abe479ccb7e7ade8c1cc63e16d23100628c9b22274b",
+  "ci_rebased_kernel_sha256": "84ecf40962bce330f2279abe479ccb7e7ade8c1cc63e16d23100628c9b22274b",
+  "embedded_kernel_sha256": "354ad69f65aaa334f50d4cce622c0634c9ab043bea66a97fa8a98debffc84306",
+  "gpu_mode": 1,
+  "gpu_state": {
+    "power_acquired": false,
+    "smmu_active": false,
+    "gmu_started": false,
+    "hardware_ready": false,
+    "acceleration": false
+  },
+  "firmware": {
+    "wifi": {
+      "segment": "__WIFI_FW",
+      "virtual_address": "0xfffffe000a178000",
+      "virtual_bytes": 22446080,
+      "file_offset": 17432576,
+      "bytes": 22438550,
+      "sha256": "5a84c3a28b23c7d0a3a94df89a52830f4b9d0807cd62e915f897774effcc41c5"
+    },
+    "gpu": {
+      "segment": "__GPU_FW",
+      "virtual_address": "0xfffffe000b6e0000",
+      "virtual_bytes": 229376,
+      "file_offset": 39878656,
+      "bytes": 221184,
+      "sha256": "a93cef06eed69c1de28021136f80306664068d563278adab6fd64695ee70e7de"
+    }
+  },
+  "root_binding_verified": true,
+  "userdata_rebuilt": false,
+  "userdata_flashed": false,
+  "development_adt_sha256": "1d45725260ef0f75e83e00bea4b2e92e28168a21d2734b53dbd290645b381bee",
+  "ci_patch_files_compared": 79,
+  "ci_profile_matches_generated_source": true,
+  "matching_ci_host_tools": [
+    {
+      "name": "debug-terminal.cmd",
+      "sha256": "d95e2dd8d062eb1a405ebfb75d1a78b63ee91df652e08a7bb311b95d1f6adebb"
+    },
+    {
+      "name": "debug_terminal.py",
+      "sha256": "1210c5af90ecf9afecb9c6df330c67a2cab6d75e91f55a8484a1f3e752b69afc"
+    },
+    {
+      "name": "ios16_screen.py",
+      "sha256": "385e9125bd57298551263b4c8a55ad60ed51ab23ada8c913a4d395116cd43fd0"
+    },
+    {
+      "name": "terminal-requirements.txt",
+      "sha256": "0b81718d1cbe8a7696e45a9388c9205272b5e345cd79d0cf1ccfb7a9fd1925e9"
+    },
+    {
+      "name": "giulia_debug_abi.h",
+      "sha256": "e08811abf864ffcf1dbeb6c1ab99271696be57eea24914d8a0097d7d50c45592"
+    },
+    {
+      "name": "capture-debug.ps1",
+      "sha256": "38ba8f00a16a657f86fdcf883e3ef0089d283efa40aa538f60f39e9d446772c8"
+    }
+  ],
+  "validation": [
+    "CI mandatory GPU, Wi-Fi, screen and Setup checks",
+    "CI XNU compile, executable GPU symbols and DarwinBoot relocation",
+    "GitHub artifact SHA256, ZIP CRC and extracted-file comparison",
+    "Fixed Git source snapshot and generated/CI patch comparison",
+    "Exact CI-kernel to local Wi-Fi/GPU firmware embedding chain",
+    "FAT/kernel/ADT/trust-cache/root/configuration verification",
+    "UEFI build report and Android v3 payload/FDT binding"
+  ],
+  "phone_accessed": false,
+  "device_commands_executed": false,
+  "phone_booted": false,
+  "flash_performed": false,
+  "pending": [
+    "UEFI GPU CX/clock preparation and explicit handoff",
+    "GPU SMMU ownership/cache/fault adapters",
+    "Secure CX, PDC/RSC, interrupts/bandwidth and complete HWSCHED HFI",
+    "GPU command execution, fences, Metal and system composition",
+    "Device validation"
+  ],
+  "delivery_report": "out/ios16/gpu-wifi-integrated-boot-20261023/delivery.json"
+}
