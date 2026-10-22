@@ -34,7 +34,7 @@ See [development status](docs/DEVELOPMENT_STATUS.md) and the [firmware transfer 
 - Git and Python 3.11 or newer with `venv`.
 - Clang/LLVM, LLD, build-essential, NASM, `uuid-dev`, `gcc-aarch64-linux-gnu`, ACPICA tools and the device-tree compiler.
 - Mono and certificate packages for the upstream NuGet tooling; Mtools for FAT payload packaging.
-- A macOS runner for XNU. The configured GitHub Actions build account is `jasper2863`.
+- A macOS runner for XNU. The configured GitHub Actions build account is `tycykp`.
 
 Source revisions are fixed in [`sources.json`](sources.json) and the target-specific workflows. Kernel, device tree, firmware and payload metadata must match.
 
@@ -61,7 +61,7 @@ Output: `$HOME/ace5-port/uefi-giulia/Mu-giulia-0.img`. The first build downloads
 ### iOS 16 kernel
 
 ```bash
-gh workflow run ios16-xnu.yml --repo jasper2863/UniXNU-giulia \
+gh workflow run ios16-xnu.yml --repo tycykp/UniXNU-OnePlus-Ace5 \
   --ref main -f profile=gui -f touch=true -f wifi=true
 ```
 

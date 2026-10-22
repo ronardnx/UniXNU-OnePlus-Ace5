@@ -34,7 +34,7 @@
 - Git，以及支持 `venv` 的 Python 3.11 及以上版本。
 - Clang/LLVM、LLD、build-essential、NASM、`uuid-dev`、`gcc-aarch64-linux-gnu`、ACPICA 工具和设备树编译器。
 - 上游 NuGet 工具所需的 Mono 及证书软件包；FAT 负载打包所需的 Mtools。
-- XNU 使用 macOS 构建机，当前配置的 GitHub Actions 构建账号为 `jasper2863`。
+- XNU 使用 macOS 构建机，当前配置的 GitHub Actions 构建账号为 `tycykp`。
 
 上游版本由 [`sources.json`](sources.json) 及各目标工作流固定。内核、设备树、固件和负载元数据必须配套使用。
 
@@ -61,7 +61,7 @@ bash scripts/build-uefi.sh "$HOME/ace5-port"
 ### iOS 16 内核
 
 ```bash
-gh workflow run ios16-xnu.yml --repo jasper2863/UniXNU-giulia \
+gh workflow run ios16-xnu.yml --repo tycykp/UniXNU-OnePlus-Ace5 \
   --ref main -f profile=gui -f touch=true -f wifi=true
 ```
 

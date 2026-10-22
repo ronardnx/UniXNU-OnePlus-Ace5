@@ -19,7 +19,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--artifact',type=int,required=True)
-    p.add_argument('--repo',default='tycykp/UniXNU-giulia')
+    p.add_argument('--repo',default='tycykp/UniXNU-OnePlus-Ace5')
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--workers',type=int,default=8)
     p.add_argument('--chunk-kib',type=int,default=0)

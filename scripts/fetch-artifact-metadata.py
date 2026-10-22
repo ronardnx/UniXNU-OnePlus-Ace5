@@ -22,7 +22,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--repo',default='tycykp/UniXNU-giulia')
+    p.add_argument('--repo',default='tycykp/UniXNU-OnePlus-Ace5')
     p.add_argument('--artifact',type=int,required=True)
     p.add_argument('--member',required=True)
     p.add_argument('--upstream',type=Path,required=True)
