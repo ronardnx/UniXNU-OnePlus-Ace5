@@ -3,8 +3,8 @@
 # GIULIA_WIFI_SNAPSHOT=1 substitutes a read-only register dump for failed
 # link-training handoffs; decode it with decode-ios16-pcie-snapshot.py.
 # GIULIA_WIFI_XNU_LINK=1 retains prepared resources for XNU link training.
-# GIULIA_GPU_PACK opts into the pinned local GPU pack; GIULIA_GPU_MODE=1/2
-# selects host preparation or gated read-only observation (default: 1).
+# GIULIA_GPU_PACK opts into the pinned local GPU pack; GIULIA_GPU_MODE=1/2/3
+# selects host preparation, observation or UEFI CX/clock preparation (default: 1).
 set -euo pipefail
 if [ "$#" -ne 8 ] && [ "$#" -ne 9 ]; then
   echo 'Usage: build-ios16-wifi-bringup.sh UEFI UEFI_PYTHON KERNEL ADT ROOT_REPORT TRUST_CATALOG CAPTURED_DTS OUTPUT [LOCAL_FIRMWARE_PACK]' >&2
@@ -24,7 +24,7 @@ runtime_pack=""
 if [ "$#" -eq 9 ]; then runtime_pack="$(realpath "$9")"; fi
 gpu_pack="${GIULIA_GPU_PACK:-}"
 gpu_mode="${GIULIA_GPU_MODE:-1}"
-case "$gpu_mode" in 1|2) ;; *) echo 'GIULIA_GPU_MODE must be 1 or 2' >&2; exit 2;; esac
+case "$gpu_mode" in 1|2|3) ;; *) echo 'GIULIA_GPU_MODE must be 1, 2 or 3' >&2; exit 2;; esac
 if [ -n "$gpu_pack" ]; then gpu_pack="$(realpath "$gpu_pack")"; fi
 if [ -n "${GIULIA_GPU_MODE:-}" ] && [ -z "$gpu_pack" ]; then
   echo 'GIULIA_GPU_MODE requires explicit GIULIA_GPU_PACK opt-in' >&2
@@ -47,6 +47,8 @@ if gpu_pack:
         raise SystemExit('Unified GPU packaging requires the ninth argument LOCAL_FIRMWARE_PACK for Wi-Fi runtime')
     if not compiled:
         raise SystemExit('GIULIA_GPU_PACK requires a kernel compiled with --gpu')
+    if __import__('os').environ.get('GIULIA_GPU_MODE')=='3' and b'GIULIA GPU: UEFI power handoff' not in kernel:
+        raise SystemExit('GPU mode 3 requires the compiled UEFI power handoff consumer')
     if metadata.get('output_sha256')!=hashlib.sha256(kernel).hexdigest() or metadata.get('boot_args_bytes')!=736:
         raise SystemExit('Kernel handoff metadata mismatch')
     # Validate the exact insertion order, both pinned packs and header capacity
@@ -120,12 +122,19 @@ else
   cp "$kernel_input" "$output_dir/kernel.macho"
   cp "${kernel_input%.*}.json" "$output_dir/kernel.json"
 fi
-cp "$adt_input" "$output_dir/giulia-ios16.adt"
+if [ -n "$gpu_pack" ] && [ "$gpu_mode" = 3 ]; then
+  python3 scripts/prepare-ios16-gpu-power.py --adt "$adt_input" --out "$output_dir/giulia-ios16.adt"
+else
+  cp "$adt_input" "$output_dir/giulia-ios16.adt"
+fi
 cp "$dts_input" "$output_dir/captured-board.dts"
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/. "$board_driver/"
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe "$output_dir/driver-source"
 python3 scripts/enable-touch-diagnostics.py "$driver_dir"
 python3 scripts/enable-wifi-diagnostics.py "$driver_dir"
+if [ -n "$gpu_pack" ] && [ "$gpu_mode" = 3 ]; then
+  python3 scripts/enable-gpu-power-diagnostics.py "$driver_dir"
+fi
 python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
   --adt "$output_dir/giulia-ios16.adt" --trust-catalog "$trust_input" \
   --out "$output_dir/payload" --root-report "$root_report" \
@@ -141,7 +150,8 @@ if (out/'gpu-offline-checks.json').exists():
     files += [Path('ios16/GiuliaGPU.cpp'),*Path('ios16').glob('giulia_gpu_*.c'),
               *Path('ios16').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
               Path('scripts/ios16_gpu_patch.py'),Path('scripts/ios16_gpu_runtime.py'),
-              Path('scripts/embed-gpu-firmware.py')]
+              Path('scripts/embed-gpu-firmware.py'),Path('scripts/ios16_gpu_power.py'),
+              Path('scripts/enable-gpu-power-diagnostics.py'),Path('scripts/prepare-ios16-gpu-power.py')]
 for source in sorted(set(files)):
     if not source.is_file():continue
     destination=snapshot/source
@@ -158,9 +168,13 @@ r=json.loads((out/'payload/identity.json').read_text())
     f"#define GIULIA_PAYLOAD_BYTES {r['payload_bytes']}U\n"
     f"#define GIULIA_PAYLOAD_CRC32 0x{r['payload_crc32']}U\n"
     '#define GIULIA_TOUCH_CLOCK 1\n#define GIULIA_TOUCH_POWER 1\n#define GIULIA_WIFI_PCIE 1\n'
-    + ('#define GIULIA_WIFI_XNU_LINK 1\n' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else ''))
+    + ('#define GIULIA_WIFI_XNU_LINK 1\n' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else '')
+    + ('#define GIULIA_GPU_POWER 1\n' if r.get('gpu_power_handoff') else ''))
 PY
 python3 scripts/verify-wifi-native-abi.py --uefi "$uefi_root" --when-enabled
+if [ -n "$gpu_pack" ] && [ "$gpu_mode" = 3 ]; then
+  python3 scripts/verify-gpu-power-native-abi.py --uefi "$uefi_root"
+fi
 cd "$uefi_root"
 if ! CLANGPDB_AARCH64_PREFIX=aarch64-linux-gnu- "$uefi_python" build_uefi.py \
      -d giulia -m 0 -r DEBUG > "$output_dir/build.log" 2>&1; then
@@ -193,6 +207,8 @@ files=[*sorted((out/'driver-source').glob('*')),
        Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),
        Path('scripts/pack-payload.py'),Path('scripts/ios16_wifi_pcie.py'),
        Path('scripts/ios16_pcie_diagnostic.py'),Path('scripts/decode-ios16-pcie-snapshot.py')]
+if (out/'giulia-ios16.gpu-power.json').is_file():
+    files += [out/'giulia-ios16.gpu-power.json',Path('scripts/verify-gpu-power-native-abi.py')]
 payload=json.loads((out/'payload/payload.json').read_text())
 runtime=payload.get('wifi_runtime')
 gpu_runtime=payload.get('gpu_runtime')
@@ -204,6 +220,7 @@ report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],tex
                         for p in files if p.is_file()],
         'hardware_verified':False,'scan_implemented':bool(runtime),'scan_hardware_verified':False,
         'runtime':runtime,'gpu_runtime':gpu_runtime,'gpu_mode':payload.get('gpu_mode'),
+        'gpu_power_handoff':payload.get('gpu_power_handoff'),
         'gpu_hardware_verified':False,'acceleration':False,
         'firmware_digests':{'wifi':runtime['firmware']['sha256'] if runtime else None,
                             'gpu':gpu_runtime['firmware']['sha256'] if gpu_runtime else None},

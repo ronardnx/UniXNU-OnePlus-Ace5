@@ -55,7 +55,12 @@ def main():
     report['wifi_pcie_handoff_available']=False
     report['wifi_cesta_handoff_available']=False
     report['wifi_stock_handoff_available']=False
+    report['gpu_power_handoff_available']=False
     if wifi.is_file() and loader.is_file():
+        report['gpu_power_handoff_available']=(
+            b'GIULIA GPU POWER: prepare protocol v1 installed' in wifi.read_bytes() and
+            b'GIULIA GPU POWER: loader prepare=' in loader.read_bytes() and
+            b'giulia-gpu-power' in loader.read_bytes())
         report['wifi_cesta_handoff_available']=all(marker in wifi.read_bytes() for marker in
             (b'GIULIA CESTA: enable=',b'GIULIA CESTA bandwidth: node='))
         report['wifi_stock_handoff_available']=(report['wifi_cesta_handoff_available'] and

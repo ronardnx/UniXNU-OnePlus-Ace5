@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
  * Darwin 22 A750 bring-up service. giulia_gpu=1 prepares pinned firmware and
- * host memory; =2 additionally observes gated power/SMMU registers.
+ * host memory; =2 additionally observes gated power/SMMU registers; =3
+ * consumes the explicit UEFI CX/clock preparation report.
  * No GPU transactions, SMMU writes, secure calls or accelerator publication.
  */
 #include <pexpert/arm64/board_config.h>
@@ -18,9 +19,19 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_memory.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_terminal.h"
+#include "giulia_gpu_power_handoff.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 
 static struct gg_terminal_mailbox gpuTerminal;
+extern "C" int giulia_gpu_qmp_available(void)
+{
+    IORegistryEntry *chosen=IORegistryEntry::fromPath("/chosen",gIODTPlane);
+    if(!chosen)return 0;
+    OSObject *property=chosen->getProperty("giulia-gpu-power");
+    OSData *data=OSDynamicCast(OSData,property);
+    int available=property?(data?ggph_qmp_available(data->getBytesNoCopy(),data->getLength()):0):1;
+    chosen->release();return available;
+}
 extern "C" int giulia_gpu_terminal(const char *command)
 {
     unsigned request=gg_terminal_command(command);
@@ -45,8 +56,11 @@ class GiuliaGPU : public IOService {
     unsigned mode, reservationCount, tablePages, leafPages, observations;
     bool firmwareVerified, hostPrepared;
     struct ggp_report powerObservation;
+    struct gpp_report firmwarePower;
+    unsigned firmwarePowerState;
     bool loadFirmware(struct gg_pack *pack);
     bool prepareMemory(const struct gg_pack *pack);
+    void readPowerHandoff();
     void observePower();
     void reportStatus();
     void closeTerminal(unsigned);
@@ -67,6 +81,7 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
     mode=reservationCount=tablePages=leafPages=observations=0;
     firmwareVerified=hostPrepared=false;bzero(&powerObservation,sizeof(powerObservation));
+    firmwarePowerState=GGPH_INVALID;bzero(&firmwarePower,sizeof(firmwarePower));
     bzero(allocations,sizeof(allocations));
     bzero(registerMemory,sizeof(registerMemory)); bzero(registerMaps,sizeof(registerMaps));
     if(!IOService::init(dictionary))return false;
@@ -260,7 +275,7 @@ int GiuliaGPU::readRegister(void *cookie,unsigned window,uint32_t offset,uint32_
 bool GiuliaGPU::start(IOService *provider)
 {
     int requested=0;
-    if (!PE_parse_boot_argn("giulia_gpu",&requested,sizeof(requested)) || requested<1 || requested>2) return false;
+    if (!PE_parse_boot_argn("giulia_gpu",&requested,sizeof(requested)) || requested<1 || requested>3) return false;
     IORegistryEntry *root=IORegistryEntry::fromPath("/",gIODTPlane);
     if (!root) return false;
     OSData *model=OSDynamicCast(OSData,root->getProperty("physical-model"));
@@ -282,6 +297,7 @@ bool GiuliaGPU::start(IOService *provider)
     setProperty("GPUChipID",(unsigned long long)0x43051401,32);
     setProperty("GPUModel","Adreno750v2"); setProperty("HardwareReady",false);
     setProperty("BringupStage","host-memory-prepared");
+    if(mode==3)readPowerHandoff();
     /* The worker retains this service and owns every post-start observation.
      * A USB command cannot map registers or race stop/free through a pointer. */
     workerRunning=true;retain();thread_t thread;
@@ -294,6 +310,23 @@ bool GiuliaGPU::start(IOService *provider)
     thread_deallocate(thread);
     registerService();
     return true;
+}
+
+void GiuliaGPU::readPowerHandoff()
+{
+    IORegistryEntry *chosen=IORegistryEntry::fromPath("/chosen",gIODTPlane);
+    OSData *data=chosen?OSDynamicCast(OSData,chosen->getProperty("giulia-gpu-power")):NULL;
+    firmwarePowerState=ggph_decode(data?data->getBytesNoCopy():NULL,
+        data?data->getLength():0,&firmwarePower);
+    if(chosen)chosen->release();
+    setProperty("FirmwarePowerPrepared",firmwarePowerState==GGPH_PREPARED);
+    setProperty("UEFIPowerReportVersion",1ULL,32);
+    if(firmwarePowerState)setProperty("UEFIPowerReport",&firmwarePower,sizeof(firmwarePower));
+    IOLog("GIULIA GPU: UEFI power handoff valid=%u prepared=%u code=%u phase=%u attempted=%#x confirmed=%#x valid_reads=%#x retained=%u flags=%#x native_status=%#llx protocol_status=%#llx runtime_lease=0 smmu_active=0 gmu_started=0 acceleration=0\n",
+        firmwarePowerState!=GGPH_INVALID,firmwarePowerState==GGPH_PREPARED,
+        firmwarePower.code,firmwarePower.phase,firmwarePower.attempted,firmwarePower.confirmed,
+        firmwarePower.valid_reads,firmwarePower.retained,firmwarePower.flags,
+        (unsigned long long)firmwarePower.firmware_status,(unsigned long long)firmwarePower.protocol_status);
 }
 
 void GiuliaGPU::observePower()
@@ -332,6 +365,10 @@ void GiuliaGPU::reportStatus()
         gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),mode,
         firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages,observations,
         powerObservation.stage,powerObservation.valid_fields);
+    IOLog("GIULIA GPU: firmware_power_valid=%u firmware_power_prepared=%u phase=%u code=%u attempted=%#x confirmed=%#x retained=%u flags=%#x qmp_available=%d\n",
+        firmwarePowerState!=GGPH_INVALID,firmwarePowerState==GGPH_PREPARED,
+        firmwarePower.phase,firmwarePower.code,firmwarePower.attempted,
+        firmwarePower.confirmed,firmwarePower.retained,firmwarePower.flags,giulia_gpu_qmp_available());
 }
 
 void GiuliaGPU::worker(void *cookie,wait_result_t)
@@ -340,7 +377,7 @@ void GiuliaGPU::worker(void *cookie,wait_result_t)
     IOLockLock(self->runtimeLock);
     if(!self->stopping) {
         __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_READY,__ATOMIC_RELEASE);
-        if(self->mode==2)self->observePower();
+        if(self->mode==2 || (self->mode==3 && self->firmwarePowerState==GGPH_PREPARED))self->observePower();
     }
     while(!self->stopping) {
         unsigned requests=gg_terminal_take(&gpuTerminal);

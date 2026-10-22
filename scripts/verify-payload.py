@@ -11,6 +11,7 @@ from ios16_platform import check_platform, read_nodes
 from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
 from ios16_gpu_runtime import check_runtime as check_gpu_runtime
+from ios16_gpu_power import check_request as check_gpu_power_request
 from ios16_trust_catalog import modules
 
 folder=Path(sys.argv[1]).resolve()
@@ -50,9 +51,13 @@ with tempfile.TemporaryDirectory() as directory:
     gpu_runtime=check_gpu_runtime((temporary/'kernel.macho').read_bytes(),gpu_meta)
     if gpu_runtime!=gpu_report:
         raise SystemExit('GPU firmware/service binding differs from the embedded kernel')
-    if report.get('gpu_mode') and (report['gpu_mode'] not in (1,2) or not gpu_runtime or
+    if report.get('gpu_mode') and (report['gpu_mode'] not in (1,2,3) or not gpu_runtime or
                                   not report.get('root_finder_id') or not report.get('platform_match',{}).get('gui')):
         raise SystemExit('GPU mode requires the verified GUI root and GPU firmware')
+    gpu_power=check_gpu_power_request((temporary/'kernel.macho.adt').read_bytes(),
+        report.get('gpu_mode'),(temporary/'kernel.macho').read_bytes())
+    if gpu_power!=report.get('gpu_power_handoff'):
+        raise SystemExit('GPU power request differs from the embedded ADT/kernel/report')
     if report.get('wifi_pcie_handoff') and not wifi:
         raise SystemExit('PCIe handoff lacks the verified Qualcomm Wi-Fi platform')
     if report.get('wifi_stock_handoff') and not report.get('wifi_cesta_handoff'):

@@ -15,7 +15,7 @@ trust_input="$(realpath "$6")"
 gpu_pack="$(realpath "$7")"
 output_dir="$(realpath -m "$8")"
 gpu_mode="${GIULIA_GPU_MODE:-1}"
-case "$gpu_mode" in 1|2) ;; *) echo 'GIULIA_GPU_MODE must be 1 or 2' >&2; exit 2;; esac
+case "$gpu_mode" in 1|2|3) ;; *) echo 'GIULIA_GPU_MODE must be 1, 2 or 3' >&2; exit 2;; esac
 driver_dir="$uefi_root/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 board_driver="$uefi_root/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe"
 test ! -e "$output_dir"
@@ -35,9 +35,16 @@ bash scripts/test-ios16-gpu.sh "$(dirname "$gpu_pack")/gmu_gen70900.bin"
 python3 tests/ios16_gpu_patch.py
 python3 tests/ios16_gpu_embed.py "$gpu_pack"
 python3 scripts/embed-gpu-firmware.py --kernel "$kernel_input" --pack "$gpu_pack" --out "$output_dir/kernel.macho"
-cp "$adt_input" "$output_dir/giulia-ios16.adt"
+if [ "$gpu_mode" = 3 ]; then
+  python3 scripts/prepare-ios16-gpu-power.py --adt "$adt_input" --out "$output_dir/giulia-ios16.adt"
+else
+  cp "$adt_input" "$output_dir/giulia-ios16.adt"
+fi
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/. "$board_driver/"
 python3 scripts/enable-touch-diagnostics.py "$driver_dir"
+if [ "$gpu_mode" = 3 ]; then
+  python3 scripts/enable-gpu-power-diagnostics.py "$driver_dir"
+fi
 python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
   --adt "$output_dir/giulia-ios16.adt" --trust-catalog "$trust_input" \
   --out "$output_dir/payload" --root-report "$root_report" \
@@ -52,8 +59,12 @@ r=json.loads((out/'payload/identity.json').read_text())
 (driver/'PayloadIdentity.h').write_text(
     f"#define GIULIA_PAYLOAD_BYTES {r['payload_bytes']}U\n"
     f"#define GIULIA_PAYLOAD_CRC32 0x{r['payload_crc32']}U\n"
-    '#define GIULIA_TOUCH_CLOCK 1\n#define GIULIA_TOUCH_POWER 1\n#define GIULIA_WIFI_PCIE 0\n')
+    '#define GIULIA_TOUCH_CLOCK 1\n#define GIULIA_TOUCH_POWER 1\n#define GIULIA_WIFI_PCIE 0\n'
+    + ('#define GIULIA_GPU_POWER 1\n' if r.get('gpu_power_handoff') else ''))
 PY
+if [ "$gpu_mode" = 3 ]; then
+  python3 scripts/verify-gpu-power-native-abi.py --uefi "$uefi_root"
+fi
 cd "$uefi_root"
 if ! CLANGPDB_AARCH64_PREFIX=aarch64-linux-gnu- "$uefi_python" build_uefi.py \
      -d giulia -m 0 -r DEBUG > "$output_dir/build.log" 2>&1; then
@@ -71,4 +82,5 @@ cp "$0" "$output_dir/build-script.sh"
 cp -a "$board_driver" "$output_dir/uefi-driver-source"
 mkdir "$output_dir/runtime-source"
 cp ios16/GiuliaGPU.cpp ios16/giulia_gpu_*.h ios16/giulia_wifi_sha256.h "$output_dir/runtime-source/"
+cp "$board_driver/GpuPowerReport.h" "$output_dir/runtime-source/giulia_gpu_power_report.h"
 echo 'GPU preparation candidate built and checked; hardware and acceleration remain unverified.'

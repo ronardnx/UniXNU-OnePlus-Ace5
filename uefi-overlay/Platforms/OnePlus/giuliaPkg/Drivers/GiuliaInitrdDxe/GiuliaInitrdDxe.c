@@ -23,6 +23,7 @@
 VOID GiuliaTouchClockSchedule (VOID);
 VOID GiuliaTouchPowerSchedule (VOID);
 VOID GiuliaWifiInstall (VOID);
+VOID GiuliaGpuPowerInstall (VOID);
 
 #define RAM_BLOCK_SIZE  512
 
@@ -255,6 +256,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   GiuliaTouchClockSchedule ();
   GiuliaTouchPowerSchedule ();
   GiuliaWifiInstall ();
+  GiuliaGpuPowerInstall ();
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);
   if ((Hob == NULL) || (GET_GUID_HOB_DATA_SIZE (Hob) < sizeof (UINT64))) {
     Report (2, 0, 0, EFI_NOT_FOUND);

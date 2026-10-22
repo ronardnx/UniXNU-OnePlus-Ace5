@@ -45,6 +45,9 @@ def main():
     require(0 < kernel_size <= len(firmware)-4096, 'Invalid kernel size')
     payload = args.payload.read_bytes()
     pr = json.loads(args.payload_report.read_text())
+    if pr.get('gpu_power_handoff'):
+        require(pr.get('gpu_mode')==3 and fw_report.get('gpu_power_handoff_available') is True,
+                'GPU mode 3 requires the matched GPU prepare protocol and fixed ADT loader')
     if pr.get('wifi_pcie_handoff'):
         if pr.get('wifi_stock_handoff'):
             require(fw_report.get('wifi_stock_handoff_available') is True,

@@ -19,6 +19,13 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -pthread \
 "$tmp/terminal"
 python3 tests/ios16_gpu_terminal_profile.py
 python3 tests/ios16_gpu_service.py
+for name in prepare consumer; do
+    cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+        "tests/ios16_gpu_power_$name.c" -o "$tmp/power-$name"
+    "$tmp/power-$name"
+done
+python3 tests/ios16_gpu_power_handoff.py
+python3 tests/ios16_gpu_qmp_transport.py
 vendor=ios16/vendor/ArmSmmu4K
 sources=("$vendor/ArmSmmu4K.c" "$vendor/ArmSmmu4KContext.c" "$vendor/ArmSmmu4KProgram.c" "$vendor/ArmSmmu4KStreams.c")
 python3 scripts/make-gpu-smmu-oracle.py --out "$tmp/source-oracle.c"

@@ -11,6 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/'scripts'))
 
 
 @unittest.skipUnless(sys.platform == 'linux' and shutil.which('bash'), 'Linux/WSL shell packaging')
@@ -22,7 +23,8 @@ class UnifiedGpuBundle(unittest.TestCase):
         self.repo = self.root / 'repo'
         for name in ('scripts', 'tests', 'ios16', 'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe'):
             (self.repo / name).mkdir(parents=True)
-        for name in ('build-ios16-wifi-bringup.sh', 'embed-wifi-firmware.py', 'embed-gpu-firmware.py'):
+        for name in ('build-ios16-wifi-bringup.sh', 'embed-wifi-firmware.py', 'embed-gpu-firmware.py',
+                     'prepare-ios16-gpu-power.py', 'ios16_gpu_power.py', 'ios16_platform.py'):
             shutil.copyfile(ROOT / 'scripts' / name, self.repo / 'scripts' / name)
         self.packs = {}
         self.digests = {}
@@ -54,6 +56,11 @@ class UnifiedGpuBundle(unittest.TestCase):
             path = self.root / name
             path.write_text('{}')
             self.inputs.append(str(path))
+        def node(name, values=(), children=()):
+            values=[('name',name.encode()+b'\0'),*values]
+            return (struct.pack('<II',len(values),len(children)) +
+                b''.join(struct.pack('<32sI',k.encode(),len(v))+v+bytes(-len(v)%4) for k,v in values)+b''.join(children))
+        Path(self.inputs[0]).write_bytes(node('device-tree',[('physical-model',b'OnePlus Ace 5\0')],[node('chosen')]))
         overlay = self.repo / 'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe'
         (overlay / 'Driver.c').write_text('fixture')
         for name in ('GiuliaWiFi.cpp', 'GiuliaGPU.cpp', 'giulia_display.h', 'giulia_wifi_sha256.h',
@@ -66,7 +73,8 @@ class UnifiedGpuBundle(unittest.TestCase):
         for name in ('ios16_display.py', 'ios16_gpu_patch.py', 'ios16_gpu_runtime.py'):
             (self.repo / 'scripts' / name).write_text('# source fixture\n')
         for name in ('fix-ios16-high-physical-cache.py', 'enable-touch-diagnostics.py',
-                     'enable-wifi-diagnostics.py', 'verify-payload.py', 'verify-wifi-native-abi.py'):
+                     'enable-wifi-diagnostics.py', 'verify-payload.py', 'verify-wifi-native-abi.py',
+                     'enable-gpu-power-diagnostics.py', 'verify-gpu-power-native-abi.py'):
             (self.repo / 'scripts' / name).write_text('')
         for name in ('ios16_dram_handoff.py', 'ios16_gpu_patch.py', 'ios16_gpu_embed.py'):
             (self.repo / 'tests' / name).write_text('')
@@ -85,8 +93,11 @@ metadata=json.loads(Path(args[args.index('--kernel')+1]).with_suffix('.json').re
 report={'wifi_runtime':{'firmware':metadata['wifi_firmware']}}
 if metadata.get('gpu_firmware'):report['gpu_runtime']={'firmware':metadata['gpu_firmware'],'acceleration':False}
 if '--gpu-mode' in args:report['gpu_mode']=int(args[args.index('--gpu-mode')+1])
+if report.get('gpu_mode')==3:
+ from ios16_gpu_power import check_request
+ report['gpu_power_handoff']=check_request(Path(args[args.index('--adt')+1]).read_bytes(),3)
 (out/'payload.json').write_text(json.dumps(report))
-(out/'identity.json').write_text(json.dumps({'payload_bytes':64,'payload_crc32':'12345678'}))
+(out/'identity.json').write_text(json.dumps({**report,'payload_bytes':64,'payload_crc32':'12345678'}))
 (out/'payload.img').write_bytes(b'payload')
 ''')
         subprocess.run(['git', 'init', '-q', str(self.repo)], check=True)
@@ -108,7 +119,8 @@ if '--gpu-mode' in args:report['gpu_mode']=int(args[args.index('--gpu-mode')+1])
                    b'GIULIA FB: native panel 1264x2780 full coverage;\0')
         if gpu:
             markers += (self.digests['gpu'] + b'GIULIA GPU: host preparation complete;\0'
-                        b'GIULIA GPU: firmware pack mapped read-only and digest verified\0')
+                        b'GIULIA GPU: firmware pack mapped read-only and digest verified\0'
+                        b'GIULIA GPU: UEFI power handoff\0')
         kernel[0x1000:0x1000+len(markers)] = markers
         self.kernel.write_bytes(kernel)
         self.original_digest = hashlib.sha256(kernel).hexdigest()
@@ -139,7 +151,7 @@ if '--gpu-mode' in args:report['gpu_mode']=int(args[args.index('--gpu-mode')+1])
 
     def test_mode_requires_pack_and_supported_value(self):
         self.rejected('requires explicit GIULIA_GPU_PACK', gpu_pack=False, mode=1)
-        self.rejected('must be 1 or 2', mode=3)
+        self.rejected('must be 1, 2 or 3', mode=4)
 
     def test_gpu_requires_wifi_runtime_and_compiled_service(self):
         self.rejected('LOCAL_FIRMWARE_PACK', wifi_pack=False)
@@ -187,6 +199,15 @@ if '--gpu-mode' in args:report['gpu_mode']=int(args[args.index('--gpu-mode')+1])
 
     def test_mode_two_reaches_payload(self):
         self.assert_bundle(mode=2)
+
+    def test_mode_three_has_an_exact_adt_request_and_enabled_protocol(self):
+        self.assert_bundle(mode=3)
+        from ios16_gpu_power import check_request
+        request=check_request((self.output/'giulia-ios16.adt').read_bytes(),3)
+        self.assertFalse(request['provider_waits_preemptible'])
+        header=self.uefi/'Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/PayloadIdentity.h'
+        self.assertIn('#define GIULIA_GPU_POWER 1',header.read_text())
+        self.assertNotIn(b'giulia-gpu-power',Path(self.inputs[0]).read_bytes())
 
     def test_wifi_without_gpu_remains_opted_out(self):
         self.write_kernel(gpu=False)

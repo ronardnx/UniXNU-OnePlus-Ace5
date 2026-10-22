@@ -21,6 +21,10 @@ for wifi in (False,True):
         if wifi:config+='    "     \'IOClass\'         = IO80211Controller;"\n'
         config+='    "   },"\n'
         (folder/'iokit/KernelConfigTables.cpp').write_text(config)
+        if wifi:
+            (folder/'0076-giulia-wifi-runtime.patch').write_text('')
+            (folder/'iokit/Kernel/arm').mkdir(parents=True)
+            (folder/'iokit/Kernel/arm/GiuliaWiFi.cpp').write_text((ROOT/'ios16/GiuliaWiFi.cpp').read_text())
         gpu_patch(folder,ROOT)
         subprocess.run(['git','apply','--check',str(folder/'0077-giulia-gpu-runtime.patch')],cwd=folder,check=True)
         subprocess.run(['git','apply',str(folder/'0077-giulia-gpu-runtime.patch')],cwd=folder,check=True)
@@ -28,4 +32,7 @@ for wifi in (False,True):
         assert actual.count('GiuliaGPU.cpp')==1
         assert ('GiuliaWiFi.cpp' in actual)==wifi
         assert 'giulia_gpu_sha256.h' in (folder/'iokit/Kernel/arm/giulia_gpu_pack.h').read_text()
+        assert 'giulia_gpu_power_report.h' in (folder/'iokit/Kernel/arm/giulia_gpu_power_handoff.h').read_text()
+        if wifi:
+            assert '#define GIULIA_GPU_QMP_GATE 1' in (folder/'iokit/Kernel/arm/GiuliaWiFi.cpp').read_text()
 print('GPU patch applies with default git context rules in both GUI profiles')

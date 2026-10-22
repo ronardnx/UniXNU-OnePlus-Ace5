@@ -30,6 +30,8 @@ fixture=r'''
 #include <vector>
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power.h"
+#include "giulia_gpu_power_handoff.h"
+static int giulia_gpu_qmp_available(){return 1;}
 static std::mutex logsLock;
 static std::vector<std::string> logs;
 static std::atomic<unsigned> statuses{0};
@@ -62,6 +64,7 @@ public:
     unsigned mode=1,reservationCount=5,tablePages=6,leafPages=104,observations=0;
     bool firmwareVerified=true,hostPrepared=true;
     ggp_report powerObservation={};
+    gpp_report firmwarePower={};unsigned firmwarePowerState=GGPH_INVALID;
     std::atomic<unsigned> references{2},inObservation{0},released{0};
     std::atomic<bool> entered{false},allowObservation{false};
     void retain(){++references;}

@@ -44,6 +44,13 @@ extern vm_offset_t ml_io_map(vm_offset_t,vm_size_t);
 #include "giulia_wifi_qmp.h"
 #include "giulia_wifi_pmu.h"
 
+#ifndef GIULIA_GPU_QMP_GATE
+#define GIULIA_GPU_QMP_GATE 0
+#endif
+#if GIULIA_GPU_QMP_GATE
+extern "C" int giulia_gpu_qmp_available(void);
+#endif
+
 #define GW_ARENA_BYTES 0x4000000u
 #define GW_IOVA 0x20000000ull
 #define GW_CE_OFFSET 0x1200000u
@@ -285,6 +292,12 @@ static void gqp_drop_owner(giulia_wifi_runtime *r) {
 }
 static int gq_power(void *v,const struct gwq_pmu_param *params,unsigned count) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+#if GIULIA_GPU_QMP_GATE
+    if(!giulia_gpu_qmp_available()) {
+        IOLog("GIULIA QMP: GPU firmware handoff retains uncertain channel; refusing WLAN QMP reuse\n");
+        return QPT_OWNER_LOST;
+    }
+#endif
     if(!count)return 0;
     if(!params || count>16)return -2;
     struct qpp_entry entries[16];struct qpp_plan plan={};

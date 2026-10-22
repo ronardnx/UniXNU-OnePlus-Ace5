@@ -11,6 +11,7 @@
   TouchClock.c
   TouchPower.c
   WifiPcie.c
+  GpuPower.c
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec

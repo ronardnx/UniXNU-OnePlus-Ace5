@@ -13,7 +13,7 @@ MARKERS = (
 )
 SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'power_acquire', 'power_release', 'smmu_start', 'smmu_stop',
-    'gmu_load', 'gmu_start', 'log_event', 'terminal',
+    'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available',
 ))
 
 
