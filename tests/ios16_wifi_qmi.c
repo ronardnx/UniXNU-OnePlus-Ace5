@@ -13,6 +13,10 @@ struct fixture {
     unsigned delay_message,pump_step_ms,drop_server;
     unsigned late_indication_batch,late_protocol_error;
     uint64_t clock_ms,server_at_ms,memory_at_ms,ready_at_ms,response_delay_ms,ready_tail_ms;
+    unsigned platform_calls,host_caps;
+    uint64_t host_features;
+    int platform_error;
+    uint64_t platform_delay_ms;
     size_t offset[5],used;uint8_t reg[6201],board[12301],phy[299660],ram[1048576];
 };
 static int packet(struct fixture *f,unsigned type,const void *payload,size_t n,unsigned confirm,int v3) {
@@ -38,7 +42,16 @@ static int send_packet(void *ctx,const void *v,size_t n) {
     assert(len+7==gwq_u32(p+20) && gwq_tlvs(t,len));f->requests++;
     if(f->drop)return 0;
     if(msg==0x20) { a=gwq_field(t,len,0x15,&z);assert(a&&z==4&&gwq_u32(a)==0x4b4e454c); }
-    if(msg==0x34) { a=gwq_field(t,len,0x1c,&z);assert(a&&z==1&&*a==0);f->phase=2; }
+    if(msg==0x34) {
+        a=gwq_field(t,len,0x1c,&z);assert(a&&z==1&&*a==0);
+        /* Official FEATURE_LIST is exactly one LE u64, without a validity
+         * byte or array count. Only QDSS_CFG_MISS is declared; reset and
+         * sleep-clock policy remain absent. No resource assets precede it. */
+        static const uint8_t expected[]={8,0,0,0,0,0,0,0};
+        a=gwq_field(t,len,0x27,&z);assert(a&&z==sizeof(expected)&&!memcmp(a,expected,sizeof(expected)));
+        assert(!gwq_field(t,len,0x13,&z) && !f->asset_calls && !f->platform_calls);
+        f->host_features=gwq_u64(a);f->host_caps++;assert(f->host_caps==1);f->phase=2;
+    }
     if(msg==0x36) {
         a=gwq_field(t,len,1,&z);assert(a && z==35 && a[0]==2);
         assert(gwq_u32(a+9)==65536 && gwq_u32(a+13)==1 && !a[17]);
@@ -124,11 +137,19 @@ static int allocate(void *ctx,size_t size,uint64_t *pa,void **va) {
 static void clean(void *ctx,const void *v,size_t n){struct fixture *f=ctx;assert((const uint8_t *)v>=f->ram && (const uint8_t *)v+n<=f->ram+sizeof(f->ram));}
 static int asset(void *ctx,unsigned kind,unsigned major,uint32_t chip,uint32_t board,const void **v,size_t *n) {
     struct fixture *f=ctx;assert(major==2 && chip==0x1234 && board==f->board_id);f->asset_calls++;if(f->fail_asset)return 1;
+    assert(f->host_caps==1 && f->host_features==UINT64_C(8));
+    assert(!f->pmu_present || (f->platform_calls==1 && f->s.pmu_configured && !f->s.platform_error));
     if(kind==GWQ_REGDB){*v=f->reg;*n=sizeof(f->reg);}else if(kind==GWQ_BOARD){*v=f->board;*n=sizeof(f->board);}
     else{assert(kind==GWQ_PHY);*v=f->phy;*n=sizeof(f->phy);}return 0;
 }
+static int configure_pmu(void *ctx,const struct gwq_pmu_param *params,unsigned count) {
+    struct fixture *f=ctx;
+    assert(f->s.pmu_present && f->s.pmu_valid && params==f->s.pmu && count==f->pmu_count);
+    assert(f->s.last_message==0x24 && !f->asset_calls && !f->chunks[1] && !f->chunks[4]);
+    f->platform_calls++;f->clock_ms+=f->platform_delay_ms;return f->platform_error;
+}
 static struct fixture *make(void) {
-    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->io=(struct gwq_io){f,send_packet,pump,allocate,clean,asset,0x20000000,sizeof(f->ram),now_ms};
+    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->io=(struct gwq_io){f,send_packet,pump,allocate,clean,asset,0x20000000,sizeof(f->ram),now_ms,configure_pmu};
     f->chip_bytes=8;f->board_bytes=4;f->board_id=0xff;
     f->pump_step_ms=1;
     for(size_t i=0;i<sizeof(f->reg);i++)f->reg[i]=(uint8_t)(i*7);
@@ -144,6 +165,8 @@ int main(void) {
     assert(f->s.indication_count==3 && !f->s.unknown_indications && f->s.last_indication==0x38);
     assert(f->s.indication_mask==((1ull<<0x35)|(1ull<<0x37)|(1ull<<0x38)));
     assert(!f->s.pmu_present && !f->s.pmu_valid);
+    assert(!f->platform_calls && !f->s.pmu_configured && !f->s.platform_error);
+    assert(f->host_caps==1 && f->host_features==UINT64_C(8));
     assert(!f->s.initializing && f->s.timeout_phase==GWQ_TIMEOUT_NONE);
     assert(f->s.host_cap_ms==1 && f->s.memory_ready_ms==3 && f->s.cap_ms==3 && f->s.m3_ms==3 && f->s.fw_ready_ms==4);
     assert(f->s.elapsed_ms==4);
@@ -230,7 +253,7 @@ int main(void) {
     assert(f->s.timeout_phase==GWQ_TIMEOUT_SERVER && f->s.elapsed_ms==10000);free(f);
     f=make();f->io.now=NULL;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_ARGUMENT && !f->requests);free(f);
     /* Real CAP power metadata uses fixed-width fields, including values whose
-     * valid flag is zero. Retain these as diagnostics without applying power. */
+     * valid flag is zero. Decode them before the platform callback runs. */
     f=make();f->pmu_present=1;f->pmu_count=2;assert(!gwq_initialize(&f->s,&f->io,2));
     assert(f->s.pmu_present && f->s.pmu_valid && f->s.pmu_bytes==97 && f->s.pmu_count==2);
     assert(!strcmp(f->s.pmu[0].pin_name,"VDD095_MX_PMU") && f->s.pmu[0].wake_valid==1 && f->s.pmu[0].wake_mv==976);
@@ -252,8 +275,25 @@ int main(void) {
             default:f->pmu_count=0;f->pmu_truncated=1;break;
         }
         assert(gwq_initialize(&f->s,&f->io,2)==GWQ_WIRE && f->s.pmu_present && !f->s.pmu_valid);
-        assert(!f->s.provisioned && !f->asset_calls);free(f);
+        assert(!f->s.provisioned && !f->asset_calls && !f->platform_calls);free(f);
     }
+    for(unsigned i=0;i<2;i++) {
+        f=make();f->pmu_present=1;f->pmu_count=1;f->platform_error=i?-7:42;f->platform_delay_ms=25;
+        assert(gwq_initialize(&f->s,&f->io,2)==GWQ_PLATFORM_ERROR);
+        assert(f->platform_calls==1 && f->s.platform_error==f->platform_error && f->s.pmu_config_ms==28);
+        assert(!f->s.pmu_configured && !f->s.provisioned && !f->asset_calls && f->s.last_message==0x24);free(f);
+    }
+    f=make();f->pmu_present=1;f->pmu_count=1;f->platform_delay_ms=25;
+    assert(!gwq_initialize(&f->s,&f->io,2) && f->s.pmu_configured && f->platform_calls==1);
+    assert(f->s.pmu_config_ms==28 && f->s.cap_ms==3 && f->s.m3_ms==28 && !f->s.platform_error);free(f);
+    f=make();f->pmu_present=1;f->pmu_count=1;f->io.configure_pmu=NULL;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_PLATFORM_ERROR && f->s.platform_error==-1);
+    assert(!f->platform_calls && !f->asset_calls && !f->s.pmu_configured);free(f);
+    f=make();f->io.configure_pmu=NULL;
+    assert(!gwq_initialize(&f->s,&f->io,2) && !f->s.pmu_configured);free(f);
+    f=make();f->pmu_present=1;f->pmu_count=1;f->platform_delay_ms=GWQ_MISSION_TIMEOUT;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR && f->s.timeout_phase==GWQ_TIMEOUT_MISSION);
+    assert(f->s.pmu_configured && !f->s.platform_error && f->s.pmu_config_ms==40003 && !f->asset_calls);free(f);
     /* Reject malformed framing, duplicate TLVs, wrong service and reordered
      * firmware indications, without allocating or accepting false readiness. */
     uint8_t dup[]={2,4,0,0,0,0,0,2,0,0};assert(!gwq_tlvs(dup,sizeof(dup)));
@@ -263,8 +303,29 @@ int main(void) {
     f=make();f->s.server=1;f->s.node=2;f->s.port=0x1234;
     assert(!indication(f,0x61,NULL,0) && f->s.indication_count==1 && f->s.unknown_indications==1);
     assert(f->s.last_unknown_indication==0x61 && !f->s.indication_mask && !f->s.fw_ready);free(f);
+    /* Data routed to another QRTR client is still ignored, but retain only
+     * routing metadata so missing FW_INIT_DONE can be distinguished from a
+     * destination/source mismatch without retaining packet payloads. */
+    f=make();uint8_t filtered[40]={0};gwq_w32(filtered,1);gwq_w32(filtered+4,1);
+    gwq_w32(filtered+8,2);gwq_w32(filtered+12,0x1234);gwq_w32(filtered+20,7);
+    gwq_w32(filtered+24,1);gwq_w32(filtered+28,0x4000);filtered[32]=4;gwq_w16(filtered+35,0x38);
+    f->s.response[0]=0xa5;f->s.response_bytes=1;
+    assert(!gwq_receive(&f->s,&f->io,filtered,sizeof(filtered)) && f->s.filtered_data_packets==1);
+    f->s.server=1;f->s.node=2;f->s.port=0x1234;f->s.mem_ready=1;
+    const unsigned at[]={8,12,24,28};const uint32_t wrong[]={9,99,3,0x4010};
+    const uint32_t correct[]={2,0x1234,1,0x4000};
+    for(unsigned i=0;i<4;i++) {
+        gwq_w32(filtered+at[i],wrong[i]);
+        assert(!gwq_receive(&f->s,&f->io,filtered,sizeof(filtered)) && f->s.filtered_data_packets==i+2);
+        assert(f->s.filtered_src_node==gwq_u32(filtered+8) && f->s.filtered_src_port==gwq_u32(filtered+12));
+        assert(f->s.filtered_dst_node==gwq_u32(filtered+24) && f->s.filtered_dst_port==gwq_u32(filtered+28));
+        assert(!f->s.fw_ready && !f->s.indication_count && f->s.response_bytes==1 && f->s.response[0]==0xa5);
+        gwq_w32(filtered+at[i],correct[i]);
+    }
+    assert(!gwq_receive(&f->s,&f->io,filtered,sizeof(filtered)) && f->s.fw_ready);
+    assert(f->s.filtered_data_packets==5 && f->s.indication_count==1);free(f);
     f=make();uint8_t bad[20]={0};gwq_w32(bad,4);gwq_w32(bad+4,0x45);gwq_w32(bad+8,0x201);
     gwq_w32(bad+12,2);gwq_w32(bad+16,123);assert(!packet(f,4,bad,20,0,0)&&!f->s.server);free(f);
-    puts("QRTR/QMI: complete firmware exchange, vendor optional-board semantics, identity diagnostics, segmented assets, DMA ownership and malformed/failure cases passed");
+    puts("QRTR/QMI: complete firmware exchange, explicit QDSS-config absence, vendor optional-board semantics, identity diagnostics, segmented assets, DMA ownership and malformed/failure cases passed");
     return 0;
 }

@@ -66,6 +66,8 @@ gh workflow run ios16-xnu.yml --repo jasper2863/UniXNU-giulia \
 
 [`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) 使用上述输入及已准备好的 UEFI 源码树组装、校验整合镜像。无参数运行可查看所需路径。每次构建应使用新的输出目录。
 
+构建新 userdata 时，可向 `scripts/rebuild-ios16-userdata.py` 传入 `--skip-setup` 跳过开机设置／激活引导页面。开关默认关闭；省略参数或传 `--no-skip-setup` 时保留正常向导。构建命令与验证说明见[开机向导开关](docs/SETUP_SWITCH.md)。
+
 ## 验证
 
 USB 交互调试：在 Windows CMD 运行 `scripts\debug-terminal.cmd`。协议 2 诊断、MMIO 访问和 `reboot.fastboot` 已通过实机测试；PTY shell 仍需另行安装守护进程与已签名的 ARM64 shell/工具包，尚未实机验证。部署步骤及命令见 [USB 终端说明](docs/USB_TERMINAL.md)。

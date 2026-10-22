@@ -4,6 +4,7 @@ Uses the exact OS/SystemOS/AppOS content already assembled and verified on
 macOS. Edits an isolated overlay, exports a new image, checks its filesystem,
 and retains normal migration unless the user-selected baseline is requested.
 No handset connection or flashing commands.
+Setup is retained unless --skip-setup is selected for this new image.
 """
 import argparse
 import hashlib
@@ -47,14 +48,36 @@ def volume_header(path):
     return data
 
 
+def prepare_root(root, build, *, startup_compat=False, migration_baseline=False,
+                 full_boot_log=False, skip_setup=False):
+    if full_boot_log and not migration_baseline:
+        raise ValueError('--full-boot-log requires --migration-baseline')
+    result = prepare_layout(root, build)
+    if startup_compat:
+        from ios16_startup_compat import prepare_startup
+        result.update(prepare_startup(root))
+        result['scope'] = 'normal first-boot migration with explicit hardware startup compatibility'
+    if migration_baseline:
+        from ios16_boot_baseline import prepare_baseline
+        result.update(prepare_baseline(root, full_boot_log))
+    from ios16_setup import prepare_setup
+    result.update(prepare_setup(root, skip_setup))
+    if skip_setup:
+        result['scope'] = ('fresh-root migration baseline with Setup UI skipped' if migration_baseline
+                           else 'normal first-boot migration with Setup UI skipped')
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--startup-compat', action='store_true', help='Apply evidenced no-baseband/audio/GPU startup configuration')
-    parser.add_argument('--migration-baseline', action='store_true', help='User-selected upstream clean-root 20H392 baseline; retain Setup')
+    parser.add_argument('--migration-baseline', action='store_true', help='User-selected upstream clean-root 20H392 migration baseline')
     parser.add_argument('--full-boot-log', action='store_true', help='Enable normal and failure logs for every launch daemon; requires baseline')
+    parser.add_argument('--skip-setup', action=argparse.BooleanOptionalAction, default=False,
+                        help='Skip the first-boot Setup UI in the new userdata image (default: disabled)')
     parser.add_argument('--native-python', type=Path,
                         help='Optional Windows Python executable for fast WSL-mounted-file hashing')
     args = parser.parse_args()
@@ -86,14 +109,9 @@ def main():
     try:
         guest.launch()
         guest.mount_vfs('force,rw', 'hfsplus', '/dev/sda', '/')
-        result = prepare_layout(GuestRoot(guest), baseline['build'])
-        if args.startup_compat:
-            from ios16_startup_compat import prepare_startup
-            result.update(prepare_startup(GuestRoot(guest)))
-            result['scope']='normal first-boot migration with explicit hardware startup compatibility'
-        if args.migration_baseline:
-            from ios16_boot_baseline import prepare_baseline
-            result.update(prepare_baseline(GuestRoot(guest),args.full_boot_log))
+        result = prepare_root(GuestRoot(guest), baseline['build'], startup_compat=args.startup_compat,
+                              migration_baseline=args.migration_baseline,
+                              full_boot_log=args.full_boot_log, skip_setup=args.skip_setup)
         for name, uid in DIRECTORIES:
             st = guest.statns(name)
             if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (uid, uid, 0o755):
@@ -104,6 +122,10 @@ def main():
                 raise ValueError('Migration baseline ownership mismatch')
         elif guest.exists(MIGRATION):
             raise ValueError('Migration completion preference must be absent')
+        for change in result.get('setup_skip', {}).get('preference_changes', []):
+            st = guest.statns(change['path'])
+            if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (501, 501, 0o600):
+                raise ValueError('Setup preference ownership mismatch: ' + change['path'])
         guest.sync()
         guest.umount_all()
         guest.shutdown()

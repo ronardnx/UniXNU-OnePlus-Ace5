@@ -2,6 +2,7 @@
 import argparse
 import codecs
 from collections import deque
+from contextlib import contextmanager
 from datetime import datetime
 import json
 import os
@@ -11,12 +12,15 @@ import shutil
 import subprocess
 import sys
 import time
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ios16_screen import ScreenWire, ScreenStore, ScreenViewer
 
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
-                   'wifi.start','wifi.status','reboot.fastboot','reboot.status')
+                   'wifi.start','wifi.status','reboot.fastboot','reboot.status',
+                   'screen.start','screen.stop','screen.snapshot')
 TOPICS = {
-    'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|WMI|IO80211',
+    'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|QMP|PMU|WMI|IO80211',
     'gpu': r'GPU|GMU|ADRENO|SMMU',
     'touch': r'TOUCH|HID|TouchCom',
     'display': r'FB:|framebuffer|display|scanout|backboard',
@@ -33,6 +37,9 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   wifi.status / wifi.start   inspect/release an opted-in pre-DMA wait
   reboot.fastboot         sync disks and restart into Fastboot (debug kernel)
   reboot.status           inspect a pending reboot request
+  screen.start            real live screen in a local browser, about 1 fps
+  screen.stop             stop screen transfer (logs and commands continue)
+  screen.snapshot         save a real framebuffer screenshot as PNG
 Host commands:
   :help                  this help
   logs TOPIC             retained session logs, NOT fresh hardware queries
@@ -187,15 +194,29 @@ class Capture:
         self.pending = ''
         self.events = []
         self.total = 0
+        self.screen_wire = ScreenWire()
+        self.screen_store = ScreenStore(self.root / 'screens')
+        self.viewer = None
+        self.last_text = b''
+        self.screen_notices = deque()
 
     def feed(self, data):
+        incoming = len(data)
+        data, frames = self.screen_wire.feed(data)
+        self.last_text = data
+        for frame in frames:
+            path = self.screen_store.receive(frame)
+            if frame[1] or self.screen_store.info['frames'] == 1:
+                self.screen_notices.append('Screen PNG: ' + str(path.resolve()))
+        if self.screen_wire.last_event == 'stop':
+            self.screen_store.set_state('screen transfer stopped; last frame retained')
         if self.stream.tell() + len(data) > 32 * 1024 * 1024:
             self.stream.close()
             self.part += 1
             self.stream = (self.root / f'device-{self.part:03}.log').open('xb')
         self.stream.write(data)
         self.stream.flush()
-        self.total += len(data)
+        self.total += incoming
         text = self.decoder.decode(data)
         chunks = (self.pending + text).split('\n')
         self.lines.extend(chunks[:-1])
@@ -218,11 +239,22 @@ class Capture:
             'port': port, 'bytes': self.total, 'commands': self.events,
             'topic_source': 'last 20000 session log lines; historical, not live snapshots',
             'raw_logs': self.part + 1,
+            'screen_binary_separated': True,
+            'screen_frames': self.screen_store.info['frames'],
+            'screen_decode_errors': self.screen_wire.errors,
         }, indent=2), encoding='utf-8')
         return self.root
 
     def close(self):
         self.stream.close()
+        if self.viewer:
+            self.viewer.close()
+
+    def preview(self):
+        if self.viewer is None:
+            self.viewer = ScreenViewer(self.screen_store)
+            self.viewer.open()
+        return self.viewer.url
 
 
 class Commands:
@@ -235,6 +267,7 @@ class Commands:
         self.save_at = None
         self.shell_deadline = None
         self.reboot_sent = False
+        self.screen_started = False
 
     def accept(self, line):
         words = line.strip().split()
@@ -254,7 +287,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','reboot.fastboot') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','reboot.fastboot','screen.start','screen.stop') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:
@@ -285,6 +318,8 @@ class Commands:
                 raise ValueError('Wait for pending commands before entering shell.')
             self.watch = None
         self.queue.append(line)
+        if line == 'screen.start':
+            return 'Live screen viewer: ' + self.capture.preview()
         return ''
 
     def tick(self, serial):
@@ -300,6 +335,11 @@ class Commands:
             self.capture.events.append({'time': datetime.now().isoformat(), 'sent': command})
             if command == 'shell':
                 self.shell_deadline = now + 5
+                self.screen_started = False
+            if command == 'screen.start':
+                self.screen_started = True
+            if command == 'screen.stop':
+                self.screen_started = False
             if command == 'reboot.fastboot':
                 self.reboot_sent = True
             self.next_send = now + 0.4
@@ -337,6 +377,18 @@ def wait_fastboot(serial_number, timeout, runner=subprocess.run,
     raise TimeoutError('Requested device did not appear in Fastboot before the timeout.')
 
 
+@contextmanager
+def stop_screen_session(serial, active):
+    try:
+        yield
+    finally:
+        if active():
+            try:
+                serial.write(wire_command('screen.stop'))
+            except OSError:
+                pass  # Disconnect also stops the kernel producer.
+
+
 def run(args, serial_module, ports):
     if args.list:
         for p in ports:
@@ -351,9 +403,11 @@ def run(args, serial_module, ports):
     capture = Capture(Path(args.output).resolve())
     console = None
     reboot_disconnected = False
+    commands = None
     try:
         # pySerial defaults to DTR/RTS asserted; CDC transmits only while DTR is set.
-        with serial_module.Serial(port, 115200, timeout=0, write_timeout=2) as serial:
+        with serial_module.Serial(port, 115200, timeout=0, write_timeout=2) as serial, \
+                stop_screen_session(serial, lambda: commands is not None and commands.screen_started):
             commands = Commands(capture, port)
             print(f'Connected {port}. Logs: {capture.root}\n' + HELP)
             line = ''
@@ -392,7 +446,9 @@ def run(args, serial_module, ports):
                     capture.feed(data)
                     if commands.reboot_sent and reboot_failed(capture):
                         raise OSError('Kernel reset returned without rebooting; inspect the saved log.')
-                    for kind, chunk in wire.feed(data):
+                    while capture.screen_notices:
+                        show(capture.screen_notices.popleft())
+                    for kind, chunk in wire.feed(capture.last_text):
                         if kind == 'log':
                             show(safe_text(log_decoder.decode(chunk)))
                         elif kind == 'begin':

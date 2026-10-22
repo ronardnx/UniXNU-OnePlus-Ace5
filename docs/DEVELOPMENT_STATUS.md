@@ -43,9 +43,36 @@ PSCI 重启成功，电脑工具核对同一设备的 Fastboot 编号，退出�
 `memory_ready=1 provisioned=1`，身份错误已解决。
 
 当前等待 `FW_INIT_DONE (0x38)` 超时，`fw_ready=0`，尚未进入 CE/WMI 扫描。
-下一步记录收到的 indication、清理前 MHI/SMMU/AER 状态及 CAP 可选电源信息，
-定位固件就绪阶段。记录见
+初次身份修复记录见
 [`hardware/sm8650-wifi-qmi-identity.json`](../hardware/sm8650-wifi-qmi-identity.json)。
+
+随后将单次 QMI RPC 的 10 秒期限与原厂 mission 启动的 40 秒期限分开。
+完整 40 秒对照仍只有 `REQUEST_MEM (0x35)` 和 `FW_MEM_READY (0x37)`，
+MHI 保持 AMSS/M0，SMMU 和 PCIe AER 没有新增故障。日志与构建身份见
+[`hardware/sm8650-wifi-ready.json`](../hardware/sm8650-wifi-ready.json)。
+
+本轮候选版本在 CAP 成功后、REGDB/BDF/M3 之前调用 AOP/QMP，按原厂算法
+将实测九项 PMU 参数合并为七条 PDC 命令。仅使用板级已知映射，先验证整张表，
+再执行请求；邮箱访问验证共享 lease、两侧缓冲区边界及不重叠、32 位写入读回、
+通道握手和命令消费。超时或所有权不确定时保留邮箱及其运行时上下文。
+消费确认不代表实际电压读回。首次实机 run `39833570031`：通道打开成功，
+七条命令各在 1–2 ms 内被消费，平台配置在 118 ms 完成，M3 在 186 ms 完成。
+完整 40 秒后仍未收到 `FW_INIT_DONE`，路由过滤计数为零，MHI/SMMU/AER
+与之前对照一致。CAP 电源表的传输已验证，就绪超时尚未解决。
+
+关闭时 AOP 将远端 channel 放下，但本机未完成对称 ACK，旧代码误报 IO；
+下一候选修复仅接管属于 APSS 的 channel ACK，保留共享 link。
+另对照原厂发现：其 M3 后下发 QDSS 配置，Linux WCN7850 不提供该配置时
+显式声明 `CNSS_QDSS_CFG_MISS`。当前运行时既未提供配置也未声明缺失，
+下一轮通过 HOST_CAP `FEATURE_LIST` TLV 的 bit 3 做对照，并记录每段固件
+内存回应及 M3 地址。该差异是否导致超时仍需实测。
+
+配套 userdata 从原始根卷重建，启用 `--startup-compat --migration-baseline
+--full-boot-log --skip-setup`。仅写入本地设置向导偏好，不写激活记录；
+首次实机用户确认先显示“软件更新完成”，点击继续后仍进入选择 Wi-Fi／
+连接 Mac 或 PC 的设置页，因此现有偏好未完全跳过向导。后续将对照上游
+开发板 ADT 的原始 daemon 路径验证；不把进程已启动视为已进入主屏。具体开关见
+[`SETUP_SWITCH.md`](SETUP_SWITCH.md)。
 
 ## PCIe CESTA/CRM 资源准备（早期记录：链路未建立）
 

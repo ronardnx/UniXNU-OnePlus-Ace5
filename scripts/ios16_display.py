@@ -28,6 +28,12 @@ def native_display_patch(profile: Path, repository: Path):
     fb = replace(fb, '#include "SweetSurface.h"',
                  '#include "SweetSurface.h"\n#include "giulia_display.h"')
     fb = replace(fb, '\tint32_t       fOffX, fOffY; /* logical origin relative to the panel */\n', '')
+    fb = replace(fb, '\tIOLock       *fLock;            /* swaps and client list */\n',
+                 '\tIOLock       *fLock;            /* swaps and client list */\n'
+                 '\tIOLock       *fCaptureLock;     /* panel writes and USB snapshots */\n')
+    fb = replace(fb, 'OSDefineMetaClassAndStructors(AppleCLCD, IOMobileFramebuffer);\n',
+                 'OSDefineMetaClassAndStructors(AppleCLCD, IOMobileFramebuffer);\n\n'
+                 '#include "giulia_screen_framebuffer.inc"\n')
     fb = replace(fb, '\t/* Known UIKit layout, centered 1:1 inside the guarded Ace 5 panel. */\n'
                  '\tfOffX = (VERMEER_LOGICAL_W - (int32_t)fWidth) / 2;\n'
                  '\tfOffY = (VERMEER_LOGICAL_H - (int32_t)fHeight) / 2;\n',
@@ -38,6 +44,18 @@ def native_display_patch(profile: Path, repository: Path):
                  'native panel 1264x2780 full coverage; UIKit canvas 1125x2436')
     fb = replace(fb, '/* Clear the border once; all writes stay inside the guarded reservation. */',
                  '/* Clear stale console pixels before the first full-panel frame. */')
+    fb = replace(fb, '\tfVsync->setTimeoutUS(SWEET_FB_VSYNC_US);\n',
+                 '\tfCaptureLock = IOLockAlloc();\n'
+                 '\tif (fCaptureLock == NULL) {\n'
+                 '\t\tIOLog("GIULIA SCREEN: panel capture lock unavailable\\n");\n'
+                 '\t\treturn false;\n\t}\n'
+                 '\tfVsync->setTimeoutUS(SWEET_FB_VSYNC_US);\n')
+    fb = replace(fb, '\tregisterService();\n',
+                 '\tgiulia_screen_register(this);\n\tregisterService();\n')
+    fb = replace(fb, 'AppleCLCD::present(const uint8_t *rec)\n{\n',
+                 'AppleCLCD::present(const uint8_t *rec)\n{\n'
+                 '\tif (fCaptureLock == NULL || fPixels == 0) return;\n'
+                 '\tIOLockLock(fCaptureLock);\n')
     begin = fb.index('\t\tuintptr_t src = s->kernelAddress();')
     end = fb.index('\t\ts->release();', begin)
     fb = fb[:begin] + '''\t\tuintptr_t address = s->kernelAddress();
@@ -53,6 +71,9 @@ def native_display_patch(profile: Path, repository: Path):
 \t\t\t    s->width, s->height, s->bytesPerRow, source, destination);
 \t\t}
 ''' + fb[end:]
+    fb = replace(fb, '\n}\n\nbool\nIOMobileFramebufferUserClient::initWithTask',
+                 '\n\tIOLockUnlock(fCaptureLock);\n}\n\nbool\n'
+                 'IOMobileFramebufferUserClient::initWithTask')
     fb = fb.replace('/* Copy each enabled layer\'s surface into the panel memory (no scaling). */',
                     '/* Present enabled layers over the native panel using the shared bounded transform. */')
     hid = replace(hid, '\t/* Translate physical panel coordinates into the centered UIKit canvas. */\n'
@@ -77,4 +98,7 @@ def native_display_patch(profile: Path, repository: Path):
     header = header.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
     output += ''.join(difflib.unified_diff([], header.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_display.h'))
+    capture = (repository / 'ios16/giulia_screen_framebuffer.inc').read_text()
+    output += ''.join(difflib.unified_diff([], capture.splitlines(True), fromfile='/dev/null',
+                                         tofile='b/iokit/Kernel/arm/giulia_screen_framebuffer.inc'))
     (profile / '0075-giulia-native-panel.patch').write_text(output, errors='surrogateescape')

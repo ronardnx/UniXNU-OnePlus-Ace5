@@ -75,7 +75,35 @@ scripts\debug-terminal.cmd --command ping --seconds 5
 scripts\debug-terminal.cmd --command collect --seconds 25
 ```
 
-每次会话创建独立时间戳目录，默认 `out\terminal`。`device-*.log` 保留原始字节，每 32 MiB 分卷；分类文本只保留最近 20000 行；`session.json` 记录发送的命令和字节数，发送成功不等于手机执行成功。屏幕过滤控制字符，UTF-8 解码支持跨包字符。API 使用参照 [pySerial 官方文档](https://pyserial.readthedocs.io/en/latest/pyserial_api.html)。
+每次会话创建独立时间戳目录，默认 `out\terminal`。`device-*.log` 保留日志／PTY 原始字节，每 32 MiB 分卷；屏幕二进制包先分离和校验，再单独保存 PNG，避免污染文本日志。分类文本只保留最近 20000 行；`session.json` 记录发送的命令、接收字节数、屏幕帧数及解码错误，发送成功不等于手机执行成功。屏幕过滤控制字符，UTF-8 解码支持跨包字符。API 使用参照 [pySerial 官方文档](https://pyserial.readthedocs.io/en/latest/pyserial_api.html)。
+
+## 实时投屏和截图
+
+需要包含 GSC1 屏幕转发的新 GUI 内核，并启用 `giulia_debug=1`。`features` 会列出 `screen.start`、`screen.stop`、`screen.snapshot`。在同一个终端连接中执行：
+
+```text
+ace5> screen.start
+ace5> wifi.status
+ace5> screen.snapshot
+ace5> screen.stop
+```
+
+`screen.start` 自动打开电脑默认浏览器中的本地实时预览窗口，地址绑定 `127.0.0.1` 的临时端口，也会打印可复制的 URL。窗口持续显示手机真实 framebuffer，目标上限为每秒 1 帧，实际速度取决于 USB 和日志流量；同时可在原终端继续发送诊断命令。传输按块与日志交替，不需要第二个串口连接。`screen.stop` 在块边界停止并保留最后一帧；退出电脑工具或进入 shell 也会停止屏幕传输。
+
+也可从 CMD 一次启动持续投屏，Ctrl+C 结束：
+
+```bat
+scripts\debug-terminal.cmd --command screen.start --seconds 3600
+scripts\debug-terminal.cmd --command screen.snapshot --seconds 10
+```
+
+每次完整且通过 CRC 校验的帧更新会话目录的 `screens\latest.png`，适合直接查看或分享；`screen.snapshot` 另外保留 `screens\screen-帧编号.png`，预览窗口也提供保存最新 PNG 的链接。连续投屏只更新 latest，不会持续堆积图片。`screens\screen.json` 记录帧编号、UTC 接收时间及源尺寸，窗口显示最近接收时间，避免把旧画面当成新帧。
+
+画面为原生 1264×2780 面板每 4 像素采样后的 316×695、RGB565 图像，不包含声音或远程触控。读取与 CPU 合成共用显示锁，复制完成后释放锁，再通过 CDC 发送；没有 framebuffer 时只报告 unavailable，不生成替代画面。早期引导尚未注册显示驱动、用户态直接写默认面板 surface 等情况可能尚无帧或出现撕裂，实际显示和帧率需新内核实机核实。
+
+GSC1 每块带长度、帧编号、尺寸和 CRC32，整帧另有 CRC32；最大图像 439240 字节，块负载不超过 1024 字节。损坏／丢字节的数据不会输出到终端文本，也不会保存为有效截图；下一校验包或 `screen.stop` 的校验控制记录恢复解析。PTY 的 BEGIN/END 标记内不解析屏幕魔数，避免损坏 shell 原始输出。
+
+离线验证：`bash scripts/test-ios16-screen.sh`，包含真实 C 发送格式到 Python/PNG 的联测、连续预览更新、CRC/丢字节、停止恢复、USB 任意分片及 framebuffer 取样边界。离线模型通过不等于手机投屏已验证。
 
 ## 真实 shell
 

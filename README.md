@@ -66,6 +66,8 @@ The workflow produces the `ace5-ios16-xnu` artifact. GUI packaging also requires
 
 [`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) assembles and validates the integrated image from those inputs and an existing prepared UEFI checkout. Run it without arguments to display the required paths. Use a new output directory for each build.
 
+To skip the first-boot Setup UI in a new userdata image, pass `--skip-setup` to `scripts/rebuild-ios16-userdata.py`. The switch defaults to off; omit it or use `--no-skip-setup` to retain Setup. See the [Setup switch guide](docs/SETUP_SWITCH.md) for build commands and verification.
+
 ## Validation
 
 ```bash

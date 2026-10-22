@@ -33,7 +33,7 @@ def debug_trust_source(manifest):
             '    return false;\n}\n')
 
 
-def terminal_sources(usb: Path, block: Path, edit, wifi=False):
+def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False):
     if 'giulia_terminal_command' in usb.read_text():
         raise ValueError('Terminal integration already applied')
     root = Path(__file__).resolve().parents[1]
@@ -43,9 +43,16 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False):
     reboot = (root/'ios16/giulia_reboot.inc').read_text().replace(
         '/* GIULIA_REBOOT_CORE is embedded here by the profile generator. */',
         (root/'ios16/giulia_reboot.h').read_text().replace('#include <stdint.h>\n', ''))
+    screen = (root/'ios16/giulia_screen.inc').read_text().replace(
+        '/* GIULIA_SCREEN_CORE is embedded here by the profile generator. */',
+        (root/'ios16/giulia_screen.h').read_text().replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n',''))
+    screen = screen.replace('/* GIULIA_SCREEN_PROVIDER is embedded here by the profile generator. */',
+        'extern int giulia_screen_capture(uint8_t *,size_t,unsigned *,unsigned *);' if gui else
+        'static int giulia_screen_capture(uint8_t *p,size_t n,unsigned *w,unsigned *h) '
+        '{(void)p;(void)n;(void)w;(void)h;return 0;}')
     code = ('extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
             (root/'ios16/giulia_mmio.inc').read_text() + '\n' +
-            reboot + '\n' +
+            reboot + '\n' + screen + '\n' +
             (root / 'ios16/giulia_terminal.inc').read_text())
     if wifi:
         code='extern int giulia_wifi_terminal(const char *);\n'+code
@@ -58,7 +65,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False):
          '    else if (giulia_terminal_command(u.command)) {}\n'
          '    else if (!strcmp(u.command,"ping"))')
     edit(usb, 'commands help status ping replay',
-         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status')
+         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot')
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')
@@ -68,6 +75,10 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False):
          '    sync_dma(RX,RX_SIZE);u.rx_bytes+=length;\n'
          '    if (gs_receive((const uint8_t *)(u.dma+RX),length)) { receive_arm(); return; }')
     edit(usb, '    unsigned n=vermeer_debug_copy(&u.cursor,(char *)(u.dma+TX),TX_SIZE);',
+         '    unsigned screen_n=0;\n'
+         '    if (gscreen_transmit((uint8_t *)(u.dma+TX),TX_SIZE-1,&screen_n)) {\n'
+         '        if(screen_n) { transfer(3,TX,screen_n,T_NORMAL);u.tx_bytes+=screen_n; }\n'
+         '        return;\n    }\n'
          '    unsigned shell_n=0;\n'
          '    if (gs_transmit((char *)(u.dma+TX),u.mps-1,&shell_n)) {\n'
          '        if(shell_n) { transfer(3,TX,shell_n,T_NORMAL);u.tx_bytes+=shell_n; }\n'
@@ -75,8 +86,8 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False):
          '    unsigned n=vermeer_debug_copy(&u.cursor,(char *)(u.dma+TX),TX_SIZE);')
     edit(usb, '    while (!u.failed) {', '    gs_register();\n    while (!u.failed) {')
     edit(usb, '        transmit();',
-         '        if (!u.configured || !u.dtr) gs_disconnect();\n        transmit();')
+         '        if (!u.configured || !u.dtr) {gs_disconnect();gscreen_disconnect();}\n        transmit();')
     edit(usb, '    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());',
-         '    gs_disconnect();\n    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());')
+         '    gs_disconnect();gscreen_disconnect();\n    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());')
     code = (root / 'ios16/giulia_terminal_ufs.inc').read_text()
     edit(block, 'static uint64_t vb_device_bytes(void)', code + '\nstatic uint64_t vb_device_bytes(void)')

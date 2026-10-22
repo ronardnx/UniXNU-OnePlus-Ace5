@@ -41,6 +41,8 @@ extern vm_offset_t ml_io_map(vm_offset_t,vm_size_t);
 #include "giulia_wifi_apple.h"
 #include "giulia_wifi_firmware.h"
 #include "giulia_wifi_firmware_pin.h"
+#include "giulia_wifi_qmp.h"
+#include "giulia_wifi_pmu.h"
 
 #define GW_ARENA_BYTES 0x4000000u
 #define GW_IOVA 0x20000000ull
@@ -59,10 +61,18 @@ struct giulia_wifi_runtime {
     struct gws_state translation;struct gwm_state mhi;struct gwq_state qmi;
     struct gwc_state ce;struct gww_state wmi;struct gwf_view firmware;
     struct gwp_io pio;struct gws_io sio;struct gwm_io mio;struct gwq_io qio;struct gwc_io cio;struct gww_io wio;
-    ifnet_t interface;uint8_t mac[6];unsigned ready,powered,scan_pending,stage,error,quarantine;
+    ifnet_t interface;uint8_t mac[6];unsigned ready,powered,scan_pending,stage,error,quarantine,qmp_retained;
     const char *error_domain,*operation;unsigned pci_trace,smmu_last_offset,smmu_last_value,smmu_seen,debug_wait;
     unsigned mhi_last_offset,mhi_last_value,mhi_seen;
 };
+/* Sole APSS QMP provider in this kernel profile. Future AOP clients must share
+ * this provider/lease, never open a second channel over its pending mailbox. */
+static struct {
+    vm_offset_t ram,ipcc;
+    const void *lease;
+    giulia_wifi_runtime *owner;
+    struct qpt_state state;
+} gw_qmp;
 static unsigned gw_terminal_go,gw_terminal_waiting;
 extern "C" int giulia_wifi_terminal(const char *command) {
     if(strcmp(command,"wifi.start") && strcmp(command,"wifi.status"))return 0;
@@ -206,18 +216,124 @@ static void gm_receive(void *v,const void *p,size_t n){giulia_wifi_runtime *r=(g
 static int gq_send(void *v,const void *p,size_t n){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     /* May run from the RX callback to acknowledge QRTR. Do not reenter MHI
      * polling before its current event has been retired. */
+    const uint8_t *wire=(const uint8_t *)p;
+    if(n>=39 && gwq_u32(wire)==1 && gwq_u32(wire+4)==1 && !wire[32]) {
+        unsigned message=gwq_u16(wire+35);size_t bytes=gwq_u16(wire+37),z=0;
+        if(bytes<=n-39 && (message==0x36 || message==0x3c)) {
+            const uint8_t *field=gwq_field(wire+39,bytes,1,&z);
+            if(message==0x36 && field && z && field[0]<=GWQ_SEGMENTS && z==1u+17u*field[0]) {
+                IOLog("GIULIA QMI: memory-response count=%u\n",field[0]);
+                for(unsigned i=0;i<field[0];i++) {
+                    const uint8_t *entry=field+1+17*i;
+                    IOLog("GIULIA QMI: memory-response index=%u type=%u bytes=%u iova=0x%llx\n",
+                        i,gwq_u32(entry+12),gwq_u32(entry+8),(unsigned long long)gwq_u64(entry));
+                }
+            } else if(message==0x3c && field && z==8) {
+                uint64_t address=gwq_u64(field);
+                const uint8_t *length=gwq_field(wire+39,bytes,2,&z);
+                if(length && z==4)IOLog("GIULIA QMI: M3-info iova=0x%llx bytes=%u\n",
+                    (unsigned long long)address,gwq_u32(length));
+            }
+        }
+    }
     return gwm_send(&r->mio,&r->mhi,p,n)!=GWM_OK;}
 static int gq_pump(void *v,unsigned us){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     int e=gwm_poll(&r->mio,&r->mhi,128);gw_delay(v,us);return e || r->qmi.error;}
 static int gq_allocate(void *v,size_t n,uint64_t *pa,void **va){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     size_t off=(r->allocated+0x3fff)&~(size_t)0x3fff;
-    if(!n || off>GW_ARENA_BYTES || n>GW_ARENA_BYTES-off)return 1;
+    if(!n || off>GW_ARENA_BYTES || n>GW_ARENA_BYTES-off) {
+        IOLog("GIULIA QMI: allocation failed bytes=0x%lx offset=0x%lx arena=0x%x\n",
+            (unsigned long)n,(unsigned long)off,GW_ARENA_BYTES);return 1;
+    }
     *pa=GW_IOVA+off;*va=r->memory+off;r->allocated=off+n;return 0;}
 static void gq_clean(void *,const void *,size_t){__asm__ volatile("dsb sy" ::: "memory");}
 static int gq_asset(void *v,unsigned kind,unsigned major,uint32_t chip,uint32_t board,const void **data,size_t *n){
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;struct gwf_asset a;
     int ok=kind==GWQ_REGDB?gwf_get(&r->firmware,"kiwi/regdb.bin",&a):kind==GWQ_BOARD?gwf_board(&r->firmware,chip,board,&a):gwf_phy(&r->firmware,major,&a);
     if(!ok)return 1;*data=a.data;*n=a.bytes;return 0;}
+static uint32_t gqp_read(void *,uint32_t offset) {
+    if((offset&3) || offset>QPT_MSGRAM_BYTES-4)return 0xffffffffu;
+    return gr32(gw_qmp.ram,offset);
+}
+static void gqp_write(void *,uint32_t offset,uint32_t value) {
+    if(!(offset&3) && offset<=QPT_MSGRAM_BYTES-4)gw32(gw_qmp.ram,offset,value);
+}
+static void gqp_barrier(void *){__asm__ volatile("dsb sy" ::: "memory");}
+static void gqp_kick(void *v) {
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    IOLog("GIULIA QMP: doorbell pa=0x%x value=0 phase=%u pending=%u\n",
+        QPT_DOORBELL_PA,gw_qmp.state.phase,gw_qmp.state.pending);
+    if(r->debug_wait)IOSleep(10);
+    gw32(gw_qmp.ipcc,0x0c,0); /* APSS IPCC_SEND_ID; never read RECV_ID. */
+}
+static uint64_t gqp_now(void *){return gw_now(NULL)*1000u;}
+static int gqp_claim(void *,const void *owner) {
+    const void *expected=NULL;
+    return __atomic_compare_exchange_n(&gw_qmp.lease,&expected,owner,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE);
+}
+static int gqp_owns(void *,const void *owner)
+{return __atomic_load_n(&gw_qmp.lease,__ATOMIC_ACQUIRE)==owner;}
+static void gqp_release(void *,const void *owner) {
+    const void *expected=owner;
+    (void)__atomic_compare_exchange_n(&gw_qmp.lease,&expected,(const void *)NULL,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE);
+}
+static struct qpt_io gqp_io(giulia_wifi_runtime *r)
+{return (struct qpt_io){r,QPT_MSGRAM_BYTES,gqp_read,gqp_write,gqp_barrier,gqp_kick,gqp_now,gw_delay,gqp_claim,gqp_owns,gqp_release};}
+static void gqp_drop_owner(giulia_wifi_runtime *r) {
+    giulia_wifi_runtime *expected=r;
+    (void)__atomic_compare_exchange_n(&gw_qmp.owner,&expected,(giulia_wifi_runtime *)NULL,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE);
+}
+static int gq_power(void *v,const struct gwq_pmu_param *params,unsigned count) {
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    if(!count)return 0;
+    if(!params || count>16)return -2;
+    struct qpp_entry entries[16];struct qpp_plan plan={};
+    for(unsigned i=0;i<count;i++) {
+        for(unsigned j=0;j<32;j++)entries[i].name[j]=params[i].pin_name[j];
+        entries[i].wake_valid=params[i].wake_valid;entries[i].wake_mv=params[i].wake_mv;
+        entries[i].sleep_valid=params[i].sleep_valid;entries[i].sleep_mv=params[i].sleep_mv;
+    }
+    int error=qpp_make(entries,count,&plan);
+    IOLog("GIULIA QMP: PMU plan result=%d count=%u commands=%u bad_entry=%u bad_rail=%u\n",
+        error,count,plan.command_count,plan.bad_entry,plan.bad_rail);
+    if(error)return 100+error;
+    if(!plan.command_count)return 0;
+    giulia_wifi_runtime *expected=NULL;
+    if(!__atomic_compare_exchange_n(&gw_qmp.owner,&expected,r,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE))return QPT_BUSY;
+    if(!gw_qmp.ram)gw_qmp.ram=ml_io_map(QPT_MSGRAM_PA,QPT_MSGRAM_BYTES);
+    if(!gw_qmp.ipcc)gw_qmp.ipcc=ml_io_map(0x00406000,0x1000);
+    if(!gw_qmp.ram || !gw_qmp.ipcc) {gqp_drop_owner(r);return -3;}
+    struct qpt_io io=gqp_io(r);
+    error=qpt_open(&io,&gw_qmp.state);
+    IOLog("GIULIA QMP: open result=%d phase=%u offset=0x%x size=0x%x last_reg=0x%x value=0x%x\n",
+        error,gw_qmp.state.phase,gw_qmp.state.offset,gw_qmp.state.size,gw_qmp.state.last_offset,gw_qmp.state.last_value);
+    if(error) {if(!gw_qmp.state.leased && !gw_qmp.state.owned)gqp_drop_owner(r);return error;}
+    for(unsigned i=0;i<plan.command_count;i++) {
+        const struct qpp_command *command=qpp_get_command(&plan,i);
+        if(!command)return -4;
+        IOLog("GIULIA QMP: send index=%u pdc=%s resource=%s parameter=%s mv=%u bytes=%u\n",
+            i,qpp_pdc(command->rail),qpp_resource(command->rail),command->sleep?"dwnval":"upval",command->mv,QPP_COMMAND_BYTES);
+        error=qpt_send(&io,&gw_qmp.state,command->words,QPP_COMMAND_BYTES);
+        IOLog("GIULIA QMP: send index=%u result=%d pending=%u phase=%u elapsed_us=%llu last_reg=0x%x value=0x%x\n",
+            i,error,gw_qmp.state.pending,gw_qmp.state.phase,(unsigned long long)gw_qmp.state.wait_elapsed_us,
+            gw_qmp.state.last_offset,gw_qmp.state.last_value);
+        if(error)return error;
+    }
+    IOLog("GIULIA QMP: PMU commands consumed=%u; voltage readback not provided by QMP\n",plan.command_count);
+    return 0;
+}
+static void gw_qmp_stop(giulia_wifi_runtime *r) {
+    if(__atomic_load_n(&gw_qmp.owner,__ATOMIC_ACQUIRE)!=r)return;
+    if(!gw_qmp.state.owned && !gw_qmp.state.leased) {gqp_drop_owner(r);return;}
+    if(gw_qmp.state.pending || gw_qmp.state.phase!=QPT_READY) {
+        r->qmp_retained=1;
+        IOLog("GIULIA QMP: retaining uncertain channel and owner phase=%u pending=%u\n",gw_qmp.state.phase,gw_qmp.state.pending);return;
+    }
+    struct qpt_io io=gqp_io(r);int error=qpt_close(&io,&gw_qmp.state);
+    IOLog("GIULIA QMP: close result=%d phase=%u pending=%u\n",error,gw_qmp.state.phase,gw_qmp.state.pending);
+    if(!error)gqp_drop_owner(r);
+    else r->qmp_retained=1;
+}
 /* Serialized dynamic BAR window. Preserve the independent static windows.
  * The endpoint's MHI registers stay in BAR's low fixed aperture. */
 static unsigned gc_offset(giulia_wifi_runtime *r,uint32_t offset) {
@@ -347,7 +463,7 @@ static int gw_bringup(giulia_wifi_runtime *r) {
     r->error_domain="WIFI_SETUP";r->operation="msi-sink";
     if(!gwp_msi_sink(&r->pio,&r->pci,&r->msi,GW_IOVA,GW_ARENA_BYTES,GW_IOVA+GWM_MSI_SINK))return 7;
     r->mio=(struct gwm_io){r,gm_read,gm_write,gw_delay,gm_ready,gm_master,gm_verify,gm_sync,gm_receive,r->memory,GW_IOVA,GW_ARENA_BYTES,(uint32_t)r->pci.bar_bytes};
-    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START,gw_now};
+    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START,gw_now,gq_power};
     r->cio=(struct gwc_io){r,gc_read,gc_write,gm_ready,gm_sync,gc_receive,r->memory+GW_CE_OFFSET,GW_IOVA+GW_CE_OFFSET};
     r->wio=(struct gww_io){r,gw_send,gw_pump,gw_now,gw_notice};
     r->stage=4;r->error_domain="MHI";r->operation="mhi-probe";
@@ -367,6 +483,8 @@ static int gw_bringup(giulia_wifi_runtime *r) {
     e=gwm_start_channels(&r->mio,&r->mhi);if(e)return e;
     r->error_domain="QMI";r->operation="qmi-initialize";
     uint64_t qmi_started=gw_now(NULL);
+    IOLog("GIULIA QMI: host features=0x%llx qdss_configuration_supplied=0\n",
+        (unsigned long long)GWQ_HOST_FEATURE_QDSS_CFG_MISS);
     r->stage=5;e=gwq_initialize(&r->qmi,&r->qio,r->mhi.major);
     IOLog("GIULIA QMI: initialize result=%d last_message=0x%x remote_error=%u node=0x%x port=0x%x memory_ready=%u provisioned=%u fw_ready=%u\n",
         e,r->qmi.last_message,r->qmi.remote_error,r->qmi.node,r->qmi.port,
@@ -389,6 +507,9 @@ static int gw_bringup(giulia_wifi_runtime *r) {
         r->qmi.timeout_phase,(unsigned long long)r->qmi.mission_started_ms,(unsigned long long)r->qmi.elapsed_ms,
         (unsigned long long)r->qmi.host_cap_ms,(unsigned long long)r->qmi.memory_ready_ms,(unsigned long long)r->qmi.cap_ms,
         (unsigned long long)r->qmi.m3_ms,(unsigned long long)r->qmi.fw_ready_ms,(unsigned long long)r->qmi.rpc_elapsed_ms);
+    IOLog("GIULIA QMI: platform configured=%u result=%d completed_ms=%llu filtered=%u last_src=0x%x:0x%x last_dst=0x%x:0x%x\n",
+        r->qmi.pmu_configured,r->qmi.platform_error,(unsigned long long)r->qmi.pmu_config_ms,
+        r->qmi.filtered_data_packets,r->qmi.filtered_src_node,r->qmi.filtered_src_port,r->qmi.filtered_dst_node,r->qmi.filtered_dst_port);
     gw_dma_snapshot(r,"after-qmi-initialize");
     if(e)return e;
     r->error_domain="CE";r->operation="ce-initialize";
@@ -408,6 +529,7 @@ static void gw_shutdown(giulia_wifi_runtime *r) {
     if(r->mhi.bus_master && !gwm_stop(&r->mio,&r->mhi))r->quarantine=1;
     if(r->pci.ready && !gwp_master(&r->pio,&r->pci,0,0))r->quarantine=1;
     if(r->quarantine || r->mhi.quarantined)return; /* Never free/retarget outstanding DMA. */
+    gw_qmp_stop(r);
     if(r->msi.changed&&!gwp_msi_restore(&r->pio,&r->msi))r->quarantine=1;
     if(r->translation.changed&&gws_restore(&r->sio,&r->translation))r->quarantine=1;
     if(r->sid.changed&&!gwp_sid_restore(&r->pio,&r->sid))r->quarantine=1;
@@ -450,7 +572,9 @@ bool IO80211Controller::start(IOService *provider) {
     if(kr!=KERN_SUCCESS){release();return false;}thread_deallocate(t);return true;
 }
 void IO80211Controller::free(void) {
-    if(r && !r->quarantine && !r->mhi.quarantined && !r->interface) {
+    /* An uncertain QMP channel keeps its callback context/owner token alive,
+     * independently of the PCIe arena already reclaimed by gw_shutdown. */
+    if(r && !r->quarantine && !r->mhi.quarantined && !r->interface && !r->qmp_retained) {
         OSSafeReleaseNULL(r->arena);OSSafeReleaseNULL(r->tables);
         OSSafeReleaseNULL(r->firmware_map);OSSafeReleaseNULL(r->firmware_memory);
         if(r->lock)IOLockFree(r->lock);IOFree(r,sizeof(*r));r=NULL;

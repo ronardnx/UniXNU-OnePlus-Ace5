@@ -6,6 +6,7 @@ import struct
 import sys
 from pathlib import Path
 from ios16_wifi import add_wifi_platform
+from ios16_setup import development_setup_properties
 
 def main():
     p=argparse.ArgumentParser()
@@ -13,11 +14,15 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--memory',type=lambda x:int(x,0),default=0x80000000)
     p.add_argument('--gui',action='store_true')
+    p.add_argument('--development-setup',action='store_true',
+                   help='Opt-in experimental development-board identity for native Setup handling (requires GUI)')
     p.add_argument('--trust-catalog',action='store_true',help='Reserve DarwinBoot TrustCache memory-map handoff')
     p.add_argument('--wifi-mac',help='Stable unicast address for MobileGestalt identity; does not enable Wi-Fi transport')
     p.add_argument('--wifi-bringup',action='store_true',help='Declare the WCN7850 wlan node for wifid diagnostics; no scanning driver yet')
     p.add_argument('--product-adt',type=Path,help='Local unwrapped D22AP ADT from the verified IPSW')
     a=p.parse_args()
+    if a.development_setup and not a.gui:
+        p.error('--development-setup requires --gui')
     if a.gui and not a.product_adt:p.error('GUI requires the verified local D22AP product ADT')
     if a.trust_catalog and not a.gui:p.error('Trust catalogue requires GUI')
     if a.wifi_bringup and (not a.gui or not a.wifi_mac):
@@ -55,6 +60,8 @@ def main():
                   'firmware-version':b'giulia-darwin22-uefi\0'})
     if a.gui:
         props(chosen,{'unique-chip-id':struct.pack('<Q',0x4749554C49410001)})
+        if a.development_setup:
+            props(chosen,development_setup_properties(gui=a.gui))
         if a.trust_catalog:
             maps=[n for n in chosen.children if n.name=='memory-map']
             if len(maps)>1:raise ValueError('Duplicate memory-map')

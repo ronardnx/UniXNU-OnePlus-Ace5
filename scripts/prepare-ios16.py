@@ -9,7 +9,6 @@ import json
 import difflib
 from pathlib import Path
 from ios16_display import native_display_patch
-from ios16_gpu_patch import gpu_patch
 from ios16_terminal import terminal_sources, debug_trust_source
 
 def edit(path, old, new, count=1):
@@ -107,7 +106,7 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
-    terminal_sources(usb, block, edit, wifi=a.wifi)
+    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui)
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -212,10 +211,11 @@ def main():
                                  fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
             (a.out/'0076-giulia-wifi-runtime.patch').write_text(patch)
         if a.gpu:
+            from ios16_gpu_patch import gpu_patch
             gpu_patch(a.out, Path(__file__).resolve().parents[1])
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
-    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'terminal-requirements.txt'):
+    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'terminal-requirements.txt'):
         shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
     shutil.copytree(Path(__file__).resolve().parents[1]/'ios16/userland',a.out/'userland')
     shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
@@ -233,6 +233,8 @@ def main():
         'debug_userland_trust_included':bool(debug_trust),
         'usb_terminal_host':'debug-terminal.cmd',
         'usb_terminal_hardware_tested':False,
+        'screen_forwarding_included':a.gui,
+        'screen_forwarding_protocol':'GSC1 RGB565_LE 316x695, bounded CRC chunks, max 1 fps' if a.gui else None,
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'wifi_runtime_included':a.wifi,

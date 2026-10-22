@@ -16,10 +16,16 @@
 /* CNSS mission boot watchdog: default QMI timeout + 30000 ms, distinct from
  * each RPC's deadline. Start once MHI channels are usable, before discovery. */
 #define GWQ_MISSION_TIMEOUT 40000u
+/* OnePlus WLANFW cnss_feature_v01 and Linux WCN7850 host capability:
+ * no QDSS configuration file is supplied by this transport. This is a u64
+ * FEATURE_LIST bit, separate from the PC-specific PERST policy (bit 4). */
+#define GWQ_HOST_FEATURE_QDSS_CFG_MISS (UINT64_C(1)<<3)
 enum gwq_error { GWQ_OK,GWQ_ARGUMENT,GWQ_WIRE,GWQ_TRANSPORT,GWQ_TIMEOUT_ERROR,
-    GWQ_SERVER_LOST,GWQ_REMOTE_ERROR,GWQ_MEMORY,GWQ_IDENTITY,GWQ_ASSET,GWQ_STATE };
+    GWQ_SERVER_LOST,GWQ_REMOTE_ERROR,GWQ_MEMORY,GWQ_IDENTITY,GWQ_ASSET,GWQ_STATE,
+    GWQ_PLATFORM_ERROR };
 enum gwq_timeout_phase { GWQ_TIMEOUT_NONE,GWQ_TIMEOUT_RPC,GWQ_TIMEOUT_SERVER,GWQ_TIMEOUT_MISSION };
 enum gwq_asset { GWQ_REGDB,GWQ_BOARD,GWQ_PHY };
+struct gwq_pmu_param;
 struct gwq_io {
     void *context;
     int (*send)(void *,const void *,size_t);
@@ -29,6 +35,7 @@ struct gwq_io {
     int (*asset)(void *,unsigned,unsigned,uint32_t,uint32_t,const void **,size_t *);
     uint64_t dma_base,dma_bytes;
     uint64_t (*now)(void *); /* Monotonic milliseconds, including time in pump. */
+    int (*configure_pmu)(void *,const struct gwq_pmu_param *,unsigned);
 };
 struct gwq_span { uint64_t address; uint32_t bytes,type; };
 struct gwq_pmu_param {
@@ -49,6 +56,10 @@ struct gwq_state {
     unsigned initializing,timeout_phase;
     uint64_t mission_started_ms,elapsed_ms,host_cap_ms,memory_ready_ms,cap_ms,m3_ms,fw_ready_ms;
     uint64_t rpc_started_ms,rpc_elapsed_ms,server_received_ms;
+    unsigned pmu_configured;
+    int platform_error;
+    uint64_t pmu_config_ms;
+    uint32_t filtered_data_packets,filtered_src_node,filtered_src_port,filtered_dst_node,filtered_dst_port;
     uint16_t transaction,pending_transaction,pending_message;
     size_t response_bytes,mem_bytes;
     struct gwq_span allocated[GWQ_SEGMENTS+4];
@@ -147,7 +158,10 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
     }
     if(confirm) { uint32_t b[5]={7,dn,dp,0,0};
         if(gwq_control(s,io,7,dn,dp,sn,sp,b))return (int)s->error; }
-    if(!s->server || sn!=s->node || sp!=s->port || dn!=1 || dp!=0x4000)return 0;
+    if(!s->server || sn!=s->node || sp!=s->port || dn!=1 || dp!=0x4000) {
+        s->filtered_data_packets++;s->filtered_src_node=sn;s->filtered_src_port=sp;
+        s->filtered_dst_node=dn;s->filtered_dst_port=dp;return 0;
+    }
     if(z<7 || gwq_u16(p+5)!=z-7 || !gwq_tlvs(p+7,z-7))return gwq_fail(s,GWQ_WIRE);
     uint16_t txn=gwq_u16(p+1),msg=gwq_u16(p+3);unsigned flag=p[0];p+=7;z-=7;
     if(flag==2) {
@@ -228,8 +242,9 @@ static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned
     gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);
     gwq_num(s->request,&n,0x1a,0,1);gwq_num(s->request,&n,0x1c,0,1);
     /* The phone uses CNSS/platform sleep clock policy, not the PC ath12k
-     * NM_MODEM/NM_CLK policy. No unverified platform features advertised. */
+     * NM_MODEM/NM_CLK policy. Do not change its PERST reset policy. */
     const char platform[]="OnePlus-Ace5-XNU";gwq_tlv(s->request,sizeof(s->request),&n,0x1e,platform,sizeof(platform)-1);
+    gwq_num(s->request,&n,0x27,GWQ_HOST_FEATURE_QDSS_CFG_MISS,8);
     s->host_cap=1;int error=gwq_request(s,io,0x34,n);
     if(!error)s->host_cap_ms=gwq_reply_ms(s);return error;
 }
@@ -293,9 +308,9 @@ static inline int gwq_download(struct gwq_state *s,const struct gwq_io *io,unsig
 }
 /* CAP 0x22 is wlfw_pmu_cfg_v01, not a QMI string array: one count byte and
  * 48-byte entries, each with a fixed 32-byte name and four LE u32 fields.
- * Retain bounded diagnostic values only; this code never votes regulator
- * values or writes AOP/QMP. Unknown names still need a board mapping before
- * any future consumer may use them to change power configuration. */
+ * Decode bounded metadata only; the platform callback validates the board
+ * mapping and applies it before resource provisioning. The wire parser never
+ * writes AOP/QMP or interprets transport consumption as voltage readback. */
 static inline int gwq_pmu_cap(struct gwq_state *s) {
     size_t n;const uint8_t *p=gwq_field(s->response,s->response_bytes,0x22,&n);
     s->pmu_present=p!=NULL;s->pmu_bytes=(uint32_t)n;s->pmu_count=0;
@@ -345,6 +360,18 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     p=gwq_field(s->response,s->response_bytes,0x12,&z);if(p && z==4)s->soc=gwq_u32(p);
     p=gwq_field(s->response,s->response_bytes,0x13,&z);if(p && z>=4)s->firmware=gwq_u32(p);
     if(gwq_pmu_cap(s))return (int)s->error;
+    /* CNSS applies the validated CAP PMU table before firmware resource
+     * provisioning. The platform owns AOP serialization, board constraints and
+     * retained/uncertain writes; never send assets after a platform failure. */
+    if(s->pmu_present) {
+        if(gwq_mission_check(s,io))return (int)s->error;
+        s->platform_error=io->configure_pmu?
+            io->configure_pmu(io->context,s->pmu,s->pmu_count):-1;
+        s->pmu_config_ms=io->now(io->context)-s->mission_started_ms;
+        if(s->platform_error)return gwq_fail(s,GWQ_PLATFORM_ERROR);
+        s->pmu_configured=1;
+        if(gwq_mission_check(s,io))return (int)s->error;
+    }
     if(gwq_download(s,io,GWQ_REGDB,4) || gwq_download(s,io,GWQ_BOARD,1))return (int)s->error;
     const void *phy=NULL;size_t size=0;uint64_t pa;void *va;
     if(io->asset(io->context,GWQ_PHY,s->major,s->chip,s->board,&phy,&size) || !phy || !size || size>1024*1024)

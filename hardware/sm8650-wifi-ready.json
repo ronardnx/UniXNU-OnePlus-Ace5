@@ -137,5 +137,84 @@
     "host_size": "0x2d8",
     "host_offset": "0x128"
   },
-  "next_experiment": "Separate 10-second RPC deadlines from a 40-second mission initialization observation window, with monotonic phase timings."
+  "next_experiment": "Advertise the official HOST_CAP FEATURE_LIST bit CNSS_QDSS_CFG_MISS because this runtime supplies no QDSS configuration; repair QMP channel close separately and log firmware memory responses.",
+  "mission_deadline_validation": {
+    "commit": "9fcccfb0bd19d8ee46845e64d125295808ee5bf9",
+    "run": 39827831186,
+    "artifact_id": 12446764060,
+    "artifact_sha256": "014e8de5ae5acbead04d3c15de3a7fe9063b7730ea359cd6b9c125d2fb9d7a3e",
+    "image_sha256": "26c733a6dc45e824f4f5c01301dcbcb8aefb5d597beb4a9d96eb64d2d66f6de6",
+    "log": "out/ios16/wifi-qmi-timeout-test-1/20261023-020954-992637/device-000.log",
+    "timeout_phase": 3,
+    "elapsed_ms": 40000,
+    "host_cap_ms": 7,
+    "memory_ready_ms": 13,
+    "cap_ms": 17,
+    "m3_ms": 102,
+    "fw_ready_ms": 0,
+    "indications": [
+      53,
+      55
+    ],
+    "mhi_status": "0x201",
+    "ee": 2,
+    "smmu_fault_bits": 0,
+    "aer_uncorrectable": 0,
+    "aer_correctable": 0,
+    "conclusion": "Short wait was not the sole cause; no FW_INIT_DONE within the separate 40-second mission budget"
+  },
+  "qmp_pmu_validation": {
+    "date": "2026-10-23",
+    "commit": "f91b0a0ea9ba8ea0fd0c21f7fa5945f3e8cad8df",
+    "run": 39833570031,
+    "image_sha256": "a32d9cd26e27b9001f21333302e85a11185f2a788c82fddf18f3e9a16b173c22",
+    "log": "out/ios16/wifi-qmp-test-1/20261023-025859-583614/device-000.log",
+    "log_sha256": "c7b039257f767fd77bcfe0b40e787776ea3de44e6a554ec4185db4f2404c7afc",
+    "qmp_open_result": 0,
+    "pmu_entries": 9,
+    "qmp_commands_consumed": 7,
+    "command_ack_us": [
+      2000,
+      2000,
+      2000,
+      1000,
+      1000,
+      1000,
+      2000
+    ],
+    "platform_configured": true,
+    "platform_result": 0,
+    "platform_completed_ms": 118,
+    "memory_ready_ms": 12,
+    "cap_ms": 15,
+    "m3_ms": 186,
+    "mission_elapsed_ms": 40000,
+    "timeout_phase": 3,
+    "indications": [
+      53,
+      55
+    ],
+    "filtered_data_packets": 0,
+    "fw_ready": false,
+    "mhi_status": "0x201",
+    "ee": 2,
+    "smmu_fsr_before": "0x400",
+    "smmu_fsr_after": "0x400",
+    "aer_uncorrectable": 0,
+    "aer_correctable": 0,
+    "qmp_close_result": 6,
+    "qmp_close_phase": 5,
+    "close_descriptor": {
+      "aop_link": "UP",
+      "aop_link_ack": "UP",
+      "hlos_link": "UP",
+      "hlos_link_ack": "UP",
+      "aop_channel": "DOWN",
+      "aop_channel_ack": "UP",
+      "hlos_channel": "DOWN",
+      "hlos_channel_ack": "DOWN"
+    },
+    "conclusion": "All seven CAP PMU commands were consumed; mission readiness still times out. Close needs symmetric AOP channel acknowledgement.",
+    "setup_skip_visible_result": "Software Update Complete appeared, then network/Mac-or-PC setup screen after Continue; Setup skip remains incomplete."
+  }
 }

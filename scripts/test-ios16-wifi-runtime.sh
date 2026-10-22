@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test_dir="$(mktemp -d -t giulia-wifi-tests.XXXXXXXX)"
 trap 'rm -f "$test_dir"/*; rmdir "$test_dir"' EXIT
-for transport in link pci smmu mhi qmi ce wmi apple; do
+for transport in link pci smmu mhi qmi qmp pmu ce wmi apple; do
   clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
     "tests/ios16_wifi_${transport}.c" -o "$test_dir/$transport"
   "$test_dir/$transport"
