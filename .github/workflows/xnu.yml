@@ -6,6 +6,7 @@ permissions:
   actions: read
 jobs:
   kernel:
+    if: ${{ github.repository_owner == 'jasper2863' }}
     runs-on: macos-15
     env:
       JOBS: 3

@@ -26,6 +26,7 @@ env:
   MACHINE_CONFIG: SWEET
 jobs:
   build:
+    if: ${{ github.repository_owner == 'jasper2863' }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +105,7 @@ jobs:
             profile/
           retention-days: 14
   boot-image:
-    if: ${{ inputs.profile != 'gui' }}
+    if: ${{ github.repository_owner == 'jasper2863' && (inputs.profile != 'gui') }}
     needs: build
     runs-on: ubuntu-24.04
     env:

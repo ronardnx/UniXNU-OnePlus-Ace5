@@ -9,6 +9,10 @@ This repository contains board-specific configuration, upstream source pinning, 
 > [!WARNING]
 > This is an experimental hardware bring-up project, not a daily-driver operating system or a complete iOS port. Do not assume that a successful build means a feature works on the phone. Flashing images or modifying userdata can cause data loss or leave the device unbootable. Use temporary boot workflows only when you understand their limitations, keep verified backups, and do not run destructive commands from unreviewed instructions.
 
+## GitHub repositories and builds
+
+Source: [tycykp/UniXNU-OnePlus-Ace5](https://github.com/tycykp/UniXNU-OnePlus-Ace5). Build mirror: [jasper2863/UniXNU-giulia](https://github.com/jasper2863/UniXNU-giulia). All Actions jobs run only under `jasper2863`. See [repository conventions and publishing](CONTRIBUTING.md).
+
 ## Project status
 
 The project has reached the iOS 16 / Darwin 22 development path. According to the latest recorded device test (2026-10-22), the device has reached the Hello/Setup interface with a development image.

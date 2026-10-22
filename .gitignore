@@ -9,3 +9,16 @@ __pycache__/
 *.dts
 /reports/
 build.log
+
+# Local environments, editor state and generated diagnostics
+.venv/
+venv/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.py[cod]
+*.log
+.env
+.env.*
+!.env.example

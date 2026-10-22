@@ -11,6 +11,7 @@ permissions:
   actions: read
 jobs:
   boot-image:
+    if: ${{ github.repository_owner == 'jasper2863' }}
     runs-on: ubuntu-24.04
     env:
       GIULIA_BOOT_ABI: darwin22

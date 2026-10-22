@@ -5,6 +5,7 @@ permissions:
   contents: read
 jobs:
   data:
+    if: ${{ github.repository_owner == 'jasper2863' }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
