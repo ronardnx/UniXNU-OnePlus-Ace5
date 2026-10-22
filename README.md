@@ -1,5 +1,7 @@
 # UniXNU for OnePlus Ace 5
 
+**English** | [简体中文](README.zh-CN.md)
+
 **Experimental UEFI/XNU bring-up for the OnePlus Ace 5 (`giulia`, Qualcomm SM8650).**
 
 This repository contains board-specific configuration, upstream source pinning, patches, build scripts, GitHub Actions workflows, and validation records for investigating whether UniXNU and Darwin/XNU can be brought up on the OnePlus Ace 5.
