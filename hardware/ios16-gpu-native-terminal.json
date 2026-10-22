@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "kernel_commit": "03fb2a3fe78f5f6dede7f8f08152aa961ad8b24f",
+  "ci_run": 39870687828,
+  "kernel_compilations": 1,
+  "partition_flashes": 0,
+  "native_pool_bytes": 67108864,
+  "hwsched_start_verified": true,
+  "gx_power_cycle_verified": true,
+  "gpu_submission_verified": false,
+  "metal_verified": false,
+  "evidence": {
+    "start": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-073405-266084/result.json",
+      "sha256": "f3b0aa3b35613683d1c3996c94e40fbe8acad9a98067d226ee56b32186ee57f4",
+      "allocations": [
+        {
+          "handle": 0,
+          "offset": 4194304,
+          "bytes": 4096,
+          "flags": 831,
+          "kind": 2,
+          "gpu": 1631584256,
+          "gmu": 1631584256,
+          "gmu_handle": 2
+        },
+        {
+          "handle": 1,
+          "offset": 4198400,
+          "bytes": 4096,
+          "flags": 831,
+          "kind": 14,
+          "gpu": 1631588352,
+          "gmu": 1631588352,
+          "gmu_handle": 14
+        },
+        {
+          "handle": 2,
+          "offset": 4202496,
+          "bytes": 4096,
+          "flags": 825,
+          "kind": 15,
+          "gpu": 1631592448,
+          "gmu": 1631592448,
+          "gmu_handle": 15
+        },
+        {
+          "handle": 3,
+          "offset": 4206592,
+          "bytes": 32768,
+          "flags": 376,
+          "kind": 16,
+          "gpu": 1631596544,
+          "gmu": 1631596544,
+          "gmu_handle": 16
+        },
+        {
+          "handle": 4,
+          "offset": 4239360,
+          "bytes": 32768,
+          "flags": 891,
+          "kind": 1,
+          "gpu": 1631629312,
+          "gmu": 1631629312,
+          "gmu_handle": 26
+        }
+      ],
+      "start_reply": {
+        "id": 10,
+        "value": 0,
+        "status": null,
+        "header": "0x9080010a"
+      },
+      "cleanup": {
+        "reset_held": true,
+        "stream_faulted": true,
+        "context_disabled": true,
+        "tlb_synced": true,
+        "stock_tcm_retained": true,
+        "owned_ram_pinned_until_reboot": true
+      },
+      "gpu_smmu_fsr": 1024
+    },
+    "gx": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-073556-250456/result.json",
+      "sha256": "ec86e8f8de6ad6f8256d67afd82649be7cba351748a8e66ed31cce52b3ca4b0b",
+      "gx_before": 3,
+      "gx_after": 0,
+      "oob_ack": true,
+      "minimum_dcvs_vote": {
+        "id": 30,
+        "value": 0,
+        "status": null,
+        "header": "0x90e0041e"
+      },
+      "slumber_reply": {
+        "id": 33,
+        "value": 0,
+        "status": null,
+        "header": "0x90f00321"
+      },
+      "gx_off": true,
+      "cleanup": {
+        "reset_held": true,
+        "stream_faulted": true,
+        "context_disabled": true,
+        "tlb_synced": true,
+        "stock_tcm_retained": true,
+        "owned_ram_pinned_until_reboot": true
+      },
+      "gpu_smmu_fsr": 1024
+    },
+    "cp_failed": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-073918-358078/result.json",
+      "sha256": "040dda50bc780785467cdc29468ca7347f27989e11ca624447a4492a535a36f6",
+      "observed_usb": "05c6:900e",
+      "last_acknowledged_operation": "HOST2GMU_INTR_SET=1 after raw CP_INIT enqueue",
+      "cp_init_ack_received": false,
+      "gpu_mem_write_executed": false,
+      "cleanup_confirmed": false,
+      "automatic_replay_disabled": true,
+      "cause": "Unresolved; partial CP-only register initialization is not equivalent to the complete vendor gen7_start/secure-firmware flow"
+    }
+  },
+  "recovery": {
+    "path": "out/ios16/gpu-dev-device-20261023-recovery1/boot.json",
+    "device_preparation_passed": true,
+    "display_off_command_completed": true,
+    "same_image": true
+  }
+}
