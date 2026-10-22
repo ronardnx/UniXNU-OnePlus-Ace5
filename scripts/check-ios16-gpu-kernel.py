@@ -12,6 +12,8 @@ MARKERS = (
     b'GiuliaGPU',
     b'cpu_cache=normal-copyback',
     b'GIULIA GPU: host RAM cache publication complete;',
+    b'GIULIA GPU HFI: table_iova=',
+    b'GIULIA GPU HFI: query_ack=1',
 )
 SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'power_acquire', 'power_release', 'smmu_start', 'smmu_stop',

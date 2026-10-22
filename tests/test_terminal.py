@@ -23,6 +23,18 @@ class Terminal(unittest.TestCase):
                 terminal.wire_command(command)
         self.assertEqual(terminal.wire_command('ps'), b'ps\n')
 
+    def test_hfi_diagnostic_commands(self):
+        for name in ('pin', 'status', 'query', 'poll', 'log'):
+            command = 'gpu.hfi.' + name
+            self.assertEqual(terminal.wire_command(command), (command + '\n').encode())
+            for suffix in (' now', ';ping', '\nping'):
+                with self.assertRaises(ValueError):
+                    terminal.wire_command(command + suffix)
+        for command in ('gpu.hfi.start', 'gpu.hfi.unpin', 'gpu.hfi'):
+            with self.assertRaises(ValueError):
+                terminal.wire_command(command)
+
+
     def test_split_utf8_and_historical_topic_export(self):
         with tempfile.TemporaryDirectory() as directory:
             capture = terminal.Capture(Path(directory))

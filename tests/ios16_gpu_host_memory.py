@@ -26,13 +26,14 @@ fixture = r'''
 #include "giulia_gpu_pack.h"
 #include "giulia_gpu_memory.h"
 #include "giulia_gpu_cache.h"
+#include "giulia_gpu_hfi.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 using IOByteCount=uint64_t;
 static unsigned long gPhysBase=0x880000000ULL,gPhysSize=0x100000000ULL;
 static void *kernel_task=nullptr;
 enum { kIODirectionInOut=3,kIOMemoryPhysicallyContiguous=0x10,
     kIOMemoryHostPhysicallyContiguous=0x80,kIOMemoryMapperNone=0x800,
-    kIOMapInhibitCache=0x100,kIOMapCopybackCache=0x400 };
+    kIOMapInhibitCache=0x100,kIOMapCopybackCache=0x400,kIOMapWriteCombineCache=0x500 };
 static unsigned allocated,freed,calls,failAt,badAt,badKind,cleanCalls,cleanFail;
 static unsigned scratchCalls,scratchFail,scratchLive;
 static void IOLog(const char *,...) {}
@@ -42,15 +43,16 @@ static void *IOMalloc(size_t bytes) {
 }
 static void IOFree(void *p,size_t){--scratchLive;free(p);}
 struct IOBufferMemoryDescriptor {
-    void *cpu;size_t bytes;uint64_t pa,span;unsigned kind;
+    void *cpu;size_t bytes;uint64_t pa,span;unsigned kind,cache;
     static IOBufferMemoryDescriptor *inTaskWithOptions(void *,unsigned options,size_t n,size_t alignment) {
         ++calls;if(calls==failAt)return nullptr;
         // These assertions reject the original panic-causing allocation and
         // an allocation that could be routed through the system IOMMU.
-        assert(options==(kIODirectionInOut|kIOMemoryHostPhysicallyContiguous|
-                         kIOMemoryMapperNone|kIOMapCopybackCache));
+        unsigned base=kIODirectionInOut|kIOMemoryHostPhysicallyContiguous|kIOMemoryMapperNone;
+        assert(options==(base|kIOMapCopybackCache) || options==(base|kIOMapWriteCombineCache));
         assert(alignment==0x4000 && n && !(n&0x3fff));
         auto *p=new IOBufferMemoryDescriptor;
+        p->cache=options&0x700;
         assert(!posix_memalign(&p->cpu,alignment,n));
         memset(p->cpu,0xa5,n);p->bytes=n;
         p->pa=gPhysBase+calls*0x100000;p->span=n;
@@ -75,7 +77,7 @@ extern "C" int giulia_gpu_cache_publish(const void *p,size_t n) {
 class GiuliaGPU {
 public:
     IOBufferMemoryDescriptor *allocations[64]={},*tableMemory=nullptr;
-    unsigned reservationCount=0,tablePages=0,leafPages=0;bool hostPrepared=false;
+    unsigned reservationCount=0,tablePages=0,leafPages=0,hfiIndex=0;bool hostPrepared=false;
     bool prepareMemory(const gg_pack *);
     void setProperty(const char *,unsigned long long,unsigned){}
     void setProperty(const char *,const char *){}
@@ -92,15 +94,22 @@ static void verify(GiuliaGPU &service,const gg_pack &pack) {
     gg_fw_block blocks[64];gg_reservation plan[64];size_t count,n;
     assert(gg_fw_plan(pack.asset[0].data,pack.asset[0].size,blocks,64,&count)==GG_FW_OK);
     assert(gg_memory_plan(blocks,count,plan,64,&n)==GG_FW_OK);
+    size_t firmware=n;
+    plan[n++]={GGH_IOVA,GGH_BYTES,GG_KERNEL,0};
+    plan[n++]={GGH_LOG_IOVA,GGH_LOG_BYTES,GG_KERNEL,0};
+    plan[n++]={GGH_VRB_IOVA,GGH_VRB_BYTES,GG_KERNEL,0};
     assert(service.reservationCount==n && cleanCalls==n+1);
+    assert(service.hfiIndex==firmware && service.tableMemory->cache==kIOMapCopybackCache);
     for(size_t i=0;i<n;++i) {
         auto *a=service.allocations[i];std::vector<unsigned char> expected(a->bytes,0);
+        assert(a->cache==(i<firmware?kIOMapCopybackCache:kIOMapWriteCombineCache));
         for(size_t j=0;j<count;++j) {
             auto &b=blocks[j];
             if(b.size && b.address>=plan[i].iova && b.size<=plan[i].bytes &&
                b.address-plan[i].iova<=plan[i].bytes-b.size)
                 memcpy(expected.data()+b.address-plan[i].iova,pack.asset[0].data+b.payload_offset,b.size);
         }
+        if(i==firmware)assert(ggh_init(expected.data(),expected.size(),GGH_IOVA)==GGH_OK);
         assert(!memcmp(expected.data(),a->cpu,a->bytes)); // includes every padding byte
     }
     auto *pool=(uint64_t *)service.tableMemory->cpu;
@@ -120,7 +129,7 @@ static void verify(GiuliaGPU &service,const gg_pack &pack) {
 }
 static void run(const gg_pack &pack,bool stock) {
     reset();GiuliaGPU good;assert(good.prepareMemory(&pack) && good.hostPrepared);verify(good,pack);
-    if(stock)assert(good.reservationCount==5 && good.tablePages==6 && good.leafPages==104);
+    if(stock)assert(good.reservationCount==8 && good.tablePages==6 && good.leafPages==139);
     unsigned total=calls;good.releaseResources();assert(allocated==freed && !scratchLive);
     for(unsigned i=1;i<=3;++i) {
         reset();scratchFail=i;GiuliaGPU s;assert(!s.prepareMemory(&pack) && !s.hostPrepared);

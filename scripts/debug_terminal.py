@@ -19,6 +19,7 @@ DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe',
+                   'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
                    'screen.start','screen.stop','screen.snapshot')
 TOPICS = {
     'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|QMP|PMU|WMI|IO80211',
@@ -38,6 +39,11 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   wifi.status / wifi.start   inspect/release an opted-in pre-DMA wait
   gpu.status              retained GPU preparation/last-observation state
   gpu.observe             queue gated read-only power/SMMU observation
+  gpu.hfi.pin             retain diagnostic DMA buffers until reboot (mode 3)
+  gpu.hfi.status          inspect the 17 HWSCHED queue headers
+  gpu.hfi.query           enqueue warmboot query; manual doorbell still required
+  gpu.hfi.poll            drain bounded HFI reply/debug packets
+  gpu.hfi.log             read the first 64 words of the GMU log buffer
   reboot.fastboot         sync disks and restart into Fastboot (debug kernel)
   reboot.status           inspect a pending reboot request
   screen.start            real live screen in a local browser, about 1 fps

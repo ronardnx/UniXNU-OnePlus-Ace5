@@ -26,6 +26,9 @@ else
 fi
 python3 tests/ios16_gpu_cache.py
 python3 tests/ios16_gpu_probe.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_hfi.c -o "$tmp/hfi"
+"$tmp/hfi"
 for name in prepare consumer; do
     cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
         "tests/ios16_gpu_power_$name.c" -o "$tmp/power-$name"
