@@ -24,8 +24,11 @@ static void write_reg(void *context,unsigned space,unsigned offset,uint32_t valu
     (void)context;assert(!(offset&3) && offset<(space==GWP_PARF?0x3000u:4096u));
     if(space==GWP_ENDPOINT && offset==4) {
         assert(!(value&4) || h.allow_master); /* enumeration must never grant DMA */
+        /* A root port with BME clear rejects upstream DMA/MSI as unsupported. */
+        assert(!(value&4) || (h.root[1]&6)==6);
         assert(!(value&0xffff0000u)); /* do not clear W1C status */
     }
+    if(space==GWP_ROOT && offset==4) assert(!(value&0xffff0000u));
     if(++h.writes==h.drop) return;
     if(space==GWP_PARF){h.parf[offset/4]=value;return;}
     if(space==GWP_ENDPOINT) {
@@ -73,7 +76,8 @@ int main(void) {
     init();h.ep[0x50/4]|=0x10000;assert(run(&s)==GWP_BAD_CAPABILITY && !h.writes);cases++;
     init();h.ep[0x70/4]=0x5010;assert(run(&s)==GWP_BAD_CAPABILITY && !h.writes);cases++;
     init();h.ep[0x34/4]=0x51;assert(run(&s)==GWP_BAD_CAPABILITY && !h.writes);cases++;
-    init();h.ep[0x50/4]&=~0x800000u;assert(run(&s)==GWP_BAD_CAPABILITY && !h.writes);cases++;
+    init();h.ep[0x50/4]&=~0x800000u;initial=h;
+    assert(run(&s)==GWP_OK && !(s.msi_control&0x80));assert(gwp_restore(&io,&s));restored();cases++;
     init();h.atu[0x204/4]=0x80000000u;assert(run(&s)==GWP_ACTIVE_DEVICE && !h.writes);cases++;
     init();h.masklo=0xfffffff4;assert(run(&s)==GWP_BAD_BAR);restored();cases++;
     init();h.masklo=0xfe800004;assert(run(&s)==GWP_BAD_BAR);restored();cases++;
@@ -90,12 +94,64 @@ int main(void) {
     assert(gwp_msi_sink(&io,&s,&msi,0x98000000,0x4000000,0x98006000));
     assert(h.ep[0x54/4]==0x98006000 && h.ep[0x58/4]==0 && (h.ep[0x50/4]&0x710000)==0x10000);cases++;
     writes=h.writes;assert(!gwp_master(&io,&s,1,0) && h.writes==writes);cases++;
-    h.allow_master=1;assert(gwp_master(&io,&s,1,1) && (h.ep[1]&4));cases++;
+    h.allow_master=1;assert(gwp_master(&io,&s,1,1) && (h.ep[1]&4) && (h.root[1]&6)==6);cases++;
     assert(gwp_msi_disable(&io,&msi));assert(gwp_master(&io,&s,0,0));
     assert(gwp_msi_restore(&io,&msi) && gwp_sid_restore(&io,&sid) && gwp_restore(&io,&s));restored();cases++;
+    /* Both bridge and endpoint enable writes can fail. A failed bridge write
+     * must never enable the endpoint; partial success must remain restorable. */
+    for(unsigned drop=1;drop<=2;drop++) {
+        init();h.root[1]=0xa5100100u;initial=h;
+        assert(run(&s)==GWP_OK);h.allow_master=1;h.drop=h.writes+drop;
+        assert(!gwp_master(&io,&s,1,1) && !(h.ep[1]&4));
+        assert((h.root[1]&0xffff0000u)==0xa5100000u);
+        if(drop==1)assert((h.root[1]&0xffffu)==0x102);
+        else assert((h.root[1]&0xffffu)==0x106);
+        h.drop=0;assert(gwp_master(&io,&s,0,0) && gwp_restore(&io,&s));restored();cases++;
+    }
+    init();assert(run(&s)==GWP_OK);h.root[1]=0xffffffffu;writes=h.writes;h.allow_master=1;
+    assert(!gwp_master(&io,&s,1,1) && h.writes==writes && !(h.ep[1]&4));cases++;
+    /* Preserve a previously enabled bridge, including unrelated Command and
+     * sticky Status bits; do not close the upstream path before DMA drains. */
+    init();h.root[1]=0xa5100104u;initial=h;assert(run(&s)==GWP_OK);h.allow_master=1;
+    assert(gwp_master(&io,&s,1,1) && h.root[1]==0xa5100106u);
+    h.ep[(s.pcie_cap+8)/4]=0x200000u;
+    assert(!gwp_master(&io,&s,0,0) && !(h.ep[1]&4) && h.root[1]==0xa5100106u);cases++;
+    h.ep[(s.pcie_cap+8)/4]=0;
+    assert(gwp_master(&io,&s,0,0) && gwp_restore(&io,&s));restored();cases++;
     init();assert(run(&s)==GWP_OK);memset(&sid,0,sizeof(sid));h.parf[(0x2000+0x15*4)/4]=0x02000100;
     writes=h.writes;assert(!gwp_sid_claim(&io,&sid) && h.writes==writes);cases++;
     init();assert(run(&s)==GWP_OK);memset(&msi,0,sizeof(msi));writes=h.writes;
     assert(!gwp_msi_sink(&io,&s,&msi,0x98000000,0x4000000,0x10000000) && h.writes==writes);cases++;
+    /* Both PCI MSI layouts, with and without per-vector masking. Verify that
+     * a 32-bit device's adjacent capability/pending dword is never overwritten,
+     * including failed stores and restoration. */
+    for(unsigned wide=0;wide<2;wide++)for(unsigned masked=0;masked<2;masked++) {
+        unsigned msi_writes=0;
+        for(unsigned drop=0;drop<=msi_writes;drop++) {
+            init();h.ep[0x50/4]=0x7005u|(wide<<23)|(masked<<24);
+            h.ep[0x54/4]=0x12340000;h.ep[0x58/4]=0xabc00000;
+            h.ep[0x5c/4]=0xfffe0001;h.ep[0x60/4]=0xfffffff1;h.ep[0x64/4]=0xfacecafe;
+            initial=h;assert(run(&s)==GWP_OK);memset(&msi,0,sizeof(msi));
+            writes=h.writes;if(drop)h.drop=writes+drop;
+            int ok=gwp_msi_sink(&io,&s,&msi,0x20000000,0x4000000,0x20006000);
+            if(!drop) {assert(ok);msi_writes=h.writes-writes;}
+            unsigned end=0x50/4+3+wide+masked;
+            assert(!memcmp(h.ep+end,initial.ep+end,(0x70/4-end)*4));
+            if(ok) {
+                assert(h.ep[0x54/4]==0x20006000);
+                assert(!(h.ep[0x50/4+2+wide]&0xffffu));
+                if(wide)assert(h.ep[0x58/4]==0);
+                if(masked)assert(!(h.ep[0x50/4+3+wide]&1));
+            }
+            h.drop=0;assert(gwp_msi_restore(&io,&msi));assert(gwp_restore(&io,&s));restored();cases++;
+        }
+    }
+    init();h.ep[0x50/4]&=~0x800000u;assert(run(&s)==GWP_OK);memset(&msi,0,sizeof(msi));writes=h.writes;
+    assert(!gwp_msi_sink(&io,&s,&msi,0x120000000ull,0x4000000,0x120006000ull) && h.writes==writes);cases++;
+    init();h.ep[0x70/4]=0x5010;assert(run(&s)==GWP_BAD_CAPABILITY);
+    assert(!strcmp(s.cap_reason,"invalid-or-cyclic-pointer") && s.cap_offset==0x50);cases++;
+    init();h.ep[0x50/4]=0x00807001;assert(run(&s)==GWP_BAD_CAPABILITY);
+    assert(!strcmp(s.cap_reason,"msi-capability-missing"));cases++;
+    assert(!strcmp(gwp_error_name(GWP_BAD_CAPABILITY),"GWP_BAD_CAPABILITY"));
     printf("Wi-Fi PCI enumeration: %u BAR, capability, rollback, ownership and dropped-write cases passed\n",cases);
 }

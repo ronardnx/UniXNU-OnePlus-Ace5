@@ -2,119 +2,92 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-**Experimental UEFI/XNU bring-up for the OnePlus Ace 5 (`giulia`, Qualcomm SM8650).**
+Experimental UEFI and Darwin/XNU port for the OnePlus Ace 5 (PKG110, `giulia`, Qualcomm SM8650). The current development target is iOS 16 / Darwin 22.
 
-This repository contains board-specific configuration, upstream source pinning, patches, build scripts, GitHub Actions workflows, and validation records for investigating whether UniXNU and Darwin/XNU can be brought up on the OnePlus Ace 5.
+The repository provides board configuration, pinned upstream sources, kernel and UEFI patches, build tools, and validation records. Apple system images and device firmware are not included.
 
 > [!WARNING]
-> This is an experimental hardware bring-up project, not a daily-driver operating system or a complete iOS port. Do not assume that a successful build means a feature works on the phone. Flashing images or modifying userdata can cause data loss or leave the device unbootable. Use temporary boot workflows only when you understand their limitations, keep verified backups, and do not run destructive commands from unreviewed instructions.
+> This project is under development and is not suitable for daily use. Flashing partitions or replacing userdata can cause data loss. Build success does not establish hardware support.
 
-## Project status
+## Hardware support
 
-The project has reached the iOS 16 / Darwin 22 development path. According to the latest recorded device test (2026-10-22), the device has reached the Hello/Setup interface with a development image.
+Status as of **2026-10-23**. Results apply to the configurations recorded in [`hardware/`](hardware/).
 
-| Area | Current evidence | Status |
-|---|---|---|
-| UEFI hand-off and boot flow | Device-side bring-up records and boot tests | Verified for the recorded test configuration |
-| XNU startup | Memory-management initialization, platform-driver registration, CPU0 registration and SGI self-test recorded | Partially verified |
-| UFS and debug console | Native UFS read test and USB CDC serial communication recorded | Verified for the tested paths |
-| Root volume and user space | HFSX root volume mounted read/write; `launchd` and system services started | Verified for the recorded setup |
-| Graphical interface | Hello/Setup interface observed on device | Reached; not a complete or stable desktop validation |
-| Touch | Controller identity and touch reports observed; GPIO fallback remains unverified | In progress |
-| Display | Native-panel geometry and offline bounds checks recorded | Offline checks passed; full display reliability not established |
-| Wi-Fi | WCN7850 PCIe link has remained at `Detect.Quiet`; no confirmed endpoint enumeration or real scan results | Not working / in progress |
-| GPU, audio, cellular and DRM | No complete device-side validation recorded | Not implemented or unverified |
+| Component | Status | Scope and limitations |
+| --- | --- | --- |
+| Boot and kernel | Verified | UEFI handoff, XNU startup and CPU0; single-core configuration |
+| Storage | Verified | Native UFS access and the prepared HFSX root volume |
+| Debug console | Verified | USB CDC serial transport and startup log capture |
+| User interface | Verified | Hello / Setup starts; complete system functionality remains under development |
+| Display and touch | Verified | Full 1264×2780 panel coverage and aligned touch in Setup; UIKit uses a scaled 1125×2436 canvas |
+| Wi-Fi | Not operational | PCIe, BHI/BHIE, AMSS and QMI resource requests verified; currently times out waiting for firmware-ready notification before scanning |
+| GPU acceleration, audio, cellular and DRM | Unverified | No complete implementation or device validation |
 
-See [Development status and validation notes](docs/DEVELOPMENT_STATUS.md) for details. Machine-readable evidence is kept under [`hardware/`](hardware/).
+Display rotation, power transitions and application compatibility require further testing. Wi-Fi association, authentication and packet transport are not implemented.
 
-## Repository layout
-
-- `board.toml`, `configs/` — board and kernel configuration.
-- `sources.json` — pinned upstream source information.
-- `patches/` — project-specific patches.
-- `scripts/` — build, packaging, device-audit and validation helpers.
-- `ios16/`, `targets/`, `uefi-overlay/` — platform-specific build inputs and overlays.
-- `hardware/` — machine-readable hardware notes and test evidence.
-- `tests/` — automated/offline tests.
-- `.github/workflows/` — CI and build workflows.
-- `LICENSE` — repository license.
+See [development status](docs/DEVELOPMENT_STATUS.md) and the [firmware transfer test record](hardware/sm8650-wifi-root-master.json) for evidence and remaining work.
 
 ## Requirements
 
-The documented UEFI build path targets Linux, including Ubuntu under WSL. The scripts and workflows for the iOS 16/XNU path may have additional environment and artifact requirements; inspect the relevant workflow and script before running them.
+- Linux or Ubuntu under WSL for UEFI and local image packaging.
+- Git and Python 3.11 or newer with `venv`.
+- Clang/LLVM, LLD, build-essential, NASM, `uuid-dev`, `gcc-aarch64-linux-gnu`, ACPICA tools and the device-tree compiler.
+- Mono and certificate packages for the upstream NuGet tooling; Mtools for FAT payload packaging.
+- A macOS runner for XNU. The configured GitHub Actions build account is `jasper2863`.
 
-The recorded UEFI build dependencies include:
-
-- Git and Python 3 with `venv`
-- build-essential, Clang/LLVM and LLD
-- `uuid-dev`, NASM, `gcc-aarch64-linux-gnu`
-- ACPICA tools and the device-tree compiler
-- Mono and Mono certificate packages where required by upstream NuGet tooling
-
-Install the dependencies appropriate to your distribution before building.
+Source revisions are fixed in [`sources.json`](sources.json) and the target-specific workflows. Kernel, device tree, firmware and payload metadata must match.
 
 ## Build
 
-The repository documents the following UEFI build command:
+### UEFI
+
+From the repository root:
 
 ```bash
 bash scripts/build-uefi.sh "$HOME/ace5-port"
 ```
 
-The expected output recorded by the project is:
+Output: `$HOME/ace5-port/uefi-giulia/Mu-giulia-0.img`. The first build downloads upstream dependencies. This command does not flash the phone.
 
-```text
-$HOME/ace5-port/uefi-giulia/Mu-giulia-0.img
-```
-
-The build script is documented as a host-side build and does not itself run `adb`/`fastboot` or flash the device. The initial upstream setup downloads submodules and may take some time.
-
-A device-tree comparison can be run with a local DTB and the upstream `giulia` DTB:
+### iOS 16 kernel
 
 ```bash
-python3 scripts/check-device.py /path/to/running-device.dtb \
-  "$HOME/ace5-port/uefi-giulia/Resources/DTBs/giulia.dtb" \
-  --output reports/device-check.json
+gh workflow run ios16-xnu.yml --repo jasper2863/UniXNU-giulia \
+  --ref main -f profile=gui -f touch=true -f wifi=true
 ```
 
-Replace the example input path with a DTB you are authorized to inspect. Do not publish device-unique dumps.
+The workflow produces the `ace5-ios16-xnu` artifact. GUI packaging also requires the verified local product ADT, root-volume report, trust catalogue and matching WLAN firmware. Firmware is embedded locally after CI and is not uploaded with kernel sources.
 
-For other targets, use the corresponding workflow under [`.github/workflows/`](.github/workflows/) and review its inputs and outputs. Build commands, image names and validation criteria can differ by profile.
+[`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) assembles and validates the integrated image from those inputs and an existing prepared UEFI checkout. Run it without arguments to display the required paths. Use a new output directory for each build.
 
-## Validation principles
+## Validation
 
-Treat these as separate milestones:
+```bash
+git diff --check
+python3 -m unittest discover -s tests -v
+bash scripts/test-ios16-wifi-runtime.sh
+```
 
-1. **Build success** — source compiled and an artifact was produced.
-2. **Artifact validation** — image structure, hashes, payload and hand-off metadata passed host-side checks.
-3. **Device boot validation** — a specific image was tested on physical hardware.
-4. **Feature validation** — the relevant hardware path was demonstrated to work on-device.
+The runtime checks cover PCI configuration, DMA isolation, firmware transport, scan protocol handling and display bounds. These are host tests; they do not demonstrate a working radio link. Record build results, image validation and physical-device results separately.
 
-A passing earlier milestone does not imply that a later milestone passed. In particular, offline Wi-Fi protocol tests and a running `wifid` process do not establish that Wi-Fi scanning, association or data transfer works.
+## Repository layout
 
-## Safety and privacy
+For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal.cmd`. Protocol 2 diagnostics, explicit MMIO access and `reboot.fastboot` have been tested on the device. The PTY shell still requires a separately staged daemon and signed ARM64 shell/tools and has not been validated on hardware. See [USB terminal instructions](docs/USB_TERMINAL.md) for deployment and commands.
 
-- Prefer `fastboot boot` for controlled temporary-boot testing when supported; it is not a guarantee that every action is non-destructive.
-- Do not flash partitions, format storage, or replace userdata unless you have independently reviewed the exact command, confirmed the target device and partition, and made a recoverable backup.
-- Keep original images and record SHA-256 hashes before and after transformations.
-- Never commit serial numbers, factory MAC addresses, account tokens, credentials, private keys, unredacted device dumps, or other device-unique/private data.
-- Do not upload proprietary firmware, user data, or extracted artifacts unless you have the rights and authorization to redistribute them. Keep locally embedded firmware out of CI artifacts unless redistribution is explicitly permitted.
-- Test reports should state the exact image/configuration tested and clearly distinguish host-side checks from physical-device results.
+| Path | Purpose |
+| --- | --- |
+| `board.toml`, `configs/`, `targets/` | Board and target configuration |
+| `sources.json`, `patches/`, `uefi-overlay/` | Upstream pins and UEFI integration |
+| `ios16/` | Darwin 22 drivers and compatibility patches |
+| `scripts/`, `tests/` | Build, packaging, diagnostic and test tools |
+| `hardware/`, `docs/` | Validation records and development documentation |
+| `.github/workflows/` | Manual CI workflows |
+| `out/`, `.cache/`, `reports/` | Local artifacts; excluded from version control |
 
 ## Contributing
 
-Contributions are welcome, especially reproducible bug reports, documentation fixes, host-side tests, and clearly scoped hardware investigations.
-
-Before opening a pull request:
-
-1. Explain the goal and affected hardware/software path.
-2. Include the exact commands and environment needed to reproduce host-side checks.
-3. Identify whether each result is offline-only or verified on physical hardware.
-4. Attach relevant redacted logs or machine-readable reports, without device-unique secrets.
-5. Avoid claiming support based only on compilation or static checks.
-
-For hardware reports, include the tested image identifier or commit, device model/firmware context where safe to disclose, expected result, actual result, and the relevant evidence file.
+Follow [`CONTRIBUTING.md`](CONTRIBUTING.md). Include the affected subsystem, reproducible checks, expected and actual behavior, and the tested image or commit. Keep logs redacted and proprietary firmware, credentials and device-unique data out of commits.
 
 ## License
 
-This repository includes a `LICENSE` file declaring **BSD-2-Clause-Patent**. Review that file for the complete terms. Upstream projects, third-party components, firmware and generated artifacts may be subject to separate licenses; the repository license does not automatically relicense those materials.
+Repository code is licensed under [BSD-2-Clause-Patent](LICENSE). Upstream components and firmware retain their respective licenses.

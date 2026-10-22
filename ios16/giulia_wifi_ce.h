@@ -40,7 +40,7 @@ static inline int gwc_init(struct gwc_state *s,const struct gwc_io *io) {
         if(misc==0xffffffffu || (misc&0x40))return gwc_fail(s,GWC_INHERITED);
     }
     if(buffer>GWC_BYTES)return gwc_fail(s,GWC_ARGUMENT);
-    for(size_t i=0;i<GWC_BYTES;i++)io->memory[i]=0;
+    for(size_t i=0;i<GWC_BYTES;i++)((volatile uint8_t *)io->memory)[i]=0;
     io->sync(io->context,0,GWC_BYTES,1);
     for(unsigned i=0;i<6;i++) {
         struct gwc_ring *r=&s->ring[i];uint64_t base=io->dma+r->desc,remote=io->dma+r->remote;

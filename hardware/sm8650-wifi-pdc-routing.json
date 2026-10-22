@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "Hardware reached L0 on its first XNU poll after enabling the missing CNSS GPIO18/19 PDC wake forwarding; later PCI resource initialization still fails",
+  "root_cause_confirmed": true,
+  "root_cause_scope": "Missing PDC wake forwarding caused the observed Detect.Quiet failure in the tested initialization sequence. Full Wi-Fi operation is not verified.",
+  "hardware_test": {
+    "ci_run": 39748454321,
+    "commit": "3aee9c2eea218e23bbefe89d2c1f690bec366f2e",
+    "boot_image_sha256": "7f58c3b0c38ea638a3fc06b1ca09cd3c3c3681e869685509e122d51e062e0fd6",
+    "log": "out/ios16/wifi-pdc-routing-test-1/serial-000.log",
+    "gpio18_and_19_intr_cfg_before": "0x742",
+    "gpio18_and_19_intr_cfg_after": "0x7c2",
+    "link_error": "GWL_OK",
+    "polls": 1,
+    "elapsed_ms": 91,
+    "elbi": "0x11401",
+    "ltssm": "L0",
+    "link_status": "0xb0220008",
+    "endpoint": "17cb:1107",
+    "next_failure": "stage=2 error=4; old code aliases GWP_BAD_CAPABILITY and BAR mapping failure. Integrated terminal build adds the exact failure site."
+  },
+  "source_evidence": {
+    "cnss": "cnss_get_pinctrl iterates mpm_wake_set_gpios and calls msm_gpio_mpm_wake_set(gpio,1)",
+    "device_tree": "mpm_wake_set_gpios = <18 19>",
+    "pinctrl": "pinctrl-msm.c tests GPIO_INTR_CFG[6] and sets [7] for PDC-mapped pins",
+    "stock_module": "cnss2.ko cnss_get_pinctrl relocation at 0x22510 calls msm_gpio_mpm_wake_set",
+    "pin_map": "pinctrl-pineapple.c maps GPIO18 to PDC75 and GPIO19 to PDC63; both have wake_bit=-1"
+  },
+  "register_changes": [
+    {
+      "gpio": 18,
+      "address": "0x0f112008",
+      "enable_bit": 7,
+      "present_bit": 6
+    },
+    {
+      "gpio": 19,
+      "address": "0x0f113008",
+      "enable_bit": 7,
+      "present_bit": 6
+    }
+  ],
+  "behavior": [
+    "Configure forwarding before regulator votes and WLAN_EN",
+    "Preserve GPIO input/output/mux and CPU interrupt configuration",
+    "Reject absent hardware capability or dropped writes",
+    "Restore only the changed forwarding bit on failed UEFI preparation",
+    "Require both routes enabled in XNU before releasing PERST",
+    "Log named XNU error codes; 5 means GWL_LINK_TIMEOUT, never an error count"
+  ],
+  "validation": {
+    "uefi_policy_cases": 83,
+    "xnu_link_cases": 20,
+    "captured_dt_binding": true
+  },
+  "source_hashes": {
+    "pinctrl-msm.c": "8250ccf40efc51c3295fa18ec25fee9de15fba9feec88ffbb85825bf144d6bed",
+    "cnss-power.c": "296f48d567c2cbfd3e1b224ae079fa81d960966e6f12abe48639931894236181",
+    "pinctrl-pineapple.c": "50e41a6478b1939b674c2d4dd2e195a9a49a4b2f5a639d1f2693e1e65477c4ee"
+  }
+}

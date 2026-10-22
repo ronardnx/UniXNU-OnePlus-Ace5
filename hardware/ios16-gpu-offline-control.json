@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-22",
+  "status": "offline control core and precise diagnostics verified; no device test",
+  "kernel_build": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "commit": "9f495f2e1a5ff3f17a906591bec641a1028dffd7",
+    "run": 39742622397,
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39742622397",
+    "result": "success",
+    "current_kernel_sources_match_ci": true,
+    "exported_control_symbols_verified": true
+  },
+  "implemented": {
+    "power": "CX/GMU/HUB/clock lease transactions, 625 MHz HWSCHED boot request, bounded readiness, reverse release and quarantine",
+    "smmu": "native4K inactive GMU tables plus explicit bank/ASID/slot/SID5 lease, context/stream programming and guarded detach core",
+    "gmu": "pinned pack validation, reset-held TCM load/readback, fresh FW-ready and HFI transport-ready handshake core",
+    "diagnostics": "first failure and cleanup failure preserved separately; physical/IOVA distinction, expected/observed/mask, logical/native codes, unavailable values and resource summaries"
+  },
+  "validation": {
+    "asan_ubsan": true,
+    "local_control_scenarios_with_pinned_firmware": 890,
+    "context_images_vs_pinned_linux": 7344,
+    "single_bit_readback_refusals": 2805408,
+    "context_readonly_bit_tolerances": 36720,
+    "upstream_program_failure_controls": 86,
+    "upstream_stream_io_failures": 368,
+    "upstream_stream_prewrite_refusals": 32,
+    "gmu_table_pages": 6,
+    "gmu_leaf_pages_4k": 104,
+    "independent_walk_and_holes_checked": true,
+    "diagnostic_formatter_output_contract": "passed",
+    "observation_validity_fault_cases": 13,
+    "workspace_python_tests": 26,
+    "native_aarch64_dsb_and_64bit_ttbr_assembly": "verified; not executed on device"
+  },
+  "test_limits": [
+    "Software registers and normal host RAM only",
+    "Host MMIO bounds fixture substitutes host memory barrier for DSB; original ARM source is cross-assembled separately",
+    "Fixture bank 2 / ASID 7 are not claims about free device contexts",
+    "HFI transport-ready is not complete HWSCHED startup or GPU command execution"
+  ],
+  "pending": [
+    "Live power/AOP/clock-provider leases and actual rate/rail verification",
+    "Real SMMU ownership, ACTLR/security and fault-handler/cache-maintenance adapters",
+    "PDC/RSC, secure CX, IRQ/bandwidth and HFI queue backend callbacks",
+    "Complete HWSCHED feature/performance/bandwidth/start command/ACK protocol",
+    "Hardware validation and Metal/system composition"
+  ],
+  "safety_state": {
+    "phone_accessed": false,
+    "phone_booted": false,
+    "flash_performed": false,
+    "new_boot_image_built": false,
+    "mutating_backend_bound_to_boot_modes": false,
+    "hardware_ready": false,
+    "previous_image_sha256": "31ea6929402049c8e966e0e974e3b17767f24d96fd1a862561050c29ae2d4a99",
+    "previous_image_unchanged": true
+  },
+  "logs": {
+    "suite": "out/ios16/gpu-offline-control/offline-tests.log",
+    "examples": "out/ios16/gpu-offline-control/fault-examples.log",
+    "suite_sha256": "f6357505402cb29a71406d24a383df77cd97f21a90e11f059da9a7ba772ab067",
+    "examples_sha256": "25a83fbcff9ad8bf3282064964159f74d88e3c82a5626827507684083c2fc0b5"
+  },
+  "sources": {
+    "ios16/GiuliaGPU.cpp": "eb075c85dd50b29f769bfba037131da860c2a575a9c1fb706bd376e9ac6bfbfa",
+    "ios16/giulia_gpu_context.c": "67c7ba8991032b040c61676b5e451e511872549d4685543584c925bb0538db47",
+    "ios16/giulia_gpu_control.c": "d4a8089e644247643c0d5e94264904c7387629c3fff9ce5a3c9c3105e06c5b84",
+    "ios16/giulia_gpu_control.h": "4d1314166245069bf341071b7b546fdf2b3c270822ff4a46b588e904298c03c5",
+    "ios16/giulia_gpu_diag.h": "b86dc438a8a09a651b3a93fe751542b6ed900088abc777430b4af7f4c9db89ce",
+    "ios16/giulia_gpu_firmware.h": "eae640bc4b2656ce1b843860fd47e19c5d94da4e2c2061431d0a36678f5c8c2b",
+    "ios16/giulia_gpu_firmware_pin.h": "761d53dfb231544b13034a12fc75223e080d923edaf771e663550d9790e7c3c2",
+    "ios16/giulia_gpu_gmu.h": "6570d4981178a3606c03ea4778f8f02b7d5af24f2fd0116317581bd798611d56",
+    "ios16/giulia_gpu_memory.h": "a881909805efcfb3322697d61e45c0f4c9be09b483cd87b9019ce6ec88b3e94a",
+    "ios16/giulia_gpu_mmio.c": "5c11d738bc1b754a0086b3e4a95693a417b460f249e4cdb0cc23dc570d5cf8ae",
+    "ios16/giulia_gpu_pack.h": "bdbb6c84ece61253ca724626064887728b51faa6bcfea4030bef856b074e4f71",
+    "ios16/giulia_gpu_power.h": "9f2f1496cefb8f24f2f115abf1a6fb34250f5bc597d6437d20ff6281a91e5e8d",
+    "ios16/giulia_gpu_power_control.h": "d312dcf00457db387ecd4c847fe4985d3ccbad6fa1565efdebb0ba940a058be9",
+    "ios16/giulia_gpu_program.c": "d9a64c889484974a4ab992f1dee0fb4702369c97bdb0185e2a7611a2cb0a9553",
+    "ios16/giulia_gpu_smmu.h": "1702188745bf6ea57c60438fed91b35253ad2e8a6be16dc5ed77dfed1b1a0a10",
+    "ios16/giulia_gpu_streams.c": "b620e28a203b4a80842a76f3c69faace577c9a7c65284026a336f2c5d0a455cc",
+    "ios16/giulia_gpu_tables.c": "9003b9d8a8db650c4841d7c0ca904ffaec0382d2f6d48b7a620721377384930b",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4K.c": "0adb19b483e56e723014ed6cfe2c29f9d9735ae2770f62cf0057b22937dbd157",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4K.h": "e25063b9134afc7eb79e7c030bc2858608cf0ade5da714d5dfd600fee5007e8e",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KContext.c": "b8e32e32d1f07e71de65f31b12963ab8b01c05755f8c60c2d6f40cb03fe4eca8",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KContext.h": "c842e78f37eab2e7cbba28cb89f4b993d9202503e75fee9e49a871101b936e53",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KMmio.c": "439e6b50a3431c607611aa3b9af1f4f548e53b2fa1c452645a458c0606f7df38",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KMmio.h": "face552cf67de969e8e741c0195496949f2c62b418d973e4d71a02f18ab83109",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KProgram.c": "3b1d4911b0a48f90b09c721ffd2eb95dbfc02e96165009b23f8c98841f36e2b0",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KProgram.h": "171900c3ed400b805c3a1587959f66bc4a19db18aedc8111e862651a90bb8d8f",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KStreams.c": "359610de6974c1885b4b7bbf72e6b321a013e1cc44200e1a8f566d09722c009a",
+    "ios16/vendor/ArmSmmu4K/ArmSmmu4KStreams.h": "1cfca0b4e3acba420cc829098b52d61c4905ec64d2aa57883dedae9dfb212969",
+    "ios16/vendor/ArmSmmu4K/LICENSE": "7a730b868c1ff986cdfc210a7b140ab4e0a31bf7db1d15db901427973efaa70f",
+    "ios16/vendor/ArmSmmu4K/SOURCE.json": "241efc7b63f8e06643ca0ad61dfe9543c3aac1981bcb7024ff061f3833812bf3",
+    "ios16/vendor/ArmSmmu4K/test_context.c": "6d6140bdb005356d3dda7eb5b13039e74df0d175b21d3f0e35476e7602120db5",
+    "ios16/vendor/ArmSmmu4K/test_program.c": "7d12ed73d1ebd579188c248903b6000d5e54ced3b527ba5b19efd0b9a6970ea1",
+    "ios16/vendor/ArmSmmu4K/test_streams.c": "f6c656db6964743295b83105cd0d6331670cc3a73cfc1581faba06ff3e64595a",
+    "ios16/vendor/ArmSmmu4K/test_tables.c": "6fbd816805a4e2557f90faee334f3ad57526220ea03456d4cf3618d28d259d35",
+    "scripts/ios16_gpu_patch.py": "933dec41042e354ff33a433e21ec4e3a99fa9c24db6b539e799766d9478c0252",
+    "scripts/test-ios16-gpu.sh": "cf6c187d67dfa8455d71af39d0456bf4b857ff834a070a48af7eddac11459e01"
+  }
+}

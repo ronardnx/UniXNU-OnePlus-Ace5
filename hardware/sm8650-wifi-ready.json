@@ -1,0 +1,141 @@
+{
+  "date": "2026-10-23",
+  "status": "Firmware stays in AMSS/M0; only REQUEST_MEM and FW_MEM_READY indications before current startup wait expires",
+  "build": {
+    "commit": "104664ac9e204853f90a56b0d4b777e727043373",
+    "run": 39824696813,
+    "conclusion": "success",
+    "artifact_id": 12446246931,
+    "artifact_sha256": "20b689d7a5d85a97b09e0f86be29650de5af22532f7cf1830e13ece6c3c51eef"
+  },
+  "image_sha256": "0ba6b7deaa32fb32a6ed72f23245eae9be0e109feaf5c0726f93ff3ff296cd06",
+  "log": "out/ios16/wifi-qmi-state-test-1/20261023-014444-541642/device-000.log",
+  "log_sha256": "064d361eda93c4d0c79c5f7cc8b8bcd392bad6174659dd4e8909c7736ed64e3f",
+  "elapsed_ms": 13626,
+  "indications": [
+    53,
+    55
+  ],
+  "unknown_indications": 0,
+  "mhi_status": "0x201",
+  "execution_environment": 2,
+  "smmu_fsr_before": "0x400",
+  "smmu_fsr_after": "0x400",
+  "smmu_fault_bits": 0,
+  "aer_uncorrectable": 0,
+  "aer_correctable": 0,
+  "pmu": [
+    {
+      "index": 0,
+      "pin": "VDD_PMU_AON_I",
+      "wake_valid": 1,
+      "wake_mv": 850,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 1,
+      "pin": "VDD095_PMU",
+      "wake_valid": 1,
+      "wake_mv": 930,
+      "sleep_valid": 1,
+      "sleep_mv": 420
+    },
+    {
+      "index": 2,
+      "pin": "VDD095_MX_PMU",
+      "wake_valid": 1,
+      "wake_mv": 950,
+      "sleep_valid": 1,
+      "sleep_mv": 796
+    },
+    {
+      "index": 3,
+      "pin": "VDD095_PMU_BT",
+      "wake_valid": 1,
+      "wake_mv": 900,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 4,
+      "pin": "VDD09_PMU_RFA_I",
+      "wake_valid": 1,
+      "wake_mv": 850,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 5,
+      "pin": "VDD13_PMU_PCIE_I",
+      "wake_valid": 1,
+      "wake_mv": 1025,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 6,
+      "pin": "VDD13_PMU_RFA_I",
+      "wake_valid": 1,
+      "wake_mv": 1300,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 7,
+      "pin": "VDD19_PMU_PCIE_I",
+      "wake_valid": 1,
+      "wake_mv": 1850,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    },
+    {
+      "index": 8,
+      "pin": "VDD19_PMU_RFA_I",
+      "wake_valid": 1,
+      "wake_mv": 1850,
+      "sleep_valid": 0,
+      "sleep_mv": 0
+    }
+  ],
+  "wake_comparison": [
+    {
+      "resource": "s3c",
+      "required_wake_mV": 914,
+      "fixed_active_floor_mV": 916
+    },
+    {
+      "resource": "s4i",
+      "required_wake_mV": 946,
+      "fixed_active_floor_mV": 940
+    },
+    {
+      "resource": "s2c",
+      "required_wake_mV": 966,
+      "fixed_active_floor_mV": 976
+    },
+    {
+      "resource": "s1c",
+      "required_wake_mV": 1314,
+      "fixed_active_floor_mV": 1316
+    },
+    {
+      "resource": "s6c",
+      "required_wake_mV": 1866,
+      "fixed_active_floor_mV": 1864
+    }
+  ],
+  "wake_comparison_limit": "Existing higher cached ACTIVE votes are preserved; these floors are not measured effective voltages. No voltage changes made.",
+  "qmp": {
+    "base": "0x0c300000",
+    "magic": "0x4d41494c",
+    "version": 1,
+    "aop_link": "UP",
+    "aop_channel": "UP",
+    "hlos_link": "UP",
+    "hlos_channel": "DOWN",
+    "host_size": "0x2d8",
+    "host_offset": "0x128"
+  },
+  "next_experiment": "Separate 10-second RPC deadlines from a 40-second mission initialization observation window, with monotonic phase timings."
+}

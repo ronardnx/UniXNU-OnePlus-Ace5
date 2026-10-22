@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-22",
+  "image_sha256": "fe41888f19e753289ad9f3f423a97bbc1de41be3f75190f277cbd7ccff724c27",
+  "source": "user screen photo plus exact-image ARM64 disassembly",
+  "panic": "Unaligned kernel data abort",
+  "pc": "0xfffffe0007a75ef8",
+  "lr": "0xfffffe0007a75d3c",
+  "esr": "0x96000061",
+  "instruction": "stur wzr, [x14, #-4]",
+  "location": "gwm_boot inlined into gw_worker; BHIE vector length gwm_put64",
+  "cause": "The compiler merged four zero byte stores into an unaligned 32-bit store at vector-entry + 11; the uncached DMA mapping enforces device-memory alignment",
+  "pci_link": true,
+  "pci_enumerated": true,
+  "smmu_ready": true,
+  "msi_ready": true,
+  "mhi_probe_result": 0,
+  "device_soc": "0x40170200",
+  "device_major": 2,
+  "device_execution_environment": 0,
+  "bus_master_enabled_before_panic": false,
+  "fix": "Volatile byte accesses for MHI copy/zero/put32/put64, QMI wire reads/writes/copies and CE clearing",
+  "validation": [
+    "32 unaligned offsets with exact lengths and guard bytes",
+    "AArch64 -O2 and -O3 inspection rejects all non-byte loads/stores in wire helper wrappers",
+    "Existing MHI/QMI/CE/WMI models pass"
+  ],
+  "hardware_tested_after_fix": true,
+  "hardware_validation": {
+    "image_sha256": "e454e548fa8fa0373b54ab1d005a42b20628ded6b0860891a88dd7018e3ca710",
+    "log": "out/ios16/wifi-terminal-byte-test-1/20261022-191712-934781/device-000.log",
+    "dma_preparation_completed": true,
+    "next_blocker": "Root-port Bus Master disabled; see sm8650-wifi-root-master.json"
+  }
+}

@@ -7,6 +7,12 @@ struct fixture {
     struct gwq_state s;struct gwq_io io;
     unsigned phase,requests,chunks[5],resumes,drop,wrong_id,remote_fail,secure,missing_board;
     unsigned corrupt,fail_asset,fail_alloc,overlap,allocs,modes,configs;
+    unsigned missing_chip,chip_bytes,board_bytes,board_id,asset_calls;
+    unsigned legacy_ready_only,ready_in_response;
+    unsigned pmu_present,pmu_count,pmu_truncated,pmu_extra,pmu_bad_flag,pmu_bad_name,pmu_full_name;
+    unsigned delay_message,pump_step_ms,drop_server;
+    unsigned late_indication_batch,late_protocol_error;
+    uint64_t clock_ms,server_at_ms,memory_at_ms,ready_at_ms,response_delay_ms,ready_tail_ms;
     size_t offset[5],used;uint8_t reg[6201],board[12301],phy[299660],ram[1048576];
 };
 static int packet(struct fixture *f,unsigned type,const void *payload,size_t n,unsigned confirm,int v3) {
@@ -42,7 +48,7 @@ static int send_packet(void *ctx,const void *v,size_t n) {
     if(msg==0x25) {
         a=gwq_field(t,len,0x15,&z);assert(a&&z==1);unsigned kind=*a;assert(kind==1||kind==4);
         const uint8_t *source=kind==1?f->board:f->reg;size_t size=kind==1?sizeof(f->board):sizeof(f->reg);
-        a=gwq_field(t,len,0x10,&z);assert(a&&z==4&&gwq_u32(a)==0xff);
+        a=gwq_field(t,len,0x10,&z);assert(a&&z==4&&gwq_u32(a)==f->board_id);
         a=gwq_field(t,len,0x11,&z);assert(a&&z==4&&gwq_u32(a)==size-f->offset[kind]);
         a=gwq_field(t,len,0x12,&z);assert(a&&z==4&&gwq_u32(a)==f->chunks[kind]);
         a=gwq_field(t,len,0x13,&z);assert(a&&z>=2&&gwq_u16(a)==z-2&&z<=6146);
@@ -57,27 +63,58 @@ static int send_packet(void *ctx,const void *v,size_t n) {
     }
     if(msg==0x23)f->configs++;
     if(msg==0x22){a=gwq_field(t,len,1,&z);assert(a&&z==4&&gwq_u32(a)==0);f->modes++;}
-    uint8_t reply[512]={2};gwq_w16(reply+1,(uint16_t)(gwq_u16(p+33)+f->wrong_id));gwq_w16(reply+3,(uint16_t)msg);
+    uint8_t reply[1024]={2};gwq_w16(reply+1,(uint16_t)(gwq_u16(p+33)+f->wrong_id));gwq_w16(reply+3,(uint16_t)msg);
     size_t bytes=0;uint8_t result[4]={0};if(f->remote_fail){result[0]=1;result[2]=0x34;}
     gwq_tlv(reply+7,sizeof(reply)-7,&bytes,2,result,4);
     if(msg==0x24) {
-        uint8_t b[8]={0};gwq_w32(b,0x1234);gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x10,b,8);
-        gwq_w32(b,0xff);if(!f->missing_board)gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x11,b,4);
+        /* Optional flags live in the host C struct, never in these wire TLVs. */
+        uint8_t b[12]={0};gwq_w32(b,0x1234);gwq_w32(b+4,0x55667788);
+        if(!f->missing_chip)gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x10,b,f->chip_bytes);
+        gwq_w32(b,f->board_id);
+        if(!f->missing_board)gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x11,b,f->board_bytes);
+        if(f->pmu_present) {
+            uint8_t pmu[1+17*48+1]={0};assert(f->pmu_count<=17);pmu[0]=(uint8_t)f->pmu_count;
+            for(unsigned i=0;i<f->pmu_count;i++) {
+                uint8_t *e=pmu+1+48*i;memcpy(e,"VDD095_MX_PMU",13);
+                if(f->pmu_full_name)memset(e,'P',32);
+                if(f->pmu_bad_name)e[0]='\n';
+                gwq_w32(e+32,f->pmu_bad_flag?2:1);gwq_w32(e+36,976+i);
+                gwq_w32(e+40,i&1);gwq_w32(e+44,512+i);
+            }
+            size_t pn=1+48*f->pmu_count-f->pmu_truncated+f->pmu_extra;
+            assert(gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x22,pmu,pn));
+        }
     }
     if(f->corrupt)reply[8]=255;
-    gwq_w16(reply+5,(uint16_t)bytes);return packet(f,1,reply,7+bytes,0,0);
+    if(msg==f->delay_message)f->clock_ms+=f->response_delay_ms;
+    gwq_w16(reply+5,(uint16_t)bytes);int error=packet(f,1,reply,7+bytes,0,0);
+    if(!error && msg==0x3c && f->ready_in_response) {
+        f->phase=40;return indication(f,0x38,NULL,0);
+    }
+    return error;
 }
 static int pump(void *ctx,unsigned us) {
-    struct fixture *f=ctx;assert(us==1000);
+    struct fixture *f=ctx;assert(us==1000);f->clock_ms+=f->pump_step_ms;
+    if(f->phase==0 && (f->drop_server || f->clock_ms<f->server_at_ms))return 0;
     if(f->phase==0){uint8_t b[20]={0};gwq_w32(b,4);gwq_w32(b+4,0x45);gwq_w32(b+8,0x101);
         gwq_w32(b+12,2);gwq_w32(b+16,0x1234);f->phase=1;return packet(f,4,b,20,0,1);}
     if(f->phase==2){uint8_t b[40]={1,32,0,2}; /* TLV 1: count and two segments, first has cfg */
         gwq_w32(b+4,65536);gwq_w32(b+8,1);b[12]=1;gwq_w64(b+13,0);gwq_w32(b+21,65536);b[25]=(uint8_t)f->secure;
         gwq_w32(b+26,4096);gwq_w32(b+30,2);b[34]=0;f->phase=20;return indication(f,0x35,b,35);}
-    if(f->phase==3){f->phase=30;return indication(f,0x37,NULL,0);}
-    if(f->phase==4){f->phase=40;return indication(f,0x38,NULL,0);}
+    if(f->phase==3 && f->clock_ms>=f->memory_at_ms){f->phase=30;return indication(f,0x37,NULL,0);}
+    if(f->phase==4 && f->clock_ms>=f->ready_at_ms){
+        f->phase=40;int error=indication(f,f->legacy_ready_only?0x21:0x38,NULL,0);
+        f->clock_ms+=f->ready_tail_ms;
+        if(!error && f->late_indication_batch) {
+            error=indication(f,0x61,NULL,0);
+            if(!error){f->clock_ms++;error=indication(f,0x38,NULL,0);}
+            if(!error && f->late_protocol_error)error=indication(f,0x35,NULL,0);
+        }
+        return error;
+    }
     return 0;
 }
+static uint64_t now_ms(void *ctx){return ((struct fixture *)ctx)->clock_ms;}
 static int allocate(void *ctx,size_t size,uint64_t *pa,void **va) {
     struct fixture *f=ctx;if(f->fail_alloc)return 1;
     size_t start=(f->used+4095)&~(size_t)4095;if(f->overlap)start=0;
@@ -86,12 +123,14 @@ static int allocate(void *ctx,size_t size,uint64_t *pa,void **va) {
 }
 static void clean(void *ctx,const void *v,size_t n){struct fixture *f=ctx;assert((const uint8_t *)v>=f->ram && (const uint8_t *)v+n<=f->ram+sizeof(f->ram));}
 static int asset(void *ctx,unsigned kind,unsigned major,uint32_t chip,uint32_t board,const void **v,size_t *n) {
-    struct fixture *f=ctx;assert(major==2 && chip==0x1234 && board==0xff);if(f->fail_asset)return 1;
+    struct fixture *f=ctx;assert(major==2 && chip==0x1234 && board==f->board_id);f->asset_calls++;if(f->fail_asset)return 1;
     if(kind==GWQ_REGDB){*v=f->reg;*n=sizeof(f->reg);}else if(kind==GWQ_BOARD){*v=f->board;*n=sizeof(f->board);}
     else{assert(kind==GWQ_PHY);*v=f->phy;*n=sizeof(f->phy);}return 0;
 }
 static struct fixture *make(void) {
-    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->io=(struct gwq_io){f,send_packet,pump,allocate,clean,asset,0x20000000,sizeof(f->ram)};
+    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->io=(struct gwq_io){f,send_packet,pump,allocate,clean,asset,0x20000000,sizeof(f->ram),now_ms};
+    f->chip_bytes=8;f->board_bytes=4;f->board_id=0xff;
+    f->pump_step_ms=1;
     for(size_t i=0;i<sizeof(f->reg);i++)f->reg[i]=(uint8_t)(i*7);
     for(size_t i=0;i<sizeof(f->board);i++)f->board[i]=(uint8_t)(i*11);
     for(size_t i=0;i<sizeof(f->phy);i++)f->phy[i]=(uint8_t)(i*13);
@@ -100,13 +139,120 @@ static struct fixture *make(void) {
 int main(void) {
     struct fixture *f=make();assert(!gwq_initialize(&f->s,&f->io,2));
     assert(f->s.provisioned && f->s.fw_ready && f->chunks[4]==2 && f->chunks[1]==3 && f->resumes==3 && f->allocs==2);
+    assert(f->s.cap_response_bytes==25 && f->s.chip_info_present && f->s.chip_info_bytes==8);
+    assert(f->s.chip_family==0x55667788 && f->s.board_info_present && f->s.board_info_bytes==4 && !f->s.board_default);
+    assert(f->s.indication_count==3 && !f->s.unknown_indications && f->s.last_indication==0x38);
+    assert(f->s.indication_mask==((1ull<<0x35)|(1ull<<0x37)|(1ull<<0x38)));
+    assert(!f->s.pmu_present && !f->s.pmu_valid);
+    assert(!f->s.initializing && f->s.timeout_phase==GWQ_TIMEOUT_NONE);
+    assert(f->s.host_cap_ms==1 && f->s.memory_ready_ms==3 && f->s.cap_ms==3 && f->s.m3_ms==3 && f->s.fw_ready_ms==4);
+    assert(f->s.elapsed_ms==4);
     uint8_t pipes[20]={0},svc[12]={0};assert(!gwq_configure(&f->s,&f->io,pipes,1,svc,1));assert(f->configs==1&&f->modes==1);free(f);
     unsigned *flag;for(unsigned i=0;i<9;i++) {
         f=make();switch(i){case 0:flag=&f->drop;break;case 1:flag=&f->wrong_id;break;case 2:flag=&f->remote_fail;break;
-            case 3:flag=&f->secure;break;case 4:flag=&f->missing_board;break;case 5:flag=&f->corrupt;break;
+            case 3:flag=&f->secure;break;case 4:flag=&f->missing_chip;break;case 5:flag=&f->corrupt;break;
             case 6:flag=&f->fail_asset;break;case 7:flag=&f->fail_alloc;break;default:flag=&f->overlap;break;}
         *flag=1;assert(gwq_initialize(&f->s,&f->io,2));assert(!f->s.provisioned && !f->modes);
         if(i==3)assert(!f->allocs);if(i==2)assert(f->s.remote_error==0x10034);free(f);
+    }
+    /* Match the vendor's absent-board semantics while preserving a reported
+     * board exactly. Missing-chip and malformed-present fields remain fatal. */
+    f=make();f->missing_board=1;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.cap_response_bytes==18 && f->s.chip_info_present && f->s.chip_info_bytes==8);
+    assert(!f->s.board_info_present && !f->s.board_info_bytes && f->s.board_default && f->s.board==0xff);
+    assert(f->s.provisioned && f->asset_calls==3);free(f);
+    f=make();f->board_id=0x123;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.board==0x123 && !f->s.board_default);free(f);
+    for(unsigned which=0;which<2;which++)for(unsigned size=0;size<=9;size++) {
+        if(size==(which?4u:8u))continue;
+        f=make();if(which)f->board_bytes=size;else f->chip_bytes=size;
+        assert(gwq_initialize(&f->s,&f->io,2)==GWQ_IDENTITY && !f->s.provisioned && !f->asset_calls);
+        assert(f->s.chip_info_present && f->s.chip_info_bytes==f->chip_bytes);
+        assert(f->s.board_info_present && f->s.board_info_bytes==f->board_bytes && !f->s.board_default);free(f);
+    }
+    f=make();f->missing_chip=1;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_IDENTITY);
+    assert(!f->s.chip_info_present && !f->s.chip_info_bytes && f->s.board_info_present && !f->asset_calls);free(f);
+    f=make();f->missing_board=f->fail_asset=1;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_ASSET);
+    assert(f->s.board_default && f->asset_calls==1 && !f->s.provisioned);free(f);
+    f=make();f->legacy_ready_only=1;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR);
+    assert(f->s.provisioned && !f->s.fw_ready && f->s.last_message==0x3c);
+    assert(f->s.timeout_phase==GWQ_TIMEOUT_MISSION && f->s.elapsed_ms==GWQ_MISSION_TIMEOUT && !f->s.initializing);
+    assert(f->s.indication_count==3 && f->s.last_indication==0x21 && f->s.unknown_indications==1);
+    assert(f->s.last_unknown_indication==0x21 && (f->s.indication_mask&(1ull<<0x21)));free(f);
+    /* A ready indication may share a poll batch with the M3 response; it must
+     * survive until gwq_provision marks the completed request as provisioned. */
+    f=make();f->ready_in_response=1;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.provisioned && f->s.fw_ready && f->s.indication_count==3);free(f);
+    /* Mission readiness gets the vendor's 40-second overall deadline while
+     * every individual RPC and QRTR discovery still expires after 10 seconds.
+     * Count real monotonic time, not nominal one-ms polling iterations. */
+    f=make();f->clock_ms=1000000;f->ready_at_ms=f->clock_ms+20000;
+    assert(!gwq_initialize(&f->s,&f->io,2) && f->s.elapsed_ms==20000 && f->s.fw_ready_ms==20000);
+    assert(f->s.mission_started_ms==1000000 && f->s.m3_ms==3);free(f);
+    f=make();f->ready_at_ms=GWQ_MISSION_TIMEOUT-1;f->ready_tail_ms=2;
+    assert(!gwq_initialize(&f->s,&f->io,2) && f->s.fw_ready_ms==39999 && f->s.elapsed_ms==40001);
+    f->clock_ms+=GWQ_MISSION_TIMEOUT;
+    assert(!gwq_configure(&f->s,&f->io,pipes,1,svc,1) && f->s.configured);free(f);
+    /* One actual polling batch completes at 39,999 ms, then delivers an
+     * unrelated indication and a duplicate ready after the deadline. */
+    f=make();f->ready_at_ms=39999;f->ready_tail_ms=2;f->late_indication_batch=1;
+    assert(!gwq_initialize(&f->s,&f->io,2) && f->s.timeout_phase==GWQ_TIMEOUT_NONE);
+    assert(f->s.fw_ready_ms==39999 && f->s.elapsed_ms==40002 && f->s.indication_count==5);
+    assert(f->s.unknown_indications==1 && f->s.last_unknown_indication==0x61);free(f);
+    /* Completion only disarms the deadline: a later illegal memory request
+     * still fails protocol state checks, including within that same batch. */
+    f=make();f->ready_at_ms=39999;f->ready_tail_ms=2;f->late_indication_batch=f->late_protocol_error=1;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_STATE && f->s.timeout_phase==GWQ_TIMEOUT_NONE);
+    assert(f->s.fw_ready_ms==39999 && f->s.elapsed_ms==40002);free(f);
+    f=make();f->ready_at_ms=GWQ_MISSION_TIMEOUT;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR && !f->s.fw_ready);
+    assert(f->s.timeout_phase==GWQ_TIMEOUT_MISSION && f->s.fw_ready_ms==40000);free(f);
+    f=make();f->legacy_ready_only=1;f->pump_step_ms=7;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR);
+    assert(f->s.elapsed_ms>=40000 && f->s.elapsed_ms<40007 && f->s.timeout_phase==GWQ_TIMEOUT_MISSION);free(f);
+    for(unsigned ms=9999;ms<=10000;ms++) {
+        f=make();f->delay_message=0x20;f->response_delay_ms=ms;
+        int result=gwq_initialize(&f->s,&f->io,2);
+        if(ms==9999)assert(!result && f->s.host_cap_ms==10000);
+        else assert(result==GWQ_TIMEOUT_ERROR && f->s.timeout_phase==GWQ_TIMEOUT_RPC && f->s.rpc_elapsed_ms==10000);
+        free(f);
+    }
+    f=make();f->memory_at_ms=35000;f->delay_message=0x3c;f->response_delay_ms=6000;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR && f->s.timeout_phase==GWQ_TIMEOUT_MISSION);
+    assert(f->s.rpc_elapsed_ms==6000 && !f->s.provisioned && f->s.elapsed_ms==41000);free(f);
+    for(unsigned ms=9999;ms<=10000;ms++) {
+        f=make();f->server_at_ms=ms;int result=gwq_initialize(&f->s,&f->io,2);
+        if(ms==9999)assert(!result);
+        else assert(result==GWQ_TIMEOUT_ERROR && f->s.timeout_phase==GWQ_TIMEOUT_SERVER && !f->requests);
+        free(f);
+    }
+    f=make();f->drop_server=1;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_TIMEOUT_ERROR);
+    assert(f->s.timeout_phase==GWQ_TIMEOUT_SERVER && f->s.elapsed_ms==10000);free(f);
+    f=make();f->io.now=NULL;assert(gwq_initialize(&f->s,&f->io,2)==GWQ_ARGUMENT && !f->requests);free(f);
+    /* Real CAP power metadata uses fixed-width fields, including values whose
+     * valid flag is zero. Retain these as diagnostics without applying power. */
+    f=make();f->pmu_present=1;f->pmu_count=2;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.pmu_present && f->s.pmu_valid && f->s.pmu_bytes==97 && f->s.pmu_count==2);
+    assert(!strcmp(f->s.pmu[0].pin_name,"VDD095_MX_PMU") && f->s.pmu[0].wake_valid==1 && f->s.pmu[0].wake_mv==976);
+    assert(f->s.pmu[0].sleep_valid==0 && f->s.pmu[0].sleep_mv==512);
+    assert(f->s.pmu[1].sleep_valid==1 && f->s.pmu[1].sleep_mv==513);free(f);
+    f=make();f->pmu_present=f->pmu_full_name=1;f->pmu_count=16;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.pmu_valid && f->s.pmu_count==16 && strlen(f->s.pmu[15].pin_name)==32);
+    assert(f->s.pmu[15].wake_mv==991);free(f);
+    f=make();f->pmu_present=1;assert(!gwq_initialize(&f->s,&f->io,2));
+    assert(f->s.pmu_valid && f->s.pmu_bytes==1 && !f->s.pmu_count);free(f);
+    for(unsigned i=0;i<6;i++) {
+        f=make();f->pmu_present=1;f->pmu_count=1;
+        switch(i) {
+            case 0:f->pmu_truncated=1;break;
+            case 1:f->pmu_extra=1;break;
+            case 2:f->pmu_count=17;break;
+            case 3:f->pmu_bad_flag=1;break;
+            case 4:f->pmu_bad_name=1;break;
+            default:f->pmu_count=0;f->pmu_truncated=1;break;
+        }
+        assert(gwq_initialize(&f->s,&f->io,2)==GWQ_WIRE && f->s.pmu_present && !f->s.pmu_valid);
+        assert(!f->s.provisioned && !f->asset_calls);free(f);
     }
     /* Reject malformed framing, duplicate TLVs, wrong service and reordered
      * firmware indications, without allocating or accepting false readiness. */
@@ -114,8 +260,11 @@ int main(void) {
     assert(!gwq_tlvs(dup,2));assert(!gwq_tlvs(dup,6));
     for(unsigned i=0;i<32;i++){f=make();uint8_t b[32]={1};assert(gwq_receive(&f->s,&f->io,b,i));free(f);}
     f=make();f->s.server=1;f->s.node=2;f->s.port=0x1234;assert(indication(f,0x38,NULL,0)==GWQ_STATE);free(f);
+    f=make();f->s.server=1;f->s.node=2;f->s.port=0x1234;
+    assert(!indication(f,0x61,NULL,0) && f->s.indication_count==1 && f->s.unknown_indications==1);
+    assert(f->s.last_unknown_indication==0x61 && !f->s.indication_mask && !f->s.fw_ready);free(f);
     f=make();uint8_t bad[20]={0};gwq_w32(bad,4);gwq_w32(bad+4,0x45);gwq_w32(bad+8,0x201);
     gwq_w32(bad+12,2);gwq_w32(bad+16,123);assert(!packet(f,4,bad,20,0,0)&&!f->s.server);free(f);
-    puts("QRTR/QMI: complete firmware exchange, segmented assets, DMA ownership and malformed/failure cases passed");
+    puts("QRTR/QMI: complete firmware exchange, vendor optional-board semantics, identity diagnostics, segmented assets, DMA ownership and malformed/failure cases passed");
     return 0;
 }

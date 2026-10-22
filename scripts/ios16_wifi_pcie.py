@@ -122,6 +122,16 @@ def decode_reports(data):
                  endpoint_identified=ready,firmware_loaded=False,scan_supported=False,
                  observation_scope='UEFI before ExitBootServices; not an XNU runtime link test',
                  retained_rail_names=[n for i,n in enumerate(RAILS) if r['retained_rails']&(1<<i)])
+        if prepared:
+            r['endpoint_registers_sampled']=False
+            r['pin_readback'].pop('sw_ctrl',None);r['pin_readback'].pop('wlan_sw_ctrl',None)
+            r['pdc_wake_routes']={'before_sw_ctrl_intr_cfg':r['sw_ctrl'],'before_wlan_sw_ctrl_intr_cfg':r['wlan_sw_ctrl'],
+                'sw_ctrl_intr_cfg':r['bar0'],'wlan_sw_ctrl_intr_cfg':r['bar1'],
+                'both_enabled':r['bar0']!=0xffffffff and r['bar1']!=0xffffffff and (r['bar0']&192)==192 and (r['bar1']&192)==192}
+        if r['stage']==5 and r['detail'] in (0x5008,0x6008):
+            r['resource']='GPIO18 SW_CTRL PDC wake route' if r['detail']==0x5008 else 'GPIO19 WLAN_SW_CTRL PDC wake route'
+            r['wake_intr_cfg_readback']=r['bar0'] if r['detail']==0x5008 else r['bar1']
+            r['endpoint_registers_sampled']=False
         if version>=5 and not r['device'] and r['error'] and r.get('command',0)&0xffffff00==0xce570000:
             r['cesta_cleanup_failure']={'error':r['command']&255,'region':r['bar0']>>24,
                 'offset':hex(r['bar0']&65535),'value':hex(r['bar1'])}

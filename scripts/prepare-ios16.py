@@ -9,6 +9,8 @@ import json
 import difflib
 from pathlib import Path
 from ios16_display import native_display_patch
+from ios16_gpu_patch import gpu_patch
+from ios16_terminal import terminal_sources, debug_trust_source
 
 def edit(path, old, new, count=1):
     text = path.read_text(errors='surrogateescape')
@@ -24,9 +26,14 @@ def main():
     p.add_argument('--gui', action='store_true', help='Include bounded display/surface/HID compatibility services')
     p.add_argument('--touch', action='store_true', help='Include opt-in Ace 5 TouchCom v1 hardware bring-up')
     p.add_argument('--wifi', action='store_true', help='Include WCN7850 PCIe/MHI/QMI/WMI passive scan transport and iOS16 IO80211 service')
+    p.add_argument('--gpu', action='store_true', help='Include opt-in A750 firmware/host-memory preparation and gated power observation; not acceleration')
+    p.add_argument('--debug-userland', type=Path, help='Exact signed debug daemon/shell manifest from offline staging')
     a = p.parse_args()
     if a.touch and not a.gui:p.error('--touch requires --gui')
     if a.wifi and not a.gui:p.error('--wifi requires --gui')
+    if a.gpu and not a.gui:p.error('--gpu requires --gui')
+    if a.debug_userland and not a.gui:p.error('--debug-userland requires --gui')
+    debug_trust=debug_trust_source(a.debug_userland) if a.debug_userland else None
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
     if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
         raise RuntimeError('Unpinned reference checkout')
@@ -100,6 +107,7 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
+    terminal_sources(usb, block, edit, wifi=a.wifi)
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -120,6 +128,12 @@ def main():
             text=text.replace('x > 1439 ? 1439','x > 1263 ? 1263').replace('y > 3199 ? 3199','y > 2779 ? 2779')
             text=text.replace('K70 framebuffer','Ace 5 framebuffer').replace('K70 panel','Ace 5 panel')
         path.write_text(text,errors='surrogateescape')
+    # Shared ARM cache-attribute path, used by both Wi-Fi and display buffers.
+    # Ace 5 RAM lives above 4 GiB: widen ppnum_t before the physical-page shift.
+    cache_patch='0081-giulia-pmap-high-physical-cache-sync.patch'
+    shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/cache_patch,a.out/cache_patch)
+    reboot_patch='0082-giulia-fastboot-reboot.patch'
+    shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/reboot_patch,a.out/reboot_patch)
     if a.touch:
         patch=('--- a/bsd/conf/files\n+++ b/bsd/conf/files\n@@ -109,4 +109,5 @@\n'
                ' bsd/dev/vermeer_usb_debug.c\t\tstandard\n'
@@ -158,6 +172,13 @@ def main():
                  '     "   {"\n')
         for name in ('GiuliaAMFI.cpp', 'giulia_trust_catalog.h'):
             data = (Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
+            if name=='GiuliaAMFI.cpp' and debug_trust:
+                anchor='class AppleMobileFileIntegrity : public IOService {'
+                expression='return gtc_contains(&view, hash, length) != 0;'
+                if data.count(anchor)!=1 or data.count(expression)!=1:
+                    raise ValueError('AMFI debug trust integration source drift')
+                data=data.replace(anchor,debug_trust+'\n'+anchor).replace(expression,
+                    'return giulia_debug_trusted(hash, length) || gtc_contains(&view, hash, length) != 0;')
             data = data.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
             patch += ''.join(difflib.unified_diff([], data.splitlines(True),
                               fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
@@ -190,8 +211,16 @@ def main():
                 patch += ''.join(difflib.unified_diff([], data.splitlines(True),
                                  fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
             (a.out/'0076-giulia-wifi-runtime.patch').write_text(patch)
+        if a.gpu:
+            gpu_patch(a.out, Path(__file__).resolve().parents[1])
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
+    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'terminal-requirements.txt'):
+        shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
+    shutil.copytree(Path(__file__).resolve().parents[1]/'ios16/userland',a.out/'userland')
+    shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
+    if a.debug_userland:
+        shutil.copyfile(a.debug_userland,a.out/'debug-userland.json')
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
     if a.gui:
         checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
@@ -199,9 +228,16 @@ def main():
                                 'native panel 1264x2780 full coverage; UIKit canvas 1125x2436')
     (a.out/'check-kernel.py').write_text(checker)
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
+        'usb_terminal_protocol':2,
+        'high_physical_cache_sync_fix':True,
+        'debug_userland_trust_included':bool(debug_trust),
+        'usb_terminal_host':'debug-terminal.cmd',
+        'usb_terminal_hardware_tested':False,
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'wifi_runtime_included':a.wifi,
+        'gpu_runtime_included':a.gpu,
+        'gpu_scope':'pinned firmware, GMU host-memory preparation, optional gated read-only power/SMMU observation; no GPU submission' if a.gpu else None,
         'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211; association/data path excluded' if a.wifi else None,
         'read_only_trust_catalog_query':a.gui,
         'complete_boot_logging_available':a.gui,

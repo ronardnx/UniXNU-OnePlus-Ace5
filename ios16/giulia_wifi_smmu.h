@@ -23,6 +23,7 @@ struct gws_state {
     unsigned cb,slot,changed,active,quarantined,error;
     uint32_t old_smr,old_s2cr,old_cbar,old_cba2r,old_registers[10],asid;
     uint64_t table_pa,arena_pa,iova,bytes;
+    unsigned check_offset;uint32_t check_value,check_expected;
 };
 static const unsigned gws_offsets[10]={0,0x10,0x20,0x24,0x28,0x2c,0x30,0x34,0x38,0x3c};
 static inline uint32_t gws_r(const struct gws_io *b,unsigned o){return b->read(b->context,o);}
@@ -56,35 +57,50 @@ static inline int gws_restore(const struct gws_io *b,struct gws_state *s)
     gws_w(b,0xc00+s->slot*4,0x20000);
     if(gws_r(b,0xc00+s->slot*4)!=0x20000) {s->quarantined=1;return GWS_RESTORE_FAILED;}
     gws_w(b,gws_cb(s->cb),0);
+    if(gws_r(b,gws_cb(s->cb))!=0) {s->quarantined=1;return GWS_RESTORE_FAILED;}
     if(!gws_sync(b,s->cb,s->asid)) {s->quarantined=1;return GWS_TLB_TIMEOUT;}
-    for(unsigned i=1;i<10;i++) gws_w(b,gws_cb(s->cb)+gws_offsets[i],s->old_registers[i]);
-    gws_w(b,0x1000+s->cb*4,s->old_cbar);gws_w(b,0x1800+s->cb*4,s->old_cba2r);
-    gws_w(b,gws_cb(s->cb),s->old_registers[0]);
+    /* This bank was unused and disabled when claimed. Like the vendor driver's
+     * context teardown, release it with SCTLR=0 instead of restoring reset
+     * CBAR/CBA2R values. Writing the original CBAR=0 requests a stage-2 type
+     * and aborts on this device's mediated register interface. No stream may
+     * reference the disabled bank after the following route restoration.
+     */
     /* An originally unused SMR must become invalid before restoring S2CR. */
     gws_w(b,0x800+s->slot*4,s->old_smr);
     gws_w(b,0xc00+s->slot*4,s->old_s2cr);
     if(gws_r(b,0x800+s->slot*4)!=s->old_smr || gws_r(b,0xc00+s->slot*4)!=s->old_s2cr ||
-       gws_r(b,0x1000+s->cb*4)!=s->old_cbar || gws_r(b,0x1800+s->cb*4)!=s->old_cba2r) {
-        s->quarantined=1;return GWS_RESTORE_FAILED;
-    }
-    for(unsigned i=0;i<10;i++) if(gws_r(b,gws_cb(s->cb)+gws_offsets[i])!=s->old_registers[i]) {
+       gws_r(b,gws_cb(s->cb))!=0) {
         s->quarantined=1;return GWS_RESTORE_FAILED;
     }
     s->active=0;s->changed=0;s->quarantined=0;return GWS_OK;
 }
-static inline int gws_live(const struct gws_io *b,const struct gws_state *s)
+static inline int gws_expect_mask(const struct gws_io *b,struct gws_state *s,unsigned offset,uint32_t expected,uint32_t mask)
+{
+    s->check_offset=offset;s->check_expected=expected;s->check_value=gws_r(b,offset);
+    return (s->check_value&mask)==(expected&mask);
+}
+static inline int gws_expect(const struct gws_io *b,struct gws_state *s,unsigned offset,uint32_t expected)
+{return gws_expect_mask(b,s,offset,expected,0xffffffffu);}
+static inline int gws_live(const struct gws_io *b,struct gws_state *s)
 {
     if(!s->active || s->quarantined)return 0;
     unsigned base=gws_cb(s->cb);
-    uint64_t ttbr=(uint64_t)gws_r(b,base+0x20)|((uint64_t)gws_r(b,base+0x24)<<32);
-    uint32_t smr=gws_r(b,0x800+s->slot*4);
-    return smr==((s->old_smr>>31)?s->old_smr:0x80001401u) &&
-      gws_r(b,0xc00+s->slot*4)==(0x02000000u|s->cb) &&
-      gws_r(b,0x1000+s->cb*4)==0x1f300 && gws_r(b,0x1800+s->cb*4)==1 &&
-      gws_r(b,base)==0x1127 && gws_r(b,base+0x10)==0x38011 &&
-      gws_r(b,base+0x30)==0x803520 && gws_r(b,base+0x38)==0xff &&
-      gws_r(b,base+0x28)==0 && gws_r(b,base+0x2c)==(s->asid<<16) && gws_r(b,base+0x3c)==0 &&
-      ttbr==(s->table_pa|((uint64_t)s->asid<<48));
+    uint64_t ttbr=s->table_pa|((uint64_t)s->asid<<48);
+    return gws_expect(b,s,0x800+s->slot*4,(s->old_smr>>31)?s->old_smr:0x80001401u) &&
+      gws_expect(b,s,0xc00+s->slot*4,0x02000000u|s->cb) &&
+      gws_expect(b,s,0x1000+s->cb*4,0x1f300) && gws_expect(b,s,0x1800+s->cb*4,1) &&
+      /* MMU-500 ASIDPNE may read zero despite a write of one. Our ASID is
+       * checked against every enabled bank before use, so a shared namespace
+       * cannot alias another context. TCR2.TBI[1:0] may read as ones; IDR2
+       * qualifies a 36-bit upstream address bus, whose top byte is always zero.
+       * Keep all translation-enable, address-size, root and attribute checks.
+       */
+      gws_expect_mask(b,s,base,0x1127,~0x1000u) &&
+      gws_expect_mask(b,s,base+0x10,0x38011,~0x60u) &&
+      gws_expect(b,s,base+0x30,0x803520) && gws_expect(b,s,base+0x38,0xff) &&
+      gws_expect(b,s,base+0x28,0) && gws_expect(b,s,base+0x2c,s->asid<<16) &&
+      gws_expect(b,s,base+0x3c,0) && gws_expect(b,s,base+0x20,(uint32_t)ttbr) &&
+      gws_expect(b,s,base+0x24,(uint32_t)(ttbr>>32));
 }
 static inline int gws_take(const struct gws_io *b,struct gws_state *s,uint64_t *tables,
                            uint64_t table_pa,uint64_t arena_pa,uint64_t iova,size_t bytes)

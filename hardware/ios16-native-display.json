@@ -1,14 +1,37 @@
 {
   "date": "2026-10-22",
   "request": "Fill the Ace 5 native display and adapt touch coordinates",
-  "physical_framebuffer": {"address": "0xd5100000", "width": 1264, "height": 2780, "stride": 5056},
-  "uikit_canvas": {"width": 1125, "height": 2436, "reason": "Retain the supported iOS16 D22 layout and status-bar provider"},
+  "physical_framebuffer": {
+    "address": "0xd5100000",
+    "width": 1264,
+    "height": 2780,
+    "stride": 5056
+  },
+  "uikit_canvas": {
+    "width": 1125,
+    "height": 2436,
+    "reason": "Retain the supported iOS16 D22 layout and status-bar provider"
+  },
   "previous_presentation": "Centered 1:1 canvas with unused panel borders",
   "new_presentation": "Scale both axes over the full native panel; independent bounded layer rectangles; no centered offset",
   "filter": "Nearest-neighbor software presentation; existing presentation rate retained",
   "touch": "Full panel normalized coordinates, including both physical edges; no centered-canvas subtraction",
   "pixel_format": "BGRA8888, confirmed in prior backboardd/Setup swap logs",
   "offline_verified": "All 3,513,920 output pixels, clipping, allocation bounds and touch monotonicity",
-  "hardware_verified": false,
-  "sources": ["ios16/giulia_display.h", "scripts/ios16_display.py", "tests/ios16_display.c"]
+  "hardware_verified": true,
+  "sources": [
+    "ios16/giulia_display.h",
+    "scripts/ios16_display.py",
+    "tests/ios16_display.c"
+  ],
+  "status": "Hardware confirmed: full panel coverage and correct touch alignment",
+  "integrated_image": {
+    "image": "out\\ios16\\wifi-native-display-boot\\giulia-ios16-wifi-pcie.img",
+    "sha256": "9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9",
+    "bytes": 69283840
+  },
+  "verification_report": "out/ios16/wifi-native-display-boot/verification.json",
+  "verification_scope": "Current Setup interface and user-tested edge touch; not all apps, orientations or display power states",
+  "user_feedback": "画面铺满，触控正常",
+  "latest_device_test": "hardware/ios16-wifi-native-display-test.json"
 }

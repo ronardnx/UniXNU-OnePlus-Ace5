@@ -7,6 +7,29 @@
 #define GIULIA_WIFI_PCIE_STOCK_H
 #include "WifiPcieStockConfig.h"
 
+/* pci-msm.c: msm_pcie_config_sid zeros all 256 BDF-to-SID words before use.
+ * The reset SRAM is not an empty table: real hardware returns arbitrary data.
+ * Only clear an unused/bypassed table while PERST and LTSSM keep the dedicated
+ * endpoint quiescent. XNU later publishes its owned entry and enables lookup.
+ */
+static int gw_initialize_sid_table(const struct gw_bus *b,struct gw_report *r)
+{
+  r->detail=0x2c00;
+  unsigned config=gw_read(b,GW_PARF,0x2c00);
+  if(config==0xffffffffu)return 0;
+  if(!(config&1u))return 1; /* A live routing table belongs to its current owner. */
+  unsigned ltssm=gw_read(b,GW_PARF,0x1b0),perst=gw_read(b,GW_GPIO,0x1004);
+  if(ltssm==0xffffffffu || perst==0xffffffffu || (ltssm&256u) || (perst&3u))return 0;
+  for(unsigned i=0;i<256;i++) {
+    unsigned offset=0x2000+i*4;r->detail=offset;
+    gw_write(b,GW_PARF,offset,0);
+    r->bar0=gw_read(b,GW_PARF,offset);
+    if(r->bar0)return 0;
+  }
+  r->detail=0x2c00;
+  return gw_read(b,GW_PARF,0x2c00)==config;
+}
+
 static int gw_stock_mask(const struct gw_bus *b,struct gw_report *r,unsigned off,unsigned clear,unsigned set)
 {
   unsigned old=gw_read(b,GW_DBI,off);r->detail=off;

@@ -1,12 +1,12 @@
 {
   "date": "2026-10-22",
   "board": "OnePlus Ace 5 PKG110 / SM8650 / WCN7850",
-  "status": "Compiled and packaged; unified device test reaches Setup, PCIe still Detect.Quiet; runtime correctly remains inactive",
+  "status": "PCIe, isolated DMA, BHI/BHIE and AMSS verified; root-port BME repair reaches QMI identity validation, scans remain unavailable",
   "driver": "ios16/GiuliaWiFi.cpp",
   "build_option": "scripts/prepare-ios16.py --gui --touch --wifi",
   "hardware_verified": false,
-  "latest_hardware_evidence": "Nine rail requests and twelve clock enables succeeded; PHY ready; 100 link samples remain Detect.Quiet; no endpoint ID",
-  "startup_gate": "Exact successful version-5 UEFI handoff plus live root link and 17cb:1107 endpoint checks",
+  "latest_hardware_evidence": "Same-image live root-port Command change from 0x2 to 0x6 completes BHI/BHIE, enters EE=2 and starts MHI channels; next failure is QMI GWQ_IDENTITY (8)",
+  "startup_gate": "Validated UEFI handoff, including prepared resources for XNU link training, plus live root link and 17cb:1107 endpoint checks",
   "dma": {
     "physical_memory": "Allocator-owned, contiguous, 2 MiB aligned 64 MiB arena",
     "iova": "0x20000000..0x23ffffff",
@@ -103,6 +103,6 @@
     "bytes": 69283840
   },
   "verification_report": "out/ios16/wifi-native-display-boot/verification.json",
-  "latest_device_test": "hardware/ios16-wifi-native-display-test.json",
+  "latest_device_test": "hardware/sm8650-wifi-root-master.json",
   "hardware_attempted": true
 }

@@ -28,8 +28,10 @@ test ! -e "$output_dir"
 python3 - "$kernel_input" <<'PY'
 import os,sys
 from pathlib import Path
-if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' and b'GIULIA WIFI: XNU PCIe link worker' not in Path(sys.argv[1]).read_bytes():
-    raise SystemExit('XNU link handoff requires a kernel containing the XNU PCIe link worker')
+if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1':
+    kernel=Path(sys.argv[1]).read_bytes()
+    if any(marker not in kernel for marker in (b'GIULIA WIFI: XNU PCIe link worker',b'sw-ctrl-pdc-route',b'GWL_LINK_TIMEOUT')):
+        raise SystemExit('XNU link handoff requires the PCIe worker with PDC-route checks and named errors')
 PY
 python3 - "$driver_dir" <<'PY'
 from pathlib import Path
@@ -44,7 +46,14 @@ mkdir -p "$(dirname "$output_dir")"
 mkdir "$output_dir"
 exec > >(tee "$output_dir/host-build.log") 2>&1
 cd "$port_root"
+if [ -n "$runtime_pack" ]; then
+  python3 scripts/fix-ios16-high-physical-cache.py --kernel "$kernel_input" --check
+fi
 runtime_checks=()
+terminal_args=()
+if [ "${GIULIA_DEBUG_TERMINAL:-0}" = 1 ]; then terminal_args+=(--debug-terminal); fi
+if [ "${GIULIA_DEBUG_MMIO:-0}" = 1 ]; then terminal_args+=(--debug-mmio); fi
+if [ "${GIULIA_WIFI_TERMINAL_WAIT:-0}" = 1 ]; then terminal_args+=(--wifi-terminal-wait); fi
 if [ -n "$runtime_pack" ]; then runtime_checks=(--runtime); fi
 python3 tests/ios16_wifi_bundle.py --dts "$dts_input" --out "$output_dir/offline-checks.json" "${runtime_checks[@]}"
 if [ -n "$runtime_pack" ]; then
@@ -62,7 +71,7 @@ python3 scripts/enable-wifi-diagnostics.py "$driver_dir"
 python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
   --adt "$output_dir/giulia-ios16.adt" --trust-catalog "$trust_input" \
   --out "$output_dir/payload" --root-report "$root_report" \
-  --default-root --trace-all --wifi-pcie --enable-touch --touch-gpio
+  --default-root --trace-all --wifi-pcie --enable-touch --touch-gpio "${terminal_args[@]}"
 python3 scripts/verify-payload.py "$output_dir/payload"
 python3 tests/ios16_dram_handoff.py --driver "$driver_dir" --adt "$output_dir/giulia-ios16.adt"
 python3 - "$output_dir" "$board_driver" <<'PY'
@@ -102,6 +111,8 @@ files=[*sorted((out/'driver-source').glob('*')),
        *sorted(Path('ios16').glob('giulia_wifi_*.h')),Path('ios16/GiuliaWiFi.cpp'),
        Path('ios16/giulia_display.h'),Path('scripts/ios16_display.py'),
        Path('scripts/embed-wifi-firmware.py'),Path('scripts/ios16_wifi_runtime.py'),
+       Path('ios16/0081-giulia-pmap-high-physical-cache-sync.patch'),
+       Path('scripts/fix-ios16-high-physical-cache.py'),
        out/'kernel.macho',out/'giulia-ios16.adt',out/'captured-board.dts',
        driver/'DarwinBoot.c',Path('scripts/enable-wifi-diagnostics.py'),
        Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),

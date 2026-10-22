@@ -6,24 +6,105 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 2026-10-22：采用上游迁移基线和全量日志镜像后，用户确认已经出现 Hello／设置界面。
 原来的约 50% 迁移卡点已越过；触控芯片身份和触点报文已验证，完整设备功能尚未验收。
 
-## Wi-Fi 运行时与全屏显示整合（正在构建）
+## Wi-Fi 固件传输：根端口 Bus Master 修复（2026-10-22）
+
+最新实机已通过 PCIe 枚举、SMMU、MSI、BHI/BHIE 下载和 AMSS 启动，MHI
+通道也已启动。下面的 Detect.Quiet 等章节保留早期测试历史，不代表最新阻塞点。
+
+`wifi-terminal-byte-test-1` 在 BHI 下载时读到 `0xffffffff`，根端口 AER
+同时记录 Unsupported Request，其请求头指向 `0x20006000` 的 MSI 写入。
+驱动只给端点开启了 Bus Master，根端口 Command 仍为 `0x0002`。
+使用同一镜像，在端点 DMA 关闭时将根端口 Command 改成 `0x0006`，随后
+执行 `wifi.start`：BHI=`0x8b91e5b0`、BHIE=`0x8b91e5b1`、`ee=2`，
+`mhi_boot_result=0`；清理后根端口 AER 两类错误均为零，USB dropped=0。
+
+源码修复在 DMA 隔离准备完成后先启用并核对根端口，再启用端点；保留
+Command 上半字的 W1C 状态，停机时先排空端点事务再恢复根端口。
+另将连续 DMA 内存分配移到调试等待门之前，避免等待期间内存碎片化。
+69 项 PCI 模型、完整 Wi-Fi 运行时 ASan/UBSan 检查、ARM64 字节访问检查和
+38 项 Python 单元测试通过。整合内核 `8441413570d88e3b7f1859659b3cdf0fec1d2f8b`
+已完成不改寄存器的实机复测：驱动自动启用根端口，BHI=`0x8c464810`、
+BHIE=`0x8c464811`、`ee=2`，连续 DMA 内存也已在调试等待之前分配。
+
+2026-10-23：新增 `reboot.fastboot` 已实测。PMK8550 SDAM 的 bootloader
+原因写入及读回通过（SPMI v7、APID538、值 `0x04`），根卷正常卸载后
+PSCI 重启成功，电脑工具核对同一设备的 Fastboot 编号，退出码为 0。
+详细记录见 [`hardware/sm8650-reboot.json`](../hardware/sm8650-reboot.json)。
+
+此阶段的后续阻塞为 `QMI / GWQ_IDENTITY (8)`，下一节记录后续修复。
+实机对照、镜像摘要和构建身份见
+[`hardware/sm8650-wifi-root-master.json`](../hardware/sm8650-wifi-root-master.json)。
+
+## QMI 可选板号处理（2026-10-23）
+
+实机 CAP 响应共 681 字节：chip ID=`0x2`、family=`0x4`，未包含 board_info。
+按原厂 CNSS 的规定，仅在字段缺失时使用默认板号 `0xff`；显式板号和固件
+资产匹配仍严格检查。修复后 REGDB、板级数据和 PHY/M3 请求均返回成功，
+`memory_ready=1 provisioned=1`，身份错误已解决。
+
+当前等待 `FW_INIT_DONE (0x38)` 超时，`fw_ready=0`，尚未进入 CE/WMI 扫描。
+下一步记录收到的 indication、清理前 MHI/SMMU/AER 状态及 CAP 可选电源信息，
+定位固件就绪阶段。记录见
+[`hardware/sm8650-wifi-qmi-identity.json`](../hardware/sm8650-wifi-qmi-identity.json)。
+
+## PCIe CESTA/CRM 资源准备（早期记录：链路未建立）
+
+九路电源请求版仍停在 Detect.Quiet。对照 OnePlus SM8650 固定版本的
+`pci-msm.c`、`crm.c` 与实机设备树，UEFI 路径补入复位前的 CESTA/CRM D0
+资源请求。此遗漏是否导致链路失败尚待实机验证。
+
+实现仅使用 PCIe0 的硬件投票器，保留原带宽请求和其他资源配置；在未使用的
+通道中提高 Gen1 所需性能下限，载入已捕获的状态机程序并等待资源就绪。
+共享状态机存在其他使用者、通道切换失败或状态归属不明时停止初始化；
+无法安全回滚时保留资源。诊断仍使用固定 168 字节的版本 5 报告。
+
+115 项 CESTA 故障注入、55 项 PCIe 流程、609 项启动参数容量测试及完整
+运行时离线检查通过，UEFI 编译与镜像校验通过。`jasper2863/UniXNU-giulia`
+run `39724512611` 成功。候选镜像沿用已验证的同账号内核及显示、触控代码。
+源代码依据、构建身份和候选镜像摘要见 `hardware/sm8650-wifi-cesta.json`。
+
+统一临时启动实测：已通过资源准备并进入链路训练，但仍停在 Detect.Quiet，
+未枚举端点。清理阶段返回 EFI_DEVICE_ERROR，因而保留全部资源请求；该版
+报告不能进一步定位清理失败位置。1,092,912 字节日志完整保存，USB dropped=0。
+详细记录见 `hardware/ios16-wifi-cesta-test.json`。
+
+后续修正补入原厂 PCIe 到内存路径的 CRM 带宽请求，使用 Command DB 的单位
+换算初始平均／峰值带宽，逐项保留已有更高请求；IP0 和其他投票器不受影响。
+同时按原厂顺序逐个复位核心与 PHY 并检查复位边沿；回滚时先完成 CRM 切换，
+再恢复状态机程序。新的失败报告保留清理错误及寄存器位置。这些后续改动
+尚未经过实机验证，不能视为 Wi-Fi 已修复。
+
+## Wi-Fi 运行时与全屏显示整合（统一实机测试已完成）
 
 `prepare-ios16.py --gui --touch --wifi` 已接入 PCIe BAR / SID / MSI、独立 SMMU
 DMA 区域、MHI BHI/BHIE、QRTR/QMI 固件资源交换、CE/HTC/WMI 被动扫描和
 iOS16 IO80211 / BSD `en0` 接口。只有完整初始化成功才发布扫描服务。
 扫描结果来自收到的管理帧；关联、认证和数据传输尚未实现。
-主机协议测试已通过，实际内核构建和最终镜像校验正在进行，尚未实机验证。
-最近的实机结果仍是旧版 PCIe Detect.Quiet，不能据此宣称已经搜到网络。
+主机协议测试、实际内核编译／链接和最终镜像校验均通过。统一临时启动成功，
+Setup 已启动；九路电源请求版仍停在 PCIe Detect.Quiet，尚未枚举端点，
+因此 MHI 固件传输与 IO80211 扫描路径本次没有运行，Wi-Fi 仍不可用。
 
 显示输出改为铺满 1264×2780 原生面板；内部保留 iOS 支持的 1125×2436
 D22 画布并进行缩放，触控按整个面板归一化，不再减去居中偏移。
 所有原生输出像素、裁剪、内存边界和边缘触控的离线检查通过。
+用户本次实机确认“画面铺满，触控正常”。这验证了当前设置界面的显示与触控，
+不代表所有应用、旋转和显示电源状态均已验证。
 记录见 `hardware/sm8650-wifi-runtime.json` 与 `hardware/ios16-native-display.json`。
+
+构建使用 `jasper2863/UniXNU-giulia`，run `39669410091` 第 2 次运行成功，
+源码提交 `5ea2a8009305eaac3619cceefcddadc41451b719`。
+统一镜像为 `out/ios16/wifi-native-display-boot/giulia-ios16-wifi-pcie.img`，
+69,283,840 字节，SHA256
+`9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9`。
+同目录的 `verification.json`、`offline-checks.json`、`runtime-source/` 保存
+构建身份、校验结果和实际运行时源码。
 
 原厂固件仅在本地嵌入 `__WIFI_FW` 段，内核 CI 只包含摘要和驱动源码。
 统一构建脚本的第九个可选参数为经过校验的 `firmware.pack`，此模式增加
 运行时测试、固件嵌入和内核／固件／显示实现绑定检查。用户要求完成整合后
-统一测试，当前没有新的手机操作。
+统一测试；本次执行一次 `fastboot boot`，没有刷写。完整记录见
+`hardware/ios16-wifi-native-display-test.json`。采集 1,210,480 字节，
+1,736 条用户日志解码完整，USB dropped=0。
 
 ## Wi-Fi PCIe 调试续接历史（2026-10-22）
 
@@ -47,9 +128,10 @@ GEN2_CTRL 和 LNKCAP，并检查写入是否生效；LNKCAP 写保护只在写�
   因此链路宽度不是唯一阻塞，真实 Wi-Fi 扫描仍未修复。
 - 时钟版实测 PIPE 为 62,358,622 Hz，测量完成且五个调试寄存器均恢复；
   仍未读到端点 ID。该结果不能单独证明 PHY / 主控时序已正确。
-- 当前统一构建为 `out/ios16/wifi-integrated-boot/giulia-ios16-wifi-pcie.img`，
+- 早期整合构建为 `out/ios16/wifi-integrated-boot/giulia-ios16-wifi-pcie.img`，
   SHA256 `33dd156535c8187084d553a79a497d3f3c592d7e1e0e666d1f71c6baeb3ce9cd`。
-  新增主控电源版**尚未实测**，完整记录见 `hardware/ios16-wifi-pcie-test.json`。
+  后续包含相同主控电源请求的运行时整合版已实测，仍停在 Detect.Quiet；
+  记录见 `hardware/ios16-wifi-native-display-test.json`。
 - 53 项 PCIe / 时钟测量故障注入、9 项电源缓存、609 项启动参数容量、
   9 路板级电压约束、ABI 编解码、重复补丁及 22 项
   DRAM 交接检查通过；旧版固件与新版负载混用会在打包阶段被拒绝。
@@ -75,7 +157,7 @@ ODM 的 `kiwi/bdwlan.b0c`、`bdwlan.elf`、`regdb.bin` 优先于 NON-HLOS 通用
 选择 amss / amss20、PHY 微码和精确 BDF；缺少身份、区域不符、缺少变体、
 ELF 越界或文件损坏均拒绝。22 项选择及完整性测试通过。尚未读取实际芯片版本
 和 QMI board ID，没有导入手机独有的 persist 数据，也没有上传固件。
-新运行时正在接入这些资源，尚未取得实机扫描结果。资源记录见
+运行时已接入这些资源，尚未取得实机扫描结果。资源记录见
 `hardware/sm8650-wifi-firmware.json`。
 
 ## Wi-Fi 第一阶段：恢复 wifid 的设备树前置条件（2026-10-22）

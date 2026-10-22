@@ -12,8 +12,15 @@ enum {GWL_ROOT,GWL_PARF,GWL_PHY,GWL_GCC,GWL_GPIO,GWL_CFG,GWL_REFCLK,GWL_CRM,GWL_
 static const uint64_t gwl_bases[GWL_REGIONS]={0x60000000,0x1c00000,0x1c06000,0x16b000,
     0xf110000,0x60100000,0x1ff1000,0x1d05000};
 static const unsigned gwl_sizes[GWL_REGIONS]={0x2000,0x3000,0x2000,0x2000,0x51000,0x1000,0x1000,0x2000};
-enum {GWL_OK,GWL_ARGUMENT,GWL_NOT_PREPARED,GWL_WRITE_FAILED,GWL_PHY_NOT_READY,
-    GWL_LINK_TIMEOUT,GWL_ATU_TIMEOUT,GWL_WRONG_DEVICE,GWL_UNEXPECTED_DMA};
+enum {GWL_OK=0,GWL_ARGUMENT=1,GWL_NOT_PREPARED=2,GWL_WRITE_FAILED=3,GWL_PHY_NOT_READY=4,
+    GWL_LINK_TIMEOUT=5,GWL_ATU_TIMEOUT=6,GWL_WRONG_DEVICE=7,GWL_UNEXPECTED_DMA=8};
+static inline const char *gwl_error_name(unsigned error)
+{
+    static const char *const names[]={"GWL_OK","GWL_ARGUMENT","GWL_NOT_PREPARED",
+        "GWL_WRITE_FAILED","GWL_PHY_NOT_READY","GWL_LINK_TIMEOUT","GWL_ATU_TIMEOUT",
+        "GWL_WRONG_DEVICE","GWL_UNEXPECTED_DMA"};
+    return error<sizeof(names)/sizeof(names[0])?names[error]:"GWL_UNKNOWN_ERROR";
+}
 struct gwl_io {
     void *context;
     uint32_t (*read)(void *,unsigned,unsigned);
@@ -63,8 +70,11 @@ static inline void gwl_dump(const struct gwl_io *b,const char *name)
     static const unsigned regs[][2]={
         {GWL_GCC,8},{GWL_GCC,0x1004},{GWL_GCC,0x58},{GWL_GCC,0x5c},{GWL_GCC,0x78},
         {GWL_GCC,0x48},{GWL_GCC,0x1014},{GWL_GCC,0x1020},{GWL_GCC,0x1028},
-        {GWL_GPIO,0},{GWL_GPIO,4},{GWL_GPIO,0x1004},{GWL_GPIO,0x4e000},{GWL_GPIO,0x4e004},
-        {GWL_GPIO,0x4f000},{GWL_GPIO,0x4f004},{GWL_REFCLK,0x100},{GWL_CRM,0xc},
+        {GWL_GPIO,0},{GWL_GPIO,4},{GWL_GPIO,0x1004},
+        {GWL_GPIO,0x2000},{GWL_GPIO,0x2004},{GWL_GPIO,0x2008},
+        {GWL_GPIO,0x3000},{GWL_GPIO,0x3004},{GWL_GPIO,0x3008},
+        {GWL_GPIO,0x4e000},{GWL_GPIO,0x4e004},
+        {GWL_GPIO,0x4f000},{GWL_GPIO,0x4f004},{GWL_GPIO,0x4f008},{GWL_REFCLK,0x100},{GWL_CRM,0xc},
         {GWL_PARF,0x24},{GWL_PARF,0x28},{GWL_PARF,0x40},{GWL_PARF,0x174},
         {GWL_PARF,0x1b0},{GWL_PARF,0x2b0},{GWL_PARF,0x2c4},{GWL_PARF,0x4d0},
         {GWL_PHY,0x1cc},{GWL_PHY,0x1d0},{GWL_PHY,0x1d4},{GWL_PHY,0x1f8},
@@ -84,6 +94,8 @@ static inline int gwl_train(const struct gwl_io *b,struct gwl_state *s)
        !gwl_check(b,"phy-reset",GWL_GCC,0x101c,1,0) ||
        !gwl_check(b,"wlan-output",GWL_GPIO,0,0x23c,0x200) ||
        !gwl_check(b,"wlan-high",GWL_GPIO,4,3,3) ||
+       !gwl_check(b,"sw-ctrl-pdc-route",GWL_GPIO,0x2008,192,192) ||
+       !gwl_check(b,"wlan-sw-ctrl-pdc-route",GWL_GPIO,0x3008,192,192) ||
        !gwl_check(b,"perst-output",GWL_GPIO,0x4e000,0x23c,0x200) ||
        !gwl_check(b,"perst-held",GWL_GPIO,0x4e004,3,0))return s->error=GWL_NOT_PREPARED;
     gwl_dump(b,"before-training");

@@ -2,119 +2,92 @@
 
 [English](README.md) | **简体中文**
 
-**面向 OnePlus Ace 5（一加 Ace 5，代号 `giulia`，Qualcomm SM8650）的实验性 UEFI / XNU 移植项目。**
+面向一加 Ace 5（PKG110，代号 `giulia`，Qualcomm SM8650）的实验性 UEFI 与 Darwin/XNU 移植项目。当前开发目标为 iOS 16 / Darwin 22。
 
-本仓库包含板级配置、上游源码版本锁定信息、补丁、构建脚本、GitHub Actions 工作流及验证记录，用于探索在 OnePlus Ace 5 上启动 UniXNU 与 Darwin / XNU 的可行性。
+仓库提供板级配置、上游源码版本锁定、内核与 UEFI 补丁、构建工具及验证记录，不包含 Apple 系统镜像或设备固件。
 
 > [!WARNING]
-> 本项目处于实验性硬件适配阶段，不适合作为日常使用的操作系统，也不代表完整的 iOS 移植。编译成功不等于相关功能已在手机上正常工作。刷写镜像或修改 userdata 可能造成数据丢失或设备无法启动。仅在充分理解限制、保留经过验证的备份后进行临时启动测试；不要执行未经审查的破坏性操作。
+> 本项目仍处于开发阶段，不适合日常使用。刷写分区或替换 userdata 可能造成数据丢失。编译成功不代表硬件功能已可用。
 
-## 项目状态
+## 硬件支持
 
-目前项目采用 iOS 16 / Darwin 22 开发路线。根据最新记录的实机测试（2026-10-22），设备已使用开发镜像进入 Hello / 设置界面。
+状态更新于 **2026-10-23**。验证结果仅适用于 [`hardware/`](hardware/) 中记录的测试配置。
 
-| 子系统 | 当前证据 | 状态 |
+| 子系统 | 状态 | 验证范围与限制 |
 | --- | --- | --- |
-| UEFI 交接与启动流程 | 已记录实机适配过程及启动测试 | 在记录的测试配置下已验证 |
-| XNU 启动 | 已记录内存管理初始化、平台驱动注册、CPU0 注册及 SGI 自测 | 部分验证 |
-| UFS 与调试控制台 | 已记录原生 UFS 读取测试及 USB CDC 串口通信 | 已验证所测试的路径 |
-| 根卷与用户态 | HFSX 根卷读写挂载，`launchd` 及系统服务启动 | 在记录的环境下已验证 |
-| 图形界面 | 实机已出现 Hello / 设置界面 | 已进入界面，尚不代表完整或稳定的图形会话验证 |
-| 触控 | 已观察到控制器身份及触摸报文；GPIO 备用后端仍待验证 | 开发中 |
-| 显示 | 已记录原生面板几何参数及离线边界检查 | 离线检查通过，完整显示可靠性尚未确立 |
-| Wi-Fi | WCN7850 的 PCIe 链路仍停留在 `Detect.Quiet`，未确认端点枚举或真实扫描结果 | 尚不可用，开发中 |
-| GPU、音频、蜂窝网络及 DRM | 尚无完整的实机验证记录 | 尚未实现或尚未验证 |
+| 启动与内核 | 已验证 | UEFI 交接、XNU 启动与 CPU0；当前使用单核配置 |
+| 存储 | 已验证 | 原生 UFS 访问及已准备的 HFSX 根卷 |
+| 调试控制台 | 已验证 | USB CDC 串口传输与启动日志采集 |
+| 用户界面 | 已验证 | 可启动 Hello / 设置界面；完整系统功能仍在开发中 |
+| 显示与触控 | 已验证 | 设置界面铺满 1264×2780 面板，触控对齐；UIKit 使用缩放后的 1125×2436 画布 |
+| Wi-Fi | 尚不可用 | PCIe、BHI/BHIE、AMSS 和 QMI 资源请求已实测；当前等待固件就绪通知超时，扫描尚未运行 |
+| GPU 加速、音频、蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
 
-详细信息见[开发状态与验证说明（英文）](docs/DEVELOPMENT_STATUS.md)。机器可读的验证记录保存在 [`hardware/`](hardware/) 目录中。
+显示旋转、电源状态切换和应用兼容性仍需验证。Wi-Fi 关联、认证及网络数据传输尚未实现。
 
-## 仓库结构
-
-- `board.toml`、`configs/`：板级及内核配置。
-- `sources.json`：锁定的上游源码版本信息。
-- `patches/`：项目专用补丁。
-- `scripts/`：构建、打包、设备审计及验证工具。
-- `ios16/`、`targets/`、`uefi-overlay/`：平台相关的构建输入及覆盖文件。
-- `hardware/`：机器可读的硬件说明与测试证据。
-- `tests/`：自动化测试及离线测试。
-- `.github/workflows/`：持续集成及构建工作流。
-- `LICENSE`：仓库许可证。
+详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
 
 ## 环境要求
 
-本文记录的 UEFI 构建流程面向 Linux，包括 WSL 中的 Ubuntu。iOS 16 / XNU 相关脚本和工作流可能需要额外的环境及构建产物；运行前请阅读对应脚本和工作流的要求。
+- UEFI 构建与本地镜像打包使用 Linux 或 WSL 中的 Ubuntu。
+- Git，以及支持 `venv` 的 Python 3.11 及以上版本。
+- Clang/LLVM、LLD、build-essential、NASM、`uuid-dev`、`gcc-aarch64-linux-gnu`、ACPICA 工具和设备树编译器。
+- 上游 NuGet 工具所需的 Mono 及证书软件包；FAT 负载打包所需的 Mtools。
+- XNU 使用 macOS 构建机，当前配置的 GitHub Actions 构建账号为 `jasper2863`。
 
-已记录的 UEFI 构建依赖包括：
-
-- Git，以及支持 `venv` 的 Python 3。
-- `build-essential`、Clang / LLVM 和 LLD。
-- `uuid-dev`、NASM、`gcc-aarch64-linux-gnu`。
-- ACPICA 工具及设备树编译器。
-- 上游 NuGet 工具需要的 Mono 及 Mono 证书软件包。
-
-请根据所用发行版安装相应依赖后再开始构建。
+上游版本由 [`sources.json`](sources.json) 及各目标工作流固定。内核、设备树、固件和负载元数据必须配套使用。
 
 ## 构建
 
-仓库记录的 UEFI 构建命令如下：
+### UEFI
+
+在仓库根目录执行：
 
 ```bash
 bash scripts/build-uefi.sh "$HOME/ace5-port"
 ```
 
-项目记录的预期输出路径为：
+输出路径为 `$HOME/ace5-port/uefi-giulia/Mu-giulia-0.img`。首次构建会下载上游依赖。该命令不刷写手机。
 
-```text
-$HOME/ace5-port/uefi-giulia/Mu-giulia-0.img
-```
-
-该脚本用于主机端构建，本身不调用 `adb` / `fastboot`，也不会刷写设备。上游首次初始化会下载子模块，可能需要较长时间。
-
-使用本地 DTB 与上游 `giulia` DTB 进行设备树对比：
+### iOS 16 内核
 
 ```bash
-python3 scripts/check-device.py /path/to/running-device.dtb \
-  "$HOME/ace5-port/uefi-giulia/Resources/DTBs/giulia.dtb" \
-  --output reports/device-check.json
+gh workflow run ios16-xnu.yml --repo jasper2863/UniXNU-giulia \
+  --ref main -f profile=gui -f touch=true -f wifi=true
 ```
 
-请将示例输入路径替换为你有权检查的 DTB 文件，不要公开包含设备唯一信息的转储。
+工作流生成 `ace5-ios16-xnu` 产物。GUI 打包还需要经过验证的本地产品 ADT、根卷报告、信任缓存及匹配的 WLAN 固件。固件在 CI 完成后于本地嵌入，不随内核源码上传。
 
-其他构建目标请参考 [`.github/workflows/`](.github/workflows/) 下的对应工作流，并检查其输入及输出。不同配置的构建命令、镜像名称和验证标准可能不同。
+[`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) 使用上述输入及已准备好的 UEFI 源码树组装、校验整合镜像。无参数运行可查看所需路径。每次构建应使用新的输出目录。
 
-## 验证原则
+## 验证
 
-以下阶段必须分别记录，不应混为一谈：
+USB 交互调试：在 Windows CMD 运行 `scripts\debug-terminal.cmd`。协议 2 诊断、MMIO 访问和 `reboot.fastboot` 已通过实机测试；PTY shell 仍需另行安装守护进程与已签名的 ARM64 shell/工具包，尚未实机验证。部署步骤及命令见 [USB 终端说明](docs/USB_TERMINAL.md)。
 
-1. **编译成功**：源码完成编译并生成构建产物。
-2. **产物验证**：镜像结构、哈希、负载及交接元数据通过主机端检查。
-3. **实机启动验证**：特定镜像已在物理设备上完成启动测试。
-4. **功能验证**：相关硬件功能已在实机上得到验证。
+```bash
+git diff --check
+python3 -m unittest discover -s tests -v
+bash scripts/test-ios16-wifi-runtime.sh
+```
 
-前一阶段通过不代表后一阶段通过。尤其需要注意：离线 Wi-Fi 协议测试通过，或 `wifid` 进程成功启动，都不能证明 Wi-Fi 扫描、关联或数据传输已经可用。
+运行时检查覆盖 PCI 配置、DMA 隔离、固件传输、扫描协议及显示边界。这些属于主机端测试，不能证明无线链路已工作。编译结果、镜像校验与实机结果应分别记录。
 
-## 安全与隐私
+## 仓库结构
 
-- 在设备支持且条件受控时，优先使用 `fastboot boot` 进行临时启动测试；这并不保证启动后的所有操作都不会写入数据。
-- 未独立审查具体命令、核实目标设备与分区、准备可恢复的备份前，不要刷写分区、格式化存储或替换 userdata。
-- 保留原始镜像，并记录处理前后的 SHA-256 哈希。
-- 不要提交序列号、出厂 MAC 地址、账户令牌、凭据、私钥、未经脱敏的设备转储，以及其他设备唯一信息或隐私数据。
-- 未获得相应的再分发权利及授权时，不要上传专有固件、用户数据或提取的产物。除非明确允许再分发，否则不要将本地嵌入的固件包含在 CI 产物中。
-- 测试报告应注明具体镜像及配置，并明确区分主机端检查与实机测试结果。
+| 路径 | 用途 |
+| --- | --- |
+| `board.toml`、`configs/`、`targets/` | 板级及目标配置 |
+| `sources.json`、`patches/`、`uefi-overlay/` | 上游版本锁定与 UEFI 集成 |
+| `ios16/` | Darwin 22 驱动及兼容性补丁 |
+| `scripts/`、`tests/` | 构建、打包、诊断及测试工具 |
+| `hardware/`、`docs/` | 验证记录与开发文档 |
+| `.github/workflows/` | 手动触发的 CI 工作流 |
+| `out/`、`.cache/`、`reports/` | 本地产物，不纳入版本控制 |
 
 ## 参与贡献
 
-欢迎提交可复现的问题报告、文档修正、主机端测试，以及范围明确的硬件适配研究。
-
-提交 Pull Request 前，请：
-
-1. 说明修改目的及影响的软硬件路径。
-2. 提供复现主机端检查所需的完整命令和环境信息。
-3. 注明各项结果仅经过离线检查，还是已完成实机验证。
-4. 附上相关的脱敏日志或机器可读报告，不要包含设备专属的敏感信息。
-5. 避免仅根据编译或静态检查结果宣称某项功能已获支持。
-
-报告硬件问题时，请提供测试镜像标识或源码提交、可安全公开的设备型号及固件背景、预期结果、实际结果，以及对应的证据文件。
+请遵循 [`CONTRIBUTING.md`](CONTRIBUTING.md)。提交内容应说明受影响的子系统、可复现的检查、预期与实际行为，并关联测试镜像或源码提交。日志需脱敏，专有固件、凭据及设备唯一信息不得提交。
 
 ## 许可证
 
-本仓库的 `LICENSE` 文件声明采用 **BSD-2-Clause-Patent** 许可证，完整条款请参阅该文件。上游项目、第三方组件、固件及生成的产物可能适用各自的许可证；本仓库的许可证不会自动改变这些材料的许可条款。
+仓库代码采用 [BSD-2-Clause-Patent](LICENSE) 许可证。上游组件与固件保留各自的许可证。

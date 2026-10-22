@@ -51,6 +51,7 @@ static void reset(void) {
     memset(&h,0,sizeof(h));
     h.regs[GWL_GCC][8/4]=h.regs[GWL_GCC][0x1004/4]=0x4070000;
     h.regs[GWL_GPIO][0]=0x3c3;h.regs[GWL_GPIO][1]=3;h.regs[GWL_GPIO][0x4e000/4]=0x201;
+    h.regs[GWL_GPIO][0x2008/4]=h.regs[GWL_GPIO][0x3008/4]=192;
     h.regs[GWL_ROOT][0]=0x11317cb;h.regs[GWL_ROOT][0x80c/4]=0x130190;
     h.regs[GWL_PHY][0x214/4]=0x86;h.regs[GWL_REFCLK][0x100/4]=1;
     h.regs[GWL_CFG][0]=0x110717cb;
@@ -66,6 +67,8 @@ int main(void) {
     reset();h.regs[GWL_GCC][8/4]=0;assert(gwl_train(&io,&s)==GWL_NOT_PREPARED);
     assert(!h.writes && !h.phy_reads && h.failed_checks==1);n++;
     reset();h.regs[GWL_GPIO][0x4e004/4]=3;assert(gwl_train(&io,&s)==GWL_NOT_PREPARED);assert(!h.writes);n++;
+    reset();h.regs[GWL_GPIO][0x2008/4]=64;assert(gwl_train(&io,&s)==GWL_NOT_PREPARED);assert(!h.writes && !h.phy_reads);n++;
+    reset();h.regs[GWL_GPIO][0x3008/4]=64;assert(gwl_train(&io,&s)==GWL_NOT_PREPARED);assert(!h.writes && !h.phy_reads);n++;
     reset();h.regs[GWL_PHY][0x214/4]=64;assert(gwl_train(&io,&s)==GWL_PHY_NOT_READY);assert(!h.writes);n++;
     reset();h.drop_perst=1;assert(gwl_train(&io,&s)==GWL_WRITE_FAILED);assert(!h.config_reads);n++;
     reset();h.drop_ltssm=1;assert(gwl_train(&io,&s)==GWL_WRITE_FAILED);assert(!h.config_reads);n++;

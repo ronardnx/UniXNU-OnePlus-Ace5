@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-22",
+  "status": "Hardware verified: cold SID table clears, XNU claims slot 21 and enables lookup; subsequent SMMU cleanup abort is tracked separately",
+  "source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/pci/controller/pci-msm.c",
+  "function": "msm_pcie_config_sid",
+  "log": "out/ios16/wifi-terminal-test-2/20261022-172830-703038/device-000.log",
+  "initial_bypass": 1,
+  "initial_slot21": "0x3f48e1aa",
+  "live_sid_write_read_restore_verified": true,
+  "uefi_policy_cases": 87,
+  "root_cause": "Inactive/bypassed BDF-to-SID SRAM is not reset to zero. Missing table initialization caused the XNU ownership check to reject garbage as an occupied route.",
+  "fix": "Clear all 256 inactive table words while PERST is asserted and LTSSM disabled; keep bypass until XNU publishes its owned route; leave active tables unchanged",
+  "mhi_soc": "0x40170200",
+  "mhi_bhi": "0x100",
+  "mhi_bhie": "0x224",
+  "mhi_ee": 0,
+  "bar_base": "0x60400000",
+  "bar_bytes": "0x200000",
+  "smmu_geometry": [
+    "0x4c017e6b",
+    "0x60000047",
+    "0x5111"
+  ],
+  "smmu_free_streams": 101,
+  "original_registers_restored": true,
+  "dma_enabled_during_manual_test": false,
+  "hardware_tested_after_fix": true
+}

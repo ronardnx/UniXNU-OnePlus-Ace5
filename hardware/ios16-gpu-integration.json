@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / SM8650 / Adreno750v2",
+  "status": "kernel integrated and diagnostic image built; hardware test deferred by user",
+  "kernel_build": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "commit": "1de7d6b98f1907ad69b04e00a96488d3d9f8e91c",
+    "run": 39734691344,
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39734691344",
+    "result": "success",
+    "downloaded_patch_matches_local_sources": true
+  },
+  "candidate": {
+    "path": "out/ios16/gpu-observe-boot/giulia-ios16-gpu.img",
+    "sha256": "31ea6929402049c8e966e0e974e3b17767f24d96fd1a862561050c29ae2d4a99",
+    "bytes": 69279744,
+    "header_version": 3,
+    "gpu_mode": 2,
+    "kernel_sha256": "099098069071110983c7ee8060332f7b86f8c4dacf8028699d190839ae9e8f5e",
+    "payload_sha256": "ece6ce5ca84e39f290d5d061337af6bafc02e5d8666115f1df1123f89785bb73",
+    "firmware_pack_sha256": "a93cef06eed69c1de28021136f80306664068d563278adab6fd64695ee70e7de"
+  },
+  "validation": {
+    "kernel_compile_link_rebase": "passed",
+    "uefi_compile": "passed",
+    "image_and_payload_verification": "passed",
+    "gmu_blocks": 15,
+    "gmu_ram_reservations": 5,
+    "power_read_failure_injections": 13,
+    "python_unittests_wsl": 18,
+    "asan_ubsan": "passed",
+    "gpu_wifi_segment_coexistence": "passed in both orders",
+    "gpu_patch_with_without_wifi": "passed",
+    "existing_wifi_display_payload_regression": "passed",
+    "hardware_tested": false
+  },
+  "scope": [
+    "Pinned GPU firmware mapped read-only and checked in kernel",
+    "Five GMU host RAM reservations allocated, zeroed and populated; no GPU mapping",
+    "Mode 2 observes inherited GCC/GPUCC/SMMU status only when prerequisite gates pass",
+    "No GPU register writes, secure calls, submission or Metal publication"
+  ],
+  "hardware_state": {
+    "device_booted": false,
+    "flash_performed": false,
+    "gpu_ready": false,
+    "metal_available": false,
+    "user_instruction": "Keep image; do not test hardware yet"
+  },
+  "next": "Capture mode-2 diagnostics when user resumes hardware testing, then implement SM8650 power and GPU SMMU ownership",
+  "sources": {
+    "ios16/GiuliaGPU.cpp": "8c2f8cf69d174eb3886ea68d7c845cf23f2deee5a56f221dfe7d6d39d2e999e0",
+    "scripts/prepare-ios16.py": "944799afe676473d8b8f3fe41432bb62ce5011290d8056e89399313658b374db",
+    "scripts/ios16_gpu_patch.py": "3e6996df6f92a0aa6f33fcaf26e1ffe69eb5ad6576b85000b918ae6f77812999",
+    "scripts/build-ios16-gpu-bringup.sh": "39ca6f03698351964d9e6d82f5f99e311698f5606eb1dd5ef7745b8684f74fc6",
+    "scripts/embed-gpu-firmware.py": "907014440c77e278b55cd963b5c3a754711067382c06d2aaf8d65e66c8c5bf50",
+    "scripts/ios16_gpu_runtime.py": "4578e334a3991fcd74d9f9e74b67b88cfb3835cecfcefe407733acb98d0b48fc",
+    "scripts/make-ios16-payload.py": "ef10c052b73a9dc263219b1e1737b65cfca69dbf4985089210ae2ded456fcb6f",
+    "scripts/verify-payload.py": "2d0c09ec4ce9f7659485ccfe6cee072c5cd03aca12ee92e67f4a2c208a2a7135",
+    "ios16/giulia_gpu_firmware.h": "eae640bc4b2656ce1b843860fd47e19c5d94da4e2c2061431d0a36678f5c8c2b",
+    "ios16/giulia_gpu_firmware_pin.h": "761d53dfb231544b13034a12fc75223e080d923edaf771e663550d9790e7c3c2",
+    "ios16/giulia_gpu_memory.h": "a881909805efcfb3322697d61e45c0f4c9be09b483cd87b9019ce6ec88b3e94a",
+    "ios16/giulia_gpu_pack.h": "bdbb6c84ece61253ca724626064887728b51faa6bcfea4030bef856b074e4f71",
+    "ios16/giulia_gpu_power.h": "efec3d6e0ad4b3520429d66ca7ef6db0c784bda27d2b6a8b620555ad985ffb8c"
+  }
+}

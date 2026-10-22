@@ -1,0 +1,10 @@
+--- a/osfmk/arm/pmap/pmap.c
++++ b/osfmk/arm/pmap/pmap.c
+@@ -6879,3 +6879,6 @@
+ {
+-	flush_dcache((vm_offset_t) (pp << PAGE_SHIFT), PAGE_SIZE, TRUE);
++	/* Widen before shifting: ppnum_t is 32-bit, while Ace 5 RAM is
++	 * above 4 GiB. Casting the shifted result loses the high PA bits.
++	 */
++	flush_dcache(((vm_offset_t)pp) << PAGE_SHIFT, PAGE_SIZE, TRUE);
+ }

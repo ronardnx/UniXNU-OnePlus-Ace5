@@ -1,0 +1,19 @@
+--- a/bsd/kern/kern_shutdown.c
++++ b/bsd/kern/kern_shutdown.c
+@@ -341,6 +341,11 @@ reboot_kernel(int howto, char *message)
+-	host_reboot(host_priv_self(), hostboot_option);
+-	/*
+-	 * should not be reached
+-	 */
+-	return 0;
++	/* Explicit Ace 5 debug reboot, after normal process and filesystem shutdown. */
++	extern int giulia_reboot_finish(void);
++	int giulia_reboot_error = giulia_reboot_finish();
++	if (giulia_reboot_error) return giulia_reboot_error;
++
++	host_reboot(host_priv_self(), hostboot_option);
++	/*
++	 * should not be reached
++	 */
++	return 0;
+ }

@@ -1,0 +1,255 @@
+{
+  "schema": 1,
+  "date": "2026-10-22",
+  "status": "Darwin 22 service integrated: firmware validation, GMU host RAM preparation and opt-in gated read-only power observation; hardware untested",
+  "dts_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1",
+  "board": {
+    "chip_id": 1124406273,
+    "gpu_id": 750,
+    "compatible": "qcom,adreno-gpu-gen7-9-1",
+    "model": "Adreno750v2",
+    "gpu_windows": {
+      "kgsl_3d0_reg_memory": {
+        "base": 63963136,
+        "size": 262144
+      },
+      "cx_dbgc": {
+        "base": 64360448,
+        "size": 12288
+      },
+      "rscc": {
+        "base": 64290816,
+        "size": 65536
+      },
+      "cx_misc": {
+        "base": 64610304,
+        "size": 8192
+      },
+      "qdss_gfx": {
+        "base": 277872640,
+        "size": 524288
+      },
+      "qdss_etr": {
+        "base": 268730368,
+        "size": 32768
+      },
+      "qdss_tmc": {
+        "base": 279990272,
+        "size": 4096
+      }
+    },
+    "gmu_windows": {
+      "gmu": {
+        "base": 64389120,
+        "size": 225280
+      },
+      "gmu_pdc": {
+        "base": 187170816,
+        "size": 65536
+      },
+      "gmu_ao_blk_dec0": {
+        "base": 64225280,
+        "size": 65536
+      }
+    },
+    "smmu_windows": {
+      "base": {
+        "base": 64618496,
+        "size": 262144
+      },
+      "tcu-base": {
+        "base": 64905216,
+        "size": 64
+      }
+    },
+    "stream_ids": {
+      "user": 0,
+      "lpac": 1,
+      "secure": 2,
+      "gmu": 5
+    },
+    "gpu_interrupts": [
+      0,
+      300,
+      4
+    ],
+    "gmu_interrupts": [
+      0,
+      304,
+      4,
+      0,
+      305,
+      4
+    ],
+    "gmu_frequency_table": [
+      260000000,
+      64,
+      625000000,
+      128
+    ],
+    "gpu_clock_names": [
+      "gcc_gpu_memnoc_gfx",
+      "gcc_gpu_snoc_dvm_gfx",
+      "gpu_cc_ahb",
+      "apb_pclk"
+    ],
+    "gmu_clock_names": [
+      "gmu_clk",
+      "cxo_clk",
+      "axi_clk",
+      "memnoc_clk",
+      "ahb_clk",
+      "hub_clk"
+    ],
+    "smmu_actlr": [
+      0,
+      1023,
+      811
+    ],
+    "gpucc_reg": [
+      64552960,
+      38912
+    ],
+    "cx_gdsc_reg": [
+      64590088,
+      4
+    ],
+    "cx_hw_control_reg": [
+      64590184,
+      4
+    ]
+  },
+  "gmem_bytes": 3145728,
+  "uche_gmem_alignment": 16777216,
+  "vendor_scheduler": "adreno_gen7_9_0_hwsched_gpudev",
+  "vendor_sources": [
+    {
+      "file": "adreno-gpulist.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h",
+      "git_blob": "c60f1171b36063ca1f8a8550db9edfc6babc3f8a",
+      "sha256": "08293f60e0be8b3a16ec0b800588d700f54b34d2e9e32e64aac115f05548c8f3"
+    },
+    {
+      "file": "adreno_gen7.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7.c",
+      "git_blob": "65483f2ffa7ec5024ebd8baf067c96999fe89822",
+      "sha256": "1d63fca08e1d45428b80342d3d35a8c4166ad93c74ade6d125d2b3f9f4267d5d"
+    },
+    {
+      "file": "adreno_gen7_gmu.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_gmu.c",
+      "git_blob": "6397bc4647e44225ba0fb0426490051a3f526a64",
+      "sha256": "776f894dc59a95b485ff7538755be274e8cd944bbfa29931e026f58c43cb0851"
+    },
+    {
+      "file": "adreno_gen7_hfi.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hfi.c",
+      "git_blob": "bb7a8ad098b56f9e1f2827d645680cbe1ea08d20",
+      "sha256": "74997233ed73dd0a09740e1c8b76f17a65302af729d774a845cd00e3e222832a"
+    },
+    {
+      "file": "adreno_gen7_hwsched.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched.c",
+      "git_blob": "968c63d0c6e8fcbaadb23c9310edb7225f1ff66b",
+      "sha256": "5452e244e35f19e8d5f896f3fd1805edf420211f04cfc8f39decd003eb01bc21"
+    },
+    {
+      "file": "adreno_gen7_hwsched_hfi.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "git_blob": "3c02fbf92e11b058460e7d902a8a356bcc77e6a9",
+      "sha256": "306930a131d0fa3bc3cc3873dbfaf205b6bd5a4243f55a74cced411c08de6782"
+    },
+    {
+      "file": "gen7_reg.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/gen7_reg.h",
+      "git_blob": "8c38ae9b1c997d40bfc1fd3ddb6aff8d5ddc36d6",
+      "sha256": "2e564d7eaeec26bc30e79b1d117b86efa79603345769626157c83610fc4c051c"
+    },
+    {
+      "file": "adreno_gen7_gmu.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_gmu.h",
+      "git_blob": "95fa6a6abf51cf53f4e3b54f65b674fac2189b1b",
+      "sha256": "f3353b4f2f671fcbcd9d875340fc837dd68d6f780d26ad162967089320814649"
+    },
+    {
+      "file": "adreno_gen7_hwsched_hfi.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.h",
+      "git_blob": "80afb5798ce2d688e601f55aeb3597a50adf4bed",
+      "sha256": "2aad7f0d5f3f1961e0e063cc119ee340820ee35527147f785690bcc7dd8cd896"
+    },
+    {
+      "file": "kgsl_gmu_core.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl_gmu_core.h",
+      "git_blob": "74f844650d54322af1d14d1d20493ada5e1d83f6",
+      "sha256": "560027dfe9af8a56cab6db4fbb08597c470abf722686675f138235b71181e8ca"
+    },
+    {
+      "file": "adreno.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno.c",
+      "git_blob": "2f818ec7a5c967bae194211db9c8846b6ead707c",
+      "sha256": "7610fc36f8a482f4a09a3d332c3ebb7505a8540281bf770f8e7b2f0d21346799"
+    },
+    {
+      "file": "gpucc-pineapple.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/clk/qcom/gpucc-pineapple.c",
+      "git_blob": "e986bebfec92d23a6fc2190ddab886eeaacd9f61",
+      "sha256": "bf45aa00b598f55632dee3b4a7d0f8ac6a1dffb84bf82fdbe892f0a5c00b9284"
+    },
+    {
+      "file": "kgsl_gmu_core.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl_gmu_core.c",
+      "git_blob": "ad56d251a7ed536b99e51996e179fb8aabe068dd",
+      "sha256": "af4a5b04f2aef2536434f4cb07d2c928a40fd528786bafc365a7a7299958eb34"
+    }
+  ],
+  "firmware": [
+    {
+      "name": "gen70900_aqe.fw",
+      "size": 33176,
+      "sha256": "25237c161d727b8ea92b4beb837a31651b44ea78bfc34d95672af8f346a45825",
+      "source": "vendor.img:/firmware/gen70900_aqe.fw"
+    },
+    {
+      "name": "gen70900_sqe.fw",
+      "size": 85364,
+      "sha256": "f756bafe5f69a87161c7c53385386374a791861a574c244e845baba677993842",
+      "source": "vendor.img:/firmware/gen70900_sqe.fw"
+    },
+    {
+      "name": "gen70900_zap.mbn",
+      "size": 12088,
+      "sha256": "a32349cc15ede062686a3c5c19c2de5f9a74c7a805b0ca4ae7d3ccf6982c4c87",
+      "source": "vendor.img:/firmware/gen70900_zap.mbn"
+    },
+    {
+      "name": "gmu_gen70900.bin",
+      "size": 78588,
+      "sha256": "9685f62c42543befcaee68d25355e16bf55cdb0d573bddcc9f6633f59eec3f72",
+      "source": "vendor.img:/firmware/gmu_gen70900.bin"
+    }
+  ],
+  "source_image": {
+    "name": "vendor.img",
+    "bytes": 826409252,
+    "md5": "f245d5804678754125002981f2a0b935",
+    "sha256": "07883b03a47ef34bd7092c9abbec1a4ae1d67a328d2de4c97339470a39a0bef0",
+    "package_checksum_match": true
+  },
+  "rom_version": "PKG110 16.0.3.500(CN01)",
+  "upstream": {
+    "drivers/NativeAdreno": "5cf11357a1b35ca8424baa2721e4578df1890bde",
+    "drivers/NativeMetal": "ff0c70d7249a04ee381d9854c214069324a34d5c",
+    "kits/AdrenoFirmware": "40fdb8ea87606612ac6f1e80bbb49955d0ce4051",
+    "kits/AdrenoPM4": "445f8fe6d115738352b9d78dc70af6d61aa7f62f",
+    "kits/ArmSmmu4K": "4d0d6598b1a36aeec3de01091893fa6660e49388"
+  },
+  "remaining": [
+    "SM8650 CX/GX power, GPUCC clocks, RPMh votes and bounded reset sequencing",
+    "GPU SMMU ownership, 4 KiB page tables, cache maintenance and GMU memory allocations",
+    "ZAP secure firmware loading/authentication and gen7-9-1 GMU/HFI startup",
+    "A750 CP/SQE/AQE initialization, queue submission, interrupts, fences and recovery",
+    "Darwin 22 IOKit/user-client integration and Turnip A750 identity/GMEM reporting",
+    "iOS 16 NativeMetal ABI/build compatibility, IOSurface and display composition",
+    "Hardware validation from cold boot through rendered-frame comparison"
+  ]
+}

@@ -1,0 +1,69 @@
+name: Ace 5 iOS16 GPU preparation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  MACOS_VERSION: '13.5'
+  KERNEL_CONFIG: DEVELOPMENT
+  MACHINE_CONFIG: SWEET
+jobs:
+  build:
+    if: ${{ github.repository_owner == 'jasper2863' }}
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: xyyyds0106/ios-vermeer-lab
+          ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
+          path: reference
+      - name: Validate GPU preparation
+        run: |
+          python3 scripts/make-gpu-smmu-oracle.py --fetch --out .cache/gpu-source-oracle.c
+          bash scripts/test-ios16-gpu.sh
+          python3 tests/ios16_gpu_embed.py
+          python3 tests/ios16_gpu_patch.py
+      - name: Prepare pinned XNU build and Ace 5 profile
+        run: |
+          git init -q dxb
+          git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
+          git -C dxb checkout -q FETCH_HEAD
+          python3 reference/tools/strict_profile_patches.py dxb/build.sh
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile --gui --touch --gpu
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
+          /tmp/dma-test
+          python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
+          python3 tests/ios16_rebase.py reference
+          cp profile/*.patch profile/*.sh dxb/patches/
+          sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
+      - name: Select compatible Xcode and dependencies
+        run: |
+          brew install jq gum bash cmake ninja
+          printf '#!/bin/sh\nexit 0\n' | sudo tee /usr/local/bin/xcodes >/dev/null
+          sudo chmod +x /usr/local/bin/xcodes
+          XC=$(ls -d /Applications/Xcode_*.app | sort -V | head -1)
+          echo "DEVELOPER_DIR=$XC/Contents/Developer" >> "$GITHUB_ENV"
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - name: Build kernel
+        working-directory: dxb
+        run: |
+          set -o pipefail
+          bash build.sh 2>&1 | tee ../xnu-build.log
+      - name: Verify GPU service linked
+        run: |
+          python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --gui
+          python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA GPU: host preparation complete;' in b; assert b'GIULIA GPU: firmware pack mapped read-only and digest verified' in b; assert b'GiuliaGPU' in b"
+          python3 -c "import subprocess; s=subprocess.check_output(['xcrun','nm','dxb/fakeroot/System/Library/Kernels/kernel.development.sweet'],text=True); assert all('_giulia_gpu_'+n in s for n in ('power_acquire','power_release','smmu_start','smmu_stop','gmu_load','gmu_start','log_event'))"
+      - name: Prepare DarwinBoot kernel pointers
+        run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ace5-ios16-gpu
+          path: |
+            dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+            xnu-build.log
+            profile/
+          retention-days: 14

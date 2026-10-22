@@ -13,6 +13,9 @@ data=a.dts.read_bytes()
 record=json.loads((ROOT/'hardware/sm8650-wifi.json').read_text())
 assert hashlib.sha256(data).hexdigest()==record['android_device_tree']['decoded_sha256']
 text=data.decode()
+cnss=text.split('qcom,cnss-kiwi@b0000000 {',1)[1].split('};',1)[0]
+wake=re.search(r'mpm_wake_set_gpios\s*=\s*<([^>]+)>;',cnss)
+assert wake and [int(v,0) for v in wake[1].split()]==[18,19]
 code=(ROOT/'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/WifiPcie.c').read_text()
 def initializer(name):
     return re.search(r'\b'+name+r'\[GW_RAILS\]=\{([^}]+)\}',code)[1]
@@ -31,3 +34,4 @@ for name,mv,maximum in zip(names,volts,limits):
     high=int(re.search(r'regulator-max-microvolt\s*=\s*<(0x[0-9a-f]+)>',block)[1],16)
     assert low<=mv*1000<=maximum*1000<=high,(name,mv,maximum,low,high)
 print('Wi-Fi power: all 9 requested voltages and ceilings match the pinned Ace 5 DT')
+print('WLAN control routing: GPIO18/19 match the captured CNSS mpm_wake_set_gpios')

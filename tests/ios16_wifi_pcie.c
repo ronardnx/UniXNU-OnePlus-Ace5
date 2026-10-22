@@ -16,6 +16,8 @@ static struct {
   unsigned long long delay;
   unsigned posted, pending, pending_region, pending_offset, pending_value;
   unsigned rcg_timeout,rcg_drop,rcg_restore_drop,rcg_updates,rcg_dynamic_rate;
+  unsigned drop_wake_offset,wake_initial[2];
+  unsigned sid_writes,drop_sid_offset;
 } h;
 static void write_reg_now(void *,unsigned,unsigned,unsigned);
 static unsigned *reg(unsigned region,unsigned offset)
@@ -77,7 +79,17 @@ static void write_reg_now(void *context,unsigned region,unsigned offset,unsigned
   (void)context;
   assert(region!=GW_CFG); /* no BAR/BME/firmware or endpoint mutation */
   assert(region!=GW_REFCLK); /* reference gate read-only */
-  assert(region!=GW_GPIO || offset<0x4000); /* BT_EN read-only */
+  if(region==GW_PARF && offset>=0x2000 && offset<0x2400) {
+    assert(h.parf[0x2c00/4]&1u);
+    assert(!(h.gpio[0x1004/4]&3u) && !(h.parf[0x1b0/4]&256u));
+    assert(value==0);h.sid_writes++;
+    if(offset==h.drop_sid_offset)return;
+  }
+  assert(region!=GW_GPIO || offset<0x4000 || offset==0x5008 || offset==0x6008); /* BT_EN read-only */
+  if(region==GW_GPIO && (offset==0x5008 || offset==0x6008)) {
+    assert(!((*reg(region,offset)^value)&~128u)); /* Only PDC forwarding may change. */
+    if(h.drop_wake_offset==offset && (value&128))return;
+  }
   if(region==GW_ATU) assert(h.stage>=GW_CONFIG);
   if(region==GW_PHY && h.stage==GW_PHY_INIT) h.phy_writes++;
   if(region==GW_GCC && h.stage==GW_RESET && !h.cleaning) {
@@ -128,6 +140,7 @@ static int resource(void *context,unsigned kind,unsigned index,int on)
   if(on) {
     assert(!(h.enabled[kind]&(1u<<index)));
     if(++h.calls==h.fail_call) return 1;
+    assert((h.gpio[0x5008/4]&192)==192 && (h.gpio[0x6008/4]&192)==192);
     if(kind!=GW_RAIL) assert(h.enabled[GW_RAIL]==511);
     if(kind==GW_CLOCK) assert(h.enabled[GW_DOMAIN]==3);
     if(kind==GW_CESTA)assert(h.enabled[GW_DOMAIN]==3 && h.enabled[GW_CLOCK]==2047 && h.stage==GW_CESTA_READY);
@@ -156,6 +169,7 @@ static void init(void)
   h.dbi[0x890/4]=0x01000001;h.dbi[0x8a8/4]=0x00ffff00;h.dbi[0x8ac/4]=31;
   h.dbi[0xa0/4]=3;h.dbi[0x78/4]=0x10000;
   h.gcc[0x6b05c/4]=1; /* native SetClockFreqHz selected XO/1 */
+  h.gpio[0x5008/4]=h.gpio[0x6008/4]=h.wake_initial[0]=h.wake_initial[1]=64;
 }
 static int run(struct gw_report *r)
 {
@@ -166,16 +180,42 @@ static void released(void)
 {
   assert(!h.enabled[0]&&!h.enabled[1]&&!h.enabled[2]&&!h.enabled[3]);
   for(unsigned i=0;i<4;i++) assert(h.gpio[i*0x400]==0 && h.gpio[i*0x400+1]==0);
+  assert(h.gpio[0x5008/4]==h.wake_initial[0] && h.gpio[0x6008/4]==h.wake_initial[1]);
 }
 int main(void)
 {
   struct gw_report r;
   unsigned cases=0;
+  for(unsigned pin=0;pin<2;pin++) {
+    unsigned off=0x5008+0x1000*pin;
+    init();h.gpio[off/4]=0;h.wake_initial[pin]=0;
+    assert(run(&r)==GW_BAD_PIN && r.stage==GW_PINS && r.detail==off && !h.calls);released();cases++;
+    init();h.drop_wake_offset=off;
+    assert(run(&r)==GW_BAD_REGISTER && r.detail==off && !h.calls);released();cases++;
+  }
+  init();h.gpio[0x5008/4]=h.wake_initial[0]=0x350;
+  h.gpio[0x6008/4]=h.wake_initial[1]=0x3c0;h.link_timeout=1;
+  assert(run(&r)==GW_LINK_TIMEOUT);released();cases++;
   init();memset(&r,0,sizeof(r));r.version=5;
   assert(gw_bringup_mode(&bus,&r,gw_phy_sequence,115,1)==GW_OK);
   assert(r.stage==GW_XNU_PENDING && r.detail==GW_XNU_LINK_TAG && !r.device);
+  assert(r.bar0==192 && r.bar1==192);
+  assert(r.sw_ctrl==64 && r.wlan_sw_ctrl==64);
   assert(!h.reads_cfg && !(h.gpio[0x1004/4]&3) && !(h.parf[0x1b0/4]&256));
   assert(h.enabled[GW_RAIL]==511 && h.enabled[GW_CLOCK]==4095 && h.enabled[GW_CESTA]);cases++;
+  init();h.parf[0x2c00/4]=0x11;
+  for(unsigned i=0;i<256;i++)h.parf[0x2000/4+i]=0x3f48e1aau+i;
+  memset(&r,0,sizeof(r));r.version=5;
+  assert(gw_bringup_mode(&bus,&r,gw_phy_sequence,115,1)==GW_OK && h.sid_writes==256);
+  for(unsigned i=0;i<256;i++)assert(h.parf[0x2000/4+i]==0);
+  assert(h.parf[0x2c00/4]==0x11 && !h.reads_cfg);cases++;
+  init();h.parf[0x2c00/4]=0;h.parf[0x2054/4]=0x01000100;
+  assert(run(&r)==GW_OK && !h.sid_writes && h.parf[0x2054/4]==0x01000100);cases++;
+  init();h.parf[0x2c00/4]=1;h.parf[0x2054/4]=0x3f48e1aa;h.drop_sid_offset=0x2054;
+  assert(run(&r)==GW_BAD_REGISTER && r.detail==0x2054 && r.bar0==0x3f48e1aa);
+  assert(!h.reads_cfg && h.parf[0x2c00/4]==1);released();cases++;
+  init();h.parf[0x2c00/4]=0xffffffffu;
+  assert(run(&r)==GW_BAD_REGISTER && !h.sid_writes && !h.reads_cfg);released();cases++;
   init();assert(run(&r)==GW_OK);
   assert(h.gcc[0x6b05c/4]==0x100001 && h.rcg_updates==1);cases++;
   init();h.link_timeout=1;assert(run(&r)==GW_LINK_TIMEOUT);

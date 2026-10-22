@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-23",
+  "board": "OnePlus Ace 5 PKG110 / SM8650",
+  "command": "reboot.fastboot",
+  "requires": "giulia_debug=1",
+  "device_tree": "ace5-analysis/running-device.dts",
+  "spmi": {
+    "version": "v7; checked at runtime",
+    "bus": 0,
+    "execution_environment": 0,
+    "core": "0x0c400000",
+    "ownership": "0x0c42d000",
+    "observer": "0x0c440000",
+    "channels": "0x0c500000",
+    "apid_selection": "Resolve PPID 0x071 in the primary-bus map and require EE0 write ownership; never hardcode the APID"
+  },
+  "restart_reason": {
+    "pmic": "PMK8550",
+    "slave_id": 0,
+    "address": "0x7148",
+    "bit_offset": 1,
+    "bit_count": 7,
+    "bootloader_value": 2,
+    "stored_value": "(previous & 1) | 4",
+    "preserve_bit_zero": true,
+    "write_readback_required": true
+  },
+  "shutdown": {
+    "api": "reboot_kernel(RB_AUTOBOOT, NULL) on a dedicated kernel thread",
+    "sync_and_unmount": true,
+    "final_hook": "After normal XNU shutdown, before host_reboot; only the requesting worker may use it",
+    "psci_function": "0x84000009 (SYSTEM_RESET)",
+    "psci_conduit": "smc",
+    "support_checked_before_pmic_write": true,
+    "failure": "Do not reboot if preparation fails; restore the prior reason when the completed transaction can be safely rolled back"
+  },
+  "sources": [
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/power/reset/qcom-reboot-reason.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/spmi/spmi-pmic-arb.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/nvmem/qcom-spmi-sdam.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/firmware/psci/psci.c",
+    "https://github.com/apple-oss-distributions/xnu/blob/xnu-8796.121.2/bsd/kern/kern_shutdown.c"
+  ],
+  "host_model_cases": 30,
+  "hardware_verified": true,
+  "hardware_validation": {
+    "image": "out/ios16/wifi-root-master-reboot-boot/giulia-ios16-wifi-pcie.img",
+    "image_sha256": "1bea6e2e858d036a2fcd7dfa9d6c690e636e6f8e719a6e24a334c08d9d0cbc77",
+    "log": "out/ios16/fastboot-reboot-test-1/20261023-011624-553973/device-000.log",
+    "version": "0x70010000",
+    "apid": 538,
+    "reason_before": 0,
+    "reason_expected": 4,
+    "reason_readback": 4,
+    "root_unmounted": true,
+    "host_verified_requested_fastboot_device": true,
+    "flash_performed": false
+  },
+  "build": {
+    "commit": "8441413570d88e3b7f1859659b3cdf0fec1d2f8b",
+    "run": 39773934079,
+    "conclusion": "success",
+    "artifact_id": 12423093621,
+    "artifact_sha256": "b65c398ae866e88a82972324fd5ac4c1397beb8cad48ee2ef599674c1d82cf2b"
+  }
+}

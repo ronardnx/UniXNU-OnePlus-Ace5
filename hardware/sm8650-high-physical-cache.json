@@ -1,0 +1,120 @@
+{
+  "date": "2026-10-22",
+  "status": "Complete repair verified on hardware: Wi-Fi contiguous DMA allocation returns successfully; iOS and protocol 2 terminal remain running",
+  "source": {
+    "revision": "1b191cb58250d0705d8a51287127505aa4bc0789",
+    "path": "osfmk/arm/pmap/pmap.c",
+    "git_blob": "fc2096fa001069479bd04006ebc8a22e6abfbe99",
+    "sha256": "78cdd8a97fae341dd2b757c8def4799e824f56e79ccb8d1b654f92cd6c78e375",
+    "url": "https://raw.githubusercontent.com/apple-oss-distributions/xnu/1b191cb58250d0705d8a51287127505aa4bc0789/osfmk/arm/pmap/pmap.c"
+  },
+  "capture": {
+    "panic": "phystokv_range: illegal PA",
+    "reported_pa": "0xc4a00000",
+    "gPhysBase": "0x8c0000000",
+    "size": "0x80000000",
+    "panic_return_address": "0xfffffe0007ad7934",
+    "symbolication_pc": "0xfffffe0007ad7930",
+    "symbol": "phystokv_range.cold.1",
+    "line": 406,
+    "image_inferred_from_matching_symbols": "out/ios16/gpu-observe-boot/giulia-ios16-gpu.img"
+  },
+  "confirmed_defect": {
+    "function": "pmap_sync_page_attributes_phys",
+    "source_expression": "(vm_offset_t) (pp << PAGE_SHIFT)",
+    "existing_kernel_instruction": "lsl w0, w0, #14",
+    "existing_kernel_function_address": "0xfffffe00074708c0",
+    "page_number": "0x231280",
+    "reconstructed_pa": "0x8c4a00000",
+    "reconstruction_note": "Inferred from the reported low 32 bits and the captured boot physical window, not a separately logged allocation address",
+    "fixed_expression": "((vm_offset_t)pp) << PAGE_SHIFT",
+    "scope": "shared ARM XNU cache-attribute synchronization path, including GPU and Wi-Fi buffer allocations"
+  },
+  "hardware_tested_after_fix": true,
+  "wifi_capture": {
+    "source": "user-provided screen photo from integrated terminal boot",
+    "image_sha256": "c5a8b8997a72c0ab203055598762e0d36fabad91296e45f40e57f1b0efef9af2",
+    "pci_enumerate": "GWP_OK",
+    "msi_control": "0x10a",
+    "msi_address_bits": 32,
+    "bar_base": "0x60400000",
+    "bar_bytes": "0x200000",
+    "pci_ready": true,
+    "panic": "phystokv_range: illegal PA",
+    "reported_pa": "0xc6c00000",
+    "gPhysBase": "0x8c0000000",
+    "gPhysSize": "0x80000000",
+    "function_address": "0xfffffe00074788c0",
+    "file_offset": "0x4748c0",
+    "old_instruction": "0x53124400",
+    "fixed_instruction": "0xd3727c00",
+    "scope": "cache-attribute synchronization during Wi-Fi contiguous DMA buffer allocation"
+  },
+  "source_patch_in_default_profile": true,
+  "existing_kernel_fix": "scripts/fix-ios16-high-physical-cache.py checks the standalone function AND both reviewed inline expansions, their flush_dcache call targets, handoff metadata, and only three changed instructions",
+  "partial_binary_patch_test": {
+    "image_sha256": "2fb821dab44b91c4060cede0678be592f757abd9f89a9dc4355f6993570feb02",
+    "result": "same phystokv_range panic at PA 0xc6c00000",
+    "reason": "standalone function fixed but two compiler inline expansions were still 32-bit"
+  },
+  "complete_binary_fix": {
+    "patch_version": 2,
+    "sites": [
+      {
+        "symbol": "_pmap_sync_page_attributes_phys",
+        "address": "0xfffffe00074788c0",
+        "file_offset": "0x4748c0",
+        "instruction": "0xd3727c00",
+        "fixed": true
+      },
+      {
+        "symbol": "_pmap_update_compressor_page_internal",
+        "address": "0xfffffe000747ce34",
+        "file_offset": "0x478e34",
+        "instruction": "0xd3727e80",
+        "fixed": true
+      },
+      {
+        "symbol": "_pmap_set_cache_attributes_internal",
+        "address": "0xfffffe000747db6c",
+        "file_offset": "0x479b6c",
+        "instruction": "0xd3727e80",
+        "fixed": true
+      }
+    ],
+    "fixed": true,
+    "original_sites": [
+      {
+        "symbol": "_pmap_sync_page_attributes_phys",
+        "address": "0xfffffe00074788c0",
+        "file_offset": "0x4748c0",
+        "instruction": "0x53124400",
+        "fixed": false
+      },
+      {
+        "symbol": "_pmap_update_compressor_page_internal",
+        "address": "0xfffffe000747ce34",
+        "file_offset": "0x478e34",
+        "instruction": "0x53124680",
+        "fixed": false
+      },
+      {
+        "symbol": "_pmap_set_cache_attributes_internal",
+        "address": "0xfffffe000747db6c",
+        "file_offset": "0x479b6c",
+        "instruction": "0x53124680",
+        "fixed": false
+      }
+    ],
+    "input_sha256": "af104854cbdeaab6a9730fb00a9a85eb6455dc7bf0163111558f9f82e43f40c4",
+    "source_patch_sha256": "de40856578b8f5e91f49278099a80adeeb4cd02d802dc0875fec4e8213fb5201",
+    "changed_instruction_bytes": 12,
+    "hardware_tested": false
+  },
+  "hardware_validation": {
+    "image_sha256": "e7a4c4345c303f1f3cfbf8971f70e7bbf228a82f00fbc6371e179402ae5bcb09",
+    "log": "out/ios16/wifi-terminal-test-2/20261022-172830-703038/device-000.log",
+    "evidence": "PCI BAR mapping succeeded, gw_allocate returned true, execution reached requester-sid-claim; terminal memory command read RAM base 0x8c0000000; no panic",
+    "gpu_driver_included": false
+  }
+}

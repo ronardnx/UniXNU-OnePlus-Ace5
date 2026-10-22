@@ -8,6 +8,9 @@
    These are not PCI endpoint registers. Successful v5 reports are unchanged. */
 #define GW_CESTA_CLEANUP_TAG 0xce570000u
 #define GW_XNU_LINK_TAG 0x584e554cu
+/* giulia_wifip/stage 18: sw_ctrl/wlan_sw_ctrl hold the pre-setup
+   GPIO18/19 INTR_CFG values; bar0/bar1 hold the final values. No endpoint
+   BARs or SW_CTRL CFG/IO registers have been sampled in this handoff. */
 struct gw_report {
   unsigned version, stage, detail, error;
   unsigned long long firmware_status, clock_version;

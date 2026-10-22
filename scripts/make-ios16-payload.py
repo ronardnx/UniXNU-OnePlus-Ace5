@@ -13,6 +13,7 @@ import zlib
 from ios16_platform import check_platform, read_nodes
 from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
+from ios16_gpu_runtime import check_runtime as check_gpu_runtime
 from ios16_trust_catalog import modules
 
 def sha(p):
@@ -26,21 +27,31 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
     p.add_argument('--default-root',action='store_true')
+    p.add_argument('--debug-terminal',action='store_true',help='Enable root USB PTY device; requires separately staged debug daemon/shell')
+    p.add_argument('--debug-mmio',action='store_true',help='Enable explicit low peripheral MMIO commands; requires --debug-terminal')
+    p.add_argument('--wifi-terminal-wait',action='store_true',help='Wait for wifi.start before DMA initialization so USB captures failures')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
     p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
     p.add_argument('--trace-all',action='store_true',help='All processes, byte-preserving stdout/stderr, unlimited periodic snapshots')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
     p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
     p.add_argument('--wifi-pcie',action='store_true',help='Opt-in WCN7850 power/PCIe enumeration in the matching UEFI; a runtime kernel also requires locally embedded firmware')
+    p.add_argument('--gpu-mode',type=int,choices=(1,2),help='1: GPU firmware/host-memory preparation; 2: also gated read-only power/SMMU observation')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
     if a.trace_all:a.trace_services=True
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
+    if a.debug_mmio and not a.debug_terminal:p.error('--debug-mmio requires --debug-terminal')
+    if a.wifi_terminal_wait and (not a.debug_terminal or not a.wifi_pcie):
+        p.error('--wifi-terminal-wait requires --debug-terminal and --wifi-pcie')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
     report=json.loads(a.kernel.with_suffix('.json').read_text())
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
     platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    gpu_runtime=check_gpu_runtime(a.kernel.read_bytes(),report)
+    if a.gpu_mode and (not gpu_runtime or not a.root_report or not platform_match.get('gui')):
+        raise ValueError('GPU mode requires a GUI root entry and matching embedded GPU firmware')
     wifi=check_wifi_platform(read_nodes(a.adt.read_bytes()))
     wifi_runtime=check_runtime(a.kernel.read_bytes(),report)
     if wifi_runtime and not a.wifi_pcie:
@@ -66,6 +77,15 @@ def main():
     if a.touch_gpio and (not a.enable_touch or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in a.kernel.read_bytes()):
         raise ValueError('GPIO SPI requires the corresponding kernel driver and --enable-touch')
     args='-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
+    if a.debug_terminal:
+        if b'GIULIA SHELL: /dev/giulia-debug ready;' not in a.kernel.read_bytes():
+            raise ValueError('Debug terminal requires protocol 2 kernel')
+        args+=' giulia_debug=1'
+    if a.debug_mmio:args+=' giulia_mmio=1'
+    if a.wifi_terminal_wait:
+        if b'GIULIA WIFI: awaiting wifi.start before DMA setup' not in a.kernel.read_bytes():
+            raise ValueError('Kernel lacks the Wi-Fi terminal start gate')
+        args+=' giulia_wifi_wait=1'
     probe=args+' giulia_ufs_probe=1'
     config=('version = 1\n[boot]\ntimeout = 3\ndefault = "xnu"\n[kits]\nautoload = false\n'
             '[[entry]]\nid = "xnu"\ntitle = "Ace 5 iOS16 UFS + USB"\ntype = "xnu"\n'
@@ -111,6 +131,7 @@ def main():
             if a.trace_all:root_args+=' giulia_bootlog=1'
         if a.enable_touch:root_args+=' giulia_touch=1'
         if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
+        if a.gpu_mode:root_args+=' giulia_gpu='+str(a.gpu_mode)
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -133,7 +154,9 @@ def main():
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
             'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window','platform_match':platform_match,
-            'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes'}
+            'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes',
+            'debug_terminal_enabled':a.debug_terminal,'debug_mmio_enabled':a.debug_mmio,
+            'wifi_terminal_wait':a.wifi_terminal_wait}
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
                       root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,
@@ -153,6 +176,8 @@ def main():
         result['trust_catalog']={k:catalog[k] for k in ('sha256','bytes','build','source_ipsw_sha256','unique_hashes')}
     if wifi:result['wifi_bringup']=wifi
     if wifi_runtime:result['wifi_runtime']=wifi_runtime
+    if gpu_runtime:result['gpu_runtime']=gpu_runtime
+    if a.gpu_mode:result['gpu_mode']=a.gpu_mode
     if a.wifi_pcie:
         result['wifi_pcie_handoff']=True
         result['wifi_pcie_report_version']=5

@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-22",
+  "image_sha256": "daf50a38a4061a6a5d3b37776164491f32ecee0635db274bbd8a0ef65c0d0f00",
+  "evidence": "user screen photo after SID table initialization repair",
+  "sid_claim_verified": true,
+  "sid_entry_before": "0x0",
+  "sid_entry_after": "0x01000100",
+  "sid_bypass_after": 0,
+  "pc": "0xfffffe0007a7b8ac",
+  "pc_symbol": "gs_write(void*,unsigned,unsigned)+0x4",
+  "instruction": "str w2, [x8, w1, uxtw]",
+  "lr": "0xfffffe0007a7ea04",
+  "caller": "gws_restore+0x294",
+  "esr": "0x96000010",
+  "offset": "0x1114",
+  "physical_address": "0x15001114",
+  "register": "SMMU GR1 CBAR69",
+  "written_value": 0,
+  "initial_smmu_failure": {
+    "error": "GWS_WRITE_FAILED",
+    "register": "SCTLR69",
+    "address": "0x150c5000",
+    "written": "0x1127",
+    "readback": "0x127",
+    "difference": "ASIDPNE bit 12 reads zero"
+  },
+  "fix": "Release the newly claimed, previously disabled context with SCTLR=0 and restore its stream routing; do not reset CBAR/CBA2R to the unused stage-2 defaults",
+  "diagnostics": "Record pre-store MMIO values and first readback mismatch; giulia_wifi_wait=1 gates DMA initialization until wifi.start",
+  "gpu_driver_included": false,
+  "hardware_tested_after_fix": true,
+  "vendor_source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/iommu/arm/arm-smmu/arm-smmu.c",
+  "cleanup_validation": {
+    "image_sha256": "665dddab3ecbf08d020ca57da1e15558de377dd90a3837a7e4678a7efd33f625",
+    "log": "out/ios16/wifi-terminal-smmu-test-1/20261022-183242-750694/device-000.log",
+    "no_panic": true,
+    "context_disabled": true,
+    "stream_restored": true,
+    "quarantined": false
+  },
+  "additional_live_readback": {
+    "register": "TCR2_69",
+    "address": "0x150c5010",
+    "written": "0x38011",
+    "readback": "0x38071",
+    "difference": "TBI0/TBI1 bits 5/6 read one"
+  },
+  "readback_fix": {
+    "sctlr_mask": "0xffffefff",
+    "tcr2_mask": "0xffffff9f",
+    "asid_is_exclusive": true,
+    "upstream_bus_bits": 36,
+    "all_other_fields_exact": true,
+    "tests": 33,
+    "hardware_verified": true,
+    "cross_reference": "ios16/vendor/ArmSmmu4K/ArmSmmu4KContext.c: ArmSmmu4KValidateContextReadback",
+    "validation": {
+      "image_sha256": "fe41888f19e753289ad9f3f423a97bbc1de41be3f75190f277cbd7ccff724c27",
+      "log": "out/ios16/wifi-terminal-readback-test-1/20261022-185209-822124/device-000.log",
+      "smmu_result": 0,
+      "cb": 69,
+      "slot": 6,
+      "active": true,
+      "msi_ready": true,
+      "mhi_probe": 0
+    }
+  }
+}

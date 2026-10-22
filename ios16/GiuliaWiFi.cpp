@@ -60,7 +60,19 @@ struct giulia_wifi_runtime {
     struct gwc_state ce;struct gww_state wmi;struct gwf_view firmware;
     struct gwp_io pio;struct gws_io sio;struct gwm_io mio;struct gwq_io qio;struct gwc_io cio;struct gww_io wio;
     ifnet_t interface;uint8_t mac[6];unsigned ready,powered,scan_pending,stage,error,quarantine;
+    const char *error_domain,*operation;unsigned pci_trace,smmu_last_offset,smmu_last_value,smmu_seen,debug_wait;
+    unsigned mhi_last_offset,mhi_last_value,mhi_seen;
 };
+static unsigned gw_terminal_go,gw_terminal_waiting;
+extern "C" int giulia_wifi_terminal(const char *command) {
+    if(strcmp(command,"wifi.start") && strcmp(command,"wifi.status"))return 0;
+    int enabled=0;PE_parse_boot_argn("giulia_debug",&enabled,sizeof(enabled));
+    if(enabled!=1){IOLog("GIULIA WIFI: terminal control requires giulia_debug=1\n");return 1;}
+    if(!strcmp(command,"wifi.start"))__atomic_store_n(&gw_terminal_go,1u,__ATOMIC_RELEASE);
+    IOLog("GIULIA WIFI: terminal command=%s start_requested=%u waiting=%u\n",command,
+        __atomic_load_n(&gw_terminal_go,__ATOMIC_ACQUIRE),__atomic_load_n(&gw_terminal_waiting,__ATOMIC_ACQUIRE));
+    return 1;
+}
 class IONetworkController : public IOService { OSDeclareDefaultStructors(IONetworkController); };
 OSDefineMetaClassAndStructors(IONetworkController,IOService);
 class IO80211Interface : public IOService { OSDeclareDefaultStructors(IO80211Interface); };
@@ -106,23 +118,41 @@ static int gw_xnu_link(giulia_wifi_runtime *r) {
     r->root=r->link_maps[GWL_ROOT];r->config=r->link_maps[GWL_CFG];r->parf=r->link_maps[GWL_PARF];
     struct gwl_io io={r,gl_read,gl_write,gw_delay,gl_log};
     int error=gwl_train(&io,&r->link_state);
-    IOLog("GIULIA XNU PCIE: result=%d stage=%u polls=%u elapsed_ms=%llu elbi=0x%x link=0x%x endpoint=0x%x resources=retained\n",
+    IOLog("GIULIA XNU PCIE: result=%d stage=%u polls=%u elapsed_ms=%llu elbi=0x%x link=0x%x endpoint=0x%x resources=retained error_name=%s\n",
         error,r->link_state.stage,r->link_state.polls,(unsigned long long)(gw_now(NULL)-r->link_started),
-        r->link_state.elbi,r->link_state.link,r->link_state.device);
+        r->link_state.elbi,r->link_state.link,r->link_state.device,gwl_error_name((unsigned)error));
     return error;
 }
 static uint32_t gp_read(void *v,unsigned space,unsigned offset) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     vm_offset_t base=space==GWP_ENDPOINT?r->config:space==GWP_ROOT?r->root:space==GWP_ATU?r->root+0x1000:r->parf;
-    return gr32(base,offset);
+    uint32_t value=gr32(base,offset);
+    if((r->stage==2 || r->stage==3) && r->pci_trace++<256)
+        IOLog("GIULIA PCI: read space=%u offset=0x%x value=0x%x operation=%s\n",space,offset,value,r->operation);
+    return value;
 }
 static void gp_write(void *v,unsigned space,unsigned offset,uint32_t n) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     vm_offset_t base=space==GWP_ENDPOINT?r->config:space==GWP_ROOT?r->root:space==GWP_ATU?r->root+0x1000:r->parf;
     gw32(base,offset,n);
+    if((r->stage==2 || r->stage==3) && r->pci_trace++<256)
+        IOLog("GIULIA PCI: write space=%u offset=0x%x value=0x%x operation=%s\n",space,offset,n,r->operation);
 }
-static uint32_t gs_read(void *v,unsigned offset){return gr32(((giulia_wifi_runtime *)v)->smmu,offset);}
-static void gs_write(void *v,unsigned offset,uint32_t n){gw32(((giulia_wifi_runtime *)v)->smmu,offset,n);}
+static uint32_t gs_read(void *v,unsigned offset){
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;uint32_t value=gr32(r->smmu,offset);
+    if(!r->smmu_seen || offset!=r->smmu_last_offset || value!=r->smmu_last_value)
+        IOLog("GIULIA SMMU: read pa=0x%x value=0x%x operation=%s error=%u cb=%u\n",
+            0x15000000+offset,value,r->operation,r->translation.error,r->translation.cb);
+    r->smmu_seen=1;r->smmu_last_offset=offset;r->smmu_last_value=value;return value;
+}
+static void gs_write(void *v,unsigned offset,uint32_t n){
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    IOLog("GIULIA SMMU: write-request pa=0x%x value=0x%x operation=%s error=%u cb=%u failed_reg=0x%x actual=0x%x expected=0x%x\n",
+        0x15000000+offset,n,r->operation,r->translation.error,r->translation.cb,
+        r->translation.check_offset,r->translation.check_value,r->translation.check_expected);
+    if(r->debug_wait)IOSleep(10); /* Let the attached USB worker drain the pre-store record. */
+    gw32(r->smmu,offset,n);
+}
 static int gs_idle(void *v){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;uint32_t n=gr32(r->config,4);return n!=0xffffffffu&&!(n&4);}
 static int gs_owned(void *v,uint64_t pa,size_t n){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     return (pa==r->arena_pa&&n==GW_ARENA_BYTES)||(pa==r->table_pa&&n==0x4000);}
@@ -132,11 +162,44 @@ static void gs_clean(void *,void *,size_t){__asm__ volatile("dsb sy" ::: "memory
 static int gm_ready(void *v,uint64_t pa,size_t n){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     return pa>=GW_IOVA && n<=GW_ARENA_BYTES && pa-GW_IOVA<=GW_ARENA_BYTES-n &&
         r->sid.changed && r->msi.changed && gws_live(&r->sio,&r->translation);}
+static void gw_dma_snapshot(giulia_wifi_runtime *r,const char *checkpoint) {
+    if(!r->translation.active)return;
+    unsigned cb=gws_cb(r->translation.cb);
+    IOLog("GIULIA DMA: checkpoint=%s cb=%u fsr=0x%x far_hi=0x%x far_lo=0x%x fsynr0=0x%x fsynr1=0x%x cb_sid=0x%x\n",
+        checkpoint,r->translation.cb,gr32(r->smmu,cb+0x58),gr32(r->smmu,cb+0x64),
+        gr32(r->smmu,cb+0x60),gr32(r->smmu,cb+0x68),gr32(r->smmu,cb+0x6c),
+        gr32(r->smmu,0x1400+4*r->translation.cb));
+    IOLog("GIULIA DMA: checkpoint=%s root_command=0x%x aer_uncorrectable=0x%x aer_correctable=0x%x tlp=0x%x,0x%x,0x%x,0x%x\n",
+        checkpoint,gr32(r->root,4),gr32(r->root,0x104),gr32(r->root,0x110),
+        gr32(r->root,0x11c),gr32(r->root,0x120),gr32(r->root,0x124),gr32(r->root,0x128));
+}
 static int gm_master(void *v,int on){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
-    return gwp_master(&r->pio,&r->pci,on,!on||gm_ready(v,GW_IOVA,GW_ARENA_BYTES));}
-static uint32_t gm_read(void *v,uint32_t o){return gr32(((giulia_wifi_runtime *)v)->bar,o);}
-static void gm_write(void *v,uint32_t o,uint32_t n){gw32(((giulia_wifi_runtime *)v)->bar,o,n);}
-static void gm_sync(void *,size_t,size_t,int){__asm__ volatile("dsb sy" ::: "memory");}
+    int ready=!on||gm_ready(v,GW_IOVA,GW_ARENA_BYTES);
+    IOLog("GIULIA MHI: bus-master request=%d dma_ready=%d iova=0x%llx arena_pa=0x%llx\n",on,ready,
+        (unsigned long long)GW_IOVA,(unsigned long long)r->arena_pa);
+    if(on)gw_dma_snapshot(r,"before-master");
+    int ok=gwp_master(&r->pio,&r->pci,on,ready);
+    IOLog("GIULIA MHI: bus-master request=%d result=%d command=0x%x root_command=0x%x\n",
+        on,ok,gr32(r->config,4),gr32(r->root,4));return ok;}
+static uint32_t gm_read(void *v,uint32_t o){
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;uint32_t value=gr32(r->bar,o);
+    if(r->stage==4 && (!r->mhi_seen || o!=r->mhi_last_offset || value!=r->mhi_last_value))
+        IOLog("GIULIA MHI: read offset=0x%x value=0x%x stage=%u operation=%s\n",o,value,r->mhi.stage,r->operation);
+    r->mhi_seen=1;r->mhi_last_offset=o;r->mhi_last_value=value;return value;
+}
+static void gm_write(void *v,uint32_t o,uint32_t n){
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    if(r->stage==4)IOLog("GIULIA MHI: write-request offset=0x%x value=0x%x stage=%u operation=%s\n",o,n,r->mhi.stage,r->operation);
+    if(r->stage==4 && r->debug_wait)IOSleep(10);
+    gw32(r->bar,o,n);
+}
+static void gm_sync(void *v,size_t offset,size_t bytes,int to_device){
+    __asm__ volatile("dsb sy" ::: "memory");
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    if(r->stage==4 && bytes>=GWM_FIRMWARE)
+        IOLog("GIULIA MHI: DMA byte-access preparation complete offset=0x%lx bytes=0x%lx to_device=%d\n",
+            (unsigned long)offset,(unsigned long)bytes,to_device);
+}
 static int gm_verify(void *v,const void *data,size_t n,unsigned major){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;struct gwf_asset a;
     return gwf_main(&r->firmware,major,&a)&&a.bytes==n&&a.data==data;}
 static void gm_receive(void *v,const void *p,size_t n){giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;(void)gwq_receive(&r->qmi,&r->qio,p,n);}
@@ -231,8 +294,11 @@ static bool gw_allocate(giulia_wifi_runtime *r) {
     r->memory=(uint8_t *)r->arena->getBytesNoCopy();r->allocated=GW_ALLOC_START;return r->memory!=NULL;
 }
 static int gw_bringup(giulia_wifi_runtime *r) {
+    r->error_domain="XNU_PCIE";r->operation="link-training";
     if(r->handoff_mode==2) {r->stage=9;int e=gw_xnu_link(r);if(e)return e;}
+    r->error_domain="WIFI_SETUP";r->operation="firmware-map";
     r->stage=1;if(!gw_firmware(r))return 1;
+    r->operation="controller-mmio-map";
     if(!r->root)r->root=ml_io_map(0x60000000,0x2000);
     if(!r->config)r->config=ml_io_map(0x60100000,0x1000);
     if(!r->parf)r->parf=ml_io_map(0x1c00000,0x3000);
@@ -240,26 +306,97 @@ static int gw_bringup(giulia_wifi_runtime *r) {
     if(!r->root || !r->config || !r->parf || !r->smmu)return 2;
     r->pio=(struct gwp_io){r,gp_read,gp_write,gw_delay};r->sio=(struct gws_io){r,gs_read,gs_write,gw_delay,gs_idle,gs_owned,gs_clean};
     r->stage=2;
+    r->operation="link-status-recheck";
     if(!(gr32(r->root,0x80)&(1u<<29)) || !(gr32(r->root,0xf28)&(1u<<10)))return 3;
-    int e=gwp_enumerate(&r->pio,&r->pci,0x60300000,0x3d00000);if(e)return e;
+    r->error_domain="PCI_ENUM";r->operation="pci-enumerate";
+    int e=gwp_enumerate(&r->pio,&r->pci,0x60300000,0x3d00000);
+    IOLog("GIULIA PCI: enumerate result=%d name=%s cap_reason=%s cap_offset=0x%x cap_value=0x%x cap_count=%u pcie=0x%x msi=0x%x msi_control=0x%x bar=0x%llx bytes=0x%llx ready=%u restore_failed=%u\n",
+        e,gwp_error_name((unsigned)e),r->pci.cap_reason?r->pci.cap_reason:"not-reached",
+        r->pci.cap_offset,r->pci.cap_value,r->pci.cap_count,r->pci.pcie_cap,r->pci.msi_cap,r->pci.msi_control,
+        (unsigned long long)r->pci.bar_base,(unsigned long long)r->pci.bar_bytes,r->pci.ready,r->pci.restore_failed);
+    if(e)return e;
+    r->operation="bar-minimum-size";
     if(r->pci.bar_bytes<0x100000)return GWP_BAD_BAR;
+    r->error_domain="WIFI_SETUP";r->operation="bar-mmio-map";
     r->bar=ml_io_map((vm_offset_t)r->pci.bar_base,(vm_size_t)r->pci.bar_bytes);if(!r->bar)return 4;
+    IOLog("GIULIA PCI: BAR mapped pa=0x%llx bytes=0x%llx; endpoint DMA remains disabled\n",
+        (unsigned long long)r->pci.bar_base,(unsigned long long)r->pci.bar_bytes);
+    /* Reserve contiguous RAM before userspace fragments it while a debugger
+     * connects. SID/SMMU publication and device DMA still wait for wifi.start. */
+    r->operation="dma-arena-allocation";
     r->stage=3;if(!gw_allocate(r))return 5;
+    IOLog("GIULIA WIFI: DMA allocations arena_pa=0x%llx tables_pa=0x%llx bytes=0x%x\n",
+        (unsigned long long)r->arena_pa,(unsigned long long)r->table_pa,GW_ARENA_BYTES);
+    int wait=0;PE_parse_boot_argn("giulia_wifi_wait",&wait,sizeof(wait));
+    if(wait==1) {
+        r->operation="await-terminal-start";r->debug_wait=1;
+        __atomic_store_n(&gw_terminal_waiting,1u,__ATOMIC_RELEASE);
+        IOLog("GIULIA WIFI: awaiting wifi.start before DMA setup\n");
+        while(!__atomic_load_n(&gw_terminal_go,__ATOMIC_ACQUIRE))IOSleep(25);
+        __atomic_store_n(&gw_terminal_waiting,0u,__ATOMIC_RELEASE);
+        IOLog("GIULIA WIFI: terminal released DMA setup\n");
+    }
+    r->operation="requester-sid-claim";
     if(!gwp_sid_claim(&r->pio,&r->sid))return 6;
-    e=gws_take(&r->sio,&r->translation,(uint64_t *)r->tables->getBytesNoCopy(),r->table_pa,r->arena_pa,GW_IOVA,GW_ARENA_BYTES);if(e)return e;
+    r->error_domain="SMMU";r->operation="smmu-take";
+    e=gws_take(&r->sio,&r->translation,(uint64_t *)r->tables->getBytesNoCopy(),r->table_pa,r->arena_pa,GW_IOVA,GW_ARENA_BYTES);
+    IOLog("GIULIA SMMU: result=%d cb=%u slot=%u active=%u quarantined=%u failed_reg=0x%x actual=0x%x expected=0x%x\n",
+        e,r->translation.cb,r->translation.slot,r->translation.active,r->translation.quarantined,
+        r->translation.check_offset,r->translation.check_value,r->translation.check_expected);
+    if(e)return e;
+    r->error_domain="WIFI_SETUP";r->operation="msi-sink";
     if(!gwp_msi_sink(&r->pio,&r->pci,&r->msi,GW_IOVA,GW_ARENA_BYTES,GW_IOVA+GWM_MSI_SINK))return 7;
     r->mio=(struct gwm_io){r,gm_read,gm_write,gw_delay,gm_ready,gm_master,gm_verify,gm_sync,gm_receive,r->memory,GW_IOVA,GW_ARENA_BYTES,(uint32_t)r->pci.bar_bytes};
-    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START};
+    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START,gw_now};
     r->cio=(struct gwc_io){r,gc_read,gc_write,gm_ready,gm_sync,gc_receive,r->memory+GW_CE_OFFSET,GW_IOVA+GW_CE_OFFSET};
     r->wio=(struct gww_io){r,gw_send,gw_pump,gw_now,gw_notice};
-    r->stage=4;e=gwm_probe(&r->mio,&r->mhi);if(e)return e;
+    r->stage=4;r->error_domain="MHI";r->operation="mhi-probe";
+    e=gwm_probe(&r->mio,&r->mhi);
+    IOLog("GIULIA MHI: probe result=%d soc=0x%x major=%u bhi=0x%x bhie=0x%x ee=%u\n",
+        e,r->mhi.soc,r->mhi.major,r->mhi.bhi,r->mhi.bhie,r->mhi.ee);
+    if(e)return e;
+    r->error_domain="WIFI_SETUP";r->operation="firmware-select";
     struct gwf_asset firmware;if(!gwf_main(&r->firmware,r->mhi.major,&firmware))return 8;
-    e=gwm_boot(&r->mio,&r->mhi,firmware.data,firmware.bytes,(uint32_t)mach_absolute_time());if(e)return e;
+    r->error_domain="MHI";r->operation="mhi-boot";
+    e=gwm_boot(&r->mio,&r->mhi,firmware.data,firmware.bytes,(uint32_t)mach_absolute_time());
+    IOLog("GIULIA MHI: boot result=%d stage=%u bhi_status=0x%x bhie_status=0x%x ee=%u bus_master=%u quarantined=%u\n",
+        e,r->mhi.stage,r->mhi.bhi_status,r->mhi.bhie_status,r->mhi.ee,r->mhi.bus_master,r->mhi.quarantined);
+    if(e)return e;
+    r->operation="mhi-start-channels";
+    IOLog("GIULIA MHI: firmware mission entered_ms=%llu\n",(unsigned long long)gw_now(NULL));
     e=gwm_start_channels(&r->mio,&r->mhi);if(e)return e;
-    r->stage=5;e=gwq_initialize(&r->qmi,&r->qio,r->mhi.major);if(e)return e;
+    r->error_domain="QMI";r->operation="qmi-initialize";
+    uint64_t qmi_started=gw_now(NULL);
+    r->stage=5;e=gwq_initialize(&r->qmi,&r->qio,r->mhi.major);
+    IOLog("GIULIA QMI: initialize result=%d last_message=0x%x remote_error=%u node=0x%x port=0x%x memory_ready=%u provisioned=%u fw_ready=%u\n",
+        e,r->qmi.last_message,r->qmi.remote_error,r->qmi.node,r->qmi.port,
+        r->qmi.mem_ready,r->qmi.provisioned,r->qmi.fw_ready);
+    IOLog("GIULIA QMI: identity cap_bytes=%u chip_present=%u chip_bytes=%u chip=0x%x family=0x%x board_present=%u board_bytes=%u board=0x%x board_default=%u soc=0x%x firmware=0x%x\n",
+        r->qmi.cap_response_bytes,r->qmi.chip_info_present,r->qmi.chip_info_bytes,r->qmi.chip,r->qmi.chip_family,
+        r->qmi.board_info_present,r->qmi.board_info_bytes,r->qmi.board,r->qmi.board_default,
+        r->qmi.soc,r->qmi.firmware);
+    IOLog("GIULIA QMI: PMU present=%u bytes=%u count=%u valid=%u bad_entry=%u\n",
+        r->qmi.pmu_present,r->qmi.pmu_bytes,r->qmi.pmu_count,r->qmi.pmu_valid,r->qmi.pmu_bad_entry);
+    if(r->qmi.pmu_valid)for(unsigned i=0;i<r->qmi.pmu_count && i<16;i++)
+        IOLog("GIULIA QMI: PMU index=%u pin=%s wake_valid=%u wake_mv=%u sleep_valid=%u sleep_mv=%u\n",
+            i,r->qmi.pmu[i].pin_name,r->qmi.pmu[i].wake_valid,r->qmi.pmu[i].wake_mv,
+            r->qmi.pmu[i].sleep_valid,r->qmi.pmu[i].sleep_mv);
+    IOLog("GIULIA QMI: indications count=%u last=0x%x unknown=%u last_unknown=0x%x mask=0x%llx elapsed_ms=%llu mhi_status=0x%x ee=0x%x\n",
+        r->qmi.indication_count,r->qmi.last_indication,r->qmi.unknown_indications,r->qmi.last_unknown_indication,
+        (unsigned long long)r->qmi.indication_mask,(unsigned long long)(gw_now(NULL)-qmi_started),
+        gr32(r->bar,0x48),gr32(r->bar,r->mhi.bhi+0x28));
+    IOLog("GIULIA QMI: timing timeout_phase=%u start_ms=%llu elapsed_ms=%llu host_cap_ms=%llu memory_ready_ms=%llu cap_ms=%llu m3_ms=%llu fw_ready_ms=%llu rpc_elapsed_ms=%llu\n",
+        r->qmi.timeout_phase,(unsigned long long)r->qmi.mission_started_ms,(unsigned long long)r->qmi.elapsed_ms,
+        (unsigned long long)r->qmi.host_cap_ms,(unsigned long long)r->qmi.memory_ready_ms,(unsigned long long)r->qmi.cap_ms,
+        (unsigned long long)r->qmi.m3_ms,(unsigned long long)r->qmi.fw_ready_ms,(unsigned long long)r->qmi.rpc_elapsed_ms);
+    gw_dma_snapshot(r,"after-qmi-initialize");
+    if(e)return e;
+    r->error_domain="CE";r->operation="ce-initialize";
     r->stage=6;e=gwc_init(&r->ce,&r->cio);if(e)return e;
     uint8_t pipes[180],services[168];gwc_qmi_tables(pipes,services);
+    r->error_domain="QMI";r->operation="qmi-configure";
     e=gwq_configure(&r->qmi,&r->qio,pipes,9,services,14);if(e)return e;
+    r->error_domain="WMI";r->operation="wmi-initialize";
     r->stage=7;e=gww_initialize(&r->wmi,&r->wio,r->mac);if(e)return e;
     r->stage=8;return 0;
 }
@@ -279,15 +416,23 @@ static void gw_shutdown(giulia_wifi_runtime *r) {
 }
 static void gw_worker(void *v,wait_result_t) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;r->error=(unsigned)gw_bringup(r);
-    if(!r->error){r->ready=1;r->powered=1;if(!r->owner->publishInterface())r->error=9;}
+    if(!r->error){r->error_domain="WIFI_SETUP";r->operation="publish-interface";
+        r->ready=1;r->powered=1;if(!r->owner->publishInterface())r->error=9;}
     if(!r->error)IOLog("GIULIA WIFI: PCIe/MHI/QMI/WMI ready; en0 passive scan service published\n");
     while(!r->error) {
+        r->error_domain="TRANSPORT";r->operation="transport-poll";
         IOLockLock(r->lock);
         if(r->scan_pending){r->scan_pending=0;int e=gww_scan(&r->wmi,&r->wio);if(e)gw_notice(r,(unsigned)e,r->wmi.scan_id);}
         r->error=(unsigned)gw_pump(r,0);gww_tick(&r->wmi,&r->wio);IOLockUnlock(r->lock);IOSleep(5);
     }
+    IOLog("GIULIA WIFI: failure stage=%u error_domain=%s error_code=%u operation=%s pci_ready=%u bar=0x%llx bytes=0x%llx\n",
+        r->stage,r->error_domain,r->error,r->operation,r->pci.ready,
+        (unsigned long long)r->pci.bar_base,(unsigned long long)r->pci.bar_bytes);
     IOLockLock(r->lock);gw_shutdown(r);IOLockUnlock(r->lock);
-    IOLog("GIULIA WIFI: stopped stage=%u error=%u MHI=%u QMI=%u CE=%u WMI=%u quarantine=%u\n",
+    if(r->stage==9)
+        IOLog("GIULIA WIFI: stopped stage=9 error_domain=XNU_PCIE error_code=%u error_name=%s quarantine=%u\n",
+            r->error,gwl_error_name(r->error),r->quarantine);
+    else IOLog("GIULIA WIFI: stopped stage=%u error=%u MHI=%u QMI=%u CE=%u WMI=%u quarantine=%u\n",
         r->stage,r->error,r->mhi.error,r->qmi.error,r->ce.error,r->wmi.error,r->quarantine);
     r->owner->setProperty("GiuliaWiFiError",r->error,32);r->owner->setProperty("GiuliaWiFiStage",r->stage,32);
     r->owner->release();thread_terminate(current_thread());

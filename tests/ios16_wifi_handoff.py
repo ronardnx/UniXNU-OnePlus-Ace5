@@ -14,6 +14,7 @@ with tempfile.TemporaryDirectory() as folder:
     root=Path(folder)
     source=root/'DarwinBoot.c'
     source.write_text('#include <Uefi.h>\nVOID Original(VOID) {\n'
+        '  GiuliaAppendPowerDiagnostic (CommandLine, sizeof (CommandLine));\n'
         '  CopyMem (Args->CommandLine, CommandLine, sizeof (CommandLine));\n}\n')
     command=[sys.executable,str(ROOT/'scripts/enable-wifi-diagnostics.py'),str(root)]
     subprocess.run(command,check=True,capture_output=True)
@@ -21,6 +22,7 @@ with tempfile.TemporaryDirectory() as folder:
     subprocess.run(command,check=True,capture_output=True)
     assert source.read_bytes()==first,'Helper installation is not idempotent'
     text=source.read_text()
+    assert text.index('  GiuliaAppendWifiDiagnostic (') < text.index('  GiuliaAppendPowerDiagnostic (')
     helper=text[text.index('#include "GiuliaWifiReport.h"'):text.index('VOID Original')]
     stub=r'''
 #include <assert.h>
@@ -52,7 +54,8 @@ static EFI_STATUS prepare(struct gw_report *r,UINTN size) {
   if(pending_mode) {
     r->version=5;r->stage=18;r->detail=GW_XNU_LINK_TAG;r->error=0;
     r->rails=511;r->clocks=4095;r->phy=0x86;r->root_device=0x11317cb;
-    r->gpio_after=3;r->perst=0x2010000;r->ref_clock=1;return 0;
+    r->gpio_after=3;r->perst=0x2010000;r->ref_clock=1;
+    r->sw_ctrl=64;r->wlan_sw_ctrl=64;r->bar0=192;r->bar1=192;return 0;
   }
   r->version=5;r->stage=13;r->error=7;r->detail=256;
   r->rails=127;r->clocks=4095;r->firmware_status=0x8000000000000021ULL;
@@ -135,6 +138,10 @@ int main(void) {
     assert base64.b64decode(result[1],validate=True)==bytes(i^0xa5 for i in range(168))
     prepared=decode_reports(result[-1])[0]
     assert prepared['xnu_link_pending'] and not prepared['endpoint_identified']
+    assert prepared['pdc_wake_routes']['both_enabled']
+    assert prepared['pdc_wake_routes']['before_sw_ctrl_intr_cfg']==64
+    assert prepared['pdc_wake_routes']['sw_ctrl_intr_cfg']==192
+    assert 'sw_ctrl' not in prepared['pin_readback']
     if snapshot_mode:
         assert not decode_reports(result[2]),'Snapshot must never be interpreted as a runtime handoff'
         log=root/'snapshot.log';log.write_bytes(result[2]+b'\n'+result[2]+b'\n')

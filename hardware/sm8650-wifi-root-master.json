@@ -1,0 +1,104 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / SM8650 / WCN7850",
+  "status": "Integrated kernel verified without manual register changes: BHI/BHIE transfer and MHI channels succeed; subsequent QMI identity failure is separate",
+  "root_cause": "Endpoint bus mastering was enabled, but root-port Command.BME remained clear and rejected upstream DMA/MSI requests",
+  "baseline": {
+    "image": "out/ios16/wifi-terminal-byte-boot/giulia-ios16-wifi-pcie.img",
+    "image_sha256": "e454e548fa8fa0373b54ab1d005a42b20628ded6b0860891a88dd7018e3ca710",
+    "log": "out/ios16/wifi-terminal-byte-test-1/20261022-191712-934781/device-000.log",
+    "root_command_status": "0x00100002",
+    "endpoint_command_status": "0x00100406",
+    "bhi_status": "0xffffffff",
+    "mhi_error": 6,
+    "root_aer_uncorrectable_status": "0x00100000",
+    "root_aer_header": [
+      "0x40000001",
+      "0x0100000f",
+      "0x20006000",
+      "0x00000000"
+    ],
+    "aer_header_interpretation": "One-DWORD Memory Write from requester 01:00.0 to the owned MSI sink at IOVA 0x20006000",
+    "log_sha256": "1bb534ca93c9a690556f1fd9981cd14fde3f38cb45b81688e944e78e6f0fd267"
+  },
+  "live_comparison": {
+    "image_unchanged": true,
+    "log": "out/ios16/wifi-root-master-test-2/20261022-193102-352195/device-000.log",
+    "command": "reg.rmw 0x60000004 16 0x4 0x4",
+    "root_command_before": "0x0002",
+    "root_command_after": "0x0006",
+    "endpoint_dma_disabled_when_command_sent": true,
+    "bhi_status": "0x8b91e5b0",
+    "bhie_status": "0x8b91e5b1",
+    "mhi_boot_result": 0,
+    "execution_environment": 2,
+    "mhi_channels_started": true,
+    "next_failure": {
+      "domain": "QMI",
+      "code": 8,
+      "name": "GWQ_IDENTITY",
+      "operation": "qmi-initialize"
+    },
+    "quarantined": false,
+    "root_command_status_after_cleanup": "0x00100000",
+    "root_aer_uncorrectable_status_after": 0,
+    "root_aer_correctable_status_after": 0,
+    "usb_dropped": 0,
+    "flash_performed": false,
+    "log_sha256": "bdc2bb13a79c61e22099496206f3b73593af98361dd9e8a4a349e333f5dd3b63"
+  },
+  "allocation_observation": {
+    "log": "out/ios16/wifi-root-master-test-1/20261022-192735-398076/device-000.log",
+    "failure": "64 MiB physically contiguous allocation failed after waiting for interactive debug commands",
+    "fix": "Reserve the arena before the terminal gate; leave SID/SMMU setup and endpoint DMA behind wifi.start",
+    "log_sha256": "7108daf46dfa490a617c1cfe22ddd8ce00b3272a9a60ba5b545a361c31f0be83"
+  },
+  "source_fix": {
+    "file": "ios16/giulia_wifi_pci.h",
+    "function": "gwp_master",
+    "behavior": "After dma_ready, enable and verify root-port Memory Space and Bus Master before enabling the endpoint; preserve Status W1C bits and restore the root only after endpoint DMA drains",
+    "commit": "9b24d0d04fea7f6d98c0fcb8792db07d0dc1b738",
+    "build_repository": "jasper2863/UniXNU-giulia",
+    "build_run": 39771688675,
+    "hardware_verified": true,
+    "root_only_build_conclusion": "success",
+    "integrated_reboot_build": {
+      "commit": "8441413570d88e3b7f1859659b3cdf0fec1d2f8b",
+      "run": 39773934079
+    }
+  },
+  "host_validation": {
+    "regression_failed_before_fix": true,
+    "pci_cases": 69,
+    "pci_cases_include": [
+      "bridge-before-endpoint ordering",
+      "DMA readiness gate",
+      "bridge and endpoint dropped writes",
+      "unreadable root Command",
+      "W1C preservation",
+      "pending-transaction drain",
+      "restoration of inherited bridge state"
+    ],
+    "wifi_runtime_sanitizers": "passed",
+    "dma_byte_access_O2_O3": "passed",
+    "python_unittests": 38
+  },
+  "primary_source": "https://github.com/torvalds/linux/blob/v6.12/drivers/pci/controller/dwc/pcie-designware-host.c#L796-L801",
+  "firmware_transfer_verified": true,
+  "wifi_scan_verified": false,
+  "integrated_validation": {
+    "image": "out/ios16/wifi-root-master-reboot-boot/giulia-ios16-wifi-pcie.img",
+    "image_sha256": "1bea6e2e858d036a2fcd7dfa9d6c690e636e6f8e719a6e24a334c08d9d0cbc77",
+    "log": "out/ios16/fastboot-reboot-probe-1/20261022-194058-230842/device-000.log",
+    "manual_root_register_write": false,
+    "root_command_status": "0x00100006",
+    "bhi_status": "0x8c464810",
+    "bhie_status": "0x8c464811",
+    "mhi_boot_result": 0,
+    "execution_environment": 2,
+    "mhi_channels_started": true,
+    "allocation_before_terminal_gate": true,
+    "next_failure": "QMI GWQ_IDENTITY (8)",
+    "quarantined": false
+  }
+}

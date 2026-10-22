@@ -8,6 +8,7 @@ for transport in link pci smmu mhi qmi ce wmi apple; do
     "tests/ios16_wifi_${transport}.c" -o "$test_dir/$transport"
   "$test_dir/$transport"
 done
+python3 tests/ios16_wifi_dma_bytes.py
 clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
   tests/ios16_display.c -o "$test_dir/display"
 "$test_dir/display"

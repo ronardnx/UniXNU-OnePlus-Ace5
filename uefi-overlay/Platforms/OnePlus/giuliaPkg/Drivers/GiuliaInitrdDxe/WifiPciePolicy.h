@@ -56,7 +56,8 @@ static void gw_mask(const struct gw_bus *b,unsigned region,unsigned offset,unsig
 static int gw_pin_owned(unsigned value)
 { return value!=0xffffffffu && (!(value&(1u<<11)) || (value&(1u<<12))); }
 
-/* GPIO indices: WLAN_EN16, PERST94, CLKREQ95, WAKE96; read-only BT17, SW18, WLAN_SW19. */
+/* GPIO indices: WLAN_EN16, PERST94, CLKREQ95, WAKE96; BT17 is read-only.
+   SW18/WLAN_SW19 remain inputs; only their PDC wake-forwarding bit is set. */
 static void gw_gpio(const struct gw_bus *b,unsigned index,unsigned value)
 { gw_mask(b,GW_GPIO,index*0x1000+4,2,value?2u:0u); }
 
@@ -122,6 +123,7 @@ static int gw_bringup_mode(const struct gw_bus *b, struct gw_report *r,
   unsigned cfg[4],io[4],i,j,domains=0,rails=0,clocks=0,last_ltssm=64;
   unsigned core_reset=0,phy_reset=0,reset_changed=0,pins_changed=0,controller=0,atu_changed=0,cesta_attempted=0;
   unsigned rchng_old=0,rchng_changed=0;
+  unsigned wake_old[2]={0,0},wake_changed=0;
   int result=GW_OK;
   if (!b || !r || !b->read || !b->write || !b->delay || !b->resource || !b->step)
     return GW_RESOURCE_ERROR;
@@ -139,6 +141,27 @@ static int gw_bringup_mode(const struct gw_bus *b, struct gw_report *r,
   if(i==0xffffffffu || (i&3)) {
     r->detail=4; r->error=GW_ALREADY_ACTIVE; return r->error;
   }
+  /* CNSS cnss_get_pinctrl(): mpm_wake_set_gpios=<18 19>.
+     OnePlus pinctrl-msm.c forwards these PDC-mapped pins using
+     GPIO_INTR_CFG[7], after checking the hardware-present bit [6].
+     GPIO CFG/IN_OUT alone do not configure this forwarding path.
+     Preserve CPU IRQ enable, polarity, target and detection fields. */
+  for(i=0;i<2;i++) {
+    unsigned pin=(i+5)*0x1000,config=gw_read(b,GW_GPIO,pin);
+    r->detail=pin+8;wake_old[i]=gw_read(b,GW_GPIO,pin+8);
+    if(i==0)r->bar0=wake_old[i];else r->bar1=wake_old[i];
+    if(!gw_pin_owned(config) || (config&0x23c) || wake_old[i]==0xffffffffu || !(wake_old[i]&64)) {
+      result=GW_BAD_PIN;goto fail;
+    }
+    if(!(wake_old[i]&128)) {
+      wake_changed|=1u<<i;
+      gw_write(b,GW_GPIO,pin+8,wake_old[i]|128);
+      unsigned route=gw_read(b,GW_GPIO,pin+8);
+      if(i==0)r->bar0=route;else r->bar1=route;
+      if(route==0xffffffffu || (route&192)!=192) {result=GW_BAD_REGISTER;goto fail;}
+    }
+  }
+  r->bar0=r->bar1=0;
   for(i=0;i<GW_RAILS;i++) {
     gw_step(b,r,GW_POWER,i);
     if(b->resource(b->context,GW_RAIL,i,1)) { result=GW_RESOURCE_ERROR; goto fail; }
@@ -226,6 +249,7 @@ static int gw_bringup_mode(const struct gw_bus *b, struct gw_report *r,
   r->root_device=gw_read(b,GW_DBI,0);
   if((r->root_device&0xffff)!=0x17cb) { result=GW_BAD_REGISTER; goto fail; }
   gw_step(b,r,GW_LINK,0);
+  if(!gw_initialize_sid_table(b,r)) { result=GW_BAD_REGISTER;goto fail; }
   b->delay(b->context,GW_STOCK_EP_DELAY_US);
   gw_mask(b,GW_PARF,0x2c4,1,1u<<8);
   gw_mask(b,GW_DBI,0x714,0,1u<<5);
@@ -239,6 +263,10 @@ static int gw_bringup_mode(const struct gw_bus *b, struct gw_report *r,
        This is not enumeration success. A separate boot argument ensures
        older kernels reject the pending handoff instead of starting DMA. */
     gw_step(b,r,GW_XNU_PENDING,GW_XNU_LINK_TAG);
+    /* Pending reports have no endpoint BARs. Preserve the two routing
+       readbacks there; the decoder labels their meaning by handoff kind. */
+    r->bar0=gw_read(b,GW_GPIO,0x5008);r->bar1=gw_read(b,GW_GPIO,0x6008);
+    r->sw_ctrl=wake_old[0];r->wlan_sw_ctrl=wake_old[1];
     r->error=GW_OK;return GW_OK;
   }
   gw_gpio(b,1,1); b->delay(b->context,GW_STOCK_PERST_DELAY_US);
@@ -318,6 +346,12 @@ fail:
   for(j=GW_DOMAINS_COUNT;j>0;j--) if(domains&(1u<<(j-1))) (void)b->resource(b->context,GW_DOMAIN,j-1,0);
   for(j=GW_RAILS;j>0;j--) if(rails&(1u<<(j-1))) (void)b->resource(b->context,GW_RAIL,j-1,0);
   if(pins_changed) for(i=0;i<4;i++) { gw_write(b,GW_GPIO,i*0x1000+4,io[i]); gw_write(b,GW_GPIO,i*0x1000,cfg[i]); }
+  for(j=2;j>0;j--) if(wake_changed&(1u<<(j-1))) {
+    unsigned offset=(j+4)*0x1000+8,current=gw_read(b,GW_GPIO,offset);
+    if(current==0xffffffffu) {r->cleanup_status=0x8000000000000007ull;continue;}
+    gw_write(b,GW_GPIO,offset,(current&~128u)|(wake_old[j-1]&128));
+    if((gw_read(b,GW_GPIO,offset)&128)!=(wake_old[j-1]&128))r->cleanup_status=0x8000000000000007ull;
+  }
   return result;
 }
 static inline int gw_bringup(const struct gw_bus *b,struct gw_report *r,

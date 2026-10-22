@@ -17,6 +17,13 @@ if 'GiuliaAppendWifiDiagnostic' not in text:
     marker='  CopyMem (Args->CommandLine, CommandLine, sizeof (CommandLine));'
     if text.count(marker)!=1:raise ValueError('DarwinBoot command-line anchor changed')
     text=text.replace(marker,'  GiuliaAppendWifiDiagnostic (CommandLine, sizeof (CommandLine));\n'+marker)
+# The checked Wi-Fi handoff owns live resources. Reserve it before the optional
+# touch-power text; terminal boot flags otherwise push the total beyond 608.
+power_call='  GiuliaAppendPowerDiagnostic (CommandLine, sizeof (CommandLine));\n'
+wifi_call='  GiuliaAppendWifiDiagnostic (CommandLine, sizeof (CommandLine));\n'
+if power_call in text:
+    assert text.count(power_call)==text.count(wifi_call)==1
+    text=text.replace(power_call,'').replace(wifi_call,wifi_call+power_call)
 helper='''
 #include "GiuliaWifiReport.h"
 #include "GiuliaWifiEncoding.h"

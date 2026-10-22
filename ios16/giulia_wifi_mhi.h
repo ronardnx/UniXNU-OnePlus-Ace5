@@ -55,17 +55,20 @@ struct gwm_state {
     unsigned ev_cons[2],ev_free[2],cmd_wp,cmd_pending,cmd_slot,cmd_channel,cmd_result;
     unsigned tx_wp,tx_rp,rx_wp,rx_rp;
 };
+/* The uncached DMA mapping has device-memory alignment rules. Even a byte loop
+ * can become an unaligned word/vector access without volatile (observed in the
+ * BHIE vector length's zero bytes). Keep the wire helpers byte-exact. */
 static inline void gwm_copy(void *to,const void *from,size_t n)
-{ unsigned char *d=(unsigned char *)to;const unsigned char *s=(const unsigned char *)from;while(n--) *d++=*s++; }
+{ volatile unsigned char *d=(volatile unsigned char *)to;const volatile unsigned char *s=(const volatile unsigned char *)from;while(n--) *d++=*s++; }
 static inline void gwm_zero(void *p,size_t n)
-{ unsigned char *d=(unsigned char *)p;while(n--) *d++=0; }
+{ volatile unsigned char *d=(volatile unsigned char *)p;while(n--) *d++=0; }
 static inline uint32_t gwm_u32(const volatile unsigned char *p)
 { return (uint32_t)p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24); }
 static inline uint64_t gwm_u64(const volatile unsigned char *p)
 { return (uint64_t)gwm_u32(p)|((uint64_t)gwm_u32(p+4)<<32); }
-static inline void gwm_put32(unsigned char *p,uint32_t v)
+static inline void gwm_put32(volatile unsigned char *p,uint32_t v)
 { for(unsigned i=0;i<4;i++) p[i]=(unsigned char)(v>>(8*i)); }
-static inline void gwm_put64(unsigned char *p,uint64_t v)
+static inline void gwm_put64(volatile unsigned char *p,uint64_t v)
 { for(unsigned i=0;i<8;i++) p[i]=(unsigned char)(v>>(8*i)); }
 static inline int gwm_reg_valid(const struct gwm_io *b,uint32_t reg,unsigned bytes)
 { return !(reg&3) && bytes<=b->bar_bytes && reg<=b->bar_bytes-bytes; }

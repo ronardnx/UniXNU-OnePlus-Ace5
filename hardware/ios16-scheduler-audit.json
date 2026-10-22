@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-22",
+  "conclusion": "Existing device capture proves single-CPU scheduling and timed kernel-thread progress; it does not qualify SMP, fairness or latency",
+  "captured_kernel_run": 39669410091,
+  "capture": "out/ios16/wifi-native-display-test-1/serial-000.log",
+  "capture_sha256": "efa7d9e49fe2cd037674a1d05c2f44b1abac5ebd61947c978560340635356773",
+  "evidence": [
+    {
+      "message": "SWEET CPU: boot CPU 0 registered, SGI1 verified, initialization complete",
+      "lines": [
+        81,
+        332
+      ]
+    },
+    {
+      "message": "dlil_init: All the created dlil kernel threads have been scheduled at least once. Proceeding.",
+      "lines": [
+        93,
+        344
+      ]
+    },
+    {
+      "message": "EXEC pid=27 ppid=1 name=SpringBoard",
+      "lines": [
+        817
+      ]
+    },
+    {
+      "message": "EXEC pid=58 ppid=1 name=backboardd",
+      "lines": [
+        940
+      ]
+    },
+    {
+      "message": "EXEC pid=196 ppid=1 name=Setup",
+      "lines": [
+        7234
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "round": 0,
+      "uptime_ns": 433767617395
+    },
+    {
+      "round": 1,
+      "uptime_ns": 554438991770
+    }
+  ],
+  "sample_start_delta_ns": 120671374375,
+  "interval_limit": "Start-to-start interval includes previous sample work and 120-second tsleep; not an isolated wakeup latency measurement",
+  "configured_cpu_count": 1,
+  "virtual_timer_irq": 27,
+  "timebase_hz": 19200000,
+  "binary_scheduler": {
+    "kernel": "out/ios16/wifi-native-display-boot/kernel.macho",
+    "sched_init": "0xfffffe00073564cc",
+    "dispatch": "sched_clutch_dispatch",
+    "dispatch_address": "0xfffffe000716fb80",
+    "evidence": "ADRP x20 + ADD #0xb80, then LDR from that constant dispatch table in compiled sched_init; not a live memory read"
+  },
+  "limits": [
+    "SweetCPU rejects num_cpus != 1 and startCPU returns KERN_NOT_SUPPORTED",
+    "SGI1 self-test is to the same CPU, not cross-core IPI validation",
+    "SMP log prefix denotes process sampling, not SMP hardware",
+    "IOWatchdog is a non-firing compatibility shim; absence of watchdog failure is not a scheduler-health proof",
+    "No context-switch/preemption/fairness counters or controlled latency load test in this capture"
+  ],
+  "new_photo": {
+    "confirmed_failure": "phystokv_range rejects truncated PA 0xc4a00000",
+    "root_cause_record": "hardware/sm8650-high-physical-cache.json",
+    "scheduler_stall_not_supported_by_photo": true
+  },
+  "new_device_test_performed": false
+}

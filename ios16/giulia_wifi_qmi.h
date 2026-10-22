@@ -12,9 +12,13 @@
 #define GWQ_PACKET 8192u
 #define GWQ_CTRL 0xfffffffeu
 #define GWQ_SEGMENTS 52u
-#define GWQ_TIMEOUT 10000u
+#define GWQ_TIMEOUT 10000u /* One QMI RPC or service discovery, milliseconds. */
+/* CNSS mission boot watchdog: default QMI timeout + 30000 ms, distinct from
+ * each RPC's deadline. Start once MHI channels are usable, before discovery. */
+#define GWQ_MISSION_TIMEOUT 40000u
 enum gwq_error { GWQ_OK,GWQ_ARGUMENT,GWQ_WIRE,GWQ_TRANSPORT,GWQ_TIMEOUT_ERROR,
     GWQ_SERVER_LOST,GWQ_REMOTE_ERROR,GWQ_MEMORY,GWQ_IDENTITY,GWQ_ASSET,GWQ_STATE };
+enum gwq_timeout_phase { GWQ_TIMEOUT_NONE,GWQ_TIMEOUT_RPC,GWQ_TIMEOUT_SERVER,GWQ_TIMEOUT_MISSION };
 enum gwq_asset { GWQ_REGDB,GWQ_BOARD,GWQ_PHY };
 struct gwq_io {
     void *context;
@@ -24,26 +28,62 @@ struct gwq_io {
     void (*clean)(void *,const void *,size_t);
     int (*asset)(void *,unsigned,unsigned,uint32_t,uint32_t,const void **,size_t *);
     uint64_t dma_base,dma_bytes;
+    uint64_t (*now)(void *); /* Monotonic milliseconds, including time in pump. */
 };
 struct gwq_span { uint64_t address; uint32_t bytes,type; };
+struct gwq_pmu_param {
+    char pin_name[33];
+    uint32_t wake_valid,wake_mv,sleep_valid,sleep_mv;
+};
 struct gwq_state {
     unsigned error,major,hello,server,waiting,replied,registered,host_cap;
     unsigned mem_pending,mem_ready,fw_ready,provisioned,configured,mem_rounds;
     unsigned mem_response_sent,allocations;
     uint32_t node,port,chip,board,soc,firmware,remote_error,last_message;
+    uint32_t cap_response_bytes,chip_info_present,chip_info_bytes,chip_family;
+    uint32_t board_info_present,board_info_bytes,board_default;
+    uint32_t last_indication,indication_count,unknown_indications,last_unknown_indication;
+    uint64_t indication_mask;
+    uint32_t pmu_present,pmu_bytes,pmu_count,pmu_valid,pmu_bad_entry;
+    struct gwq_pmu_param pmu[16];
+    unsigned initializing,timeout_phase;
+    uint64_t mission_started_ms,elapsed_ms,host_cap_ms,memory_ready_ms,cap_ms,m3_ms,fw_ready_ms;
+    uint64_t rpc_started_ms,rpc_elapsed_ms,server_received_ms;
     uint16_t transaction,pending_transaction,pending_message;
     size_t response_bytes,mem_bytes;
     struct gwq_span allocated[GWQ_SEGMENTS+4];
     uint8_t response[2048],mem_request[1824],request[7000],wire[GWQ_PACKET];
 };
-static inline uint16_t gwq_u16(const void *v) { const uint8_t *p=(const uint8_t *)v;return (uint16_t)(p[0]|(unsigned)p[1]<<8); }
-static inline uint32_t gwq_u32(const void *v) { const uint8_t *p=(const uint8_t *)v;return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
+/* These wire pointers may name uncached DMA buffers with unaligned TLVs. */
+static inline uint16_t gwq_u16(const void *v) { const volatile uint8_t *p=(const volatile uint8_t *)v;return (uint16_t)(p[0]|(unsigned)p[1]<<8); }
+static inline uint32_t gwq_u32(const void *v) { const volatile uint8_t *p=(const volatile uint8_t *)v;return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
 static inline uint64_t gwq_u64(const void *v) { const uint8_t *p=(const uint8_t *)v;return gwq_u32(p)|(uint64_t)gwq_u32(p+4)<<32; }
-static inline void gwq_w16(void *v,uint16_t n) { uint8_t *p=(uint8_t *)v;p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8); }
-static inline void gwq_w32(void *v,uint32_t n) { uint8_t *p=(uint8_t *)v;for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(i*8)); }
+static inline void gwq_w16(void *v,uint16_t n) { volatile uint8_t *p=(volatile uint8_t *)v;p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8); }
+static inline void gwq_w32(void *v,uint32_t n) { volatile uint8_t *p=(volatile uint8_t *)v;for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(i*8)); }
 static inline void gwq_w64(void *v,uint64_t n) { uint8_t *p=(uint8_t *)v;gwq_w32(p,(uint32_t)n);gwq_w32(p+4,(uint32_t)(n>>32)); }
-static inline void gwq_copy(void *v,const void *s,size_t n) { uint8_t *d=(uint8_t *)v;const uint8_t *p=(const uint8_t *)s;for(size_t i=0;i<n;i++)d[i]=p[i]; }
+static inline void gwq_copy(void *v,const void *s,size_t n) { volatile uint8_t *d=(volatile uint8_t *)v;const volatile uint8_t *p=(const volatile uint8_t *)s;for(size_t i=0;i<n;i++)d[i]=p[i]; }
 static inline int gwq_fail(struct gwq_state *s,unsigned e) { if(!s->error)s->error=e;return (int)s->error; }
+static inline int gwq_mission_at(struct gwq_state *s,uint64_t now) {
+    if(!s->initializing)return 0;
+    s->elapsed_ms=now-s->mission_started_ms;
+    /* A poll batch can contain more packets after the in-time final ready
+     * indication. Once the handshake completed, later traffic cannot turn it
+     * into a mission timeout; normal wire/state validation still applies. */
+    if(s->provisioned && s->fw_ready)return 0;
+    if(s->elapsed_ms<GWQ_MISSION_TIMEOUT)return 0;
+    s->timeout_phase=GWQ_TIMEOUT_MISSION;return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+}
+static inline int gwq_mission_check(struct gwq_state *s,const struct gwq_io *io)
+{return gwq_mission_at(s,io->now(io->context));}
+static inline int gwq_rpc_check(struct gwq_state *s,const struct gwq_io *io) {
+    uint64_t now=io->now(io->context);s->rpc_elapsed_ms=now-s->rpc_started_ms;
+    if(s->rpc_elapsed_ms>=GWQ_TIMEOUT) {
+        s->timeout_phase=GWQ_TIMEOUT_RPC;return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    }
+    return gwq_mission_at(s,now);
+}
+static inline uint64_t gwq_reply_ms(const struct gwq_state *s)
+{return s->rpc_started_ms+s->rpc_elapsed_ms-s->mission_started_ms;}
 /* Validate complete TLV framing and uniqueness before interpreting any field. */
 static inline int gwq_tlvs(const uint8_t *p,size_t n) {
     uint8_t seen[32]={0};size_t o=0;
@@ -79,7 +119,7 @@ static inline int gwq_control(struct gwq_state *s,const struct gwq_io *io,unsign
  * are ignored; malformed packets for our server stop firmware initialization. */
 static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const void *v,size_t n) {
     const uint8_t *p=(const uint8_t *)v;size_t h,z;uint32_t type,sn,sp,dn,dp,confirm;
-    if(!s || !io || !io->send || !p || n<16 || n>GWQ_PACKET)return GWQ_ARGUMENT;
+    if(!s || !io || !io->send || !io->now || !p || n<16 || n>GWQ_PACKET)return GWQ_ARGUMENT;
     if(s->error)return (int)s->error;
     if(p[0]==1) {
         if(n<32 || gwq_u32(p)!=1)return gwq_fail(s,GWQ_WIRE);
@@ -99,6 +139,7 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
         if(type==4 && gwq_u32(p+4)==0x45 && gwq_u32(p+8)==0x101) {
             uint32_t node=gwq_u32(p+12),port=gwq_u32(p+16);
             if(!node || !port || port>=GWQ_CTRL || (s->server && (s->node!=node || s->port!=port)))return gwq_fail(s,GWQ_STATE);
+            if(!s->server)s->server_received_ms=io->now(io->context);
             s->node=node;s->port=port;s->server=1;
         } else if(s->server && ((type==3 && sn==s->node) ||
             (type==5 && gwq_u32(p+12)==s->node && gwq_u32(p+16)==s->port)))return gwq_fail(s,GWQ_SERVER_LOST);
@@ -111,12 +152,21 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
     uint16_t txn=gwq_u16(p+1),msg=gwq_u16(p+3);unsigned flag=p[0];p+=7;z-=7;
     if(flag==2) {
         if(!s->waiting || txn!=s->pending_transaction || msg!=s->pending_message)return 0;
+        if(gwq_rpc_check(s,io))return (int)s->error;
         size_t bytes;const uint8_t *r=gwq_field(p,z,2,&bytes);
         if(!r || bytes!=4 || z>sizeof(s->response) || s->replied)return gwq_fail(s,GWQ_WIRE);
         s->remote_error=(uint32_t)gwq_u16(r)<<16|gwq_u16(r+2);
         if(s->remote_error)return gwq_fail(s,GWQ_REMOTE_ERROR);
         gwq_copy(s->response,p,z);s->response_bytes=z;s->replied=1;
     } else if(flag==4) {
+        s->last_indication=msg;s->indication_count++;
+        if(msg<64)s->indication_mask|=1ull<<msg;
+        uint64_t now=io->now(io->context),arrived=now-s->mission_started_ms;
+        if(msg==0x37)s->memory_ready_ms=arrived;
+        if(msg==0x38 && !s->fw_ready)s->fw_ready_ms=arrived;
+        /* Record a late indication, but never promote it to readiness after
+         * the mission deadline. The packet's arrival time is authoritative. */
+        if(gwq_mission_at(s,now))return (int)s->error;
         if(msg==0x35) {
             if(!s->host_cap || s->mem_pending || s->provisioned || z>sizeof(s->mem_request))return gwq_fail(s,GWQ_STATE);
             gwq_copy(s->mem_request,p,z);s->mem_bytes=z;s->mem_pending=1;
@@ -124,13 +174,19 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
             if(!s->mem_response_sent || s->mem_pending)return gwq_fail(s,GWQ_STATE);s->mem_ready=1;
         } else if(msg==0x38) {
             if(!s->mem_ready)return gwq_fail(s,GWQ_STATE);s->fw_ready=1;
+        } else {
+            /* In the vendor HST/HSP path only FW_INIT_DONE (0x38) starts the
+             * WLAN driver. Legacy FW_READY (0x21) denotes calibration, so keep
+             * unhandled indications observable without promoting readiness. */
+            s->last_unknown_indication=msg;s->unknown_indications++;
         }
     } else return gwq_fail(s,GWQ_WIRE);
     return 0;
 }
 static inline int gwq_request(struct gwq_state *s,const struct gwq_io *io,uint16_t msg,size_t n) {
     if(s->error)return (int)s->error;
-    if(!s->server || s->waiting || n>sizeof(s->request) || !io->pump)return gwq_fail(s,GWQ_STATE);
+    if(!s->server || s->waiting || n>sizeof(s->request) || !io->pump || !io->now)return gwq_fail(s,GWQ_STATE);
+    if(gwq_mission_check(s,io))return (int)s->error;
     if(!gwq_tlvs(s->request,n))return gwq_fail(s,GWQ_ARGUMENT);
     uint8_t *b=s->wire;size_t total=(39+n+3)&~(size_t)3;
     for(size_t i=0;i<total;i++)b[i]=0;
@@ -139,21 +195,32 @@ static inline int gwq_request(struct gwq_state *s,const struct gwq_io *io,uint16
     if(!++s->transaction)++s->transaction;
     s->pending_transaction=s->transaction;s->pending_message=msg;s->last_message=msg;s->waiting=1;s->replied=0;
     gwq_w16(b+33,s->transaction);gwq_w16(b+35,msg);gwq_w16(b+37,(uint16_t)n);gwq_copy(b+39,s->request,n);
+    s->rpc_started_ms=io->now(io->context);s->rpc_elapsed_ms=0;
     if(io->send(io->context,b,total))gwq_fail(s,GWQ_TRANSPORT);
-    for(unsigned i=0;i<GWQ_TIMEOUT && !s->error && !s->replied;i++)
+    while(!s->error && !s->replied) {
+        if(gwq_rpc_check(s,io))break;
         if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
+    }
     s->waiting=0;
-    if(!s->error && !s->replied)gwq_fail(s,GWQ_TIMEOUT_ERROR);
     return (int)s->error;
 }
 static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
-    if(!s || !io || !io->send || !io->pump || !io->asset || !io->allocate || !io->clean ||
+    if(!s || !io || !io->send || !io->pump || !io->asset || !io->allocate || !io->clean || !io->now ||
         (major!=1 && major!=2) || s->registered || s->host_cap)return GWQ_ARGUMENT;
     s->major=major;uint32_t b[5]={2,0,0,0,0};
+    uint64_t discovery_started=io->now(io->context);unsigned discover=!s->server;
     if(gwq_control(s,io,2,1,GWQ_CTRL,0xffffffffu,GWQ_CTRL,b))return (int)s->error;
-    for(unsigned i=0;i<GWQ_TIMEOUT && !s->server && !s->error;i++)
+    while(!s->server && !s->error) {
+        if(io->now(io->context)-discovery_started>=GWQ_TIMEOUT) {
+            s->timeout_phase=GWQ_TIMEOUT_SERVER;return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+        }
+        if(gwq_mission_check(s,io))return (int)s->error;
         if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
-    if(!s->server)return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    }
+    if(s->error)return (int)s->error;
+    if(discover && s->server_received_ms-discovery_started>=GWQ_TIMEOUT) {
+        s->timeout_phase=GWQ_TIMEOUT_SERVER;return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    }
     size_t n=0;gwq_num(s->request,&n,0x10,1,1);gwq_num(s->request,&n,0x15,0x4b4e454c,4);
     gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);gwq_num(s->request,&n,0x18,1,1);
     if(gwq_request(s,io,0x20,n))return (int)s->error;s->registered=1;
@@ -163,7 +230,8 @@ static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned
     /* The phone uses CNSS/platform sleep clock policy, not the PC ath12k
      * NM_MODEM/NM_CLK policy. No unverified platform features advertised. */
     const char platform[]="OnePlus-Ace5-XNU";gwq_tlv(s->request,sizeof(s->request),&n,0x1e,platform,sizeof(platform)-1);
-    s->host_cap=1;return gwq_request(s,io,0x34,n);
+    s->host_cap=1;int error=gwq_request(s,io,0x34,n);
+    if(!error)s->host_cap_ms=gwq_reply_ms(s);return error;
 }
 static inline int gwq_alloc(struct gwq_state *s,const struct gwq_io *io,size_t n,uint32_t type,uint64_t *pa,void **va) {
     *pa=0;*va=NULL;
@@ -223,15 +291,60 @@ static inline int gwq_download(struct gwq_state *s,const struct gwq_io *io,unsig
     }
     return 0;
 }
+/* CAP 0x22 is wlfw_pmu_cfg_v01, not a QMI string array: one count byte and
+ * 48-byte entries, each with a fixed 32-byte name and four LE u32 fields.
+ * Retain bounded diagnostic values only; this code never votes regulator
+ * values or writes AOP/QMP. Unknown names still need a board mapping before
+ * any future consumer may use them to change power configuration. */
+static inline int gwq_pmu_cap(struct gwq_state *s) {
+    size_t n;const uint8_t *p=gwq_field(s->response,s->response_bytes,0x22,&n);
+    s->pmu_present=p!=NULL;s->pmu_bytes=(uint32_t)n;s->pmu_count=0;
+    s->pmu_valid=0;s->pmu_bad_entry=0xffffffffu;
+    if(!p)return 0;
+    if(!n)return gwq_fail(s,GWQ_WIRE);
+    s->pmu_count=p[0];
+    if(s->pmu_count>16 || n!=1u+48u*s->pmu_count)return gwq_fail(s,GWQ_WIRE);
+    for(unsigned i=0;i<s->pmu_count;i++) {
+        const uint8_t *entry=p+1+48*i;struct gwq_pmu_param *out=&s->pmu[i];
+        s->pmu_bad_entry=i;
+        if(!entry[0])return gwq_fail(s,GWQ_WIRE);
+        for(unsigned j=0;j<32 && entry[j];j++) {
+            unsigned c=entry[j];
+            if(!((c>='A'&&c<='Z') || (c>='a'&&c<='z') || (c>='0'&&c<='9') ||
+                 c=='_' || c=='-' || c=='.'))return gwq_fail(s,GWQ_WIRE);
+        }
+        gwq_copy(out->pin_name,entry,32);out->pin_name[32]=0;
+        out->wake_valid=gwq_u32(entry+32);out->wake_mv=gwq_u32(entry+36);
+        out->sleep_valid=gwq_u32(entry+40);out->sleep_mv=gwq_u32(entry+44);
+        if(out->wake_valid>1 || out->sleep_valid>1)return gwq_fail(s,GWQ_WIRE);
+    }
+    s->pmu_bad_entry=0xffffffffu;s->pmu_valid=1;return 0;
+}
 static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     if(!s->mem_ready || s->provisioned)return gwq_fail(s,GWQ_STATE);
     if(gwq_request(s,io,0x24,0))return (int)s->error;
-    size_t z;const uint8_t *p=gwq_field(s->response,s->response_bytes,0x10,&z);
-    if(!p || z!=8)return gwq_fail(s,GWQ_IDENTITY);s->chip=gwq_u32(p);
-    p=gwq_field(s->response,s->response_bytes,0x11,&z);
-    if(!p || z!=4)return gwq_fail(s,GWQ_IDENTITY);s->board=gwq_u32(p);
+    s->cap_ms=gwq_reply_ms(s);
+    size_t chip_bytes,board_bytes,z;
+    const uint8_t *chip=gwq_field(s->response,s->response_bytes,0x10,&chip_bytes);
+    const uint8_t *board=gwq_field(s->response,s->response_bytes,0x11,&board_bytes);
+    /* Retain only the identity metadata for diagnostics. The CAP reply also
+     * has optional device serial fields, which must not be logged wholesale. */
+    s->cap_response_bytes=(uint32_t)s->response_bytes;
+    s->chip_info_present=chip!=NULL;s->chip_info_bytes=(uint32_t)chip_bytes;
+    s->board_info_present=board!=NULL;s->board_info_bytes=(uint32_t)board_bytes;
+    s->chip=s->chip_family=s->board=0;s->board_default=board==NULL;
+    if(chip && chip_bytes==8){s->chip=gwq_u32(chip);s->chip_family=gwq_u32(chip+4);}
+    if(board && board_bytes==4)s->board=gwq_u32(board);
+    /* OnePlus CNSS cnss_wlfw_tgt_cap_send_sync explicitly assigns board 0xff
+     * when board_info_valid is absent. This is the protocol's default-board
+     * identity, not a fallback for malformed or unknown explicit board IDs.
+     * The asset callback still has to match the pinned chip/board catalog. */
+    if(!board)s->board=0xff;
+    if(!chip || chip_bytes!=8 || (board && board_bytes!=4))return gwq_fail(s,GWQ_IDENTITY);
+    const uint8_t *p;
     p=gwq_field(s->response,s->response_bytes,0x12,&z);if(p && z==4)s->soc=gwq_u32(p);
     p=gwq_field(s->response,s->response_bytes,0x13,&z);if(p && z>=4)s->firmware=gwq_u32(p);
+    if(gwq_pmu_cap(s))return (int)s->error;
     if(gwq_download(s,io,GWQ_REGDB,4) || gwq_download(s,io,GWQ_BOARD,1))return (int)s->error;
     const void *phy=NULL;size_t size=0;uint64_t pa;void *va;
     if(io->asset(io->context,GWQ_PHY,s->major,s->chip,s->board,&phy,&size) || !phy || !size || size>1024*1024)
@@ -239,17 +352,27 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     if(!gwq_alloc(s,io,size,0x3c,&pa,&va))return gwq_fail(s,GWQ_MEMORY);
     gwq_copy(va,phy,size);io->clean(io->context,va,size);
     size_t n=0;gwq_num(s->request,&n,1,pa,8);gwq_num(s->request,&n,2,size,4);
-    if(gwq_request(s,io,0x3c,n))return (int)s->error;s->provisioned=1;return 0;
+    if(gwq_request(s,io,0x3c,n))return (int)s->error;
+    s->m3_ms=gwq_reply_ms(s);s->provisioned=1;return 0;
 }
 static inline int gwq_initialize(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
-    int e=gwq_start(s,io,major);if(e)return e;
-    for(unsigned i=0;i<GWQ_TIMEOUT && !s->error;i++) {
+    if(!s || !io || !io->now || s->initializing)return GWQ_ARGUMENT;
+    if(s->error)return (int)s->error;
+    s->initializing=1;s->timeout_phase=GWQ_TIMEOUT_NONE;s->mission_started_ms=io->now(io->context);
+    int e=gwq_start(s,io,major);if(e)gwq_fail(s,(unsigned)e);
+    while(!s->error) {
+        /* Both notifications may have completed within the deadline even if
+         * the polling worker was scheduled again after it. Receive timestamps
+         * were already checked; do not reject a completed in-time handshake. */
+        if(s->provisioned && s->fw_ready)break;
+        if(gwq_mission_check(s,io))break;
         if(s->mem_pending && gwq_memory(s,io))break;
         if(s->mem_ready && !s->provisioned && gwq_provision(s,io))break;
-        if(s->provisioned && s->fw_ready)return 0;
+        if(s->provisioned && s->fw_ready)break;
         if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
     }
-    return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    s->elapsed_ms=io->now(io->context)-s->mission_started_ms;s->initializing=0;
+    return (int)s->error;
 }
 /* Caller must initialize the matching Copy Engine rings before WLAN_MODE.
  * Both arrays contain the exact QMI wire entries, not compiler structs. */

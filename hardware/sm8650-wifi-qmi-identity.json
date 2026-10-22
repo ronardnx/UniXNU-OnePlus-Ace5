@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-23",
+  "status": "Missing board_info confirmed on hardware; vendor default resolves identity error. REGDB/BDF/M3 requests complete, then FW_INIT_DONE wait times out.",
+  "baseline": {
+    "log": "out/ios16/fastboot-reboot-probe-1/20261022-194058-230842/device-000.log",
+    "image_sha256": "1bea6e2e858d036a2fcd7dfa9d6c690e636e6f8e719a6e24a334c08d9d0cbc77",
+    "mhi_boot_result": 0,
+    "execution_environment": 2,
+    "failure": "GWQ_IDENTITY (8) during qmi-initialize",
+    "chip_and_board_tlv_metadata_captured": false
+  },
+  "change": {
+    "message": "WLANFW CAP 0x24",
+    "chip_info": "Require an 8-byte chip_id/chip_family TLV",
+    "board_info": "Preserve an explicit 4-byte board ID; only absent TLV uses the vendor-defined 0xff default",
+    "assets": "Exact pinned catalog lookup remains required",
+    "diagnostics": "CAP response length, chip/board TLV presence and lengths, IDs, protocol state; no optional device serial fields",
+    "hardware_root_cause_confirmed": true
+  },
+  "source": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2/qmi.c#L548-L555",
+  "build": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "commit": "e2530da457b83da17dd85f2260f568f64544e419",
+    "run": 39821633328,
+    "conclusion": "success",
+    "artifact_id": 12445041853,
+    "artifact_sha256": "884e8e7d93c89675cd6c60806a399e0e624a45643e0444564a522d90a9760ef8"
+  },
+  "host_validation": "Wi-Fi runtime ASan/UBSan, C++14 headers, DMA byte code generation and 41 WSL Python unit tests passed",
+  "hardware_verified": true,
+  "hardware_validation": {
+    "log": "out/ios16/wifi-qmi-identity-test-1/20261023-012643-520851/device-000.log",
+    "log_sha256": "9d3c78dcd74df272aa54a5128ece67fd674f6f95649c0430bd7b05731d52d294",
+    "image_sha256": "2f5d9df52f0a54e9d6a9131f1ca8df90c6ca65345285270d2602c73b30d853ff",
+    "cap_bytes": 681,
+    "chip_present": true,
+    "chip_bytes": 8,
+    "chip": 2,
+    "family": 4,
+    "board_present": false,
+    "board_bytes": 0,
+    "board": 255,
+    "board_default": true,
+    "soc": "0x40170200",
+    "firmware": "0x200586fc",
+    "memory_ready": true,
+    "provisioned": true,
+    "fw_ready": false,
+    "next_error": "GWQ_TIMEOUT_ERROR (4)",
+    "last_request": "0x3c",
+    "quarantined": false
+  }
+}

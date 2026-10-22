@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
- * WCN7850 PCI configuration and BAR0 ownership. No DMA is enabled here.
+ * WCN7850 PCI configuration and BAR0 ownership. Enumeration leaves DMA off;
+ * gwp_master enables it only after the caller establishes DMA isolation.
  * PCI fields: Linux v6.12 include/uapi/linux/pci_regs.h.
  * The caller owns SM8650 PCIe0 and supplies its captured memory window.
  */
@@ -14,6 +15,13 @@ enum gwp_error {
     GWP_BAD_CAPABILITY, GWP_BAD_BAR, GWP_NO_SPACE, GWP_WRITE_FAILED,
     GWP_ATU_TIMEOUT, GWP_RESTORE_FAILED
 };
+static inline const char *gwp_error_name(unsigned error)
+{
+    static const char *const names[]={"GWP_OK","GWP_BAD_ARGUMENT","GWP_WRONG_DEVICE",
+        "GWP_ACTIVE_DEVICE","GWP_BAD_CAPABILITY","GWP_BAD_BAR","GWP_NO_SPACE",
+        "GWP_WRITE_FAILED","GWP_ATU_TIMEOUT","GWP_RESTORE_FAILED"};
+    return error<sizeof(names)/sizeof(names[0])?names[error]:"GWP_UNKNOWN";
+}
 struct gwp_io {
     void *context;
     uint32_t (*read)(void *,unsigned,unsigned);
@@ -26,6 +34,8 @@ struct gwp_state {
     uint64_t bar_base,bar_bytes;
     uint32_t bar_flags,pcie_cap,msi_cap,msi_control,revision;
     unsigned changed,ready,restore_failed;
+    const char *cap_reason;
+    uint32_t cap_offset,cap_value,cap_count;
 };
 static inline uint32_t gwp_read(const struct gwp_io *b,unsigned space,unsigned reg)
 { return b->read(b->context,space,reg); }
@@ -65,26 +75,38 @@ static inline int gwp_capabilities(const struct gwp_io *b,struct gwp_state *s)
     uint64_t visited=0;
     unsigned count=0,offset;
     uint32_t value;
-    if(!(gwp_read(b,GWP_ENDPOINT,4)&0x100000u)) return 0;
-    offset=gwp_read(b,GWP_ENDPOINT,0x34)&255u;
+    s->cap_reason="status-cap-list-missing";s->cap_offset=4;
+    s->cap_value=gwp_read(b,GWP_ENDPOINT,4);
+    if(s->cap_value==0xffffffffu || !(s->cap_value&0x100000u)) return 0;
+    s->cap_offset=0x34;s->cap_value=gwp_read(b,GWP_ENDPOINT,0x34);
+    offset=s->cap_value&255u;
     while(offset) {
+        s->cap_reason="invalid-or-cyclic-pointer";s->cap_offset=offset;
         if(offset<0x40 || offset>0xfc || (offset&3) || ++count>48 ||
            (visited&(1ull<<(offset/4)))) return 0;
+        s->cap_count=count;
         visited|=1ull<<(offset/4);
-        value=gwp_read(b,GWP_ENDPOINT,offset);
+        s->cap_reason="unreadable-capability";
+        value=s->cap_value=gwp_read(b,GWP_ENDPOINT,offset);
         if(value==0xffffffffu) return 0;
         if((value&255u)==5) {
-            if(s->msi_cap || offset>0xec) return 0;
+            s->cap_reason="duplicate-or-truncated-msi";
+            unsigned bytes=(value&0x800000u)?14u:10u;
+            if(value&0x1000000u)bytes+=10u; /* mask + pending + alignment */
+            if(s->msi_cap || offset>0x100u-bytes) return 0;
             s->msi_cap=offset;s->msi_control=value>>16;
+            s->cap_reason="msi-already-enabled";
             if(s->msi_control&1) return 0;
         }
         if((value&255u)==0x10) {
+            s->cap_reason="duplicate-or-truncated-pcie";
             if(s->pcie_cap || offset>0xe0) return 0;
             s->pcie_cap=offset;
         }
         offset=(value>>8)&255u;
     }
-    return s->pcie_cap && s->msi_cap && (s->msi_control&0x80u);
+    s->cap_reason=!s->pcie_cap?"pcie-capability-missing":!s->msi_cap?"msi-capability-missing":"ok";
+    return s->pcie_cap && s->msi_cap;
 }
 
 static inline int gwp_enumerate(const struct gwp_io *b,struct gwp_state *s,
@@ -201,7 +223,7 @@ static inline int gwp_sid_claim(const struct gwp_io *b,struct gwp_sid_state *s)
        gwp_read(b,GWP_PARF,0x2c00)!=(s->old_config&~1u)) {gwp_sid_restore(b,s);return 0;}
     return 1;
 }
-struct gwp_msi_state {unsigned changed,cap,masked;uint32_t old[5];};
+struct gwp_msi_state {unsigned changed,cap,masked,wide,words;uint32_t old[5];};
 static inline int gwp_msi_disable(const struct gwp_io *b,const struct gwp_msi_state *s)
 {
     if(!s->changed)return 1;
@@ -216,9 +238,9 @@ static inline int gwp_msi_restore(const struct gwp_io *b,struct gwp_msi_state *s
 {
     if(!s->changed)return 1;
     if((gwp_read(b,GWP_ENDPOINT,4)&4) || !gwp_msi_disable(b,s))return 0;
-    for(unsigned i=1;i<(s->masked?5u:4u);i++)gwp_write(b,GWP_ENDPOINT,s->cap+i*4,s->old[i]);
+    for(unsigned i=1;i<s->words;i++)gwp_write(b,GWP_ENDPOINT,s->cap+i*4,s->old[i]);
     gwp_write(b,GWP_ENDPOINT,s->cap,s->old[0]);
-    for(unsigned i=0;i<(s->masked?5u:4u);i++)if(gwp_read(b,GWP_ENDPOINT,s->cap+i*4)!=s->old[i])return 0;
+    for(unsigned i=0;i<s->words;i++)if(gwp_read(b,GWP_ENDPOINT,s->cap+i*4)!=s->old[i])return 0;
     s->changed=0;return 1;
 }
 static inline int gwp_msi_sink(const struct gwp_io *b,const struct gwp_state *pci,
@@ -227,23 +249,27 @@ static inline int gwp_msi_sink(const struct gwp_io *b,const struct gwp_state *pc
     if(!pci->ready || !s || s->changed || (sink&3) || sink<arena || bytes<4 || sink-arena>bytes-4 ||
        gwp_read(b,GWP_ENDPOINT,0)!=0x110717cbu || (gwp_read(b,GWP_ENDPOINT,4)&4))return 0;
     s->cap=pci->msi_cap;
-    if(s->cap<0x40 || s->cap>0xe8 || (s->cap&3))return 0;
+    if(s->cap<0x40 || s->cap>0xf4 || (s->cap&3))return 0;
     s->old[0]=gwp_read(b,GWP_ENDPOINT,s->cap);
-    if(s->old[0]==0xffffffffu || !(s->old[0]&0x800000u) || (s->old[0]&0x10000u))return 0;
+    if(s->old[0]==0xffffffffu || (s->old[0]&255u)!=5 || (s->old[0]&0x10000u))return 0;
+    s->wide=(s->old[0]>>23)&1;
     s->masked=(s->old[0]>>24)&1;
-    for(unsigned i=1;i<(s->masked?5u:4u);i++)s->old[i]=gwp_read(b,GWP_ENDPOINT,s->cap+i*4);
+    s->words=3u+s->wide+s->masked;
+    if((!s->wide && sink>>32) || s->cap>0x100u-4u*(s->words+s->masked))return 0;
+    unsigned data_word=2u+s->wide,mask_word=data_word+1;
+    for(unsigned i=1;i<s->words;i++)s->old[i]=gwp_read(b,GWP_ENDPOINT,s->cap+i*4);
     s->changed=1;
-    gwp_write(b,GWP_ENDPOINT,s->cap+8,(uint32_t)(sink>>32));
+    if(s->wide)gwp_write(b,GWP_ENDPOINT,s->cap+8,(uint32_t)(sink>>32));
     gwp_write(b,GWP_ENDPOINT,s->cap+4,(uint32_t)sink);
-    gwp_write(b,GWP_ENDPOINT,s->cap+12,s->old[3]&0xffff0000u);
-    if(s->masked)gwp_write(b,GWP_ENDPOINT,s->cap+16,s->old[4]&~1u);
+    gwp_write(b,GWP_ENDPOINT,s->cap+data_word*4,s->old[data_word]&0xffff0000u);
+    if(s->masked)gwp_write(b,GWP_ENDPOINT,s->cap+mask_word*4,s->old[mask_word]&~1u);
     uint32_t control=(s->old[0]&~0x710000u)|0x10000u; /* one vector, enabled */
     gwp_write(b,GWP_ENDPOINT,s->cap,control);
     if(gwp_read(b,GWP_ENDPOINT,s->cap)!=control ||
        gwp_read(b,GWP_ENDPOINT,s->cap+4)!=(uint32_t)sink ||
-       gwp_read(b,GWP_ENDPOINT,s->cap+8)!=(uint32_t)(sink>>32) ||
-       (gwp_read(b,GWP_ENDPOINT,s->cap+12)&0xffffu) ||
-       (s->masked && (gwp_read(b,GWP_ENDPOINT,s->cap+16)&1))) {
+       (s->wide && gwp_read(b,GWP_ENDPOINT,s->cap+8)!=(uint32_t)(sink>>32)) ||
+       (gwp_read(b,GWP_ENDPOINT,s->cap+data_word*4)&0xffffu) ||
+       (s->masked && (gwp_read(b,GWP_ENDPOINT,s->cap+mask_word*4)&1))) {
         gwp_msi_restore(b,s);return 0;
     }
     return 1;
@@ -253,11 +279,25 @@ static inline int gwp_master(const struct gwp_io *b,const struct gwp_state *s,in
     if(!s->ready || (enable && !dma_ready) || gwp_read(b,GWP_ENDPOINT,0)!=0x110717cbu)return 0;
     uint32_t value=gwp_read(b,GWP_ENDPOINT,4);
     if(value==0xffffffffu)return 0;
+    if(enable) {
+        /* Root-port BME gates upstream requests too. Enabling only the endpoint
+         * leaves firmware reads and MSI writes rejected as Unsupported Requests.
+         * Keep this behind dma_ready, publish the bridge first, and leave it
+         * enabled until endpoint transactions drain and gwp_restore runs.
+         * Write only Command bits; Status in the upper half contains W1C bits.
+         */
+        uint32_t root=gwp_read(b,GWP_ROOT,4);
+        if(root==0xffffffffu)return 0;
+        uint32_t expected=(root&0xffffu)|6u;
+        gwp_write(b,GWP_ROOT,4,expected);
+        root=gwp_read(b,GWP_ROOT,4);
+        if(root==0xffffffffu || (root&0xffffu)!=expected)return 0;
+    }
     value&=0xffffu;value=enable?(value|6u|0x400u):(value&~4u);
     gwp_write(b,GWP_ENDPOINT,4,value);
     uint32_t actual=gwp_read(b,GWP_ENDPOINT,4);
     if(actual==0xffffffffu || ((actual>>2)&1u)!=(unsigned)!!enable)return 0;
-    if(enable)return 1;
+    if(enable)return (actual&6u)==6u;
     for(unsigned i=0;i<100;i++) {
         uint32_t status=gwp_read(b,GWP_ENDPOINT,s->pcie_cap+8);
         if(status==0xffffffffu)return 0;

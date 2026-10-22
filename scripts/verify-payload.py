@@ -10,6 +10,7 @@ import tomllib
 from ios16_platform import check_platform, read_nodes
 from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
+from ios16_gpu_runtime import check_runtime as check_gpu_runtime
 from ios16_trust_catalog import modules
 
 folder=Path(sys.argv[1]).resolve()
@@ -43,6 +44,15 @@ with tempfile.TemporaryDirectory() as directory:
     if runtime!=runtime_report:
         raise SystemExit('Wi-Fi runtime/firmware/display declaration differs from the embedded kernel')
     if runtime:print('Compiled Wi-Fi runtime, pinned firmware segment and native-panel implementation verified; hardware validation pending')
+    gpu_report=report.get('gpu_runtime')
+    gpu_meta={'gpu_runtime_included':bool(gpu_report),
+              'gpu_firmware':gpu_report.get('firmware') if gpu_report else None}
+    gpu_runtime=check_gpu_runtime((temporary/'kernel.macho').read_bytes(),gpu_meta)
+    if gpu_runtime!=gpu_report:
+        raise SystemExit('GPU firmware/service binding differs from the embedded kernel')
+    if report.get('gpu_mode') and (report['gpu_mode'] not in (1,2) or not gpu_runtime or
+                                  not report.get('root_finder_id') or not report.get('platform_match',{}).get('gui')):
+        raise SystemExit('GPU mode requires the verified GUI root and GPU firmware')
     if report.get('wifi_pcie_handoff') and not wifi:
         raise SystemExit('PCIe handoff lacks the verified Qualcomm Wi-Fi platform')
     if report.get('wifi_stock_handoff') and not report.get('wifi_cesta_handoff'):
@@ -58,6 +68,21 @@ with tempfile.TemporaryDirectory() as directory:
         if match!=report['platform_match']:raise SystemExit('Platform binding differs from build report')
         print('Embedded ADT matches the built-in platform and CPU drivers')
     config=tomllib.loads((temporary/'unixnu.toml').read_text())
+    debug_args=report['kernel_args'].split()
+    if bool(report.get('debug_terminal_enabled')) != ('giulia_debug=1' in debug_args):
+        raise SystemExit('Debug terminal boot argument/report mismatch')
+    if bool(report.get('debug_mmio_enabled')) != ('giulia_mmio=1' in debug_args):
+        raise SystemExit('MMIO boot argument/report mismatch')
+    if report.get('debug_mmio_enabled') and not report.get('debug_terminal_enabled'):
+        raise SystemExit('MMIO requires debug terminal mode')
+    if bool(report.get('wifi_terminal_wait')) != ('giulia_wifi_wait=1' in debug_args):
+        raise SystemExit('Wi-Fi terminal wait/report mismatch')
+    if report.get('wifi_terminal_wait') and (not report.get('debug_terminal_enabled') or
+        not report.get('wifi_pcie_handoff') or
+        b'GIULIA WIFI: awaiting wifi.start before DMA setup' not in (temporary/'kernel.macho').read_bytes()):
+        raise SystemExit('Wi-Fi wait requires a matching runtime and debug terminal')
+    if report.get('debug_terminal_enabled') and b'GIULIA SHELL: /dev/giulia-debug ready;' not in (temporary/'kernel.macho').read_bytes():
+        raise SystemExit('Missing debug terminal kernel implementation')
     entry=next(e for e in config['entry'] if e['id']=='xnu')
     if entry['type']!='xnu' or entry['args']!=report['kernel_args']:
         raise SystemExit('Unexpected boot entry')
@@ -110,6 +135,7 @@ with tempfile.TemporaryDirectory() as directory:
             if not report.get('physical_touch_worker') or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in (temporary/'kernel.macho').read_bytes():
                 raise SystemExit('GPIO SPI worker missing from the kernel')
             expected+=' giulia_touch_gpio=1'
+        if report.get('gpu_mode'):expected+=' giulia_gpu='+str(report['gpu_mode'])
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

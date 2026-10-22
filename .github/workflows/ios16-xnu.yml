@@ -57,6 +57,10 @@ jobs:
           python3 tests/ios16_wifi_handoff.py
           bash scripts/test-ios16-wifi-runtime.sh
           python3 tests/ios16_wifi_embed.py
+          python3 -m unittest discover -s tests -p 'test_terminal.py'
+          python3 -m unittest discover -s tests -p 'test_debug_userland.py'
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all tests/ios16_reboot.c -o /tmp/reboot-test
+          /tmp/reboot-test
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
@@ -64,6 +68,7 @@ jobs:
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
           python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }}
+          python3 tests/ios16_terminal_profile.py profile
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
@@ -88,6 +93,8 @@ jobs:
         run: |
           python3 profile/check-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet ${{ inputs.profile == 'gui' && '--gui' || '' }}
           python3 tests/ios16_platform_match.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
+          python3 scripts/fix-ios16-high-physical-cache.py --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --check
+          python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert all(m in b for m in (b'GIULIA SHELL: /dev/giulia-debug ready;',b'GIULIA REG: mapped slot=',b'GIULIA TERM: protocol=2'))"
           if [ '${{ inputs.touch }}' = true ]; then
             python3 -c "from pathlib import Path; assert b'GIULIA TOUCH: controller result=' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
           fi
@@ -98,7 +105,9 @@ jobs:
           fi
           if [ '${{ inputs.wifi }}' = true ]; then
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in b; assert b'IO80211Controller' in b and b'GiuliaWiFiUserClient' in b"
-            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: XNU PCIe link worker' in b and b'giulia_wifip' in b"
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert all(m in b for m in (b'GIULIA WIFI: XNU PCIe link worker',b'giulia_wifip',b'sw-ctrl-pdc-route',b'GWL_LINK_TIMEOUT'))"
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA PCI: enumerate result=' in b and b'cap_reason=' in b"
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: awaiting wifi.start before DMA setup' in b and b'GIULIA SMMU: write-request' in b"
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
@@ -149,6 +158,9 @@ jobs:
             ${{ runner.temp }}/ios16-payload/payload.json
             ${{ runner.temp }}/ios16-payload/identity.json
             kernel-artifact/profile/capture-debug.ps1
+            kernel-artifact/profile/debug-terminal.cmd
+            kernel-artifact/profile/debug_terminal.py
+            kernel-artifact/profile/terminal-requirements.txt
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
