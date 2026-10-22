@@ -45,6 +45,10 @@ with tempfile.TemporaryDirectory() as directory:
     if runtime:print('Compiled Wi-Fi runtime, pinned firmware segment and native-panel implementation verified; hardware validation pending')
     if report.get('wifi_pcie_handoff') and not wifi:
         raise SystemExit('PCIe handoff lacks the verified Qualcomm Wi-Fi platform')
+    if report.get('wifi_stock_handoff') and not report.get('wifi_cesta_handoff'):
+        raise ValueError('Stock PCIe initialization requires the CESTA resource handoff')
+    if report.get('wifi_cesta_handoff') and (not report.get('wifi_pcie_handoff') or report.get('wifi_pcie_report_version')!=5):
+        raise SystemExit('CESTA resources require the version-5 PCIe handoff')
     with (temporary/'kernel.macho').open('rb') as f:
         magic,cpu,subtype=struct.unpack('<3I',f.read(12))
     if (magic,cpu,subtype)!=(0xfeedfacf,0x100000c,0):

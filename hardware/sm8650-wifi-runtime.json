@@ -1,11 +1,11 @@
 {
   "date": "2026-10-22",
   "board": "OnePlus Ace 5 PKG110 / SM8650 / WCN7850",
-  "status": "Runtime source integrated; kernel build and final image verification in progress",
+  "status": "Compiled and packaged; unified device test reaches Setup, PCIe still Detect.Quiet; runtime correctly remains inactive",
   "driver": "ios16/GiuliaWiFi.cpp",
   "build_option": "scripts/prepare-ios16.py --gui --touch --wifi",
   "hardware_verified": false,
-  "latest_hardware_evidence": "PCIe Detect.Quiet before the new host PHY rail requests; no endpoint enumeration observed yet",
+  "latest_hardware_evidence": "Nine rail requests and twelve clock enables succeeded; PHY ready; 100 link samples remain Detect.Quiet; no endpoint ID",
   "startup_gate": "Exact successful version-5 UEFI handoff plus live root link and 17cb:1107 endpoint checks",
   "dma": {
     "physical_memory": "Allocator-owned, contiguous, 2 MiB aligned 64 MiB arena",
@@ -87,5 +87,22 @@
     "https://github.com/torvalds/linux/tree/v6.12/drivers/iommu/arm/arm-smmu",
     "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/tree/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2",
     "https://github.com/apple-oss-distributions/xnu/tree/xnu-8796.121.2"
-  ]
+  ],
+  "kernel_ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39669410091,
+    "attempt": 2,
+    "commit": "5ea2a8009305eaac3619cceefcddadc41451b719",
+    "conclusion": "success",
+    "artifact_id": 12400324036,
+    "artifact_sha256": "a97b3f7d61cd82800117a33398159f37361fc010f3a78326bec4cca27aac0cbe"
+  },
+  "integrated_image": {
+    "image": "out\\ios16\\wifi-native-display-boot\\giulia-ios16-wifi-pcie.img",
+    "sha256": "9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9",
+    "bytes": 69283840
+  },
+  "verification_report": "out/ios16/wifi-native-display-boot/verification.json",
+  "latest_device_test": "hardware/ios16-wifi-native-display-test.json",
+  "hardware_attempted": true
 }

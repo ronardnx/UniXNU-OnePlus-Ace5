@@ -1,0 +1,518 @@
+{
+  "date": "2026-10-22",
+  "firmware": "PKG110_16.0.3.500(CN01)",
+  "source_directory": "PKG110domestic_11_16.0.3.500CN01_2026010902170644/IMAGES",
+  "extraction": "ELF load segments and recursively decompressed UEFI firmware volumes",
+  "named_sections": 174,
+  "selected_modules": [
+    {
+      "image": "uefi",
+      "name": "PwrUtilsDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-0401b830-bff9-44a2-a5f6-95734a33c017\\section1.pe",
+      "file": "modules\\uefi-PwrUtilsDxe.pe",
+      "bytes": 32768,
+      "sha256": "202cee1d657c4008f955ba72554024844e0a9ef4b4c93a7472e42512ce235e3f"
+    },
+    {
+      "image": "uefi",
+      "name": "ClockDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-4db5dea6-5302-4d1a-8a82-677a683b0d29\\section1.pe",
+      "file": "modules\\uefi-ClockDxe.pe",
+      "bytes": 229376,
+      "sha256": "1d289d7d033a4b54843450a1be72628d2619fdebac5163fef0d38b15908a385e"
+    },
+    {
+      "image": "uefi",
+      "name": "PmicDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-5776232e-082d-4b75-9a0e-fe1d13f7a5d9\\section1.pe",
+      "file": "modules\\uefi-PmicDxe.pe",
+      "bytes": 274432,
+      "sha256": "7ffeb8a967d4c2ec97c634c6ac81b0adaea74d0e11fe98744fdbae9c5b88a8a1"
+    },
+    {
+      "image": "uefi",
+      "name": "CmdDbDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-aba01ff8-2ccb-4e12-8b2e-cd3f4a742993\\section1.pe",
+      "file": "modules\\uefi-CmdDbDxe.pe",
+      "bytes": 32768,
+      "sha256": "e41dc01282ce264ca7e6a6a5362aa1b6fa0d54dbb62b2a792f672018253827f1"
+    },
+    {
+      "image": "uefi",
+      "name": "NpaDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-cb29f4d1-7f37-4692-a416-93e82e219711\\section1.pe",
+      "file": "modules\\uefi-NpaDxe.pe",
+      "bytes": 77824,
+      "sha256": "5121401d95a521091a27085d44059bf33e9a685e997d0e40a25aaf42062b8759"
+    },
+    {
+      "image": "uefi",
+      "name": "RpmhDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-cb29f4d1-7f37-4692-a416-93e82e219766\\section1.pe",
+      "file": "modules\\uefi-RpmhDxe.pe",
+      "bytes": 65536,
+      "sha256": "25f7b71a44622c573034b86b412dfeaf67de76064560c3f5408491118a1d9ee2"
+    },
+    {
+      "image": "uefi",
+      "name": "RscDxe",
+      "source": "uefi-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-1d301fe9-be79-4353-91c2-d23bc959ae0c\\file-ea888df7-d431-44af-844c-7b29390f2758\\section1.pe",
+      "file": "modules\\uefi-RscDxe.pe",
+      "bytes": 36864,
+      "sha256": "c2e1f4c466681d7484d5326e18d7852e6034d2e94ef3cadd1a4812d8eb1d89a9"
+    },
+    {
+      "image": "abl",
+      "name": "LinuxLoader",
+      "source": "abl-extracted\\volume-0\\file-9e21fd93-9c72-4c15-8c4b-e77f1db2d792\\section0\\section1\\volume-ee4e5898-3914-4259-9d6e-dc7bd79403cf\\file-f536d559-459f-48fa-8bbc-43b554ecae8d\\section1.pe",
+      "file": "modules\\abl-LinuxLoader.pe",
+      "bytes": 901120,
+      "sha256": "6bdf24362229b1ac8f74fe7e99c436ee67e98caebf96974d7737b0913f98c67f"
+    }
+  ],
+  "module_comparison": [
+    {
+      "module": "ClockDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/ClockDxe/ClockDxe.patched.efi",
+      "current_sha256": "53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc",
+      "stock_sha256": "1d289d7d033a4b54843450a1be72628d2619fdebac5163fef0d38b15908a385e",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": false,
+          "different_bytes": 4
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 149
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0xa810",
+          "0xa813"
+        ],
+        [
+          "0x35a94",
+          "0x35a94"
+        ],
+        [
+          "0x35ab8",
+          "0x35ab9"
+        ],
+        [
+          "0x35ad0",
+          "0x35ad1"
+        ],
+        [
+          "0x35ad4",
+          "0x35ae7"
+        ],
+        [
+          "0x35ae9",
+          "0x35aeb"
+        ],
+        [
+          "0x35aed",
+          "0x35af8"
+        ],
+        [
+          "0x35afa",
+          "0x35b0f"
+        ],
+        [
+          "0x35b11",
+          "0x35b2d"
+        ],
+        [
+          "0x35b2f",
+          "0x35b67"
+        ],
+        [
+          "0x35b69",
+          "0x35b69"
+        ]
+      ]
+    },
+    {
+      "module": "CmdDbDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/CmdDbDxe/CmdDbDxe.efi",
+      "current_sha256": "5c58d445f356af9f8497ea6f449ba534fd7920b045067cd3b02ad997863077bf",
+      "stock_sha256": "e41dc01282ce264ca7e6a6a5362aa1b6fa0d54dbb62b2a792f672018253827f1",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": true,
+          "different_bytes": 0
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 149
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0x6258",
+          "0x6258"
+        ],
+        [
+          "0x627c",
+          "0x627d"
+        ],
+        [
+          "0x6294",
+          "0x6295"
+        ],
+        [
+          "0x6298",
+          "0x62ab"
+        ],
+        [
+          "0x62ad",
+          "0x62af"
+        ],
+        [
+          "0x62b1",
+          "0x62bc"
+        ],
+        [
+          "0x62be",
+          "0x62d3"
+        ],
+        [
+          "0x62d5",
+          "0x62f1"
+        ],
+        [
+          "0x62f3",
+          "0x632b"
+        ],
+        [
+          "0x632d",
+          "0x632d"
+        ]
+      ]
+    },
+    {
+      "module": "RpmhDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/RpmhDxe/RpmhDxe.efi",
+      "current_sha256": "cdebce5c9f96d16e71a0db8f9c4dbf591ed314dd94a6543b08c238902df65267",
+      "stock_sha256": "25f7b71a44622c573034b86b412dfeaf67de76064560c3f5408491118a1d9ee2",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": true,
+          "different_bytes": 0
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 146
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0xe950",
+          "0xe950"
+        ],
+        [
+          "0xe974",
+          "0xe975"
+        ],
+        [
+          "0xe98c",
+          "0xe98d"
+        ],
+        [
+          "0xe990",
+          "0xe9a3"
+        ],
+        [
+          "0xe9a5",
+          "0xe9a7"
+        ],
+        [
+          "0xe9a9",
+          "0xe9b4"
+        ],
+        [
+          "0xe9b6",
+          "0xe9cb"
+        ],
+        [
+          "0xe9cd",
+          "0xe9e9"
+        ],
+        [
+          "0xe9eb",
+          "0xea20"
+        ],
+        [
+          "0xea22",
+          "0xea22"
+        ]
+      ]
+    },
+    {
+      "module": "RscDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/RscDxe/RscDxe.efi",
+      "current_sha256": "acbc3480149a65fbc5d12e173e5e06598d81887fd7169949043b9c69e9907116",
+      "stock_sha256": "c2e1f4c466681d7484d5326e18d7852e6034d2e94ef3cadd1a4812d8eb1d89a9",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": true,
+          "different_bytes": 0
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 143
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0x7490",
+          "0x7490"
+        ],
+        [
+          "0x74b4",
+          "0x74b5"
+        ],
+        [
+          "0x74cc",
+          "0x74cd"
+        ],
+        [
+          "0x74d0",
+          "0x74e3"
+        ],
+        [
+          "0x74e5",
+          "0x74e7"
+        ],
+        [
+          "0x74e9",
+          "0x74f4"
+        ],
+        [
+          "0x74f6",
+          "0x750b"
+        ],
+        [
+          "0x750d",
+          "0x7529"
+        ],
+        [
+          "0x752b",
+          "0x755d"
+        ],
+        [
+          "0x755f",
+          "0x755f"
+        ]
+      ]
+    },
+    {
+      "module": "PwrUtilsDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/PwrUtilsDxe/PwrUtilsDxe.efi",
+      "current_sha256": "45e7961a7237739ddcbf85d240a2c76aeed1be1225d32e32cc58063ba301078d",
+      "stock_sha256": "202cee1d657c4008f955ba72554024844e0a9ef4b4c93a7472e42512ce235e3f",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": true,
+          "different_bytes": 0
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 158
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0x6450",
+          "0x6450"
+        ],
+        [
+          "0x6474",
+          "0x6475"
+        ],
+        [
+          "0x648c",
+          "0x648d"
+        ],
+        [
+          "0x6490",
+          "0x64a3"
+        ],
+        [
+          "0x64a5",
+          "0x64a7"
+        ],
+        [
+          "0x64a9",
+          "0x64b4"
+        ],
+        [
+          "0x64b6",
+          "0x64cb"
+        ],
+        [
+          "0x64cd",
+          "0x64e9"
+        ],
+        [
+          "0x64eb",
+          "0x652c"
+        ],
+        [
+          "0x652e",
+          "0x652e"
+        ]
+      ]
+    },
+    {
+      "module": "NpaDxe",
+      "current_file": "uefi-giulia/Binaries/giulia/QcomPkg/Drivers/NpaDxe/NpaDxe.efi",
+      "current_sha256": "b2eed207a99bc3a9bf8c38972fa8b7cdd31f87624b77d084ce56cc74da30c084",
+      "stock_sha256": "5121401d95a521091a27085d44059bf33e9a685e997d0e40a25aaf42062b8759",
+      "sections": [
+        {
+          "name": ".text",
+          "equal": true,
+          "different_bytes": 0
+        },
+        {
+          "name": ".data",
+          "equal": false,
+          "different_bytes": 143
+        },
+        {
+          "name": ".reloc",
+          "equal": true,
+          "different_bytes": 0
+        }
+      ],
+      "difference_ranges": [
+        [
+          "0x11da0",
+          "0x11da0"
+        ],
+        [
+          "0x11dc4",
+          "0x11dc5"
+        ],
+        [
+          "0x11ddc",
+          "0x11ddd"
+        ],
+        [
+          "0x11de0",
+          "0x11df3"
+        ],
+        [
+          "0x11df5",
+          "0x11df7"
+        ],
+        [
+          "0x11df9",
+          "0x11e04"
+        ],
+        [
+          "0x11e06",
+          "0x11e1b"
+        ],
+        [
+          "0x11e1d",
+          "0x11e39"
+        ],
+        [
+          "0x11e3b",
+          "0x11e6d"
+        ],
+        [
+          "0x11e6f",
+          "0x11e6f"
+        ]
+      ]
+    }
+  ],
+  "pcie_power_table": {
+    "module": "PmicDxe",
+    "rails": [
+      {
+        "millivolts": 880,
+        "enable": 1,
+        "resource": "ldoi1",
+        "hpm_mode": 7,
+        "mode_table": "0x350a8"
+      },
+      {
+        "millivolts": 1200,
+        "enable": 1,
+        "resource": "ldoi3",
+        "hpm_mode": 7,
+        "mode_table": "0x350cc"
+      }
+    ],
+    "node_file_offset": "0x35648",
+    "matches_port": true,
+    "dependency_table": "0x3adb8"
+  },
+  "abl_pcie_reference": {
+    "observation": "Formats a boot-device string; this reference is not a PCIe PHY/link training routine",
+    "code_reference": "0xc320..0xc334",
+    "string_offset": "0x798b3"
+  },
+  "clock_patch": {
+    "pcie_clock_list_pointer": "0",
+    "pcie_descriptor": "0x34480",
+    "stock": "BL 0xa668",
+    "effect": "Skips the post-CESTA-initialization clock-list release call",
+    "current": "MOV W0,WZR",
+    "offset": "0xa810",
+    "pcie_clock_count": 0,
+    "root_cause_proven": false
+  },
+  "aop": {
+    "architecture": "RISC-V RV32 with compressed instructions",
+    "wlan_pdc_registration": "0x0820a324..0x0820a338",
+    "note": "AOP initializes WLAN PDC tables and accepts wlan_pdc messages. No raw AOP/PMIC register writes were added from this analysis.",
+    "wlan_pdc_callback_runtime_alias": "0x0820a0e4",
+    "wlan_pdc_enable_data_file_offset": "0x2abbc",
+    "wlan_pdc_enable_address_value_pairs": 42
+  },
+  "binaries_modified": false,
+  "proprietary_binaries_uploaded": false,
+  "root_cause_confirmed": false,
+  "next_implemented_test": "Explicit prepared handoff with link training inside XNU after ExitBootServices"
+}

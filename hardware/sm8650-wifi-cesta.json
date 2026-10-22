@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / SM8650 / PCIe0",
+  "status": "CESTA preparation passed on hardware; link remains Detect.Quiet; cleanup error retains all nine rails",
+  "problem": "The nine-rail test still stopped in Detect.Quiet. The vendor driver requests CRM D0 resources before core/PHY reset; that step was absent from the UEFI path.",
+  "root_cause_confirmed": false,
+  "implementation": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/WifiPcieCesta.h",
+  "integration": "GW_CESTA_READY stage 17 after clock enable and before core/PHY reset",
+  "report_abi": "Existing fixed 168-byte version-5 report; stage 17 detail encodes region, CESTA error and register offset",
+  "register_ranges": {
+    "crm": [
+      "0x01d01000",
+      "0x3000"
+    ],
+    "clock_manager": [
+      "0x01d05000",
+      "0x2000"
+    ],
+    "state_manager": [
+      "0x01d07000",
+      "0x7000"
+    ]
+  },
+  "behavior": [
+    "Require an already enabled CRM with two hardware voters, two channels and five power states",
+    "Require PERST asserted and LTSSM disabled before takeover or rollback",
+    "Snapshot both channel banks and validate register geometry before writes",
+    "Clone existing votes to the inactive bank and raise only voter-0/resource-0 states 0 and 1 to at least the vendor Gen1 operating level 2",
+    "Preserve all bandwidth votes, other performance resources, hardware voter 1 and software voters",
+    "Load only the captured 13-word state program and 7-word branch table into a stopped empty or already matching manager",
+    "Refuse to start a stopped shared manager while voter 1 is using a channel",
+    "Reuse an already running identical program without rewriting its instructions",
+    "Remove the documented PCIe0 power overrides and wait for the current performance level",
+    "Bound channel-switch completion to 10 ms and performance readiness to 100 ms",
+    "Restore observed vote values on failure; retain resources when a switch or ownership cannot be resolved"
+  ],
+  "cold_restore_limit": "CRM has no documented return to never-published state. For an initially unused voter, rollback restores both vote banks and selects original bank 0; cleanup reports EFI_NOT_READY for that retained channel initialization.",
+  "excluded_writes": [
+    "CRM global enable",
+    "other hardware/software voters",
+    "CRM voltage tables",
+    "CRM IRQ configuration"
+  ],
+  "offline_validation": {
+    "cesta_cases": 115,
+    "pcie_policy_cases": 55,
+    "boot_argument_cases": 609,
+    "state_program_matches_captured_board": true,
+    "uefi_compilation": "passed",
+    "image_and_payload_verification": "passed",
+    "unit_tests": 9,
+    "source_manifest_verified": true
+  },
+  "candidate": {
+    "image": "out/ios16/wifi-cesta-final-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "e840472bff9eaf6de38d1f1d868fafeddcafc3947d6e7441703d53c68959f01d",
+    "bytes": 69287936,
+    "kernel_sha256": "64dcdd3face2e562debfd10ac3b594ce0ab7d8d64d2937fc444361daf5f33d70",
+    "kernel_source_run": 39669410091,
+    "kernel_build_repository": "jasper2863/UniXNU-giulia",
+    "display_and_touch_implementation_unchanged": true,
+    "hardware_tested": true,
+    "verification_report": "out/ios16/wifi-cesta-final-boot/verification.json"
+  },
+  "ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "branch": "codex/wifi-cesta",
+    "commit": "96b413c00de644f6aaab087619a114aea5d11159",
+    "run": 39724512611,
+    "status": "success",
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39724512611"
+  },
+  "sources": [
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/crm.c",
+      "local_sha256": "18277a9799a50572a20db194b65667841a966370efbbeba6eb6bfe144a340012"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/pci/controller/pci-msm.c",
+      "local_sha256": "daa1718eff4ad5e5a8befa244e96cb47a7b331db4b2581b24918fde0c04fedc3"
+    },
+    {
+      "path": "../ace5-analysis/running-device.dts",
+      "sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1"
+    }
+  ],
+  "hardware_test_record": "hardware/ios16-wifi-cesta-test.json"
+}

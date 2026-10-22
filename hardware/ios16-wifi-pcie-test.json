@@ -1,6 +1,6 @@
 {
   "date": "2026-10-22",
-  "status": "Current power/PCIe changes integrated and offline verified; full Wi-Fi driver incomplete; user requested no more incremental device testing",
+  "status": "Unified native runtime image booted: display confirmed working; nine-rail PCIe training still Detect.Quiet",
   "previous_report": {
     "stage": 13,
     "detail": 256,
@@ -665,5 +665,7 @@
     "silicon_revision_and_qmi_board_id_observed": false,
     "per_device_persist_copied": false,
     "uploaded": false
-  }
+  },
+  "latest_runtime_test": "hardware/ios16-wifi-native-display-test.json",
+  "latest_runtime_image_sha256": "9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9"
 }

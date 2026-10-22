@@ -1,0 +1,257 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "image": "out/ios16/wifi-register-snapshot-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "cc5e8a9e3bdb47f4555139a051dfa53ad57a3c2dfa55ee58443a5e2e0e5860de",
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "snapshot_layout_sha256": "be73faa1029c57c4c2e9ccb6bffb2d620cf3eb3dd9b57b09461a0dc53966f95d",
+  "snapshot": {
+    "stage": 13,
+    "error": 7,
+    "registers": [
+      {
+        "region": "GCC",
+        "offset": "0x6b004",
+        "address": "0x16b004",
+        "value": "0xf822f801"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b008",
+        "address": "0x16b008",
+        "value": "0x4070000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c000",
+        "address": "0x16c000",
+        "value": "0xf8222801"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c004",
+        "address": "0x16c004",
+        "value": "0x4070000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b000",
+        "address": "0x16b000",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c01c",
+        "address": "0x16c01c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b03c",
+        "address": "0x16b03c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b048",
+        "address": "0x16b048",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b038",
+        "address": "0x16b038",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b02c",
+        "address": "0x16b02c",
+        "value": "0x200000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b020",
+        "address": "0x16b020",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b01c",
+        "address": "0x16b01c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b054",
+        "address": "0x16b054",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b070",
+        "address": "0x16b070",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b034",
+        "address": "0x16b034",
+        "value": "0x3c82020"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b030",
+        "address": "0x16b030",
+        "value": "0x10c00"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b058",
+        "address": "0x16b058",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b05c",
+        "address": "0x16b05c",
+        "value": "0x605"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x0",
+        "address": "0x1c00000",
+        "value": "0x365e"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x20",
+        "address": "0x1c00020",
+        "value": "0x0"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x24",
+        "address": "0x1c00024",
+        "value": "0x80040400"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x28",
+        "address": "0x1c00028",
+        "value": "0x4002"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x40",
+        "address": "0x1c00040",
+        "value": "0x900"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x174",
+        "address": "0x1c00174",
+        "value": "0x13"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x1b0",
+        "address": "0x1c001b0",
+        "value": "0x100"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x2b0",
+        "address": "0x1c002b0",
+        "value": "0x10"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x2c4",
+        "address": "0x1c002c4",
+        "value": "0x168"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x4d0",
+        "address": "0x1c004d0",
+        "value": "0x1a"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x4d4",
+        "address": "0x1c004d4",
+        "value": "0x2f20"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x1000",
+        "address": "0x1c01000",
+        "value": "0x4"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x200",
+        "address": "0x1c06200",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x240",
+        "address": "0x1c06240",
+        "value": "0x3"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x244",
+        "address": "0x1c06244",
+        "value": "0x3"
+      },
+      {
+        "region": "PHY",
+        "offset": "0xed0",
+        "address": "0x1c06ed0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x16d0",
+        "address": "0x1c076d0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0xedc",
+        "address": "0x1c06edc",
+        "value": "0xf"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x16dc",
+        "address": "0x1c076dc",
+        "value": "0xf"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x11e0",
+        "address": "0x1c071e0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x19e0",
+        "address": "0x1c079e0",
+        "value": "0x0"
+      }
+    ]
+  },
+  "root_cause_confirmed": false,
+  "endpoint_enumerated": false,
+  "status": "Read-only snapshot confirms reset bits released and PHY START_CTRL=3; link still times out",
+  "source_refs": [
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/pci/controller/pci-msm.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/clk/qcom/gcc-pineapple.c"
+  ],
+  "note": "GCC 0x6b030/0x6b034 are not AUX RCGR. The vendor AUX command/config offsets are 0x6b074/0x6b078. No AUX frequency inference from these snapshot words."
+}

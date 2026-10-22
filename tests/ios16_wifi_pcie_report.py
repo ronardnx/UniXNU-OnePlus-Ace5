@@ -25,6 +25,9 @@ assert v3['pin_readback']['clkreq']=={'config':7,'io':0}
 x2=decode_reports(b'giulia_wifi3='+binary_token(dict(v3_values,
     port_link_after=0x30020,link_cap=0x23,gen2_ctrl=0x2200)))[0]
 assert x2['core_x2_configured'] and not x2['core_x1_configured'] and x2['endpoint_identified']
+stock=decode_reports(b'giulia_wifi3='+binary_token(dict(v3_values,
+    port_link_after=0x30120,link_cap=0x23,gen2_ctrl=0x2100)))[0]
+assert stock['core_stock_initial_training'] and stock['endpoint_identified']
 def v4_token(changes):
     values=dict(v3_values,version=4,pipe_hz=125000000,pipe_measure_status=1)
     values.update(changes)
@@ -33,6 +36,20 @@ v4=decode_reports(b'giulia_wifi4='+v4_token({}))[0]
 assert v4['pipe_frequency_measured'] and v4['pipe_hz']==125000000
 v5=decode_reports(b'giulia_wifi5='+v4_token({'version':5,'rails':511}))[0]
 assert v5['endpoint_identified'] and v5['rails']==511
+cesta=decode_reports(b'giulia_wifi5='+v4_token({'version':5,'rails':511,'stage':17,
+    'error':1,'detail':(6<<16)|0x1000,'firmware_status':0x8000000000000012}))[0]
+assert not cesta['endpoint_identified'] and cesta['resource']=='PCIe0 CESTA/CRM'
+assert cesta['cesta_failure']=={'region':0,'error':6,'offset':'0x1000'}
+cleanup=decode_reports(b'giulia_wifi5='+v4_token({'version':5,'rails':511,'stage':13,
+    'error':7,'device':0,'command':0xce570008,'bar0':0x01001090,'bar1':1,
+    'cleanup_status':0x8000000000000007,'retained_rails':511}))[0]
+assert cleanup['cesta_cleanup_failure']=={'error':8,'region':1,'offset':'0x1090','value':'0x1'}
+assert not cleanup['endpoint_registers_sampled'] and not cleanup['endpoint_identified']
+assert 'cesta_cleanup_failure' not in v5
+for node,name in ((0,'MC0'),(1,'SH0'),(2,'SH1'),(3,'SN4'),(5,'ACV')):
+    resource=decode_reports(b'giulia_wifi5='+v4_token({'version':5,'rails':0,'stage':3,
+        'error':1,'device':0,'detail':0x400+node}))[0]
+    assert resource['resource']==name and not resource['endpoint_identified']
 try:decode_reports(b'giulia_wifi5='+v4_token({'version':5}))
 except ValueError:pass
 else:raise AssertionError('Success without host PHY rail votes accepted')

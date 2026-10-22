@@ -21,7 +21,8 @@ STAGES={1:'start',2:'firmware ABI',3:'resolve resources / snapshot votes',4:'map
         5:'check pin ownership',6:'power rails',7:'WLAN enable',8:'PCIe power domains',
         9:'PCIe clocks',10:'reset controller and PHY',11:'program PHY',12:'wait for PHY',
         13:'train PCIe link',14:'configure outbound configuration window',
-        15:'identify endpoint',16:'endpoint identified'}
+        15:'identify endpoint',16:'endpoint identified',17:'CESTA/CRM D0 resources',
+        18:'resources prepared; XNU owns pending link training'}
 ERRORS={0:'success',1:'firmware resource error',2:'pin ownership/mux mismatch',
         3:'inherited Wi-Fi or Bluetooth already active',4:'invalid PHY sequence',
         5:'invalid register state',6:'PHY timeout',7:'link timeout',8:'iATU timeout',
@@ -35,10 +36,11 @@ CLOCKS=('gcc_aggre_noc_pcie_axi_clk','gcc_cnoc_pcie_sf_axi_clk','gcc_ddrss_pcie_
 def decode_reports(data):
     reports=[]
     seen=set()
-    for match in re.finditer(rb'\bgiulia_wifi([2345]?)=([^\s\x00]+)',data):
-        version=int(match[1]) if match[1] else 1
+    for match in re.finditer(rb'\bgiulia_wifi([2345p]?)=([^\s\x00]+)',data):
+        pending=match[1]==b'p'
+        version=5 if pending else int(match[1]) if match[1] else 1
         token=match[2]
-        key=(version,token)
+        key=(version,pending,token)
         if key in seen:continue
         seen.add(key)
         if version>=3:
@@ -73,7 +75,13 @@ def decode_reports(data):
                r['link']!=0xffffffff and bool(r['link']&(1<<29)) and
                r['elbi']!=0xffffffff and bool(r['elbi']&1024) and
                r['cleanup_status']==0 and r['retained_rails']==0)
-        if (r['stage']==16 or r['error']==0) and not ready:
+        prepared=(pending and r['stage']==18 and r['detail']==0x584e554c and r['error']==0 and
+                  r['firmware_status']==0 and r['rails']==511 and r['clocks']==4095 and
+                  r['phy']!=0xffffffff and not r['phy']&64 and r['root_device']&65535==0x17cb and
+                  r['device']==0 and r['command']==0 and r['gpio_after']&3==3 and
+                  (r['perst']>>16)&0x23c==0x200 and not r['perst']&3 and r['ref_clock']==1)
+        if pending and not prepared:raise ValueError('Invalid prepared PCIe handoff')
+        if not prepared and (r['stage']==16 or r['error']==0) and not ready:
             raise ValueError('Inconsistent PCIe success claim')
         if version>=2 and ready and (r['ref_clock']==0xffffffff or not r['ref_clock']&1):
             raise ValueError('PCIe success report lacks an enabled reference clock')
@@ -94,7 +102,11 @@ def decode_reports(data):
                 r['port_link_after']&0x3f00a0==0x30020 and
                 r['gen2_ctrl']!=0xffffffff and r['gen2_ctrl']&0x1f00==0x200 and
                 r['link_cap']!=0xffffffff and r['link_cap']&0x3f0==0x20)
-            if ready and (not (r['core_x1_configured'] or r['core_x2_configured']) or
+            r['core_stock_initial_training']=(r['port_link_after']!=0xffffffff and
+                r['port_link_after']&0x3f00a0==0x30020 and
+                r['gen2_ctrl']!=0xffffffff and r['gen2_ctrl']&0x1f00==0x100 and
+                r['link_cap']!=0xffffffff and r['link_cap']&0x3f0==0x20)
+            if ready and (not (r['core_x1_configured'] or r['core_x2_configured'] or r['core_stock_initial_training']) or
                           not states&(1<<17) or r['command']&4):
                 raise ValueError('PCIe success contradicts lane configuration, L0, or disabled DMA')
         if version>=4:
@@ -106,16 +118,26 @@ def decode_reports(data):
             if not r['pipe_frequency_measured'] and r['pipe_hz']:
                 raise ValueError('Failed measurement cannot claim a frequency')
         r.update(stage_name=STAGES[r['stage']],error_name=ERRORS[r['error']],
+                 xnu_link_pending=prepared,
                  endpoint_identified=ready,firmware_loaded=False,scan_supported=False,
                  observation_scope='UEFI before ExitBootServices; not an XNU runtime link test',
                  retained_rail_names=[n for i,n in enumerate(RAILS) if r['retained_rails']&(1<<i)])
+        if version>=5 and not r['device'] and r['error'] and r.get('command',0)&0xffffff00==0xce570000:
+            r['cesta_cleanup_failure']={'error':r['command']&255,'region':r['bar0']>>24,
+                'offset':hex(r['bar0']&65535),'value':hex(r['bar1'])}
+            r['endpoint_registers_sampled']=False
         if r['stage']==3:
             d=r['detail']
             if d<rail_count:r['resource']=RAILS[d]
             elif 0x100<=d<0x100+12:r['resource']=CLOCKS[d-0x100]
             elif 0x200<=d<0x202:r['resource']=('gcc_pcie_0_gdsc','gcc_pcie_0_phy_gdsc')[d-0x200]
             elif 0x300<=d<0x300+rail_count*3:r['resource']=RAILS[(d-0x300)//3]
+            elif 0x400<=d<0x406:r['resource']=('MC0','SH0','SH1','SN4','IP0','ACV')[d-0x400]
         if r['stage']==6 and r['detail']<rail_count:r['resource']=RAILS[r['detail']]
         if r['stage']==9 and r['detail']<12:r['resource']=CLOCKS[r['detail']]
+        if r['stage']==17:
+            d=r['detail']
+            r['cesta_failure']={'region':d>>24,'error':(d>>16)&255,'offset':hex(d&65535)}
+            r['resource']='PCIe0 CESTA/CRM'
         reports.append(r)
     return reports

@@ -1,0 +1,133 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "CESTA preparation passed; PCIe remains in Detect.Quiet; rollback retained resources",
+  "image": "out/ios16/wifi-cesta-final-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "e840472bff9eaf6de38d1f1d868fafeddcafc3947d6e7441703d53c68959f01d",
+  "source_commit": "96b413c00de644f6aaab087619a114aea5d11159",
+  "source_validation_ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39724512611,
+    "conclusion": "success"
+  },
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "cesta_prepare_passed": true,
+  "cesta_prepare_evidence": "Execution reached the later link-training stage",
+  "cesta_cleanup_failed": true,
+  "cleanup_failure_reason": "Unknown; generic EFI_DEVICE_ERROR only in this report",
+  "endpoint_enumerated": false,
+  "mhi_firmware_transfer_exercised": false,
+  "io80211_interface_published": false,
+  "scan_exercised": false,
+  "pcie_report": {
+    "stage": 13,
+    "detail": 256,
+    "error": 7,
+    "firmware_status": 0,
+    "clock_version": 65546,
+    "rails": 511,
+    "clocks": 4095,
+    "phy": 134,
+    "link": 269549576,
+    "elbi": 1,
+    "device": 0,
+    "command": 0,
+    "bar0": 0,
+    "bar1": 0,
+    "gpio_before": 0,
+    "gpio_after": 3,
+    "root_device": 18028491,
+    "retained_rails": 511,
+    "pipe_source": 0,
+    "cleanup_status": 9223372036854775815,
+    "perst": 33619971,
+    "sw_ctrl": 65537,
+    "wlan_sw_ctrl": 65537,
+    "ref_clock": 1,
+    "port_link_before": 196896,
+    "port_link_after": 196896,
+    "link_cap": 8014883,
+    "gen2_ctrl": 1245840,
+    "pipe_gate": 0,
+    "phy_common": 1,
+    "phy_status2": 32,
+    "phy_status3": 9,
+    "clkreq": 458752,
+    "ltssm_seen_lo": 1,
+    "ltssm_seen_hi": 0,
+    "ltssm_changes": 0,
+    "pipe_hz": 62359502,
+    "pipe_measure_status": 1,
+    "report_version": 5,
+    "pin_readback": {
+      "perst": {
+        "config": 513,
+        "io": 3
+      },
+      "sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "wlan_sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "clkreq": {
+        "config": 7,
+        "io": 0
+      }
+    },
+    "ltssm_enable_readback": true,
+    "ltssm_states_seen": [
+      0
+    ],
+    "last_ltssm_state": 0,
+    "core_x1_configured": false,
+    "core_x2_configured": true,
+    "pipe_measure_name": "measured",
+    "pipe_frequency_measured": true,
+    "stage_name": "train PCIe link",
+    "error_name": "link timeout",
+    "endpoint_identified": false,
+    "firmware_loaded": false,
+    "scan_supported": false,
+    "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+    "retained_rail_names": [
+      "ldob15",
+      "ldoc3",
+      "smpi4",
+      "smpc2",
+      "smpc3",
+      "smpc6",
+      "smpc1",
+      "ldoi1",
+      "ldoi3"
+    ]
+  },
+  "capture": {
+    "parts": [
+      {
+        "bytes": 1092912,
+        "name": "serial-000.log",
+        "sha256": "d8b36f61b46370fe3c12d71676c3660f345b9a6e89c061ff83c45db56b481a32"
+      }
+    ],
+    "flashed": false,
+    "connections": 1,
+    "bytes": 1092912,
+    "rebooted": false
+  },
+  "decoded_ulog_records": 619,
+  "decoded_process_files": 38,
+  "incomplete_records": 0,
+  "kernel_dropped_bytes": 0,
+  "observed_processes": [
+    "Setup-197.log",
+    "SpringBoard-27.log",
+    "backboardd-58.log",
+    "wifid-43.log"
+  ],
+  "display_touch_regression": "Kernel log includes frame presentation and touch events; previous full-panel user confirmation retained",
+  "log_path": "out/ios16/wifi-cesta-test-1/serial-000.log"
+}

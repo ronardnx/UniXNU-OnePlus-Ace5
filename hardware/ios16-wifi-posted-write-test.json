@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "PCIe link training still times out in Detect.Quiet; posted-write completion fixes observed CESTA cleanup rejection",
+  "root_cause_confirmed": false,
+  "endpoint_enumerated": false,
+  "image": "out/ios16/wifi-posted-write-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "49a2f96238a94bfff3b3aba3e16e8e2282390295d934d5a6af9da93938cbc0d1",
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "ios_boot_confirmed_by_user": true,
+  "change": "Read the same register after each gw_write, matching OnePlus msm_pcie_write_reg/write_mask device-side posted-write completion",
+  "source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/pci/controller/pci-msm.c",
+  "source_sha256": "daa1718eff4ad5e5a8befa244e96cb47a7b331db4b2581b24918fde0c04fedc3",
+  "offline_validation": {
+    "sanitizer_checks_passed": true,
+    "posted_write_regression_failed_before_fix": true,
+    "uefi_build_passed": true,
+    "pcie_cases": 68,
+    "image_validation_passed": true,
+    "unit_tests": 9
+  },
+  "pcie_report": {
+    "stage": 13,
+    "detail": 256,
+    "error": 7,
+    "firmware_status": 0,
+    "clock_version": 65546,
+    "rails": 511,
+    "clocks": 4095,
+    "phy": 134,
+    "link": 269549576,
+    "elbi": 1,
+    "device": 0,
+    "command": 0,
+    "bar0": 0,
+    "bar1": 0,
+    "gpio_before": 0,
+    "gpio_after": 3,
+    "root_device": 18028491,
+    "retained_rails": 125,
+    "pipe_source": 0,
+    "cleanup_status": 9223372036854775814,
+    "perst": 33619971,
+    "sw_ctrl": 65537,
+    "wlan_sw_ctrl": 65537,
+    "ref_clock": 1,
+    "port_link_before": 196896,
+    "port_link_after": 196896,
+    "link_cap": 8014883,
+    "gen2_ctrl": 1245584,
+    "pipe_gate": 0,
+    "phy_common": 1,
+    "phy_status2": 32,
+    "phy_status3": 9,
+    "clkreq": 458752,
+    "ltssm_seen_lo": 1,
+    "ltssm_seen_hi": 0,
+    "ltssm_changes": 0,
+    "pipe_hz": 62359502,
+    "pipe_measure_status": 1,
+    "report_version": 5,
+    "pin_readback": {
+      "perst": {
+        "config": 513,
+        "io": 3
+      },
+      "sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "wlan_sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "clkreq": {
+        "config": 7,
+        "io": 0
+      }
+    },
+    "ltssm_enable_readback": true,
+    "ltssm_states_seen": [
+      0
+    ],
+    "last_ltssm_state": 0,
+    "core_x1_configured": false,
+    "core_x2_configured": false,
+    "core_stock_initial_training": true,
+    "pipe_measure_name": "measured",
+    "pipe_frequency_measured": true,
+    "stage_name": "train PCIe link",
+    "error_name": "link timeout",
+    "endpoint_identified": false,
+    "firmware_loaded": false,
+    "scan_supported": false,
+    "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+    "retained_rail_names": [
+      "ldob15",
+      "smpi4",
+      "smpc2",
+      "smpc3",
+      "smpc6",
+      "smpc1"
+    ]
+  },
+  "comparison": {
+    "previous_retained_rails": 511,
+    "current_cesta_cleanup_failure_tag": false,
+    "previous_cesta_cleanup": "GCE_BUSY: PARF LTSSM 0x1b0 remained 0x100",
+    "previous": "out/ios16/wifi-stock-init-test-1/pcie-final-report.json",
+    "current_retained_rails": 125,
+    "limitation": "Cleanup still reports EFI_NOT_READY for conservative retention; no claim of fully restored resources",
+    "link_training_improved": false
+  },
+  "capture_path": "out/ios16/wifi-posted-write-test-1/serial-000.log",
+  "capture_sha256": "ced0bf832068e6046246ffc4bb9b626f83c9de2c64532e838979e6d71c2c0bb8",
+  "capture": {
+    "flashed": false,
+    "rebooted": false,
+    "connections": 1,
+    "bytes": 534771,
+    "parts": [
+      {
+        "sha256": "ced0bf832068e6046246ffc4bb9b626f83c9de2c64532e838979e6d71c2c0bb8",
+        "name": "serial-000.log",
+        "bytes": 534771
+      }
+    ]
+  },
+  "transport_audit": {
+    "boot_header_seen": true,
+    "status_samples": [
+      {
+        "events": 981,
+        "tx": 314702,
+        "rx": 14,
+        "log": 386638,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1667,
+        "tx": 485890,
+        "rx": 21,
+        "log": 469514,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1847,
+        "tx": 506710,
+        "rx": 28,
+        "log": 490334,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      }
+    ],
+    "max_kernel_dropped_bytes": 0,
+    "ram_history_evicted_bytes": 0,
+    "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+  },
+  "incomplete_records": 0,
+  "runtime_observation": "GIULIA WIFI: PCIe handoff not ready; runtime stays inactive"
+}

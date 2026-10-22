@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
  * Ace 5 WCN7850 scan transport and iOS16 IO80211 compatibility service.
- * Ownership starts only after the checked UEFI v5 PCIe handoff succeeded.
+ * Ownership starts after a checked enumerated or prepared UEFI handoff.
  * The worker serializes all device access. User clients only queue scans and
  * read snapshots; they cannot name MMIO/DMA addresses or upload firmware.
  */
@@ -34,6 +34,7 @@ extern unsigned long gPhysBase,gPhysSize,gVirtBase;
 extern vm_offset_t ml_io_map(vm_offset_t,vm_size_t);
 }
 #include "giulia_wifi_pci.h"
+#include "giulia_wifi_link.h"
 #include "giulia_wifi_smmu.h"
 #include "giulia_wifi_mhi.h"
 #include "giulia_wifi_ce.h"
@@ -49,6 +50,8 @@ class IO80211Controller;
 struct giulia_wifi_runtime {
     IO80211Controller *owner;IOLock *lock;
     vm_offset_t root,config,parf,smmu,bar;
+    vm_offset_t link_maps[GWL_REGIONS];
+    struct gwl_state link_state;unsigned handoff_mode;uint64_t link_started;
     IOBufferMemoryDescriptor *arena,*tables;
     IOMemoryDescriptor *firmware_memory;IOMemoryMap *firmware_map;
     uint8_t *memory;uint64_t arena_pa,table_pa;size_t allocated;
@@ -80,6 +83,34 @@ static void gw32(vm_offset_t base,unsigned offset,uint32_t n) {
 }
 static void gw_delay(void *,unsigned us) {if(us>=1000)IOSleep((us+999)/1000);else if(us)IODelay(us);}
 static uint64_t gw_now(void *) {uint64_t ns=0;absolutetime_to_nanoseconds(mach_absolute_time(),&ns);return ns/1000000;}
+static uint32_t gl_read(void *v,unsigned region,unsigned offset) {
+    return gr32(((giulia_wifi_runtime *)v)->link_maps[region],offset);
+}
+static void gl_write(void *v,unsigned region,unsigned offset,uint32_t value) {
+    gw32(((giulia_wifi_runtime *)v)->link_maps[region],offset,value);
+}
+static void gl_log(void *v,const char *name,uint64_t address,uint32_t value,uint32_t mask,uint32_t expected) {
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
+    const char *result=!mask?"sample":value==0xffffffffu?"invalid":(value&mask)==expected?"pass":"FAIL";
+    IOLog("GIULIA XNU PCIE: +%llu ms step=%u %s %s addr=0x%llx value=0x%x mask=0x%x expected=0x%x\n",
+        (unsigned long long)(gw_now(NULL)-r->link_started),r->link_state.stage,name,result,
+        (unsigned long long)address,value,mask,expected);
+}
+static int gw_xnu_link(giulia_wifi_runtime *r) {
+    IOLog("GIULIA WIFI: XNU PCIe link worker starting after ExitBootServices; handoff=prepared\n");
+    r->link_started=gw_now(NULL);
+    for(unsigned i=0;i<GWL_REGIONS;i++) {
+        r->link_maps[i]=ml_io_map((vm_offset_t)gwl_bases[i],gwl_sizes[i]);
+        if(!r->link_maps[i]){IOLog("GIULIA XNU PCIE: mapping failed region=%u pa=0x%llx\n",i,(unsigned long long)gwl_bases[i]);return GWL_ARGUMENT;}
+    }
+    r->root=r->link_maps[GWL_ROOT];r->config=r->link_maps[GWL_CFG];r->parf=r->link_maps[GWL_PARF];
+    struct gwl_io io={r,gl_read,gl_write,gw_delay,gl_log};
+    int error=gwl_train(&io,&r->link_state);
+    IOLog("GIULIA XNU PCIE: result=%d stage=%u polls=%u elapsed_ms=%llu elbi=0x%x link=0x%x endpoint=0x%x resources=retained\n",
+        error,r->link_state.stage,r->link_state.polls,(unsigned long long)(gw_now(NULL)-r->link_started),
+        r->link_state.elbi,r->link_state.link,r->link_state.device);
+    return error;
+}
 static uint32_t gp_read(void *v,unsigned space,unsigned offset) {
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
     vm_offset_t base=space==GWP_ENDPOINT?r->config:space==GWP_ROOT?r->root:space==GWP_ATU?r->root+0x1000:r->parf;
@@ -150,15 +181,11 @@ static void gw_notice(void *v,unsigned status,uint32_t id){giulia_wifi_runtime *
     IOLog("GIULIA WIFI: scan id=%u status=%u BSS=%u\n",id,status,r->wmi.bss_count);
 }
 static int gw_handoff(void) {
-    char text[225]={0};uint8_t bytes[168];
-    if(!PE_parse_boot_argn("giulia_wifi5",text,sizeof(text)) || strlen(text)!=224)return 0;
-    const char *alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    for(unsigned i=0;i<56;i++){uint32_t n=0;for(unsigned j=0;j<4;j++){const char *c=strchr(alphabet,text[i*4+j]);if(!c)return 0;n=n<<6|(unsigned)(c-alphabet);}
-        bytes[i*3]=(uint8_t)(n>>16);bytes[i*3+1]=(uint8_t)(n>>8);bytes[i*3+2]=(uint8_t)n;}
-    return gwq_u32(bytes)==5 && gwq_u32(bytes+4)==16 && !gwq_u32(bytes+12) &&
-        gwq_u32(bytes+32)==0x1ff && gwq_u32(bytes+36)==0xfff &&
-        (gwq_u32(bytes+44)&(1u<<29)) && (gwq_u32(bytes+48)&(1u<<10)) &&
-        gwq_u32(bytes+52)==0x110717cb && !(gwq_u32(bytes+56)&4);
+    char text[225]={0},pending[225]={0};
+    bool normal=PE_parse_boot_argn("giulia_wifi5",text,sizeof(text));
+    bool prepared=PE_parse_boot_argn("giulia_wifip",pending,sizeof(pending));
+    if(normal && prepared)return 0;
+    return prepared?(int)gwl_handoff(pending,1):normal?(int)gwl_handoff(text,0):0;
 }
 static bool gw_firmware(giulia_wifi_runtime *r) {
     const struct mach_header_64 *h=&_mh_execute_header;
@@ -204,9 +231,12 @@ static bool gw_allocate(giulia_wifi_runtime *r) {
     r->memory=(uint8_t *)r->arena->getBytesNoCopy();r->allocated=GW_ALLOC_START;return r->memory!=NULL;
 }
 static int gw_bringup(giulia_wifi_runtime *r) {
+    if(r->handoff_mode==2) {r->stage=9;int e=gw_xnu_link(r);if(e)return e;}
     r->stage=1;if(!gw_firmware(r))return 1;
-    r->root=ml_io_map(0x60000000,0x2000);r->config=ml_io_map(0x60100000,0x1000);
-    r->parf=ml_io_map(0x1c00000,0x3000);r->smmu=ml_io_map(0x15000000,0x100000);
+    if(!r->root)r->root=ml_io_map(0x60000000,0x2000);
+    if(!r->config)r->config=ml_io_map(0x60100000,0x1000);
+    if(!r->parf)r->parf=ml_io_map(0x1c00000,0x3000);
+    r->smmu=ml_io_map(0x15000000,0x100000);
     if(!r->root || !r->config || !r->parf || !r->smmu)return 2;
     r->pio=(struct gwp_io){r,gp_read,gp_write,gw_delay};r->sio=(struct gws_io){r,gs_read,gs_write,gw_delay,gs_idle,gs_owned,gs_clean};
     r->stage=2;
@@ -264,8 +294,10 @@ static void gw_worker(void *v,wait_result_t) {
 }
 bool IO80211Controller::start(IOService *provider) {
     r=NULL;if(!IONetworkController::start(provider))return false;
-    if(!gw_handoff()){IOLog("GIULIA WIFI: PCIe handoff not ready; runtime stays inactive\n");return false;}
+    unsigned handoff=(unsigned)gw_handoff();
+    if(!handoff){IOLog("GIULIA WIFI: no valid enumerated/prepared handoff; PCIe resource ownership unavailable\n");return false;}
     r=(giulia_wifi_runtime *)IOMallocZero(sizeof(*r));if(!r)return false;r->owner=this;r->lock=IOLockAlloc();if(!r->lock)return false;
+    r->handoff_mode=handoff;
     IORegistryEntry *chosen=IORegistryEntry::fromPath("/chosen",gIODTPlane);if(!chosen)return false;
     OSData *mac=OSDynamicCast(OSData,chosen->getProperty("mac-address-wifi0"));
     bool valid=mac&&mac->getLength()==6;if(valid)memcpy(r->mac,mac->getBytesNoCopy(),6);chosen->release();if(!valid)return false;

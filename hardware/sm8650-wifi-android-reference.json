@@ -1,0 +1,838 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "source": "Live rooted stock Android, PCIe endpoint temporarily held runtime-active; original power/control restored to auto",
+  "endpoint_pci_id": "17cb:1107",
+  "endpoint_enumerated": true,
+  "link_status": "0x3011004b",
+  "phy_initialization_words_compared": 115,
+  "phy_initialization_differences": [],
+  "root_gdsc": "0xf822f801",
+  "root_gdsc_cfg": "0x04070000",
+  "phy_gdsc": "0xf8222801",
+  "phy_gdsc_cfg": "0x04070000",
+  "gpio_note": "WLAN_EN/PERST/CLKREQ configuration matches; Bluetooth is active on Android but was disabled during UEFI bring-up",
+  "rchng_clock": {
+    "android_config": "0x00100001",
+    "source_hw_clock_control_bit": 20,
+    "android_framework_rate_hz": 19200000,
+    "caution": "Android reference was sampled after enumeration and may have scaled down; this difference alone does not establish the cause of initial link failure",
+    "android_command": "0x00000000",
+    "failed_uefi_config": "0x00000605",
+    "source": "drivers/clk/qcom/gcc-pineapple.c and clk-rcg2.c at d763ed47deec55451366c1187f813f2f309d88a7"
+  },
+  "candidate_change": "Remove explicit PHY_RCHNG SetClockFreqHz(100000000), preserving firmware/CESTA rate selection instead of rewriting it through the legacy API",
+  "root_cause_confirmed": false,
+  "candidate_hardware_verified": false,
+  "registers": [
+    {
+      "region": "parf",
+      "offset": "0x0",
+      "value": "0x365e"
+    },
+    {
+      "region": "parf",
+      "offset": "0x20",
+      "value": "0x0"
+    },
+    {
+      "region": "parf",
+      "offset": "0x24",
+      "value": "0xd0000310"
+    },
+    {
+      "region": "parf",
+      "offset": "0x28",
+      "value": "0xa93f"
+    },
+    {
+      "region": "parf",
+      "offset": "0x40",
+      "value": "0x900"
+    },
+    {
+      "region": "parf",
+      "offset": "0x174",
+      "value": "0x13"
+    },
+    {
+      "region": "parf",
+      "offset": "0x180",
+      "value": "0x0"
+    },
+    {
+      "region": "parf",
+      "offset": "0x1b0",
+      "value": "0x114"
+    },
+    {
+      "region": "parf",
+      "offset": "0x2b0",
+      "value": "0x20"
+    },
+    {
+      "region": "parf",
+      "offset": "0x2c4",
+      "value": "0x168"
+    },
+    {
+      "region": "parf",
+      "offset": "0x4d0",
+      "value": "0x1a"
+    },
+    {
+      "region": "parf",
+      "offset": "0x4d4",
+      "value": "0x2f20"
+    },
+    {
+      "region": "parf",
+      "offset": "0x1000",
+      "value": "0x4"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1f8",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x200",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x214",
+      "value": "0x8a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x218",
+      "value": "0x50"
+    },
+    {
+      "region": "phy",
+      "offset": "0x21c",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0x240",
+      "value": "0x3"
+    },
+    {
+      "region": "phy",
+      "offset": "0x244",
+      "value": "0x3"
+    },
+    {
+      "region": "phy",
+      "offset": "0xed0",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x16d0",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0xedc",
+      "value": "0x17"
+    },
+    {
+      "region": "phy",
+      "offset": "0x16dc",
+      "value": "0x17"
+    },
+    {
+      "region": "phy",
+      "offset": "0x11e0",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x19e0",
+      "value": "0x0"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x0",
+      "value": "0x11317cb"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x7c",
+      "value": "0x7b4c23"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x80",
+      "value": "0x3012004b"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x710",
+      "value": "0x30120"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x714",
+      "value": "0x8000020"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x80c",
+      "value": "0x110190"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x890",
+      "value": "0x2000"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x8a8",
+      "value": "0xc000060"
+    },
+    {
+      "region": "dm_core",
+      "offset": "0x8ac",
+      "value": "0x155a0"
+    },
+    {
+      "region": "elbi",
+      "offset": "0x4",
+      "value": "0x0"
+    },
+    {
+      "region": "elbi",
+      "offset": "0x8",
+      "value": "0x94401"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1040",
+      "value": "0x0"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1048",
+      "value": "0x0"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1070",
+      "value": "0x0"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1078",
+      "value": "0x4c"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1080",
+      "value": "0x0"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1088",
+      "value": "0x80000008"
+    },
+    {
+      "region": "pcie_sm",
+      "offset": "0x1090",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0xc0",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0xcc",
+      "value": "0x62"
+    },
+    {
+      "region": "phy",
+      "offset": "0xd0",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0x60",
+      "value": "0xf8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x64",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0x0",
+      "value": "0x93"
+    },
+    {
+      "region": "phy",
+      "offset": "0x4",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe0",
+      "value": "0x90"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe4",
+      "value": "0x82"
+    },
+    {
+      "region": "phy",
+      "offset": "0xf4",
+      "value": "0x7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x70",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0x10",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0x74",
+      "value": "0x16"
+    },
+    {
+      "region": "phy",
+      "offset": "0x14",
+      "value": "0x16"
+    },
+    {
+      "region": "phy",
+      "offset": "0x78",
+      "value": "0x36"
+    },
+    {
+      "region": "phy",
+      "offset": "0x18",
+      "value": "0x36"
+    },
+    {
+      "region": "phy",
+      "offset": "0x110",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0xbc",
+      "value": "0xa"
+    },
+    {
+      "region": "phy",
+      "offset": "0x120",
+      "value": "0x42"
+    },
+    {
+      "region": "phy",
+      "offset": "0x80",
+      "value": "0x4"
+    },
+    {
+      "region": "phy",
+      "offset": "0x84",
+      "value": "0xd"
+    },
+    {
+      "region": "phy",
+      "offset": "0x20",
+      "value": "0xa"
+    },
+    {
+      "region": "phy",
+      "offset": "0x24",
+      "value": "0x1a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x88",
+      "value": "0x41"
+    },
+    {
+      "region": "phy",
+      "offset": "0x28",
+      "value": "0x34"
+    },
+    {
+      "region": "phy",
+      "offset": "0x90",
+      "value": "0xab"
+    },
+    {
+      "region": "phy",
+      "offset": "0x94",
+      "value": "0xaa"
+    },
+    {
+      "region": "phy",
+      "offset": "0x98",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0x30",
+      "value": "0x55"
+    },
+    {
+      "region": "phy",
+      "offset": "0x34",
+      "value": "0x55"
+    },
+    {
+      "region": "phy",
+      "offset": "0x38",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0x140",
+      "value": "0x14"
+    },
+    {
+      "region": "phy",
+      "offset": "0x164",
+      "value": "0x34"
+    },
+    {
+      "region": "phy",
+      "offset": "0x3c",
+      "value": "0x1"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1c",
+      "value": "0x4"
+    },
+    {
+      "region": "phy",
+      "offset": "0x174",
+      "value": "0x16"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1bc",
+      "value": "0xf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x170",
+      "value": "0xa0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x11a4",
+      "value": "0x38"
+    },
+    {
+      "region": "phy",
+      "offset": "0x10dc",
+      "value": "0x11"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1160",
+      "value": "0xbf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1164",
+      "value": "0xbf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1168",
+      "value": "0xb7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x116c",
+      "value": "0xea"
+    },
+    {
+      "region": "phy",
+      "offset": "0x115c",
+      "value": "0x3f"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1174",
+      "value": "0x5c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1178",
+      "value": "0x9c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x117c",
+      "value": "0x1a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1180",
+      "value": "0x89"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1170",
+      "value": "0xdc"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1188",
+      "value": "0x94"
+    },
+    {
+      "region": "phy",
+      "offset": "0x118c",
+      "value": "0x5b"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1190",
+      "value": "0x1a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1194",
+      "value": "0x89"
+    },
+    {
+      "region": "phy",
+      "offset": "0x10cc",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1008",
+      "value": "0x9"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1014",
+      "value": "0x5"
+    },
+    {
+      "region": "phy",
+      "offset": "0x104c",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1050",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x10d8",
+      "value": "0xf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1118",
+      "value": "0x1c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x10f8",
+      "value": "0x7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x11f8",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1600",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe84",
+      "value": "0x15"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe90",
+      "value": "0x3f"
+    },
+    {
+      "region": "phy",
+      "offset": "0xee4",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe40",
+      "value": "0x9"
+    },
+    {
+      "region": "phy",
+      "offset": "0xe3c",
+      "value": "0x15"
+    },
+    {
+      "region": "phy",
+      "offset": "0x19a4",
+      "value": "0x38"
+    },
+    {
+      "region": "phy",
+      "offset": "0x18dc",
+      "value": "0x11"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1960",
+      "value": "0xbf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1964",
+      "value": "0xbf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1968",
+      "value": "0xb7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x196c",
+      "value": "0xea"
+    },
+    {
+      "region": "phy",
+      "offset": "0x195c",
+      "value": "0x3f"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1974",
+      "value": "0x5c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1978",
+      "value": "0x9c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x197c",
+      "value": "0x1a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1980",
+      "value": "0x89"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1970",
+      "value": "0xdc"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1988",
+      "value": "0x94"
+    },
+    {
+      "region": "phy",
+      "offset": "0x198c",
+      "value": "0x5b"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1990",
+      "value": "0x1a"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1994",
+      "value": "0x89"
+    },
+    {
+      "region": "phy",
+      "offset": "0x18cc",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1808",
+      "value": "0x9"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1814",
+      "value": "0x5"
+    },
+    {
+      "region": "phy",
+      "offset": "0x184c",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1850",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x18d8",
+      "value": "0xf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1918",
+      "value": "0x1c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x18f8",
+      "value": "0x7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x19f8",
+      "value": "0x8"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1684",
+      "value": "0x15"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1690",
+      "value": "0x3f"
+    },
+    {
+      "region": "phy",
+      "offset": "0x16e4",
+      "value": "0x2"
+    },
+    {
+      "region": "phy",
+      "offset": "0x1640",
+      "value": "0x9"
+    },
+    {
+      "region": "phy",
+      "offset": "0x163c",
+      "value": "0x15"
+    },
+    {
+      "region": "phy",
+      "offset": "0x2dc",
+      "value": "0x5"
+    },
+    {
+      "region": "phy",
+      "offset": "0x388",
+      "value": "0x77"
+    },
+    {
+      "region": "phy",
+      "offset": "0x398",
+      "value": "0xb"
+    },
+    {
+      "region": "phy",
+      "offset": "0x6a4",
+      "value": "0x1e"
+    },
+    {
+      "region": "phy",
+      "offset": "0x6f4",
+      "value": "0x27"
+    },
+    {
+      "region": "phy",
+      "offset": "0x3e0",
+      "value": "0xf"
+    },
+    {
+      "region": "phy",
+      "offset": "0x60c",
+      "value": "0x1d"
+    },
+    {
+      "region": "phy",
+      "offset": "0x614",
+      "value": "0x7"
+    },
+    {
+      "region": "phy",
+      "offset": "0x620",
+      "value": "0xc1"
+    },
+    {
+      "region": "phy",
+      "offset": "0x694",
+      "value": "0x0"
+    },
+    {
+      "region": "phy",
+      "offset": "0x3d0",
+      "value": "0x8c"
+    },
+    {
+      "region": "phy",
+      "offset": "0x368",
+      "value": "0x17"
+    },
+    {
+      "region": "phy",
+      "offset": "0x370",
+      "value": "0x2e"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "out/ios16/android-pcie-reference/full-registers.log",
+      "sha256": "f87f6896ed524efaab78b560df514888ff7c7b489b3af115fc00a690e502a8a0"
+    },
+    {
+      "path": "out/ios16/android-pcie-reference/gpio.log",
+      "sha256": "61b6b47b3a7f1551edeb289fe4758cbd8a1703d72660b6c0dd60e0df794f3a61"
+    },
+    {
+      "path": "out/ios16/android-pcie-reference/rails.log",
+      "sha256": "93d25c4e4ff8c15aa1145e7df13881f317d5277574650cef61258e983ce008fe"
+    },
+    {
+      "path": "out/ios16/android-pcie-reference/comparison.json",
+      "sha256": "adfd82b69f501dda577af5c4f4386eeb5f55fa1bfed1c14bb839a5305634cc07"
+    }
+  ],
+  "candidate": {
+    "image": "out/ios16/wifi-cesta-clock-owner-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "13b135e6d18a91389c5dcac82711c7a0b91bdd6cbfaf6d5a65e1bf6e216bc1c1",
+    "bytes": 69287936,
+    "hardware_tested": true,
+    "uefi_build_passed": true,
+    "offline_bundle_passed": true,
+    "unit_tests_passed": 18,
+    "failure_snapshot_enabled": true
+  },
+  "candidate_result": "hardware/ios16-wifi-cesta-clock-owner-test.json"
+}

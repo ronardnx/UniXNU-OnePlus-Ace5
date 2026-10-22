@@ -53,7 +53,18 @@ def main():
     wifi=binaries/'GiuliaInitrdDxe.efi'
     loader=binaries/'DarwinBoot.efi'
     report['wifi_pcie_handoff_available']=False
+    report['wifi_cesta_handoff_available']=False
+    report['wifi_stock_handoff_available']=False
     if wifi.is_file() and loader.is_file():
+        report['wifi_cesta_handoff_available']=all(marker in wifi.read_bytes() for marker in
+            (b'GIULIA CESTA: enable=',b'GIULIA CESTA bandwidth: node='))
+        report['wifi_stock_handoff_available']=(report['wifi_cesta_handoff_available'] and
+            b'GIULIA WIFI: PKG110 stock PCIe init profile' in wifi.read_bytes())
+        if report['wifi_cesta_handoff_available']:
+            command_db=uefi/'Binaries/giulia/QcomPkg/Drivers/CmdDbDxe/CmdDbDxe.efi'
+            report['wifi_cmddb_sha256']=hashlib.sha256(command_db.read_bytes()).hexdigest()
+            require(report['wifi_cmddb_sha256']=='5c58d445f356af9f8497ea6f449ba534fd7920b045067cd3b02ad997863077bf',
+                    'WLAN bandwidth requires the audited giulia Command DB protocol ABI')
         for version,driver_marker,loader_marker in (
             (1,b'GIULIA WIFI: prepare protocol installed:',b' giulia_wifi='),
             (2,b'GIULIA WIFI: prepare protocol v2 installed:',b' giulia_wifi2='),

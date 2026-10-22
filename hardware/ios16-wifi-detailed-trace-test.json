@@ -1,0 +1,362 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "image": "out/ios16/wifi-detailed-trace-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "026bbf1d08a7cfe93de3fffd97f6352c4490a80c30ab5f7c3fbdb2c522ea2c8f",
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "endpoint_enumerated": false,
+  "root_cause_confirmed": false,
+  "status": "Detailed v2 trace captured; all 16 observable startup checks pass, final LTSSM Detect.Quiet",
+  "correction_to_prior_hypothesis": "Native EnableClock clears HW-control, but the transition to the 100 MHz selector/divider occurs across CESTA D0, not EnableClock. The earlier assumption that removing the explicit 100 MHz request would retain the Android post-enumeration configuration was insufficient.",
+  "capture": "out/ios16/wifi-detailed-trace-test-1/capture-snapshot.log",
+  "capture_sha256": "46fae082462dfe241e752ffef8bcdf52c54e4e1fe77200cf64e78706443cfa58",
+  "readable_report": "out/ios16/wifi-detailed-trace-test-1/diagnostic.txt",
+  "trace": {
+    "format": 2,
+    "stage": 13,
+    "error": 7,
+    "phase_valid_mask": "0xff",
+    "phases": [
+      {
+        "phase": 0,
+        "name": "设置 PHY_RCHNG 频率前",
+        "captured": true,
+        "rchng_cfg": "0x100000",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 1,
+        "name": "SetClockFreqHz 返回后",
+        "captured": true,
+        "rchng_cfg": "0x100000",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 2,
+        "name": "EnableClock 返回后",
+        "captured": true,
+        "rchng_cfg": "0x1",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 3,
+        "name": "其余时钟启用后、CESTA 请求前",
+        "captured": true,
+        "rchng_cfg": "0x100001",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 4,
+        "name": "CESTA D0 请求完成后",
+        "captured": true,
+        "rchng_cfg": "0x100605",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 5,
+        "name": "PCIe 核心复位完成后",
+        "captured": true,
+        "rchng_cfg": "0x100605",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 6,
+        "name": "PHY 复位完成后",
+        "captured": true,
+        "rchng_cfg": "0x100605",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      },
+      {
+        "phase": 7,
+        "name": "PHY 就绪、PIPE 启用后",
+        "captured": true,
+        "rchng_cfg": "0x100605",
+        "rchng_cmd": "0x0",
+        "aux_cfg": "0x1"
+      }
+    ],
+    "clock_changes": [
+      {
+        "after": "EnableClock 返回后",
+        "before": "0x100000",
+        "after_value": "0x1",
+        "xor": "0x100001",
+        "rate_fields_changed": true,
+        "hw_control_changed": true
+      },
+      {
+        "after": "其余时钟启用后、CESTA 请求前",
+        "before": "0x1",
+        "after_value": "0x100001",
+        "xor": "0x100000",
+        "rate_fields_changed": false,
+        "hw_control_changed": true
+      },
+      {
+        "after": "CESTA D0 请求完成后",
+        "before": "0x100001",
+        "after_value": "0x100605",
+        "xor": "0x604",
+        "rate_fields_changed": true,
+        "hw_control_changed": false
+      }
+    ],
+    "registers": [
+      {
+        "name": "core_power",
+        "address": "0x16b008",
+        "value": "0x4070000"
+      },
+      {
+        "name": "phy_power",
+        "address": "0x16c004",
+        "value": "0x4070000"
+      },
+      {
+        "name": "core_reset",
+        "address": "0x16b000",
+        "value": "0x0"
+      },
+      {
+        "name": "phy_reset",
+        "address": "0x16c01c",
+        "value": "0x0"
+      },
+      {
+        "name": "perst_config",
+        "address": "0xf15e000",
+        "value": "0x201"
+      },
+      {
+        "name": "perst_io",
+        "address": "0xf15e004",
+        "value": "0x3"
+      },
+      {
+        "name": "wlan_config",
+        "address": "0xf110000",
+        "value": "0x3c3"
+      },
+      {
+        "name": "wlan_io",
+        "address": "0xf110004",
+        "value": "0x3"
+      },
+      {
+        "name": "ltssm",
+        "address": "0x1c001b0",
+        "value": "0x100"
+      },
+      {
+        "name": "elbi",
+        "address": "0x60000f28",
+        "value": "0x1"
+      },
+      {
+        "name": "link",
+        "address": "0x60000080",
+        "value": "0x10110008"
+      },
+      {
+        "name": "phy_status",
+        "address": "0x1c06214",
+        "value": "0x86"
+      },
+      {
+        "name": "crm_perf",
+        "address": "0x1d0500c",
+        "value": "0x4"
+      },
+      {
+        "name": "refclk",
+        "address": "0x1ff1100",
+        "value": "0x1"
+      },
+      {
+        "name": "pipe_cbcr",
+        "address": "0x16b048",
+        "value": "0x0"
+      }
+    ],
+    "checks": [
+      {
+        "condition": "核心电源域完成上电",
+        "result": "pass",
+        "expected": "CFG_GDSCR bit16=1",
+        "observed": {
+          "core_power": "0x4070000"
+        },
+        "source": "drivers/clk/qcom/gdsc-regulator.c"
+      },
+      {
+        "condition": "PHY 电源域完成上电",
+        "result": "pass",
+        "expected": "CFG_GDSCR bit16=1",
+        "observed": {
+          "phy_power": "0x4070000"
+        },
+        "source": "drivers/clk/qcom/gdsc-regulator.c"
+      },
+      {
+        "condition": "核心复位已释放",
+        "result": "pass",
+        "expected": "BCR bit0=0",
+        "observed": {
+          "core_reset": "0x0"
+        },
+        "source": "drivers/clk/qcom/gcc-pineapple.c"
+      },
+      {
+        "condition": "PHY 复位已释放",
+        "result": "pass",
+        "expected": "BCR bit0=0",
+        "observed": {
+          "phy_reset": "0x0"
+        },
+        "source": "drivers/clk/qcom/gcc-pineapple.c"
+      },
+      {
+        "condition": "PERST 已配置输出且回读为高",
+        "result": "pass",
+        "expected": "GPIO mux=0, OE=1, OUT=1, IN=1",
+        "observed": {
+          "perst_config": "0x201",
+          "perst_io": "0x3"
+        },
+        "source": "drivers/pinctrl/qcom/pinctrl-msm.c"
+      },
+      {
+        "condition": "WLAN_EN 已配置输出且回读为高",
+        "result": "pass",
+        "expected": "GPIO mux=0, OE=1, OUT=1, IN=1",
+        "observed": {
+          "wlan_config": "0x3c3",
+          "wlan_io": "0x3"
+        },
+        "source": "drivers/pinctrl/qcom/pinctrl-msm.c"
+      },
+      {
+        "condition": "LTSSM 已启用",
+        "result": "pass",
+        "expected": "PARF_LTSSM bit8=1",
+        "observed": {
+          "ltssm": "0x100"
+        },
+        "source": "drivers/pci/controller/pci-msm.c"
+      },
+      {
+        "condition": "PHY ready 条件通过",
+        "result": "pass",
+        "expected": "DT phy-status-bit6=0",
+        "observed": {
+          "phy_status": "0x86"
+        },
+        "source": "drivers/pci/controller/pci-msm.c"
+      },
+      {
+        "condition": "CESTA 达到训练请求级别",
+        "result": "pass",
+        "expected": "CURR_PERF_OL >= max Gen3 D0 level 4",
+        "observed": {
+          "crm_perf": "0x4"
+        },
+        "source": "drivers/pci/controller/pci-msm.c"
+      },
+      {
+        "condition": "参考时钟门已启用",
+        "result": "pass",
+        "expected": "CLKREF_EN bit0=1; does not measure waveform",
+        "observed": {
+          "refclk": "0x1"
+        },
+        "source": "drivers/clk/qcom/gcc-pineapple.c"
+      },
+      {
+        "condition": "PIPE 时钟未报告停止",
+        "result": "pass",
+        "expected": "CBCR CLK_OFF bit31=0; does not measure frequency",
+        "observed": {
+          "pipe_cbcr": "0x0"
+        },
+        "source": "drivers/clk/qcom/gcc-pineapple.c"
+      },
+      {
+        "condition": "其余时钟启用后、CESTA 请求前：RCHNG 硬件控制已启用且更新已完成",
+        "result": "pass",
+        "expected": "CFG bit20=1, CMD_UPDATE bit0=0",
+        "observed": {
+          "cfg": "0x100001",
+          "cmd": "0x0"
+        },
+        "source": "drivers/clk/qcom/clk-rcg2.c"
+      },
+      {
+        "condition": "CESTA D0 请求完成后：RCHNG 硬件控制已启用且更新已完成",
+        "result": "pass",
+        "expected": "CFG bit20=1, CMD_UPDATE bit0=0",
+        "observed": {
+          "cfg": "0x100605",
+          "cmd": "0x0"
+        },
+        "source": "drivers/clk/qcom/clk-rcg2.c"
+      },
+      {
+        "condition": "PCIe 核心复位完成后：RCHNG 硬件控制已启用且更新已完成",
+        "result": "pass",
+        "expected": "CFG bit20=1, CMD_UPDATE bit0=0",
+        "observed": {
+          "cfg": "0x100605",
+          "cmd": "0x0"
+        },
+        "source": "drivers/clk/qcom/clk-rcg2.c"
+      },
+      {
+        "condition": "PHY 复位完成后：RCHNG 硬件控制已启用且更新已完成",
+        "result": "pass",
+        "expected": "CFG bit20=1, CMD_UPDATE bit0=0",
+        "observed": {
+          "cfg": "0x100605",
+          "cmd": "0x0"
+        },
+        "source": "drivers/clk/qcom/clk-rcg2.c"
+      },
+      {
+        "condition": "PHY 就绪、PIPE 启用后：RCHNG 硬件控制已启用且更新已完成",
+        "result": "pass",
+        "expected": "CFG bit20=1, CMD_UPDATE bit0=0",
+        "observed": {
+          "cfg": "0x100605",
+          "cmd": "0x0"
+        },
+        "source": "drivers/clk/qcom/clk-rcg2.c"
+      }
+    ],
+    "confirmed_failures": [],
+    "unknown_conditions": [],
+    "final_ltssm": {
+      "code": 0,
+      "name": "Detect.Quiet",
+      "link_up": false
+    },
+    "conclusion": "已采集的启动条件均通过，但链路未建立；这些寄存器没有给出唯一电气根因。",
+    "not_measured": [
+      "芯片引脚处实际电压与参考时钟波形",
+      "PCIe 对端接收终端电阻及 PIPE 接收检测握手"
+    ],
+    "scope": "UEFI timeout snapshot before cleanup; phase boundaries are measured, causal attribution is not inferred"
+  },
+  "validation": {
+    "unit_tests": 26,
+    "uefi_build_passed": true,
+    "pcie_cases": 77,
+    "handoff_v1_v2_and_v5_tests_passed": true
+  }
+}

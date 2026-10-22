@@ -1,4 +1,4 @@
-"""Bind the private RPMh cache layout to the exact board firmware inspected."""
+"""Bind RPMh, clock and Command DB layouts to the board firmware inspected."""
 import argparse
 import hashlib
 from pathlib import Path
@@ -8,6 +8,7 @@ PINS={
     'ClockDxe': {'b1608ab9a4759dbbc50e5e5836ee402ff832d8076011e5145460e4af97ba7686',
                  '53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc'},
     'RpmhDxe': {'cdebce5c9f96d16e71a0db8f9c4dbf591ed314dd94a6543b08c238902df65267'},
+    'CmdDbDxe': {'5c58d445f356af9f8497ea6f449ba534fd7920b045067cd3b02ad997863077bf'},
 }
 
 def verify(uefi):

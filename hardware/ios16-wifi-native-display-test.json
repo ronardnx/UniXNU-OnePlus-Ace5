@@ -1,0 +1,135 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "Display confirmed working; PCIe link still fails before native Wi-Fi runtime",
+  "image": "out/ios16/wifi-native-display-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9",
+  "kernel_ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39669410091,
+    "attempt": 2,
+    "commit": "5ea2a8009305eaac3619cceefcddadc41451b719",
+    "conclusion": "success"
+  },
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "display": {
+    "native_panel": [
+      1264,
+      2780
+    ],
+    "uikit_canvas": [
+      1125,
+      2436
+    ],
+    "first_present_observed": true,
+    "touch_reports_observed": true,
+    "user_confirmed_full_coverage": true,
+    "user_confirmed_touch_alignment": true,
+    "user_feedback": "画面铺满，触控正常"
+  },
+  "wifi": {
+    "endpoint_enumerated": false,
+    "firmware_transfer_exercised": false,
+    "io80211_interface_published": false,
+    "scan_exercised": false,
+    "pcie_report": {
+      "stage": 13,
+      "detail": 256,
+      "error": 7,
+      "firmware_status": 0,
+      "clock_version": 65546,
+      "rails": 511,
+      "clocks": 4095,
+      "phy": 134,
+      "link": 269549576,
+      "elbi": 1,
+      "device": 0,
+      "command": 0,
+      "bar0": 0,
+      "bar1": 0,
+      "gpio_before": 0,
+      "gpio_after": 3,
+      "root_device": 18028491,
+      "retained_rails": 125,
+      "pipe_source": 131072,
+      "cleanup_status": 9223372036854775814,
+      "perst": 33619971,
+      "sw_ctrl": 65537,
+      "wlan_sw_ctrl": 65537,
+      "ref_clock": 1,
+      "port_link_before": 196896,
+      "port_link_after": 196896,
+      "link_cap": 8014883,
+      "gen2_ctrl": 1245840,
+      "pipe_gate": 0,
+      "phy_common": 1,
+      "phy_status2": 32,
+      "phy_status3": 9,
+      "clkreq": 458752,
+      "ltssm_seen_lo": 1,
+      "ltssm_seen_hi": 0,
+      "ltssm_changes": 0,
+      "pipe_hz": 62357744,
+      "pipe_measure_status": 1,
+      "report_version": 5,
+      "pin_readback": {
+        "perst": {
+          "config": 513,
+          "io": 3
+        },
+        "sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "wlan_sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "clkreq": {
+          "config": 7,
+          "io": 0
+        }
+      },
+      "ltssm_enable_readback": true,
+      "ltssm_states_seen": [
+        0
+      ],
+      "last_ltssm_state": 0,
+      "core_x1_configured": false,
+      "core_x2_configured": true,
+      "pipe_measure_name": "measured",
+      "pipe_frequency_measured": true,
+      "stage_name": "train PCIe link",
+      "error_name": "link timeout",
+      "endpoint_identified": false,
+      "firmware_loaded": false,
+      "scan_supported": false,
+      "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+      "retained_rail_names": [
+        "ldob15",
+        "smpi4",
+        "smpc2",
+        "smpc3",
+        "smpc6",
+        "smpc1"
+      ]
+    },
+    "runtime_behavior": "Declined startup on failed UEFI handoff; no endpoint DMA or firmware execution"
+  },
+  "capture": {
+    "directory": "out/ios16/wifi-native-display-test-1",
+    "bytes": 1210480,
+    "sha256": "efa7d9e49fe2cd037674a1d05c2f44b1abac5ebd61947c978560340635356773",
+    "connections": 1,
+    "decoded_records": 1736,
+    "incomplete_records": 0,
+    "usb_dropped_bytes": 0
+  },
+  "remaining_work": [
+    "Establish the SM8650 PCIe0 physical link; nine rail requests did not resolve Detect.Quiet",
+    "Validate the compiled MHI/QMI and WMI/IO80211 scan paths after actual endpoint enumeration",
+    "Association/authentication/network packet transport remains outside the implemented passive scan path"
+  ],
+  "source_review_note": "Captured PCIe0 DT and vendor pci-msm driver include CESTA state-manager/CRM D0 setup before controller reset; current manual-clock UEFI path does not implement that manager. Its role in this failure is not yet established. No speculative CESTA writes were made."
+}

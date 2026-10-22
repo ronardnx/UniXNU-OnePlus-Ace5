@@ -104,14 +104,11 @@
     }
   ],
   "remaining_driver_work": [
-    "Power/clock/PHY/reset sequencing and PCIe endpoint enumeration on this board",
-    "Owned DMA mappings for PCIe streams, MSI/interrupt routing and MHI transport",
-    "Matching Kiwi firmware, board/calibration data and QMI firmware-ready handshake",
-    "WMI scan requests and actual RF scan results",
-    "iOS16 IO80211 interface/user-client compatibility for wifid",
-    "Association, authentication, data path, DHCP and sustained networking"
+    "Establish the physical PCIe0 link; nine-rail unified test still Detect.Quiet",
+    "Validate the compiled MHI/QMI firmware transport and IO80211/WMI scan path on real hardware",
+    "Association, authentication, packet data path, DHCP and sustained networking"
   ],
-  "current_boot_change": "Integrated endpoint/host PHY power, consistent x2 link configuration, bounded clock diagnostics, versioned report and single build/check pipeline; final nine-rail image not tested on hardware.",
+  "current_boot_change": "Native PCIe/MHI/QMI/CE/HTC/WMI passive scan and IO80211 code integrated; hardware gate still fails at PCIe training",
   "rf_scan_supported": false,
   "native_pcie_bringup": {
     "opt_in_payload_option": "--wifi-pcie",
@@ -462,5 +459,8 @@
       "interpretation": "x2 configuration and bounded clock measurement passed; PIPE measured 62358622 Hz; five debug registers restored; all sampled LTSSM states were Detect.Quiet; no endpoint enumerated. Frequency alone does not establish whether the PHY/controller interface is configured correctly."
     }
   },
-  "firmware_assets": "hardware/sm8650-wifi-firmware.json"
+  "firmware_assets": "hardware/sm8650-wifi-firmware.json",
+  "latest_runtime_test": "hardware/ios16-wifi-native-display-test.json",
+  "latest_runtime_image_sha256": "9533ca3673991f174ebfc746dd07b098cb313eb438a521ae70aaf15658ff72d9",
+  "runtime_implementation_record": "hardware/sm8650-wifi-runtime.json"
 }

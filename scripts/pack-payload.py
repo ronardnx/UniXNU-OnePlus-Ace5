@@ -46,6 +46,12 @@ def main():
     payload = args.payload.read_bytes()
     pr = json.loads(args.payload_report.read_text())
     if pr.get('wifi_pcie_handoff'):
+        if pr.get('wifi_stock_handoff'):
+            require(fw_report.get('wifi_stock_handoff_available') is True,
+                    'Payload requires the PKG110 stock PCIe initialization profile')
+        if pr.get('wifi_cesta_handoff'):
+            require(fw_report.get('wifi_cesta_handoff_available') is True,
+                    'Payload requires the CESTA/CRM PCIe resource handoff')
         require(fw_report.get('wifi_pcie_handoff_available') is True,
                 'PCIe payload requires the matching native Wi-Fi firmware adapter and loader')
         require(pr.get('wifi_pcie_report_version',1)==fw_report.get('wifi_pcie_report_version',1),

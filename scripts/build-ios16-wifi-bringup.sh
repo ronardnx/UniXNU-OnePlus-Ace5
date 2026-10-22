@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Build against an existing, prepared Darwin22 UEFI checkout. No device access.
+# GIULIA_WIFI_SNAPSHOT=1 substitutes a read-only register dump for failed
+# link-training handoffs; decode it with decode-ios16-pcie-snapshot.py.
+# GIULIA_WIFI_XNU_LINK=1 retains prepared resources for XNU link training.
 set -euo pipefail
 if [ "$#" -ne 8 ] && [ "$#" -ne 9 ]; then
   echo 'Usage: build-ios16-wifi-bringup.sh UEFI UEFI_PYTHON KERNEL ADT ROOT_REPORT TRUST_CATALOG CAPTURED_DTS OUTPUT [LOCAL_FIRMWARE_PACK]' >&2
@@ -22,6 +25,12 @@ board_driver="$uefi_root/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe"
 test -x "$uefi_python"
 "$uefi_python" -c 'import coloredlogs'
 test ! -e "$output_dir"
+python3 - "$kernel_input" <<'PY'
+import os,sys
+from pathlib import Path
+if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' and b'GIULIA WIFI: XNU PCIe link worker' not in Path(sys.argv[1]).read_bytes():
+    raise SystemExit('XNU link handoff requires a kernel containing the XNU PCIe link worker')
+PY
 python3 - "$driver_dir" <<'PY'
 from pathlib import Path
 import sys
@@ -58,13 +67,14 @@ python3 scripts/verify-payload.py "$output_dir/payload"
 python3 tests/ios16_dram_handoff.py --driver "$driver_dir" --adt "$output_dir/giulia-ios16.adt"
 python3 - "$output_dir" "$board_driver" <<'PY'
 from pathlib import Path
-import json,sys
+import json,os,sys
 out,driver=map(Path,sys.argv[1:])
 r=json.loads((out/'payload/identity.json').read_text())
 (driver/'PayloadIdentity.h').write_text(
     f"#define GIULIA_PAYLOAD_BYTES {r['payload_bytes']}U\n"
     f"#define GIULIA_PAYLOAD_CRC32 0x{r['payload_crc32']}U\n"
-    '#define GIULIA_TOUCH_CLOCK 1\n#define GIULIA_TOUCH_POWER 1\n#define GIULIA_WIFI_PCIE 1\n')
+    '#define GIULIA_TOUCH_CLOCK 1\n#define GIULIA_TOUCH_POWER 1\n#define GIULIA_WIFI_PCIE 1\n'
+    + ('#define GIULIA_WIFI_XNU_LINK 1\n' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else ''))
 PY
 python3 scripts/verify-wifi-native-abi.py --uefi "$uefi_root" --when-enabled
 cd "$uefi_root"
@@ -86,7 +96,7 @@ cp "$board_driver/PayloadIdentity.h" "$output_dir/driver-source/"
 cp "$0" "$output_dir/build-script.sh"
 python3 - "$output_dir" "$driver_dir" <<'PY'
 from pathlib import Path
-import hashlib,json,subprocess,sys
+import hashlib,json,os,subprocess,sys
 out,driver=map(Path,sys.argv[1:])
 files=[*sorted((out/'driver-source').glob('*')),
        *sorted(Path('ios16').glob('giulia_wifi_*.h')),Path('ios16/GiuliaWiFi.cpp'),
@@ -94,10 +104,13 @@ files=[*sorted((out/'driver-source').glob('*')),
        Path('scripts/embed-wifi-firmware.py'),Path('scripts/ios16_wifi_runtime.py'),
        out/'kernel.macho',out/'giulia-ios16.adt',out/'captured-board.dts',
        driver/'DarwinBoot.c',Path('scripts/enable-wifi-diagnostics.py'),
-       Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),
-       Path('scripts/pack-payload.py'),Path('scripts/ios16_wifi_pcie.py')]
+       Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),
+       Path('scripts/pack-payload.py'),Path('scripts/ios16_wifi_pcie.py'),
+       Path('scripts/ios16_pcie_diagnostic.py'),Path('scripts/decode-ios16-pcie-snapshot.py')]
 runtime=json.loads((out/'payload/payload.json').read_text()).get('wifi_runtime')
 report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+        'pcie_failure_snapshot':os.environ.get('GIULIA_WIFI_SNAPSHOT')=='1',
+        'pcie_link_training_owner':'XNU' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else 'UEFI',
         'source_files':[{'path':str(p.resolve()),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
                         for p in files if p.is_file()],
         'hardware_verified':False,'scan_implemented':bool(runtime),'scan_hardware_verified':False,

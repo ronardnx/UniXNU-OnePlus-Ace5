@@ -156,6 +156,8 @@ def main():
     if a.wifi_pcie:
         result['wifi_pcie_handoff']=True
         result['wifi_pcie_report_version']=5
+        result['wifi_cesta_handoff']=True
+        result['wifi_stock_handoff']=True
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

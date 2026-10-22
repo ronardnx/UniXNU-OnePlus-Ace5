@@ -14,19 +14,22 @@ p.add_argument('--runtime',action='store_true',help='Also check the complete ker
 a=p.parse_args()
 checks=[]
 def check(args):
-    result=subprocess.run([str(x) for x in args],cwd=ROOT,check=True,capture_output=True,text=True)
+    result=subprocess.run([str(x) for x in args],cwd=ROOT,capture_output=True,text=True)
     print(result.stdout,end='')
     if result.stderr:print(result.stderr,file=sys.stderr,end='')
+    result.check_returncode()
     checks.append({'command':[str(x) for x in args],'result':'passed','output':result.stdout.strip()})
 with tempfile.TemporaryDirectory(prefix='giulia-wifi-') as directory:
-    for name in ('ios16_wifi_pcie','ios16_wifi_power_cache'):
+    for name in ('ios16_wifi_pcie','ios16_wifi_power_cache','ios16_wifi_cesta','ios16_wifi_bandwidth'):
         binary=Path(directory)/name
         check(['cc','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',
                ROOT/'tests'/f'{name}.c','-o',binary])
         check([binary])
     check([sys.executable,ROOT/'tests/ios16_wifi_pcie_report.py'])
     check([sys.executable,ROOT/'tests/ios16_wifi_handoff.py'])
+    check([sys.executable,ROOT/'tests/test_pcie_diagnostic.py'])
     check([sys.executable,ROOT/'tests/ios16_wifi_board.py','--dts',a.dts.resolve()])
+    check([sys.executable,ROOT/'tests/ios16_wifi_cesta_board.py','--dts',a.dts.resolve()])
     if a.runtime:
         check(['bash',ROOT/'scripts/test-ios16-wifi-runtime.sh'])
         check([sys.executable,ROOT/'tests/ios16_wifi_embed.py'])

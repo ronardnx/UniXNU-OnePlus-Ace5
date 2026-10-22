@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import sys
 import re
+import os
 
 ROOT=Path(__file__).resolve().parents[1]
 driver=Path(sys.argv[1])
@@ -27,7 +28,7 @@ STATIC VOID GiuliaAppendWifiDiagnostic (CHAR8 *Line, UINTN Capacity)
   struct gw_report Report;
   EFI_STATUS Status;
   CHAR8 Extra[240];
-  CONST CHAR8 Prefix[]=" giulia_wifi5=";
+  CONST CHAR8 *Prefix=" giulia_wifi5=";
   UINTN Used=AsciiStrLen(Line),Length;
   STATIC_ASSERT(sizeof(struct gw_report)==168,"Wi-Fi report ABI");
   Status=gBS->LocateProtocol(&Guid,NULL,(VOID **)&Protocol);
@@ -37,9 +38,11 @@ STATIC VOID GiuliaAppendWifiDiagnostic (CHAR8 *Line, UINTN Capacity)
   ZeroMem(&Report,sizeof(Report));
   Status=Protocol->Prepare(&Report,sizeof(Report));
   if(Report.version!=5) return;
-  CopyMem(Extra,Prefix,sizeof(Prefix)-1);
-  if(!gw_report_base64(Extra+sizeof(Prefix)-1,
-       sizeof(Extra)-(sizeof(Prefix)-1),&Report)) return;
+  if(Report.stage==18 && !Report.error && Report.detail==GW_XNU_LINK_TAG)
+    Prefix=" giulia_wifip=";
+  CopyMem(Extra,Prefix,AsciiStrLen(Prefix));
+  if(!gw_report_base64(Extra+AsciiStrLen(Prefix),
+       sizeof(Extra)-AsciiStrLen(Prefix),&Report)) return;
   Length=AsciiStrLen(Extra);
   if(Length<Capacity-Used) CopyMem(Line+Used,Extra,Length+1);
   DEBUG((DEBUG_ERROR,"GIULIA WIFI: prepare=%r %a\\n",Status,Extra));
@@ -47,6 +50,23 @@ STATIC VOID GiuliaAppendWifiDiagnostic (CHAR8 *Line, UINTN Capacity)
 
 '''
 pattern=r'\n#include "GiuliaWifiReport.h"\n(?:#include "GiuliaWifiEncoding.h"\n)?STATIC VOID GiuliaAppendWifiDiagnostic.*?\n}\n\n'
+if os.environ.get('GIULIA_WIFI_SNAPSHOT') == '1':
+    # Same bounded space as v5; only a failed link substitutes a snapshot.
+    # A distinct prefix prevents XNU from treating diagnostic words as a
+    # successful device handoff. Normal and successful boots retain v5.
+    helper=helper.replace('  CopyMem(Extra,Prefix,AsciiStrLen(Prefix));', '''  if(Report.stage==13 && Report.error) {
+    EFI_GUID SnapshotGuid={0xf5b737f6,0x3b39,0x438d,{0x84,0xc0,0x17,0xcb,0x11,0x07,0x00,0x02}};
+    WIFI_PROTOCOL *SnapshotProtocol;
+    struct gw_report Snapshot;
+    if(!EFI_ERROR(gBS->LocateProtocol(&SnapshotGuid,NULL,(VOID **)&SnapshotProtocol)) &&
+       SnapshotProtocol->Version==1 && SnapshotProtocol->Prepare &&
+       !EFI_ERROR(SnapshotProtocol->Prepare(&Snapshot,sizeof(Snapshot))) &&
+       (Snapshot.version==0x31535047u || Snapshot.version==0x32535047u)) {
+      CopyMem(&Report,&Snapshot,sizeof(Report));
+      Prefix=Snapshot.version==0x32535047u?" giulia_pcid2=":" giulia_pcid1=";
+    }
+  }
+  CopyMem(Extra,Prefix,AsciiStrLen(Prefix));''')
 if re.search(pattern,text,re.S):
     text,count=re.subn(pattern,lambda _:helper,text,flags=re.S)
     if count!=1:raise ValueError('Ambiguous Wi-Fi diagnostic helper')
@@ -57,3 +77,5 @@ else:
     text=''.join(lines)
 source.write_text(text)
 print('Explicit PCIe prepare call and versioned Wi-Fi diagnostics enabled')
+if os.environ.get('GIULIA_WIFI_SNAPSHOT') == '1':
+    print('Link failures will carry versioned giulia_pcid snapshots instead of runtime handoffs')

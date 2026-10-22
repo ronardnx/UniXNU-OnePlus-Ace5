@@ -3,6 +3,11 @@
  */
 #ifndef GIULIA_WIFI_PCIE_REPORT_H
 #define GIULIA_WIFI_PCIE_REPORT_H
+/* Failure-only extension: device==0 and command high 24 bits equal this
+   tag mean command[7:0]=CESTA cleanup error, bar0=region:offset, bar1=value.
+   These are not PCI endpoint registers. Successful v5 reports are unchanged. */
+#define GW_CESTA_CLEANUP_TAG 0xce570000u
+#define GW_XNU_LINK_TAG 0x584e554cu
 struct gw_report {
   unsigned version, stage, detail, error;
   unsigned long long firmware_status, clock_version;

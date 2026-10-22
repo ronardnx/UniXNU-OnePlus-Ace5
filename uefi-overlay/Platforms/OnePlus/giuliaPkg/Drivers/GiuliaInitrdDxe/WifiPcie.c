@@ -18,11 +18,16 @@ VOID GiuliaWifiInstall (VOID);
 
 #if defined(GIULIA_WIFI_PCIE) && GIULIA_WIFI_PCIE
 #include "WifiPciePolicy.h"
+#include "WifiPcieSnapshot.h"
 #include "WifiPciePhy.h"
 #include "WifiPowerCache.h"
+#include "WifiPcieCesta.h"
 typedef struct { UINT64 Version; VOID *Methods[24]; } GW_RPMH;
 typedef struct { UINT64 Version; VOID *Methods[8]; } GW_CMD;
 typedef EFI_STATUS (EFIAPI *GW_QUERY)(GW_CMD *, CONST CHAR8 *, UINT32 *);
+/* Pinned CmdDbDxe slot 6 takes an 8-bit IN/OUT capacity and a separate
+   32-bit command-db result. The EFI return alone does not prove success. */
+typedef EFI_STATUS (EFIAPI *GW_AUX_READ)(GW_CMD *, CONST CHAR8 *, UINT8 *, VOID *, UINT32 *);
 typedef EFI_STATUS (EFIAPI *GW_VALID)(UINT32, BOOLEAN *);
 typedef EFI_STATUS (EFIAPI *GW_CREATE)(UINT32, CONST CHAR8 *, VOID **);
 typedef EFI_STATUS (EFIAPI *GW_ISSUE)(VOID *, UINT32, BOOLEAN, UINT32, UINT32, UINT32 *);
@@ -38,6 +43,9 @@ STATIC EFI_CLOCK_PROTOCOL *mClock;
 STATIC VOID *mClient;
 STATIC BOOLEAN mAttempted;
 STATIC struct gw_report mReport;
+STATIC UINT32 mSnapshot[42];
+STATIC UINT32 mClockTrace[GW_CLOCK_PHASES][3],mClockTraceValid;
+STATIC EFI_GUID mSnapshotGuid={0xf5b737f6,0x3b39,0x438d,{0x84,0xc0,0x17,0xcb,0x11,0x07,0x00,0x02}};
 STATIC UINT32 mAddresses[GW_RAILS];
 STATIC UINT32 mOldVotes[GW_RAILS][3]; /* voltage, mode, enable */
 STATIC BOOLEAN mOldValid[GW_RAILS][3];
@@ -45,6 +53,7 @@ STATIC UINTN mClocks[GW_CLOCKS_COUNT],mDomains[GW_DOMAINS_COUNT];
 STATIC UINT32 mOldFreq[2];
 STATIC UINT32 mOldPipeSource;
 STATIC BOOLEAN mPipeSourceChanged;
+STATIC struct gce_state mCesta;
 /* Seven endpoint rails, then host PHY analog/PLL. The host rails are pinned
    to the captured board's L1I (880..912mV) and L3I (1200mV) constraints;
    SM8650's upstream PCIe0 PHY maps these to vdda-phy and vdda-pll. */
@@ -71,8 +80,65 @@ STATIC VOID Write (VOID *Context,unsigned Region,unsigned Offset,unsigned Value)
   else MmioWrite32(mBases[Region]+Offset,Value);
 }
 STATIC VOID WaitUs (VOID *Context,unsigned Us) { gBS->Stall(Us); }
+STATIC unsigned CestaRead (VOID *Context,unsigned Region,unsigned Offset)
+{
+  CONST UINTN Base[3]={0x1d01000,0x1d07000,0x1d05000};
+  return MmioRead32(Base[Region]+Offset);
+}
+STATIC VOID CestaWrite (VOID *Context,unsigned Region,unsigned Offset,unsigned Value)
+{
+  CONST UINTN Base[2]={0x1d01000,0x1d07000};
+  ASSERT(Region<2);
+  MmioWrite32(Base[Region]+Offset,Value);
+}
+STATIC int CestaQuiescent (VOID *Context)
+{
+  UINT32 Perst=MmioRead32(0xf15e004),Reset,Ltssm;
+  if(Perst==MAX_UINT32 || (Perst&2)) {
+    mCesta.region=GCE_GPIO_STATUS;mCesta.offset=94;mCesta.value=Perst;return 0;
+  }
+  Reset=MmioRead32(0x16b000);
+  if(Reset==MAX_UINT32) {
+    mCesta.region=GCE_GCC_STATUS;mCesta.offset=0xb000;mCesta.value=Reset;return 0;
+  }
+  /* A held core reset is quiescent; PARF may be inaccessible in that state. */
+  if(Reset&1)return 1;
+  Ltssm=MmioRead32(0x1c001b0);
+  if(Ltssm==MAX_UINT32 || (Ltssm&0x100)) {
+    mCesta.region=GCE_PARF_STATUS;mCesta.offset=0x1b0;mCesta.value=Ltssm;return 0;
+  }
+  return 1;
+}
+STATIC CONST struct gce_io mCestaIo={NULL,CestaRead,CestaWrite,WaitUs,CestaQuiescent};
+STATIC VOID ClockTrace (unsigned Phase)
+{
+  mClockTrace[Phase][0]=MmioRead32(0x16b05c);
+  mClockTrace[Phase][1]=MmioRead32(0x16b058);
+  mClockTrace[Phase][2]=MmioRead32(0x16b078);
+  mClockTraceValid|=1u<<Phase;
+}
 STATIC VOID Step (VOID *Context,struct gw_report *R)
 {
+  if(!R->error) {
+    if(R->stage==GW_CESTA_READY)ClockTrace(GW_BEFORE_CESTA);
+    if(R->stage==GW_RESET && !R->detail)ClockTrace(GW_AFTER_CESTA);
+    if(R->stage==GW_RESET && R->detail==0x6b000)ClockTrace(GW_AFTER_CORE_RESET);
+    if(R->stage==GW_PHY_INIT)ClockTrace(GW_AFTER_RESETS);
+    if(R->stage==GW_LINK)ClockTrace(GW_AFTER_PHY);
+  }
+  /* gw_bringup calls this before any failure cleanup. Do not read an
+     unpowered controller on earlier resource/PHY failures or resample
+     after cleanup in Prepare's final Step call. */
+  if(!mSnapshot[0] && R->stage==GW_LINK && R->error) {
+    CONST UINTN Final[15]={0x16b008,0x16c004,0x16b000,0x16c01c,
+      0xf15e000,0xf15e004,0xf110000,0xf110004,0x1c001b0,0x60000f28,
+      0x60000080,0x1c06214,0x1d0500c,0x1ff1100,0x16b048};
+    STATIC_ASSERT(sizeof(mSnapshot)==168,"snapshot handoff size");
+    STATIC_ASSERT(sizeof(mClockTrace)==96,"eight clock trace samples");
+    mSnapshot[0]=GW_TRACE_MAGIC;mSnapshot[1]=R->stage|(mClockTraceValid<<16);mSnapshot[2]=R->error;
+    CopyMem(mSnapshot+3,mClockTrace,sizeof(mClockTrace));
+    for(UINTN I=0;I<ARRAY_SIZE(Final);I++)mSnapshot[27+I]=MmioRead32(Final[I]);
+  }
   DEBUG((DEBUG_ERROR,"GIULIA WIFI: stage=%u detail=%u err=%u status=%lx rails=%x clocks=%x phy=%x link=%x id=%x\n",
     R->stage,R->detail,R->error,R->firmware_status,R->rails,R->clocks,R->phy,R->link,R->device));
 }
@@ -106,7 +172,25 @@ STATIC int Resource (VOID *Context,unsigned Kind,unsigned Index,int Enable)
   EFI_STATUS Status=EFI_SUCCESS;
   UINT32 Actual=0,Hz;
   BOOLEAN On=FALSE;
-  if(Kind==GW_RAIL) {
+  if(Kind==GW_CESTA) {
+    int Error=Enable?gce_take(&mCestaIo,&mCesta):gce_restore(&mCestaIo,&mCesta);
+    if(Error) {
+      Status=(Error==GCE_SWITCH_TIMEOUT || Error==GCE_POWER_TIMEOUT)?EFI_TIMEOUT:EFI_DEVICE_ERROR;
+      if(Enable)mReport.detail=(mCesta.region<<24)|(Error<<16)|mCesta.offset;
+      else if(!mReport.device) {
+        /* No endpoint configuration was read: carry tagged cleanup evidence
+           in the otherwise unused endpoint fields without extending v5. */
+        mReport.command=GW_CESTA_CLEANUP_TAG|(UINT32)Error;
+        mReport.bar0=(mCesta.region<<24)|mCesta.offset;
+        mReport.bar1=mCesta.value;
+      }
+    }
+    if(!Enable && !Error && mCesta.cold_restore && !EFI_ERROR(mReport.cleanup_status))
+      mReport.cleanup_status=EFI_NOT_READY; /* vote values restored; initial channel remains selected */
+    DEBUG((DEBUG_ERROR,"GIULIA CESTA: enable=%u error=%u version=%x cfg=%x cfg2=%x old=%x target=%u reg=%u:%x value=%x retained=%u cold=%u\n",
+      Enable,Error,mCesta.version,mCesta.geometry,mCesta.geometry2,mCesta.update,mCesta.target,
+      mCesta.region,mCesta.offset,mCesta.value,mCesta.retained,mCesta.cold_restore));
+  } else if(Kind==GW_RAIL) {
     if(!Enable) { ReleaseRail(Index); return 0; }
     Status=Vote(mAddresses[Index],MAX(mMillivolts[Index],mOldVotes[Index][0]));
     if(!EFI_ERROR(Status)) Status=Vote(mAddresses[Index]+8,7); /* normal/high-power mode */
@@ -144,14 +228,21 @@ STATIC int Resource (VOID *Context,unsigned Kind,unsigned Index,int Enable)
       mReport.pipe_source=(mOldPipeSource<<16)|(After&0xffff);
       if(!EFI_ERROR(Status) && (After==MAX_UINT32 || (After&3)!=0)) Status=EFI_DEVICE_ERROR;
     }
+    /* ClockDxe replays the domain's selected configuration on enable.
+       Merely omitting SetClockFreqHz left PHY_RCHNG at 0x605 on hardware.
+       Select the supported XO entry through the native API first; policy
+       then adds the vendor HW_CLK_CTRL_MODE bit with a bounded RCG update. */
     if(Index==7 || Index==8) {
-      Hz=Index==7?19200000:100000000;
+      Hz=19200000;
+      if(Index==8)ClockTrace(GW_BEFORE_RATE);
       (VOID)mClock->GetClockFreqHz(mClock,mClocks[Index],&mOldFreq[Index-7]);
       Status=mClock->SetClockFreqHz(mClock,mClocks[Index],Hz,EFI_CLOCK_FREQUENCY_HZ_EXACT,&Actual);
+      if(Index==8)ClockTrace(GW_AFTER_RATE);
       if(!EFI_ERROR(Status) && Actual!=Hz) Status=EFI_UNSUPPORTED;
     }
     if(!EFI_ERROR(Status)) {
       Status=mClock->EnableClock(mClock,mClocks[Index]);
+      if(Index==8)ClockTrace(GW_AFTER_ENABLE);
       if(!EFI_ERROR(Status)) {
         /* PIPE and AXI are hardware gated before training; CFG/AUX must run. */
         Status=(Index==3 || Index==7) ? mClock->IsClockOn(mClock,mClocks[Index],&On) :
@@ -195,7 +286,8 @@ STATIC EFI_STATUS PrepareResources (VOID)
   BOOLEAN Valid=FALSE;
   CONST CHAR8 *Domains[2]={"gcc_pcie_0_gdsc","gcc_pcie_0_phy_gdsc"};
   CONST UINT64 Maps[][2]={{0x16b000,0x1000},{0x16c000,0x1000},{0x1c00000,0x3000},{0x1c06000,0x2000},
-    {0x60000000,0x2000},{0x60100000,0x1000},{0x1ff1000,0x1000},{0x162000,0x1000}};
+    {0x60000000,0x2000},{0x60100000,0x1000},{0x1ff1000,0x1000},{0x162000,0x1000},
+    {0x1d01000,0x3000},{0x1d05000,0x2000},{0x1d07000,0x7000}};
   mReport.stage=GW_ABI;
   Status=gBS->LocateProtocol(&mRpmhGuid,NULL,(VOID **)&mRpmh); if(EFI_ERROR(Status)) return Status;
   Status=gBS->LocateProtocol(&mCmdGuid,NULL,(VOID **)&mDb); if(EFI_ERROR(Status)) return Status;
@@ -204,7 +296,7 @@ STATIC EFI_STATUS PrepareResources (VOID)
   /* The pinned giulia ClockDxe is 1.0.a; its first 16 slots retain this ABI. */
   if(mRpmh->Version!=0x10001 || mDb->Version!=0x10000 || mClock->Version!=0x1000a ||
     !mRpmh->Methods[1] || !mRpmh->Methods[5] || !mRpmh->Methods[9] || !mRpmh->Methods[11] || !mRpmh->Methods[18] ||
-    !mDb->Methods[1] || !mDb->Methods[7] || !mClock->GetClockPowerDomainID || !mClock->EnableClockPowerDomain ||
+    !mDb->Methods[1] || !mDb->Methods[5] || !mDb->Methods[6] || !mDb->Methods[7] || !mClock->GetClockPowerDomainID || !mClock->EnableClockPowerDomain ||
     !mClock->DisableClockPowerDomain || !mClock->GetClockID || !mClock->EnableClock || !mClock->DisableClock ||
     !mClock->GetClockFreqHz || !mClock->SetClockFreqHz || !mClock->IsClockOn || !mClock->IsClockEnabled ||
     !mClock->SelectExternalSource)
@@ -218,6 +310,24 @@ STATIC EFI_STATUS PrepareResources (VOID)
     if(Slave!=4 || (mAddresses[I]>>16)!=4 || (mAddresses[I]&15)) return EFI_UNSUPPORTED;
     for(J=0;J<I;J++) if(mAddresses[I]==mAddresses[J]) return EFI_COMPROMISED_DATA;
   }
+  for(I=0;I<GCB_NODES;I++) {
+    CONST CHAR8 *Name=gcb_name((unsigned)I);
+    UINT32 Address=0,Size=0,Result=MAX_UINT32;
+    UINT8 Length=8,Aux[8]={0};
+    if(Name==NULL)continue;
+    mReport.detail=0x400+(UINT32)I;
+    Status=((GW_QUERY)mDb->Methods[1])(mDb,Name,&Address);if(EFI_ERROR(Status))return Status;
+    Status=((GW_QUERY)mDb->Methods[7])(mDb,Name,&Slave);if(EFI_ERROR(Status))return Status;
+    if(Slave!=5 || (Address>>16)!=5 || (Address&3))return EFI_UNSUPPORTED;
+    Status=((GW_QUERY)mDb->Methods[5])(mDb,Name,&Size);if(EFI_ERROR(Status))return Status;
+    if(Size!=sizeof(Aux))return EFI_UNSUPPORTED;
+    Status=((GW_AUX_READ)mDb->Methods[6])(mDb,Name,&Length,Aux,&Result);
+    if(EFI_ERROR(Status))return Status;
+    if(Result || !gcb_vote((unsigned)I,Aux,Length,&mCesta.bw_floor[I]))return EFI_COMPROMISED_DATA;
+    mCesta.bw_ready|=1u<<I;
+    DEBUG((DEBUG_ERROR,"GIULIA CESTA bandwidth: node=%u name=%a vote=%x\n",I,Name,mCesta.bw_floor[I]));
+  }
+  if(mCesta.bw_ready!=GCB_PATH_MASK)return EFI_NOT_READY;
   for(I=0;I<GW_CLOCKS_COUNT;I++) {
     mReport.detail=0x100+(UINT32)I;
     Status=mClock->GetClockID(mClock,mClockNames[I],&mClocks[I]); if(EFI_ERROR(Status)) return Status;
@@ -269,22 +379,39 @@ STATIC EFI_STATUS EFIAPI Prepare (struct gw_report *Result,UINTN Size)
   if(!mAttempted) {
     mAttempted=TRUE;
     ZeroMem(&mReport,sizeof(mReport)); mReport.version=5; mReport.stage=GW_START;
+    DEBUG((DEBUG_ERROR,"GIULIA WIFI: PKG110 stock PCIe init profile\n"));
     Status=PrepareResources();
     if(EFI_ERROR(Status)) { mReport.error=GW_RESOURCE_ERROR; mReport.firmware_status=Status; }
-    else (VOID)gw_bringup(&Bus,&mReport,gw_phy_sequence,ARRAY_SIZE(gw_phy_sequence));
+    else {
+#if defined(GIULIA_WIFI_XNU_LINK) && GIULIA_WIFI_XNU_LINK
+      (VOID)gw_bringup_mode(&Bus,&mReport,gw_phy_sequence,ARRAY_SIZE(gw_phy_sequence),1);
+#else
+      (VOID)gw_bringup(&Bus,&mReport,gw_phy_sequence,ARRAY_SIZE(gw_phy_sequence));
+#endif
+    }
     Step(NULL,&mReport);
   }
   CopyMem(Result,&mReport,sizeof(mReport));
   return mReport.error ? EFI_DEVICE_ERROR : EFI_SUCCESS;
 }
 STATIC GW_PROTOCOL mProtocol={5,Prepare};
+STATIC EFI_STATUS EFIAPI GetSnapshot (struct gw_report *Result,UINTN Size)
+{
+  STATIC_ASSERT(ARRAY_SIZE(gw_snapshot_regs)==39,"legacy v1 snapshot layout");
+  if(Result==NULL || Size!=sizeof(mSnapshot))return EFI_INVALID_PARAMETER;
+  if(mSnapshot[0]!=GW_TRACE_MAGIC)return EFI_NOT_READY;
+  CopyMem(Result,mSnapshot,sizeof(mSnapshot));
+  return EFI_SUCCESS;
+}
+STATIC GW_PROTOCOL mSnapshotProtocol={1,GetSnapshot};
 #endif
 
 VOID GiuliaWifiInstall (VOID)
 {
 #if defined(GIULIA_WIFI_PCIE) && GIULIA_WIFI_PCIE
   EFI_HANDLE Handle=NULL;
-  EFI_STATUS Status=gBS->InstallMultipleProtocolInterfaces(&Handle,&mWifiGuid,&mProtocol,NULL);
+  EFI_STATUS Status=gBS->InstallMultipleProtocolInterfaces(&Handle,&mWifiGuid,&mProtocol,
+    &mSnapshotGuid,&mSnapshotProtocol,NULL);
   DEBUG((DEBUG_ERROR,"GIULIA WIFI: prepare protocol v5 installed: %r\n",Status));
 #endif
 }

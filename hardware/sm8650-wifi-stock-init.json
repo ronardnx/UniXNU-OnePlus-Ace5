@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "Compiled and offline verified; device validation pending",
+  "root_cause_confirmed": false,
+  "stock_release": "PKG110_16.0.3.500(CN01)",
+  "stock_module": {
+    "container": "vendor_dlkm.img",
+    "path": "lib/modules/pci-msm-drv.ko",
+    "bytes": 539136,
+    "sha256": "11e6da96f822c87f58cb757cf3c97ba16c32d6de3511787abb67d576c7e783cc",
+    "local_extracted_path": ".cache/wifi-stock-16.0.3.500/vendor-dlkm/lib/modules/pci-msm-drv.ko",
+    "local_disassembly": ".cache/wifi-native/stock-pci-init.asm",
+    "uploaded": false
+  },
+  "source_match": {
+    "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+    "branch": "oneplus/sm8650_v_15.0.0_oneplus_ace5",
+    "commit": "66305c56af1fcd7299c906c3257e585be93d93ed",
+    "pci_msm_sha256": "daa1718eff4ad5e5a8befa244e96cb47a7b331db4b2581b24918fde0c04fedc3",
+    "crm_sha256": "18277a9799a50572a20db194b65667841a966370efbbeba6eb6bfe144a340012",
+    "note": "Ace 5 public source files are byte-identical to the previously pinned SM8650 source. Selected initialization behavior was additionally checked in the actual Android 16 ROM module. Public source identity alone is not a claim of a bit-for-bit ROM source match."
+  },
+  "profile": [
+    {
+      "step": "CESTA D0",
+      "stock": "bw_gen_max + 1 in power states 0 and 1; DT has three rows, therefore level 4",
+      "binary_offset": "0x2638..0x2658",
+      "change": "Removed diagnostic Gen1 level 2 ceiling/floor assumption"
+    },
+    {
+      "step": "Reset",
+      "stock": "Core assert, 1 ms, release; then PHY assert, 1 ms, release",
+      "binary_offset": "msm_pcie_core_phy_reset 0xba74",
+      "change": "Sequential reset with verified edges"
+    },
+    {
+      "step": "Port capabilities",
+      "stock": "No target-link-width in DT; preserve reset PORT_LINK_CTRL and LNKCAP",
+      "binary_offset": "0xc758..0xc7bc",
+      "change": "Removed forced width/capability rewriting"
+    },
+    {
+      "step": "Initial training lanes",
+      "stock": "GEN2_CTRL[12:8] = 1",
+      "binary_offset": "0xc924..0xc93c",
+      "change": "Use stock one-lane initial training with x2 advertised capability preserved"
+    },
+    {
+      "step": "PHY-related controller settings",
+      "stock": "Gen3 shadow, EQ request vector 0, ZRXDC_NONCOMPL clear, T_MIN_PHASE23 0",
+      "binary_offset": "0xc974..0xca1c",
+      "change": "Added the missing Gen3 controller settings"
+    },
+    {
+      "step": "Preset",
+      "stock": "Secondary PCIe capability + 12, default 0x55555555",
+      "binary_offset": "0xca20..0xce68",
+      "change": "Bounded capability traversal and scoped RO write access"
+    },
+    {
+      "step": "Target speed",
+      "stock": "No target-link-speed in DT; do not force LNKCTL2",
+      "binary_offset": "0xce6c..0xce98",
+      "change": "Removed forced Gen1 speed"
+    },
+    {
+      "step": "Read request size",
+      "stock": "Device Control MRRS field = 5",
+      "binary_offset": "0xce9c..0xcecc",
+      "change": "Set control without replaying W1C status bits"
+    },
+    {
+      "step": "L1 and AXI halt",
+      "stock": "Clear PARF PM_CTRL bit 5; set AXI write-halt bit 31",
+      "binary_offset": "msm_pcie_enable_link 0xbd6c",
+      "change": "Removed diagnostic L1 suppression and added the stock halt window policy"
+    },
+    {
+      "step": "Timing",
+      "stock": "DT endpoint latency 10 ms; default PERST release delay 1 ms; PHY readiness 10 polls; link loop 21 sleeps of 5 ms",
+      "change": "Removed 100 ms diagnostic PERST waits and 500 ms link loop"
+    }
+  ],
+  "os_adapter_differences": [
+    "Firmware-native resource calls replace Linux regulator, clock and interconnect APIs",
+    "UEFI bring-up polls status and keeps interrupts masked until a runtime handler owns them",
+    "UEFI assigns a bus-1 CFG0 window after link-up; DMA remains disabled until the XNU SMMU owner is ready",
+    "Shared-resource ownership checks, bounded failures and restoration protect the rest of the UEFI boot",
+    "The fixed 168-byte v5 handoff and local proprietary firmware embedding are retained"
+  ],
+  "offline_checks": {
+    "pcie_policy": 66,
+    "cesta": 150,
+    "bandwidth": 38,
+    "boot_argument_capacity": 609
+  },
+  "last_device_test": "hardware/ios16-wifi-bandwidth-test.json",
+  "hardware_tested": false,
+  "endpoint_enumerated": false,
+  "candidate": {
+    "image": "out/ios16/wifi-stock-init-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "9f125ece48e169046e794e69995444cba094cd3437cd88172407e6b945b3c1ab",
+    "bytes": 69287936,
+    "kernel_sha256": "64dcdd3face2e562debfd10ac3b594ce0ab7d8d64d2937fc444361daf5f33d70",
+    "uefi_sha256": "4a02856df7fff9789c6e59fb31b94f30eb781b64b94f9cd6b3735ae0c2719478",
+    "payload_sha256": "f36545777a1c46b8d3ab4f831ebe85aec6f21ad67e12762569de2c7cf33bb605",
+    "verification_report": "out/ios16/wifi-stock-init-boot/verification.json"
+  },
+  "source_validation_ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39729327365,
+    "commit": "00c868d9bb3017185064f539f9883c5b90790723",
+    "conclusion": "success",
+    "status": "completed",
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39729327365"
+  },
+  "offline_validation": {
+    "unit_tests": 9,
+    "source_manifest_verified": true
+  }
+}

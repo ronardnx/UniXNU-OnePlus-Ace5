@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "status": "Prepared handoff and XNU link training confirmed on device; 21 polls still end in Detect.Quiet",
+  "handoff": {
+    "prefix": "giulia_wifip",
+    "clocks_mask": "0xfff",
+    "resources_retained": true,
+    "version": 5,
+    "perst": "asserted low",
+    "rails_mask": "0x1ff",
+    "dma_enabled": false,
+    "stage": 18,
+    "bytes": 168,
+    "detail": "0x584e554c"
+  },
+  "uefi": "Prepare rails, clocks, CESTA, controller and PHY; leave LTSSM disabled and PERST asserted",
+  "xnu": "Validate live ownership and power, release PERST, enable LTSSM, poll up to 21 times with 5 ms sleeps, configure CFG0 and identify endpoint",
+  "logging": "GIULIA XNU PCIE records include elapsed milliseconds, stage, register address, actual value, mask, expected value and pass/fail; before-training and failure snapshots include extended reset and PHY debug registers",
+  "compatibility": "Enumerated giulia_wifi5 handoffs remain supported. Failed UEFI reports are not treated as successful or prepared. Packaging rejects an old kernel for a pending handoff.",
+  "validation": {
+    "uefi_policy_cases": 78,
+    "handoff_capacity_cases": 609,
+    "cpp_header_checks": true,
+    "xnu_link_cases": 18,
+    "sanitizer_checks": true
+  },
+  "ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39741808356,
+    "commit": "5ff2ba2e04cde449eef36a569e52de519d52b262",
+    "conclusion": "success",
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39741808356",
+    "branch": "codex/wifi-xnu-link"
+  },
+  "hardware_tested": true,
+  "endpoint_enumerated": false,
+  "candidate": {
+    "image": "out/ios16/wifi-xnu-link-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "94a4b17a462763e0cca816b46e12fb4f7054386fc3145c40075cd84c10385319",
+    "bytes": 69287936,
+    "temporary_boot_command_succeeded": true,
+    "flash_commands_executed": false,
+    "kernel_run": 39741808356,
+    "verification": "out/ios16/wifi-xnu-link-boot/source-manifest.json"
+  },
+  "device_result": {
+    "elbi": "0x1",
+    "stage": 3,
+    "polls": 21,
+    "endpoint": "0x0",
+    "elapsed_ms": 232,
+    "error": 5,
+    "preconditions_failed": [],
+    "error_name": "XNU link timeout",
+    "source": "out/ios16/wifi-xnu-link-test-1/xnu-pcie.log",
+    "link": "0x10110008",
+    "root_cause_confirmed": false
+  }
+}

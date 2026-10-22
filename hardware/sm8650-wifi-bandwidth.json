@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / PCIe0",
+  "status": "CESTA preparation passed on hardware; link remains Detect.Quiet; cleanup error retains all nine rails",
+  "root_cause_confirmed": false,
+  "previous_test": "hardware/ios16-wifi-cesta-test.json",
+  "changes": [
+    "Request the vendor initial PCIe-to-memory interconnect bandwidth through CRM HW voter 0, states 0 and 1",
+    "Read 8-byte BCM unit/width records through the pinned native Command DB protocol before hardware mutation",
+    "Preserve each inherited average and peak floor separately, and preserve unrelated one-hot enable bits",
+    "Leave IP0, other hardware voters, software voters and states 2 through 4 unchanged",
+    "Restore CRM channels before stopping a state program installed by this driver",
+    "Refuse to stop the shared state program if voter 1 becomes active",
+    "Reset core and PHY sequentially with assertion and release readback",
+    "Carry tagged cleanup error, register and value in unused failure-only v5 report fields"
+  ],
+  "initial_request_kB_per_second": {
+    "average": 500,
+    "peak": 800
+  },
+  "resource_map": {
+    "MC0": {
+      "crm_node": 0,
+      "bus_width": 4,
+      "channels": 4
+    },
+    "SH0": {
+      "crm_node": 1,
+      "bus_width": 16,
+      "channels": 4
+    },
+    "SH1": {
+      "crm_node": 2,
+      "enable_mask": 1
+    },
+    "SN4": {
+      "crm_node": 3,
+      "bus_width": 16,
+      "channels": 1
+    },
+    "ACV": {
+      "crm_node": 5,
+      "enable_mask": 1
+    }
+  },
+  "command_db": {
+    "sha256": "5c58d445f356af9f8497ea6f449ba534fd7920b045067cd3b02ad997863077bf",
+    "protocol_version": "0x10000",
+    "vtable_file_offset": "0x6098",
+    "aux_length": {
+      "slot": 5,
+      "wrapper": "0x15b0",
+      "output_bytes": 4
+    },
+    "aux_data": {
+      "slot": 6,
+      "wrapper": "0x15f8",
+      "callee": "0x23e0",
+      "length_in_out_bytes": 1,
+      "separate_result_bytes": 4
+    },
+    "expected_aux_data_bytes": 8,
+    "expected_slave": 5
+  },
+  "offline_checks": {
+    "pcie_policy": 59,
+    "cesta": 150,
+    "bandwidth": 38,
+    "boot_argument_capacity": 609
+  },
+  "hardware_tested": false,
+  "endpoint_enumerated": false,
+  "sources": [
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/interconnect/qcom/pineapple.c",
+      "sha256": "5ffe4e07d87407b97325e967c6b151b0857fc4f82f394aa8aeb3ee8c907887b2"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/interconnect/qcom/bcm-voter.c",
+      "sha256": "b5e5f9b62c06ca685d2c19783210fb768201ad616c2c28a73651def283e726cb"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/pci/controller/pci-msm.c",
+      "sha256": "daa1718eff4ad5e5a8befa244e96cb47a7b331db4b2581b24918fde0c04fedc3"
+    }
+  ],
+  "candidate": {
+    "image": "out/ios16/wifi-cesta-bandwidth-final-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "6e55254d3de2bee2b8db89b58c00100ff048bc83362184e3ec567e74fd041360",
+    "bytes": 69287936,
+    "kernel_sha256": "64dcdd3face2e562debfd10ac3b594ce0ab7d8d64d2937fc444361daf5f33d70",
+    "uefi_sha256": "8b8168305d1ee4d6f585f3b1835831f2d5983cb48f95bd2f1bfebfc005ee0e65",
+    "payload_sha256": "96d16af3a877ed1eae74724180a9589e51a2aad62a0227765f1f1450a3c86710",
+    "verification_report": "out/ios16/wifi-cesta-bandwidth-final-boot/verification.json",
+    "hardware_tested": true
+  },
+  "source_validation_ci": {
+    "repository": "jasper2863/UniXNU-giulia",
+    "run": 39727316532,
+    "commit": "7466409a27cfb7cc69177574d9b9765680b84503",
+    "conclusion": "success",
+    "status": "completed",
+    "url": "https://github.com/jasper2863/UniXNU-giulia/actions/runs/39727316532"
+  },
+  "offline_validation": {
+    "unit_tests": 9,
+    "source_manifest_verified": true
+  },
+  "hardware_test_record": "hardware/ios16-wifi-bandwidth-test.json"
+}

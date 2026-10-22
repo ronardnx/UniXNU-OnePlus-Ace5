@@ -1,0 +1,257 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110",
+  "image": "out/ios16/wifi-cesta-clock-owner-boot/giulia-ios16-wifi-pcie.img",
+  "image_sha256": "13b135e6d18a91389c5dcac82711c7a0b91bdd6cbfaf6d5a65e1bf6e216bc1c1",
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "endpoint_enumerated": false,
+  "root_cause_confirmed": false,
+  "status": "Link training timeout; all 39 sampled register values unchanged after removal of explicit PHY_RCHNG SetClockFreqHz",
+  "snapshot": {
+    "stage": 13,
+    "error": 7,
+    "registers": [
+      {
+        "region": "GCC",
+        "offset": "0x6b004",
+        "address": "0x16b004",
+        "value": "0xf822f801"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b008",
+        "address": "0x16b008",
+        "value": "0x4070000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c000",
+        "address": "0x16c000",
+        "value": "0xf8222801"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c004",
+        "address": "0x16c004",
+        "value": "0x4070000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b000",
+        "address": "0x16b000",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6c01c",
+        "address": "0x16c01c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b03c",
+        "address": "0x16b03c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b048",
+        "address": "0x16b048",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b038",
+        "address": "0x16b038",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b02c",
+        "address": "0x16b02c",
+        "value": "0x200000"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b020",
+        "address": "0x16b020",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b01c",
+        "address": "0x16b01c",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b054",
+        "address": "0x16b054",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b070",
+        "address": "0x16b070",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b034",
+        "address": "0x16b034",
+        "value": "0x3c82020"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b030",
+        "address": "0x16b030",
+        "value": "0x10c00"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b058",
+        "address": "0x16b058",
+        "value": "0x0"
+      },
+      {
+        "region": "GCC",
+        "offset": "0x6b05c",
+        "address": "0x16b05c",
+        "value": "0x605"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x0",
+        "address": "0x1c00000",
+        "value": "0x365e"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x20",
+        "address": "0x1c00020",
+        "value": "0x0"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x24",
+        "address": "0x1c00024",
+        "value": "0x80040400"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x28",
+        "address": "0x1c00028",
+        "value": "0x4002"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x40",
+        "address": "0x1c00040",
+        "value": "0x900"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x174",
+        "address": "0x1c00174",
+        "value": "0x13"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x1b0",
+        "address": "0x1c001b0",
+        "value": "0x100"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x2b0",
+        "address": "0x1c002b0",
+        "value": "0x10"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x2c4",
+        "address": "0x1c002c4",
+        "value": "0x168"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x4d0",
+        "address": "0x1c004d0",
+        "value": "0x1a"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x4d4",
+        "address": "0x1c004d4",
+        "value": "0x2f20"
+      },
+      {
+        "region": "PARF",
+        "offset": "0x1000",
+        "address": "0x1c01000",
+        "value": "0x4"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x200",
+        "address": "0x1c06200",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x240",
+        "address": "0x1c06240",
+        "value": "0x3"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x244",
+        "address": "0x1c06244",
+        "value": "0x3"
+      },
+      {
+        "region": "PHY",
+        "offset": "0xed0",
+        "address": "0x1c06ed0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x16d0",
+        "address": "0x1c076d0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0xedc",
+        "address": "0x1c06edc",
+        "value": "0xf"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x16dc",
+        "address": "0x1c076dc",
+        "value": "0xf"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x11e0",
+        "address": "0x1c071e0",
+        "value": "0x0"
+      },
+      {
+        "region": "PHY",
+        "offset": "0x19e0",
+        "address": "0x1c079e0",
+        "value": "0x0"
+      }
+    ]
+  },
+  "all_registers_match_previous": true,
+  "capture_snapshot": "out/ios16/wifi-cesta-clock-owner-test-1/capture-snapshot.log",
+  "capture_snapshot_sha256": "9947d71a3130b05cc80e1281ac4ec2a6d68f20479e3de3e16c6a8878d9374a5c",
+  "incomplete_records": 0,
+  "runtime": "PCIe handoff not ready; runtime stays inactive",
+  "next_investigation": "Instrument native clock enable/source selection: removing the explicit rate request did not preserve Android HW-control configuration. Firmware overwrite is a hypothesis, not yet proven."
+}

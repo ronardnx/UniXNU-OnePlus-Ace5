@@ -49,6 +49,12 @@ jobs:
           /tmp/trust-test < /dev/null
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_log_bytes.c -o /tmp/log-test
           /tmp/log-test
+          for test in ios16_wifi_pcie ios16_wifi_cesta ios16_wifi_bandwidth ios16_wifi_power_cache; do
+            clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all "tests/$test.c" -o /tmp/pcie-resource-check
+            /tmp/pcie-resource-check
+          done
+          python3 tests/ios16_wifi_pcie_report.py
+          python3 tests/ios16_wifi_handoff.py
           bash scripts/test-ios16-wifi-runtime.sh
           python3 tests/ios16_wifi_embed.py
       - name: Prepare pinned XNU build and Ace 5 profile
@@ -92,6 +98,7 @@ jobs:
           fi
           if [ '${{ inputs.wifi }}' = true ]; then
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in b; assert b'IO80211Controller' in b and b'GiuliaWiFiUserClient' in b"
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: XNU PCIe link worker' in b and b'giulia_wifip' in b"
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho

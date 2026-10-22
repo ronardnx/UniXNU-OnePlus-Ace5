@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / SM8650 / PCIe0",
+  "status": "HW-control bit repair verified; link still fails. v2 trace localizes subsequent 100 MHz rate switch to CESTA D0",
+  "clockdxe_sha256": "53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc",
+  "native_binary_audit": {
+    "protocol": "0x20108: EnableClock entry 0x151c -> ID dispatcher 0x7f08 -> clock enable 0x5178",
+    "node": "0x26fe0: gcc_pcie_0_phy_rchng_clk, branch 0x16b054, domain 0x2e800",
+    "domain": "0x2e800: rate table 0x32580, two entries, CMD_RCGR 0x16b058, HAL table 0x35598",
+    "rates": "19.2 MHz entry uses source selector 0 and twice-divider 2; 100 MHz entry uses source selector 6 and twice-divider 6",
+    "enable_path": "0x5178 -> domain enable 0x4e5c. Domain configuration is detected/cached by 0x4bbc if absent; 0x4f84..0x4f8c submits the selected entry to the HAL",
+    "hal": "0xf9a8 -> 0xfce8 builds CFG from selector, divider-minus-one and HAL descriptor HW-control flag; 0xf9d0..0xf9e0 sets CMD_UPDATE and polls it",
+    "encoding": "selector 6, divider-minus-one 5, HW-control clear encodes 0x605; this is why omitting an external SetClockFreqHz call does not guarantee the Android configuration",
+    "limit": "Static disassembly identifies the configuration replay path, not the time of the first 100 MHz selection during boot. No proprietary firmware binary was changed."
+  },
+  "vendor_sources": [
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/clk/qcom/gcc-pineapple.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/clk/qcom/clk-rcg2.c"
+  ],
+  "live_reference": "hardware/sm8650-wifi-android-reference.json",
+  "changes": [
+    "Select supported 19.2 MHz XO via native SetClockFreqHz before EnableClock so the firmware cache and voltage/source bookkeeping agree",
+    "Require XO selector, HID=1 and bypass mode after native clock enable",
+    "Set only CFG_HW_CLK_CTRL bit 20, commit CMD_UPDATE and bound completion to 500 one-microsecond polls",
+    "Read back the committed configuration; reject missing or stale register values",
+    "Restore the observed pre-HW-control configuration on failed bring-up; retain resources if a switch cannot be acknowledged"
+  ],
+  "validation": {
+    "pcie_fault_injection_cases": 76,
+    "unit_tests": 18,
+    "complete_offline_bundle_passed": true,
+    "uefi_build_passed": true,
+    "image_verification_passed": true
+  },
+  "candidate": {
+    "image": "out/ios16/wifi-rchng-hw-control-boot/giulia-ios16-wifi-pcie.img",
+    "sha256": "3a17c5e8af697bcd308d2d118049525499d4fc631756accb3ae2512fe158cb9f",
+    "bytes": 69287936,
+    "temporary_boot_command_succeeded": true,
+    "flash_commands_executed": false,
+    "link_verified": false
+  },
+  "hardware_trace": "hardware/ios16-wifi-detailed-trace-test.json",
+  "attribution_correction": "EnableClock replay clears HW-control; the live transition to selector 6 / divider 3 was observed after CESTA D0, not after EnableClock. Do not treat post-enumeration Android 19.2 MHz as proof that startup 100 MHz is wrong."
+}
