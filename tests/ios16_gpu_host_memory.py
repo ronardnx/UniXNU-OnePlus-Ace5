@@ -27,6 +27,7 @@ fixture = r'''
 #include "giulia_gpu_memory.h"
 #include "giulia_gpu_cache.h"
 #include "giulia_gpu_hfi.h"
+#include "giulia_gpu_dev.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 using IOByteCount=uint64_t;
 static unsigned long gPhysBase=0x880000000ULL,gPhysSize=0x100000000ULL;
@@ -37,6 +38,7 @@ enum { kIODirectionInOut=3,kIOMemoryPhysicallyContiguous=0x10,
 static unsigned allocated,freed,calls,failAt,badAt,badKind,cleanCalls,cleanFail;
 static unsigned scratchCalls,scratchFail,scratchLive;
 static void IOLog(const char *,...) {}
+static void gpuHfiBarrier(void *) { __sync_synchronize(); }
 static void *IOMalloc(size_t bytes) {
     if(++scratchCalls==scratchFail)return nullptr;
     ++scratchLive;return malloc(bytes);
@@ -55,7 +57,7 @@ struct IOBufferMemoryDescriptor {
         p->cache=options&0x700;
         assert(!posix_memalign(&p->cpu,alignment,n));
         memset(p->cpu,0xa5,n);p->bytes=n;
-        p->pa=gPhysBase+calls*0x100000;p->span=n;
+        p->pa=gPhysBase+calls*0x800000;p->span=n;
         p->kind=calls==badAt?badKind:0;
         if(p->kind==1)++p->pa;
         if(p->kind==2)--p->span;
@@ -68,6 +70,7 @@ struct IOBufferMemoryDescriptor {
         assert(!offset && options==kIOMemoryMapperNone);*length=span;return pa;
     }
     void *getBytesNoCopy(){return kind==6?nullptr:kind==7?(char *)cpu+1:cpu;}
+    size_t getLength(){return bytes;}
     void release(){free(cpu);++freed;delete this;}
 };
 extern "C" int giulia_gpu_cache_publish(const void *p,size_t n) {
@@ -78,13 +81,23 @@ class GiuliaGPU {
 public:
     IOBufferMemoryDescriptor *allocations[64]={},*tableMemory=nullptr;
     unsigned reservationCount=0,tablePages=0,leafPages=0,hfiIndex=0;bool hostPrepared=false;
+    IOBufferMemoryDescriptor *devMemory[GGD_CHUNKS]={},*gpuTableMemory=nullptr;
+    uint64_t gmuRoot=0,gpuRoot=0;
+    struct ggd_pool devPool={};bool manualMemoryPinned=true;
+    uint32_t devPacket[255]={};bool devWritten[255]={};
+    IOBufferMemoryDescriptor *firmwareMemory=nullptr;
+    struct Map {uintptr_t getVirtualAddress(){return 0;}} *firmwareMap=nullptr;
+    uint8_t *devPointer(uint32_t);void devAllocation(unsigned);void devCommand(const uint32_t *);
+    bool prepareDevMemory(ArmSmmu4KRange *,size_t *);
     bool prepareMemory(const gg_pack *);
     void setProperty(const char *,unsigned long long,unsigned){}
     void setProperty(const char *,const char *){}
-    void releaseResources(){for(auto *p:allocations)if(p)p->release();if(tableMemory)tableMemory->release();}
+    void releaseResources(){for(auto *p:allocations)if(p)p->release();if(tableMemory)tableMemory->release();for(auto *p:devMemory)if(p)p->release();if(gpuTableMemory)gpuTableMemory->release();}
 };
 '''
 fixture += source[begin:end]
+impl=(ROOT/'ios16/giulia_gpu_dev_impl.h').read_text()
+fixture += impl.replace('__asm__ volatile("dsb sy" ::: "memory")','__sync_synchronize()')
 fixture += r'''
 static void reset() {
     allocated=freed=calls=failAt=badAt=badKind=cleanCalls=cleanFail=0;
@@ -98,7 +111,7 @@ static void verify(GiuliaGPU &service,const gg_pack &pack) {
     plan[n++]={GGH_IOVA,GGH_BYTES,GG_KERNEL,0};
     plan[n++]={GGH_LOG_IOVA,GGH_LOG_BYTES,GG_KERNEL,0};
     plan[n++]={GGH_VRB_IOVA,GGH_VRB_BYTES,GG_KERNEL,0};
-    assert(service.reservationCount==n && cleanCalls==n+1);
+    assert(service.reservationCount==n && cleanCalls==n+2);
     assert(service.hfiIndex==firmware && service.tableMemory->cache==kIOMapCopybackCache);
     for(size_t i=0;i<n;++i) {
         auto *a=service.allocations[i];std::vector<unsigned char> expected(a->bytes,0);
@@ -114,6 +127,18 @@ static void verify(GiuliaGPU &service,const gg_pack &pack) {
     }
     auto *pool=(uint64_t *)service.tableMemory->cpu;
     for(size_t i=service.tablePages*512;i<service.tableMemory->bytes/8;++i)assert(!pool[i]);
+    // GPU table must map each owned pool chunk, not the GMU firmware.
+    auto *gp=(uint64_t *)service.gpuTableMemory->cpu;
+    for(unsigned chunk=0;chunk<GGD_CHUNKS;chunk++)for(unsigned edge=0;edge<2;edge++) {
+        uint64_t off=chunk*(uint64_t)GGD_CHUNK+(edge?GGD_CHUNK-4096:0),va=GGD_BASE+off;size_t t=0;
+        for(unsigned level=1;level<3;level++) {
+            uint64_t e=gp[t*512+((va>>(39-9*level))&511)];assert((e&3)==3);
+            t=((e&0x0000fffffffff000ULL)-service.gpuTableMemory->pa)/4096;assert(t<128);
+        }
+        uint64_t e=gp[t*512+((va>>12)&511)];
+        assert((e&0x0000fffffffff000ULL)==service.devMemory[chunk]->pa+(edge?GGD_CHUNK-4096:0));
+        assert((e&0xfff)==0xe03);
+    }
     // Independent walk: every prepared 4K page resolves to its owned PA.
     for(size_t i=0;i<n;++i)for(size_t off=0;off<plan[i].bytes;off+=4096) {
         uint64_t va=plan[i].iova+off;size_t table=0;
@@ -129,8 +154,8 @@ static void verify(GiuliaGPU &service,const gg_pack &pack) {
 }
 static void run(const gg_pack &pack,bool stock) {
     reset();GiuliaGPU good;assert(good.prepareMemory(&pack) && good.hostPrepared);verify(good,pack);
-    if(stock)assert(good.reservationCount==8 && good.tablePages==6 && good.leafPages==139);
-    unsigned total=calls;good.releaseResources();assert(allocated==freed && !scratchLive);
+    if(stock)assert(good.reservationCount==8 && good.tablePages==40 && good.leafPages==17547);
+    unsigned total=calls, totalCleans=cleanCalls;good.releaseResources();assert(allocated==freed && !scratchLive);
     for(unsigned i=1;i<=3;++i) {
         reset();scratchFail=i;GiuliaGPU s;assert(!s.prepareMemory(&pack) && !s.hostPrepared);
         s.releaseResources();assert(!calls && !scratchLive);
@@ -143,9 +168,11 @@ static void run(const gg_pack &pack,bool stock) {
             // Include addresses inside host RAM but outside the GPU's 36-bit aperture.
             if(kind==5)gPhysSize=1ULL<<38;
             GiuliaGPU bad;assert(!bad.prepareMemory(&pack) && !bad.hostPrepared);
-            assert(cleanCalls==i-1);bad.releaseResources();assert(allocated==freed && !scratchLive);
+            bad.releaseResources();assert(allocated==freed && !scratchLive);
             gPhysSize=0x100000000ULL;
         }
+    }
+    for(unsigned i=1;i<=totalCleans;i++) {
         reset();cleanFail=i;GiuliaGPU bad;assert(!bad.prepareMemory(&pack) && !bad.hostPrepared);
         bad.releaseResources();assert(allocated==freed && !scratchLive);
     }

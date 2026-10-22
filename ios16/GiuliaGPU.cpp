@@ -19,12 +19,15 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_memory.h"
 #include "giulia_gpu_cache.h"
 #include "giulia_gpu_hfi.h"
+#include "giulia_gpu_dev.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power_handoff.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 
 static struct gg_terminal_mailbox gpuTerminal;
+static unsigned devState;
+static uint32_t devArgs[6];
 extern "C" int giulia_gpu_qmp_available(void)
 {
     IORegistryEntry *chosen=IORegistryEntry::fromPath("/chosen",gIODTPlane);
@@ -36,6 +39,16 @@ extern "C" int giulia_gpu_qmp_available(void)
 }
 extern "C" int giulia_gpu_terminal(const char *command)
 {
+    if(!strncmp(command,"gpu.dev ",8)) {
+        uint32_t args[6]; unsigned expected=0; int debug=0;
+        PE_parse_boot_argn("giulia_debug",&debug,sizeof(debug));
+        if(!debug || !ggd_parse(command+8,args) ||
+           __atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)!=GGT_READY ||
+           !__atomic_compare_exchange_n(&devState,&expected,1u,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE)) {
+            IOLog("GIULIA GPU DEV: rejected busy-or-unavailable-or-syntax\n");return 1;
+        }
+        memcpy(devArgs,args,sizeof(args));__atomic_store_n(&devState,2u,__ATOMIC_RELEASE);return 1;
+    }
     unsigned request=gg_terminal_command(command);
     if(!request)return 0;
     if(!gg_terminal_request(&gpuTerminal,request))
@@ -50,6 +63,14 @@ class GiuliaGPU : public IOService {
     IOMemoryDescriptor *firmwareMemory;
     IOMemoryMap *firmwareMap;
     IOBufferMemoryDescriptor *tableMemory;
+    IOBufferMemoryDescriptor *devMemory[GGD_CHUNKS],*gpuTableMemory;
+    struct ggd_pool devPool;
+    uint32_t devPacket[255];bool devWritten[255];
+    uint64_t gmuRoot,gpuRoot;
+    bool prepareDevMemory(ArmSmmu4KRange *,size_t *);
+    void devCommand(const uint32_t *);
+    uint8_t *devPointer(uint32_t);
+    void devAllocation(unsigned);
     IOBufferMemoryDescriptor *allocations[GG_FW_MAX_BLOCKS];
     IOMemoryDescriptor *registerMemory[GGP_WINDOWS];
     IOMemoryMap *registerMaps[GGP_WINDOWS];
@@ -83,6 +104,9 @@ OSDefineMetaClassAndStructors(GiuliaGPU, IOService)
 bool GiuliaGPU::init(OSDictionary *dictionary)
 {
     firmwareMemory=NULL; firmwareMap=NULL; tableMemory=NULL;
+    gpuTableMemory=NULL;gmuRoot=gpuRoot=0;
+    bzero(devMemory,sizeof(devMemory));bzero(&devPool,sizeof(devPool));devPool.next=GGD_CACHE_BYTES;
+    bzero(devPacket,sizeof(devPacket));bzero(devWritten,sizeof(devWritten));
     runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
     mode=reservationCount=tablePages=leafPages=observations=0;
     firmwareVerified=hostPrepared=false;bzero(&powerObservation,sizeof(powerObservation));
@@ -252,7 +276,9 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
         }
         if (ok) {
             hfiIndex=(unsigned)firmwareReservations;
-            const size_t capacity=16, bytes=capacity*4096;
+            size_t mapCount=reservations;
+            ok=prepareDevMemory(ranges,&mapCount);
+            const size_t capacity=128, bytes=capacity*4096;
             tableMemory=gpuAllocateHostMemory(bytes);
             IOByteCount contiguous=0;
             uint64_t pa=tableMemory?tableMemory->getPhysicalSegment(0,&contiguous,kIOMemoryMapperNone):0;
@@ -264,13 +290,13 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
                 /* Clear the entire owned pool, including unused table pages. */
                 IOLog("GIULIA GPU: subsystem=smmu phase=initialize-table-pool pa=%#llx bytes=%lu cpu_cache=normal-copyback active=0\n",(unsigned long long)pa,(unsigned long)bytes);
                 bzero(cpu,bytes);
-                ArmSmmu4KConfig config={32,36,pa,1024}; ArmSmmu4KResult result;
-                ArmSmmu4KStatus status=ArmSmmu4KBuild(&config,ranges,reservations,
+                ArmSmmu4KConfig config={32,36,pa,65536}; ArmSmmu4KResult result;
+                ArmSmmu4KStatus status=ArmSmmu4KBuild(&config,ranges,mapCount,
                     (uint64_t *)tableMemory->getBytesNoCopy(),capacity,&result);
                 IOLog("GIULIA GPU: subsystem=smmu phase=build-inactive-tables result=%s code=%u root_pa=%#llx capacity_pages=%lu table_pages=%lu leaf_pages=%lu input_bits=32 output_bits=36 active=0\n",
                     status==ArmSmmu4KSuccess?"ok":"fail",(unsigned)status,(unsigned long long)pa,
                     (unsigned long)capacity,(unsigned long)result.table_pages,(unsigned long)result.leaf_pages);
-                ok=status==ArmSmmu4KSuccess;
+                ok=ok && status==ArmSmmu4KSuccess;gmuRoot=pa;
                 if(ok && !giulia_gpu_cache_publish(cpu,bytes)) {
                     IOLog("GIULIA GPU: subsystem=smmu phase=cache-publish result=fail\n");
                     ok=false;
@@ -338,7 +364,7 @@ bool GiuliaGPU::start(IOService *provider)
     root->release();
     if (!board || !IOService::start(provider)) return false;
     if(!gg_terminal_open(&gpuTerminal)){IOService::stop(provider);return false;}
-    terminalOwner=true;mode=(unsigned)requested;
+    terminalOwner=true;__atomic_store_n(&devState,0u,__ATOMIC_RELEASE);mode=(unsigned)requested;
     __atomic_store_n(&gpuTerminal.mode,mode,__ATOMIC_RELEASE);
     __atomic_store_n(&gpuTerminal.stage,(unsigned)GGT_PREPARING,__ATOMIC_RELEASE);
     /* Preserve firmware diagnostics even if subsequent RAM preparation fails. */
@@ -501,6 +527,7 @@ void GiuliaGPU::hfiCommand(unsigned requests)
     }
 }
 
+#include "giulia_gpu_dev_impl.h"
 void GiuliaGPU::worker(void *cookie,wait_result_t)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
@@ -510,6 +537,10 @@ void GiuliaGPU::worker(void *cookie,wait_result_t)
         if(self->mode==2 || (self->mode==3 && self->firmwarePowerState==GGPH_PREPARED))self->observePower();
     }
     while(!self->stopping) {
+        if(__atomic_load_n(&devState,__ATOMIC_ACQUIRE)==2) {
+            uint32_t args[6];memcpy(args,devArgs,sizeof(args));
+            self->devCommand(args);__atomic_store_n(&devState,0u,__ATOMIC_RELEASE);
+        }
         unsigned requests=gg_terminal_take(&gpuTerminal);
         if(requests&(GGT_COMMANDS&~(GGT_STATUS|GGT_OBSERVE)))self->hfiCommand(requests);
         if(requests&GGT_OBSERVE) {
@@ -530,6 +561,8 @@ void GiuliaGPU::worker(void *cookie,wait_result_t)
 void GiuliaGPU::closeTerminal(unsigned stage)
 {
     if(!terminalOwner)return;
+    while(__atomic_load_n(&devState,__ATOMIC_ACQUIRE)==1) {}
+    __atomic_store_n(&devState,4u,__ATOMIC_RELEASE);
     unsigned cancelled=gg_terminal_close(&gpuTerminal);
     if(cancelled)IOLog("GIULIA GPU: terminal requests_cancelled=%#x stage=%s device_writes=0\n",cancelled,gg_terminal_stage_name(stage));
     __atomic_store_n(&gpuTerminal.stage,stage,__ATOMIC_RELEASE);
@@ -544,6 +577,8 @@ void GiuliaGPU::releaseResources()
         OSSafeReleaseNULL(registerMaps[i]); OSSafeReleaseNULL(registerMemory[i]);
     }
     for (unsigned i=0;i<GG_FW_MAX_BLOCKS;++i) OSSafeReleaseNULL(allocations[i]);
+    for(unsigned i=0;i<GGD_CHUNKS;i++)OSSafeReleaseNULL(devMemory[i]);
+    OSSafeReleaseNULL(gpuTableMemory);
     OSSafeReleaseNULL(tableMemory);
     OSSafeReleaseNULL(firmwareMap); OSSafeReleaseNULL(firmwareMemory);
 }

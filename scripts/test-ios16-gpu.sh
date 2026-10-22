@@ -76,3 +76,6 @@ c++ -x c++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only \
     -include ios16/giulia_gpu_pack.h -include ios16/giulia_gpu_memory.h \
     -include ios16/giulia_gpu_power.h -include ios16/giulia_gpu_control.h /dev/null
 python3 -m unittest discover -s tests -p 'test_gpu.py' -v
+
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_gpu_dev.c -o "$tmp/dev"
+"$tmp/dev"

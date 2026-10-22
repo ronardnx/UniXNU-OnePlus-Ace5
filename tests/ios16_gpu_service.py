@@ -19,6 +19,10 @@ def method(signature):
 
 fixture=r'''
 #include <atomic>
+#include <cstring>
+#include "giulia_gpu_dev.h"
+static unsigned devState;static uint32_t devArgs[6];
+static void PE_parse_boot_argn(const char *,int *v,size_t){*v=1;}
 #include <cassert>
 #include <chrono>
 #include <condition_variable>
@@ -82,6 +86,7 @@ public:
         powerObservation.valid_fields=7;++observations;--inObservation;
     }
     void releaseResources(){assert(!inObservation);if(!manualMemoryPinned)++released;}
+    void devCommand(const uint32_t *){}
     void hfiCommand(unsigned);
     void reportStatus();void closeTerminal(unsigned);void stop(IOService *);
     static void worker(void *,wait_result_t);
