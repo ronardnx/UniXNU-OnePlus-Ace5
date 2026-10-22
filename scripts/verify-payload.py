@@ -7,7 +7,9 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from ios16_platform import check_platform
+from ios16_platform import check_platform, read_nodes
+from ios16_wifi import check_wifi_platform
+from ios16_wifi_runtime import check_runtime
 from ios16_trust_catalog import modules
 
 folder=Path(sys.argv[1]).resolve()
@@ -27,6 +29,22 @@ with tempfile.TemporaryDirectory() as directory:
         raise SystemExit('Embedded kernel digest mismatch')
     if digest(temporary/'kernel.macho.adt')!=report['adt_sha256']:
         raise SystemExit('Embedded ADT digest mismatch')
+    wifi=check_wifi_platform(read_nodes((temporary/'kernel.macho.adt').read_bytes()))
+    if wifi!=report.get('wifi_bringup'):
+        raise SystemExit('Wi-Fi platform declaration differs from build report')
+    if wifi:
+        if not report.get('root_finder_id') or not report.get('complete_boot_logging'):
+            raise SystemExit('Wi-Fi service bring-up requires a root entry and full logging')
+        print('WCN7850 platform declaration verified')
+    runtime_report=report.get('wifi_runtime')
+    runtime_meta={'wifi_runtime_included':bool(runtime_report),
+                  'wifi_firmware':runtime_report.get('firmware') if runtime_report else None}
+    runtime=check_runtime((temporary/'kernel.macho').read_bytes(),runtime_meta)
+    if runtime!=runtime_report:
+        raise SystemExit('Wi-Fi runtime/firmware/display declaration differs from the embedded kernel')
+    if runtime:print('Compiled Wi-Fi runtime, pinned firmware segment and native-panel implementation verified; hardware validation pending')
+    if report.get('wifi_pcie_handoff') and not wifi:
+        raise SystemExit('PCIe handoff lacks the verified Qualcomm Wi-Fi platform')
     with (temporary/'kernel.macho').open('rb') as f:
         magic,cpu,subtype=struct.unpack('<3I',f.read(12))
     if (magic,cpu,subtype)!=(0xfeedfacf,0x100000c,0):

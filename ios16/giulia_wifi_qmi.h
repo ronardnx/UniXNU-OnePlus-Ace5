@@ -1,0 +1,271 @@
+/* SPDX-License-Identifier: BSD-2-Clause-Patent
+ * WCN7850 WLANFW over QRTR/IPCR. Protocol provenance: Linux v6.12
+ * net/qrtr/{af_qrtr,ns}.c, ath12k/qmi.{c,h}; OnePlus SM8650 cnss2/qmi.c
+ * pinned in hardware/sm8650-wifi-firmware.json. Single serialized caller.
+ * No memory supplied by the device is mapped. All advertised DMA allocations
+ * remain owned until MHI has stopped and PCIe transactions have drained.
+ */
+#ifndef GIULIA_WIFI_QMI_H
+#define GIULIA_WIFI_QMI_H
+#include <stdint.h>
+#include <stddef.h>
+#define GWQ_PACKET 8192u
+#define GWQ_CTRL 0xfffffffeu
+#define GWQ_SEGMENTS 52u
+#define GWQ_TIMEOUT 10000u
+enum gwq_error { GWQ_OK,GWQ_ARGUMENT,GWQ_WIRE,GWQ_TRANSPORT,GWQ_TIMEOUT_ERROR,
+    GWQ_SERVER_LOST,GWQ_REMOTE_ERROR,GWQ_MEMORY,GWQ_IDENTITY,GWQ_ASSET,GWQ_STATE };
+enum gwq_asset { GWQ_REGDB,GWQ_BOARD,GWQ_PHY };
+struct gwq_io {
+    void *context;
+    int (*send)(void *,const void *,size_t);
+    int (*pump)(void *,unsigned); /* poll MHI and wait at most this many us */
+    int (*allocate)(void *,size_t,uint64_t *,void **);
+    void (*clean)(void *,const void *,size_t);
+    int (*asset)(void *,unsigned,unsigned,uint32_t,uint32_t,const void **,size_t *);
+    uint64_t dma_base,dma_bytes;
+};
+struct gwq_span { uint64_t address; uint32_t bytes,type; };
+struct gwq_state {
+    unsigned error,major,hello,server,waiting,replied,registered,host_cap;
+    unsigned mem_pending,mem_ready,fw_ready,provisioned,configured,mem_rounds;
+    unsigned mem_response_sent,allocations;
+    uint32_t node,port,chip,board,soc,firmware,remote_error,last_message;
+    uint16_t transaction,pending_transaction,pending_message;
+    size_t response_bytes,mem_bytes;
+    struct gwq_span allocated[GWQ_SEGMENTS+4];
+    uint8_t response[2048],mem_request[1824],request[7000],wire[GWQ_PACKET];
+};
+static inline uint16_t gwq_u16(const void *v) { const uint8_t *p=(const uint8_t *)v;return (uint16_t)(p[0]|(unsigned)p[1]<<8); }
+static inline uint32_t gwq_u32(const void *v) { const uint8_t *p=(const uint8_t *)v;return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
+static inline uint64_t gwq_u64(const void *v) { const uint8_t *p=(const uint8_t *)v;return gwq_u32(p)|(uint64_t)gwq_u32(p+4)<<32; }
+static inline void gwq_w16(void *v,uint16_t n) { uint8_t *p=(uint8_t *)v;p[0]=(uint8_t)n;p[1]=(uint8_t)(n>>8); }
+static inline void gwq_w32(void *v,uint32_t n) { uint8_t *p=(uint8_t *)v;for(unsigned i=0;i<4;i++)p[i]=(uint8_t)(n>>(i*8)); }
+static inline void gwq_w64(void *v,uint64_t n) { uint8_t *p=(uint8_t *)v;gwq_w32(p,(uint32_t)n);gwq_w32(p+4,(uint32_t)(n>>32)); }
+static inline void gwq_copy(void *v,const void *s,size_t n) { uint8_t *d=(uint8_t *)v;const uint8_t *p=(const uint8_t *)s;for(size_t i=0;i<n;i++)d[i]=p[i]; }
+static inline int gwq_fail(struct gwq_state *s,unsigned e) { if(!s->error)s->error=e;return (int)s->error; }
+/* Validate complete TLV framing and uniqueness before interpreting any field. */
+static inline int gwq_tlvs(const uint8_t *p,size_t n) {
+    uint8_t seen[32]={0};size_t o=0;
+    while(o<n) {
+        if(n-o<3)return 0;
+        unsigned t=p[o];size_t z=gwq_u16(p+o+1);
+        if((seen[t/8]&(1u<<(t%8))) || z>n-o-3)return 0;
+        seen[t/8]|=(uint8_t)(1u<<(t%8));o+=3+z;
+    }
+    return 1;
+}
+static inline const uint8_t *gwq_field(const uint8_t *p,size_t n,unsigned t,size_t *bytes) {
+    size_t o=0;*bytes=0;
+    while(o+3<=n) { size_t z=gwq_u16(p+o+1);if(z>n-o-3)return NULL;
+        if(p[o]==t){*bytes=z;return p+o+3;}o+=3+z; }
+    return NULL;
+}
+static inline int gwq_tlv(uint8_t *p,size_t cap,size_t *n,unsigned t,const void *v,size_t z) {
+    if(*n>cap || z>65535 || cap-*n<3 || z>cap-*n-3 || (z&&!v))return 0;
+    p[*n]=(uint8_t)t;gwq_w16(p+*n+1,(uint16_t)z);if(z)gwq_copy(p+*n+3,v,z);*n+=z+3;return 1;
+}
+static inline void gwq_num(uint8_t *p,size_t *n,unsigned t,uint64_t v,unsigned z) {
+    uint8_t b[8];gwq_w64(b,v);(void)gwq_tlv(p,7000,n,t,b,z);
+}
+static inline int gwq_control(struct gwq_state *s,const struct gwq_io *io,unsigned command,
+    uint32_t sn,uint32_t sp,uint32_t dn,uint32_t dp,const uint32_t body[5]) {
+    uint8_t b[52]={0};gwq_w32(b,1);gwq_w32(b+4,command);gwq_w32(b+8,sn);gwq_w32(b+12,sp);
+    gwq_w32(b+20,20);gwq_w32(b+24,dn);gwq_w32(b+28,dp);
+    for(unsigned i=0;i<5;i++)gwq_w32(b+32+4*i,body[i]);
+    if(io->send(io->context,b,sizeof(b)))return gwq_fail(s,GWQ_TRANSPORT);return 0;
+}
+/* Called only from MHI's validated IPCR receive callback. Unrelated services
+ * are ignored; malformed packets for our server stop firmware initialization. */
+static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const void *v,size_t n) {
+    const uint8_t *p=(const uint8_t *)v;size_t h,z;uint32_t type,sn,sp,dn,dp,confirm;
+    if(!s || !io || !io->send || !p || n<16 || n>GWQ_PACKET)return GWQ_ARGUMENT;
+    if(s->error)return (int)s->error;
+    if(p[0]==1) {
+        if(n<32 || gwq_u32(p)!=1)return gwq_fail(s,GWQ_WIRE);
+        h=32;type=gwq_u32(p+4);sn=gwq_u32(p+8);sp=gwq_u32(p+12);confirm=gwq_u32(p+16);
+        z=gwq_u32(p+20);dn=gwq_u32(p+24);dp=gwq_u32(p+28);
+    } else if(p[0]==3) {
+        h=16u+p[3];type=p[1];confirm=p[2]&1;z=gwq_u32(p+4);sn=gwq_u16(p+8);sp=gwq_u16(p+10);
+        dn=gwq_u16(p+12);dp=gwq_u16(p+14);
+        if(sp==0xfffe)sp=GWQ_CTRL;if(dp>=0xfffe)dp=GWQ_CTRL;
+    } else return gwq_fail(s,GWQ_WIRE);
+    if(h>n || !z || z>n-h || ((z+3)&~(size_t)3)!=n-h || confirm>1)return gwq_fail(s,GWQ_WIRE);
+    p+=h;
+    if(type!=1) {
+        if(z!=20 || gwq_u32(p)!=type)return gwq_fail(s,GWQ_WIRE);
+        if(type==2 && !s->hello) { uint32_t b[5]={2,0,0,0,0};s->hello=1;
+            return gwq_control(s,io,2,1,GWQ_CTRL,sn,GWQ_CTRL,b); }
+        if(type==4 && gwq_u32(p+4)==0x45 && gwq_u32(p+8)==0x101) {
+            uint32_t node=gwq_u32(p+12),port=gwq_u32(p+16);
+            if(!node || !port || port>=GWQ_CTRL || (s->server && (s->node!=node || s->port!=port)))return gwq_fail(s,GWQ_STATE);
+            s->node=node;s->port=port;s->server=1;
+        } else if(s->server && ((type==3 && sn==s->node) ||
+            (type==5 && gwq_u32(p+12)==s->node && gwq_u32(p+16)==s->port)))return gwq_fail(s,GWQ_SERVER_LOST);
+        return 0;
+    }
+    if(confirm) { uint32_t b[5]={7,dn,dp,0,0};
+        if(gwq_control(s,io,7,dn,dp,sn,sp,b))return (int)s->error; }
+    if(!s->server || sn!=s->node || sp!=s->port || dn!=1 || dp!=0x4000)return 0;
+    if(z<7 || gwq_u16(p+5)!=z-7 || !gwq_tlvs(p+7,z-7))return gwq_fail(s,GWQ_WIRE);
+    uint16_t txn=gwq_u16(p+1),msg=gwq_u16(p+3);unsigned flag=p[0];p+=7;z-=7;
+    if(flag==2) {
+        if(!s->waiting || txn!=s->pending_transaction || msg!=s->pending_message)return 0;
+        size_t bytes;const uint8_t *r=gwq_field(p,z,2,&bytes);
+        if(!r || bytes!=4 || z>sizeof(s->response) || s->replied)return gwq_fail(s,GWQ_WIRE);
+        s->remote_error=(uint32_t)gwq_u16(r)<<16|gwq_u16(r+2);
+        if(s->remote_error)return gwq_fail(s,GWQ_REMOTE_ERROR);
+        gwq_copy(s->response,p,z);s->response_bytes=z;s->replied=1;
+    } else if(flag==4) {
+        if(msg==0x35) {
+            if(!s->host_cap || s->mem_pending || s->provisioned || z>sizeof(s->mem_request))return gwq_fail(s,GWQ_STATE);
+            gwq_copy(s->mem_request,p,z);s->mem_bytes=z;s->mem_pending=1;
+        } else if(msg==0x37) {
+            if(!s->mem_response_sent || s->mem_pending)return gwq_fail(s,GWQ_STATE);s->mem_ready=1;
+        } else if(msg==0x38) {
+            if(!s->mem_ready)return gwq_fail(s,GWQ_STATE);s->fw_ready=1;
+        }
+    } else return gwq_fail(s,GWQ_WIRE);
+    return 0;
+}
+static inline int gwq_request(struct gwq_state *s,const struct gwq_io *io,uint16_t msg,size_t n) {
+    if(s->error)return (int)s->error;
+    if(!s->server || s->waiting || n>sizeof(s->request) || !io->pump)return gwq_fail(s,GWQ_STATE);
+    if(!gwq_tlvs(s->request,n))return gwq_fail(s,GWQ_ARGUMENT);
+    uint8_t *b=s->wire;size_t total=(39+n+3)&~(size_t)3;
+    for(size_t i=0;i<total;i++)b[i]=0;
+    gwq_w32(b,1);gwq_w32(b+4,1);gwq_w32(b+8,1);gwq_w32(b+12,0x4000);
+    gwq_w32(b+20,(uint32_t)(7+n));gwq_w32(b+24,s->node);gwq_w32(b+28,s->port);
+    if(!++s->transaction)++s->transaction;
+    s->pending_transaction=s->transaction;s->pending_message=msg;s->last_message=msg;s->waiting=1;s->replied=0;
+    gwq_w16(b+33,s->transaction);gwq_w16(b+35,msg);gwq_w16(b+37,(uint16_t)n);gwq_copy(b+39,s->request,n);
+    if(io->send(io->context,b,total))gwq_fail(s,GWQ_TRANSPORT);
+    for(unsigned i=0;i<GWQ_TIMEOUT && !s->error && !s->replied;i++)
+        if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
+    s->waiting=0;
+    if(!s->error && !s->replied)gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    return (int)s->error;
+}
+static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
+    if(!s || !io || !io->send || !io->pump || !io->asset || !io->allocate || !io->clean ||
+        (major!=1 && major!=2) || s->registered || s->host_cap)return GWQ_ARGUMENT;
+    s->major=major;uint32_t b[5]={2,0,0,0,0};
+    if(gwq_control(s,io,2,1,GWQ_CTRL,0xffffffffu,GWQ_CTRL,b))return (int)s->error;
+    for(unsigned i=0;i<GWQ_TIMEOUT && !s->server && !s->error;i++)
+        if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
+    if(!s->server)return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+    size_t n=0;gwq_num(s->request,&n,0x10,1,1);gwq_num(s->request,&n,0x15,0x4b4e454c,4);
+    gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);gwq_num(s->request,&n,0x18,1,1);
+    if(gwq_request(s,io,0x20,n))return (int)s->error;s->registered=1;
+    n=0;gwq_num(s->request,&n,0x10,1,4);gwq_num(s->request,&n,0x14,1,1);
+    gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);
+    gwq_num(s->request,&n,0x1a,0,1);gwq_num(s->request,&n,0x1c,0,1);
+    /* The phone uses CNSS/platform sleep clock policy, not the PC ath12k
+     * NM_MODEM/NM_CLK policy. No unverified platform features advertised. */
+    const char platform[]="OnePlus-Ace5-XNU";gwq_tlv(s->request,sizeof(s->request),&n,0x1e,platform,sizeof(platform)-1);
+    s->host_cap=1;return gwq_request(s,io,0x34,n);
+}
+static inline int gwq_alloc(struct gwq_state *s,const struct gwq_io *io,size_t n,uint32_t type,uint64_t *pa,void **va) {
+    *pa=0;*va=NULL;
+    if(!n || n>io->dma_bytes || s->allocations>=GWQ_SEGMENTS+4)return 0;
+    if(io->allocate(io->context,n,pa,va) || !*va || !*pa || (*pa&4095) || *pa<io->dma_base ||
+        *pa-io->dma_base>io->dma_bytes-n){*pa=0;*va=NULL;return 0;}
+    for(unsigned i=0;i<s->allocations;i++) { struct gwq_span *r=&s->allocated[i];
+        if(*pa<r->address+r->bytes && r->address<*pa+n){gwq_fail(s,GWQ_MEMORY);*pa=0;*va=NULL;return 0;} }
+    struct gwq_span *r=&s->allocated[s->allocations++];r->address=*pa;r->bytes=(uint32_t)n;r->type=type;
+    return 1;
+}
+static inline int gwq_memory(struct gwq_state *s,const struct gwq_io *io) {
+    if(!s->mem_pending || ++s->mem_rounds>3 || s->mem_ready)return gwq_fail(s,GWQ_STATE);
+    size_t n;const uint8_t *p=gwq_field(s->mem_request,s->mem_bytes,1,&n);
+    if(!p || !n || !p[0] || p[0]>GWQ_SEGMENTS)return gwq_fail(s,GWQ_MEMORY);
+    unsigned count=p[0];size_t o=1;uint32_t sizes[GWQ_SEGMENTS],types[GWQ_SEGMENTS];
+    for(unsigned i=0;i<count;i++) {
+        if(n-o<9)return gwq_fail(s,GWQ_MEMORY);
+        sizes[i]=gwq_u32(p+o);types[i]=gwq_u32(p+o+4);unsigned cfg=p[o+8];o+=9;
+        if(!sizes[i] || cfg>2 || n-o<cfg*13)return gwq_fail(s,GWQ_MEMORY);
+        for(unsigned j=0;j<cfg;j++,o+=13) {
+            uint64_t off=gwq_u64(p+o);uint32_t z=gwq_u32(p+o+8);
+            if(p[o+12] || off>sizes[i] || z>sizes[i]-off)return gwq_fail(s,GWQ_MEMORY);
+        }
+    }
+    if(o!=n)return gwq_fail(s,GWQ_MEMORY);
+    /* Validate the whole request before making any allocation or response. */
+    uint8_t response[1+17*GWQ_SEGMENTS];response[0]=(uint8_t)count;
+    for(unsigned i=0;i<count;i++) {
+        uint64_t pa=0;void *va=NULL;unsigned type=types[i];
+        if(type==1 || type==3 || type==4 || type==9) {
+            if(gwq_alloc(s,io,sizes[i],type,&pa,&va)) {
+                uint8_t *b=(uint8_t *)va;for(size_t j=0;j<sizes[i];j++)b[j]=0;io->clean(io->context,va,sizes[i]);
+            }
+            if(s->error)return (int)s->error;
+        }
+        uint8_t *r=response+1+i*17;gwq_w64(r,pa);gwq_w32(r+8,sizes[i]);gwq_w32(r+12,type);r[16]=0;
+    }
+    n=0;gwq_tlv(s->request,sizeof(s->request),&n,1,response,1+17*count);
+    s->mem_pending=0;s->mem_response_sent=1;return gwq_request(s,io,0x36,n);
+}
+static inline int gwq_download(struct gwq_state *s,const struct gwq_io *io,unsigned kind,unsigned bdf_type) {
+    const void *v=NULL;size_t size=0;
+    if(io->asset(io->context,kind,s->major,s->chip,s->board,&v,&size) || !v || !size || size>1024*1024)
+        return gwq_fail(s,GWQ_ASSET);
+    const uint8_t *p=(const uint8_t *)v;
+    for(size_t off=0,seg=0;off<size;seg++) {
+        size_t take=size-off;if(take>6144)take=6144;size_t n=0;
+        gwq_num(s->request,&n,1,1,1);gwq_num(s->request,&n,0x10,s->board,4);
+        /* WLANFW total_size is remaining bytes for each segment, not the
+         * original file size (both the vendor driver and ath12k do this). */
+        gwq_num(s->request,&n,0x11,size-off,4);gwq_num(s->request,&n,0x12,seg,4);
+        s->request[n]=0x13;gwq_w16(s->request+n+1,(uint16_t)(take+2));gwq_w16(s->request+n+3,(uint16_t)take);
+        gwq_copy(s->request+n+5,p+off,take);n+=5+take;
+        gwq_num(s->request,&n,0x14,off+take==size,1);gwq_num(s->request,&n,0x15,bdf_type,1);
+        if(gwq_request(s,io,0x25,n))return (int)s->error;off+=take;
+    }
+    return 0;
+}
+static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
+    if(!s->mem_ready || s->provisioned)return gwq_fail(s,GWQ_STATE);
+    if(gwq_request(s,io,0x24,0))return (int)s->error;
+    size_t z;const uint8_t *p=gwq_field(s->response,s->response_bytes,0x10,&z);
+    if(!p || z!=8)return gwq_fail(s,GWQ_IDENTITY);s->chip=gwq_u32(p);
+    p=gwq_field(s->response,s->response_bytes,0x11,&z);
+    if(!p || z!=4)return gwq_fail(s,GWQ_IDENTITY);s->board=gwq_u32(p);
+    p=gwq_field(s->response,s->response_bytes,0x12,&z);if(p && z==4)s->soc=gwq_u32(p);
+    p=gwq_field(s->response,s->response_bytes,0x13,&z);if(p && z>=4)s->firmware=gwq_u32(p);
+    if(gwq_download(s,io,GWQ_REGDB,4) || gwq_download(s,io,GWQ_BOARD,1))return (int)s->error;
+    const void *phy=NULL;size_t size=0;uint64_t pa;void *va;
+    if(io->asset(io->context,GWQ_PHY,s->major,s->chip,s->board,&phy,&size) || !phy || !size || size>1024*1024)
+        return gwq_fail(s,GWQ_ASSET);
+    if(!gwq_alloc(s,io,size,0x3c,&pa,&va))return gwq_fail(s,GWQ_MEMORY);
+    gwq_copy(va,phy,size);io->clean(io->context,va,size);
+    size_t n=0;gwq_num(s->request,&n,1,pa,8);gwq_num(s->request,&n,2,size,4);
+    if(gwq_request(s,io,0x3c,n))return (int)s->error;s->provisioned=1;return 0;
+}
+static inline int gwq_initialize(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
+    int e=gwq_start(s,io,major);if(e)return e;
+    for(unsigned i=0;i<GWQ_TIMEOUT && !s->error;i++) {
+        if(s->mem_pending && gwq_memory(s,io))break;
+        if(s->mem_ready && !s->provisioned && gwq_provision(s,io))break;
+        if(s->provisioned && s->fw_ready)return 0;
+        if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
+    }
+    return gwq_fail(s,GWQ_TIMEOUT_ERROR);
+}
+/* Caller must initialize the matching Copy Engine rings before WLAN_MODE.
+ * Both arrays contain the exact QMI wire entries, not compiler structs. */
+static inline int gwq_configure(struct gwq_state *s,const struct gwq_io *io,
+    const uint8_t *pipes,unsigned npipes,const uint8_t *services,unsigned nservices) {
+    if(!s->provisioned || !s->fw_ready || s->configured || !pipes || !services || !npipes || npipes>12 || !nservices || nservices>24)
+        return gwq_fail(s,GWQ_STATE);
+    size_t n=0;const char version[]="Giulia-XNU-1";
+    gwq_tlv(s->request,sizeof(s->request),&n,0x10,version,sizeof(version)-1);
+    uint8_t table[1+24*20];table[0]=(uint8_t)npipes;gwq_copy(table+1,pipes,npipes*20);
+    gwq_tlv(s->request,sizeof(s->request),&n,0x11,table,1+npipes*20);
+    table[0]=(uint8_t)nservices;gwq_copy(table+1,services,nservices*12);
+    gwq_tlv(s->request,sizeof(s->request),&n,0x12,table,1+nservices*12);
+    if(gwq_request(s,io,0x23,n))return (int)s->error;
+    n=0;gwq_num(s->request,&n,1,0,4); /* QMI_WLANFW_MISSION = 0 */
+    gwq_num(s->request,&n,0x10,0,1);
+    if(gwq_request(s,io,0x22,n))return (int)s->error;s->configured=1;return 0;
+}
+#endif

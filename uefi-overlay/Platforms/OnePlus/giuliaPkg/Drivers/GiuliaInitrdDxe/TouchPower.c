@@ -7,6 +7,7 @@
 #include <Uefi.h>
 #include <Library/DebugLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 #include "PayloadIdentity.h"
 
 VOID GiuliaTouchPowerSchedule (VOID);
@@ -25,6 +26,13 @@ STATIC EFI_EVENT mPowerEvent[2];
 STATIC VOID *mPowerRegistration[2];
 STATIC VOID *mPowerClient;
 STATIC BOOLEAN mPowerAttempted;
+STATIC VOID PowerReport (UINT32 Stage, UINT32 Address, EFI_STATUS Status)
+{
+  EFI_GUID Guid = {0x1c87b711,0xeaa6,0x42cb,{0xa3,0xd5,0x8c,0x21,0x19,0x65,0x21,0x31}};
+  struct { UINT32 Stage, Address; UINT64 Status; } Value = {Stage,Address,(UINT64)Status};
+  gRT->SetVariable (L"GiuliaTouchPowerStatus",&Guid,
+      EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS,sizeof(Value),&Value);
+}
 
 STATIC VOID EFIAPI TouchPowerReady (EFI_EVENT Event, VOID *Context)
 {
@@ -38,8 +46,10 @@ STATIC VOID EFIAPI TouchPowerReady (EFI_EVENT Event, VOID *Context)
   CONST UINT32 Values[3] = {1800,7,1}; /* mV, PMIC4 LDO HPM, enable */
   if (mPowerAttempted) { return; }
   Status = gBS->LocateProtocol (&mRpmhGuid, NULL, (VOID **)&Rpmh);
+  PowerReport (1,0,Status);
   if (EFI_ERROR (Status)) { return; }
   Status = gBS->LocateProtocol (&mCmdGuid, NULL, (VOID **)&Db);
+  PowerReport (2,0,Status);
   if (EFI_ERROR (Status)) { return; }
   mPowerAttempted = TRUE;
   for (Index = 0; Index < 2; Index++) {
@@ -48,31 +58,38 @@ STATIC VOID EFIAPI TouchPowerReady (EFI_EVENT Event, VOID *Context)
   DEBUG ((DEBUG_ERROR, "GIULIA TOUCH POWER: RPMh=%lx CmdDb=%lx\n", Rpmh->Version, Db->Version));
   if (Rpmh->Version != 0x10001 || Db->Version != 0x10000 ||
       Rpmh->Methods[1] == NULL || Rpmh->Methods[5] == NULL ||
-      Rpmh->Methods[18] == NULL || Rpmh->Methods[23] == NULL ||
-      Db->Methods[1] == NULL || Db->Methods[7] == NULL) { return; }
+      Rpmh->Methods[18] == NULL || Rpmh->Methods[11] == NULL ||
+      Db->Methods[1] == NULL || Db->Methods[7] == NULL) { PowerReport (3,(UINT32)Rpmh->Version,EFI_UNSUPPORTED); return; }
   Status = ((GIULIA_QUERY)Db->Methods[1])(Db,"ldob4",&Address);
+  PowerReport (4,Address,Status);
   if (EFI_ERROR (Status)) { return; }
   Status = ((GIULIA_QUERY)Db->Methods[7])(Db,"ldob4",&Slave);
   DEBUG ((DEBUG_ERROR, "GIULIA TOUCH POWER: ldob4 address=%x slave=%u status=%r\n", Address, Slave, Status));
-  if (EFI_ERROR (Status) || Slave != 4 || (Address >> 16) != 4 || (Address & 15) != 0) { return; }
+  if (EFI_ERROR (Status) || Slave != 4 || (Address >> 16) != 4 || (Address & 15) != 0) { PowerReport (4,Address,EFI_UNSUPPORTED); return; }
   /* Native mapping enum 2 = HLOS; never create a TZ/HYP client. */
   Status = ((GIULIA_DRV_VALID)Rpmh->Methods[1])(2,&Valid);
+  PowerReport (5,Address,Valid ? Status : EFI_UNSUPPORTED);
   if (EFI_ERROR (Status) || !Valid) { return; }
   Status = ((GIULIA_CREATE)Rpmh->Methods[5])(2,"giulia-touch-vdd",&mPowerClient);
+  PowerReport (6,Address,Status);
   if (EFI_ERROR (Status) || mPowerClient == NULL) { return; }
   for (Index = 0; Index < 3; Index++) {
     Request = 0;
     Status = ((GIULIA_ISSUE)Rpmh->Methods[18])(mPowerClient,0,TRUE,
         Address + Offsets[Index],Values[Index],&Request);
     if (!EFI_ERROR (Status) && Request != 0) {
-      Status = ((GIULIA_WAIT)Rpmh->Methods[23])(mPowerClient,Request);
+      /* giulia's barrier_single slot is an EFI_UNSUPPORTED stub. Its native
+         churn_single slot polls the request to completion in firmware. */
+      Status = ((GIULIA_WAIT)Rpmh->Methods[11])(mPowerClient,Request);
     }
     DEBUG ((DEBUG_ERROR, "GIULIA TOUCH POWER: ldob4+%u=%u req=%u status=%r\n",
         Offsets[Index],Values[Index],Request,Status));
+    PowerReport ((UINT32)Index+7,Address,Status);
     if (EFI_ERROR (Status)) { return; }
   }
   /* Retain this client and its ACTIVE vote for the kernel handoff. */
   DEBUG ((DEBUG_ERROR, "GIULIA TOUCH POWER: ldob4 1800 mV ACTIVE vote complete\n"));
+  PowerReport (10,Address,EFI_SUCCESS);
 }
 #endif
 
@@ -82,6 +99,7 @@ VOID GiuliaTouchPowerSchedule (VOID)
   EFI_STATUS Status;
   EFI_GUID *Guids[2] = {&mRpmhGuid,&mCmdGuid};
   UINTN Index;
+  PowerReport (0,0,EFI_NOT_READY);
   for (Index = 0; Index < 2; Index++) {
     Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL,TPL_CALLBACK,TouchPowerReady,NULL,&mPowerEvent[Index]);
     if (EFI_ERROR (Status)) { break; }

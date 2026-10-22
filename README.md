@@ -6,6 +6,108 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 2026-10-22：采用上游迁移基线和全量日志镜像后，用户确认已经出现 Hello／设置界面。
 原来的约 50% 迁移卡点已越过；触控芯片身份和触点报文已验证，完整设备功能尚未验收。
 
+## Wi-Fi 运行时与全屏显示整合（正在构建）
+
+`prepare-ios16.py --gui --touch --wifi` 已接入 PCIe BAR / SID / MSI、独立 SMMU
+DMA 区域、MHI BHI/BHIE、QRTR/QMI 固件资源交换、CE/HTC/WMI 被动扫描和
+iOS16 IO80211 / BSD `en0` 接口。只有完整初始化成功才发布扫描服务。
+扫描结果来自收到的管理帧；关联、认证和数据传输尚未实现。
+主机协议测试已通过，实际内核构建和最终镜像校验正在进行，尚未实机验证。
+最近的实机结果仍是旧版 PCIe Detect.Quiet，不能据此宣称已经搜到网络。
+
+显示输出改为铺满 1264×2780 原生面板；内部保留 iOS 支持的 1125×2436
+D22 画布并进行缩放，触控按整个面板归一化，不再减去居中偏移。
+所有原生输出像素、裁剪、内存边界和边缘触控的离线检查通过。
+记录见 `hardware/sm8650-wifi-runtime.json` 与 `hardware/ios16-native-display.json`。
+
+原厂固件仅在本地嵌入 `__WIFI_FW` 段，内核 CI 只包含摘要和驱动源码。
+统一构建脚本的第九个可选参数为经过校验的 `firmware.pack`，此模式增加
+运行时测试、固件嵌入和内核／固件／显示实现绑定检查。用户要求完成整合后
+统一测试，当前没有新的手机操作。
+
+## Wi-Fi PCIe 调试续接历史（2026-10-22）
+
+信号诊断版实机确认：7 路电源请求和 12 路时钟使能完成，PHY 就绪条件通过；
+PERST 已释放，SW_CTRL / WLAN_SW_CTRL 输入为高，参考时钟门控打开，
+PIPE 已选择 PHY，LTSSM 开关已置位，但链路仍超时，尚未枚举 WCN7850。
+这些寄存器读回不等于已测量实际时钟波形。原始日志已完整保存，USB 丢失计数为 0。
+
+续接版补齐链路配置：显式开启 DLL、关闭 fast-link 模式，统一端口模式、
+GEN2_CTRL 和 LNKCAP，并检查写入是否生效；LNKCAP 写保护只在写入期间开放。
+报告包含训练状态位图、状态变化次数以及 PIPE / PHY / CLKREQ 读回。
+版本 4 加入有超时的 GCC PIPE 频率测量，保存并恢复五个调试寄存器；
+遇到计数器已运行则跳过测量，清零与计数完成各最多等待 10 ms。
+168 字节报告采用固定长度 Base64，预留 240 字节后才调用硬件初始化，
+适配 Darwin 22 的 608 字节启动参数。版本 5 补入主控 PHY 的 L1I / L3I
+电源请求；9 路请求及上限均在实机设备树记录的电压范围内。旧版日志仍可解析。
+
+- 单通道版实机配置读回通过，但 100 次采样均为 Detect.Quiet，仍未建立链路。
+  系统继续启动 wifid 和 Setup。默认端口读回 `0x30120`，对应双通道。
+- 双通道版实机三处配置也已读回正确，但仍停在 Detect.Quiet。
+  因此链路宽度不是唯一阻塞，真实 Wi-Fi 扫描仍未修复。
+- 时钟版实测 PIPE 为 62,358,622 Hz，测量完成且五个调试寄存器均恢复；
+  仍未读到端点 ID。该结果不能单独证明 PHY / 主控时序已正确。
+- 当前统一构建为 `out/ios16/wifi-integrated-boot/giulia-ios16-wifi-pcie.img`，
+  SHA256 `33dd156535c8187084d553a79a497d3f3c592d7e1e0e666d1f71c6baeb3ce9cd`。
+  新增主控电源版**尚未实测**，完整记录见 `hardware/ios16-wifi-pcie-test.json`。
+- 53 项 PCIe / 时钟测量故障注入、9 项电源缓存、609 项启动参数容量、
+  9 路板级电压约束、ABI 编解码、重复补丁及 22 项
+  DRAM 交接检查通过；旧版固件与新版负载混用会在打包阶段被拒绝。
+- `out/ios16/wifi-pcie-corecfg-boot/` 是启动参数容量不足的废弃构建，
+  **不要启动**；该构建未用于实机。
+- 该旧构建不含扫描、固件加载、DMA / MSI / MHI 与 IO80211 运行时。
+- 按用户最新要求，先集中完成代码和离线检查，不再每个改动都要求用户进入
+  Fastboot。以上属于底层初始化整合包，不能称为已完成的可联网 Wi-Fi 驱动。
+
+统一构建脚本 `scripts/build-ios16-wifi-bringup.sh` 使用已准备好的 Darwin22
+UEFI 源码树、虚拟环境 Python、已验证内核/ADT、根卷报告、信任缓存及已捕获
+Android DTS；输出新目录，保留源文件哈希、测试报告及完整构建日志，不操作设备。
+
+### 原厂 WLAN 固件资源
+
+已从用户提供的 PKG110 `16.0.3.500(CN01)` 镜像中提取 73 份固件和配置，
+保存在 `out/ios16/wifi-stock-firmware/`。NON-HLOS、vendor、odm 等输入镜像
+与包内校验清单匹配；资源包记录各文件 SHA256、原始 ELF 边界及覆盖来源。
+ODM 的 `kiwi/bdwlan.b0c`、`bdwlan.elf`、`regdb.bin` 优先于 NON-HLOS 通用版本，
+这与捕获到的 Android 固件搜索路径和 OnePlus CNSS 代码一致。
+
+`scripts/ios16_wifi_firmware.py` 根据实际 SOC_HW_VERSION 与 QMI 芯片/板级 ID
+选择 amss / amss20、PHY 微码和精确 BDF；缺少身份、区域不符、缺少变体、
+ELF 越界或文件损坏均拒绝。22 项选择及完整性测试通过。尚未读取实际芯片版本
+和 QMI board ID，没有导入手机独有的 persist 数据，也没有上传固件。
+新运行时正在接入这些资源，尚未取得实机扫描结果。资源记录见
+`hardware/sm8650-wifi-firmware.json`。
+
+## Wi-Fi 第一阶段：恢复 wifid 的设备树前置条件（2026-10-22）
+
+用户已进入设置向导的“选取 Wi-Fi 网络”页面，但没有网络列表。对当前
+20H392 根卷和启动包的只读检查确认：`wifid` 文件及启动作业存在、未被禁用，
+其 `_LimitLoadToDeviceTree` 要求 `wlan` 或 `marconi-wifi` 节点，而原 ADT
+两者都没有，启动日志也没有 `wifid`。此外，当前内核尚无 WCN7850 无线传输
+驱动及 IO80211 接口；补入节点只能修复服务的前置条件，不能产生真实扫描结果。
+
+`make-ios16-adt.py --wifi-bringup` 显式加入 `/arm-io/wlan`，声明原厂设备树
+对应的 Qualcomm WCN7850 / Kiwi（PCI ID `17cb:1107`），并保持已有 MAC 身份。
+此选项需要 `--gui --wifi-mac`；打包要求 `--trace-all`，以观察服务启动和等待点。
+节点不含未枚举的 BAR、DMA 或 Broadcom 硬件属性；`0xb0000000` 是原厂
+`smmu_iova_ipa` 窗口，不能作为无线芯片的 MMIO 地址。
+
+- 调试启动包：`out/ios16/wifi-service-boot/giulia-ios16-wifi-service.img`，
+  SHA256 `d10fb54d93e7aa8b09a1d62db600fac5615ec3cee33d61b5bd590840b25a2f98`。
+  复用已进入 Hello 的内核、根卷标识、信任缓存和触摸配置，保留现有 userdata。
+- 12 项设备树／作业条件／错误资源测试、22 项内存交接检查和负载／启动包
+  校验通过。主机检查不代表实机 Wi-Fi 已修复。
+- 用户进入 Fastboot 后已执行一次 `fastboot boot`，传输和启动命令成功；
+  实机出现 `EXEC pid=43 ppid=1 name=wifid`，Setup 也已启动。第二轮栈采样中
+  `wifid`、`configd`、Setup 主线程均在事件循环；早期网络配置服务等待已结束。
+  用户确认已返回 Wi-Fi 页面，列表仍为空，**真实 Wi-Fi 扫描尚未修复**。
+- 240 秒采集保留 1,075,475 字节，USB `dropped=0`，911 条用户输出记录解码
+  完整；未见内核 panic 或 wifid/Setup 崩溃，仍存在其他驱动／小组件服务失败。
+  本轮没有执行 flash。完整记录见 `hardware/ios16-wifi-service-test.json`，
+  原始实机日志在 `out/ios16/wifi-service-test-1/`。
+- `scripts/audit-ios16-wifi.py` 可独立检查根卷、ADT、内核和串口日志；
+  基线证据在 `out/ios16/wifi-baseline-audit/`。硬件依赖见 `hardware/sm8650-wifi.json`。
+
 ## 当前交付：上游迁移基线与全量启动日志（实机进入 Hello）
 
 本次实机中迁移服务正常退出，账户服务进入主循环，Setup 已启动。首次启动曾在

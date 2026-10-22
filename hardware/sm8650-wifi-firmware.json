@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-22",
+  "source_images_directory": "D:\\刷机\\一加\\oneplusace5\\PKG110domestic_11_16.0.3.500CN01_2026010902170644\\IMAGES",
+  "model": "PKG110",
+  "rom_version": "16.0.3.500(CN01)",
+  "project": 23851,
+  "bundle": "out/ios16/wifi-stock-firmware",
+  "bundle_manifest_sha256": "2b95127d4f4fd8c7b776ab1a00dc4c3eb7e37a8add27ebf9cef75ca90e0c62e1",
+  "asset_count": 73,
+  "source_images": [
+    {
+      "name": "NON-HLOS.bin",
+      "bytes": 313634816,
+      "md5": "c8e1fdddeffbb2a8155b65d4161c8f4b",
+      "sha256": "1964e1f89b887b3c1d5e2bfef5583d50f61f903cb14106a648341963d5b072f0",
+      "package_checksum_match": true
+    },
+    {
+      "name": "vendor.img",
+      "bytes": 826409252,
+      "md5": "f245d5804678754125002981f2a0b935",
+      "sha256": "07883b03a47ef34bd7092c9abbec1a4ae1d67a328d2de4c97339470a39a0bef0",
+      "package_checksum_match": true
+    },
+    {
+      "name": "odm.img",
+      "bytes": 1885623276,
+      "md5": "6729b6e0b01e5ae27c8a8d150a9bc121",
+      "sha256": "781858b8fa36aae7ee951e94ec35011db6f285ad8257efbbd420f7f6b039c1f1",
+      "package_checksum_match": true
+    },
+    {
+      "name": "aop.mbn",
+      "bytes": 334912,
+      "md5": "c4c10c2ce0559dea2f3e931594880143",
+      "sha256": "7e2f6fb6939ab20c28b7189aaead6f1b60a1f7b2c608244f90d606e7bf4df6dd",
+      "package_checksum_match": true
+    },
+    {
+      "name": "aop_devcfg.mbn",
+      "bytes": 25028,
+      "md5": "c826ee3bc6402a7aaa4de919d2084431",
+      "sha256": "c25e400bab4f8192b464350ba1fac42eb46d4a354cccddb2110c5fd8347d974b",
+      "package_checksum_match": true
+    }
+  ],
+  "selection_sources": [
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2/pci.c",
+      "git_blob": "4cb2d7247e517127d7b8c002a6c90647cd4e7d98"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2/qmi.c",
+      "git_blob": "20ef953ae5c717a6b89242bb6855f48d7763cd40"
+    }
+  ],
+  "selection": "Observed SOC_HW_VERSION major (low four bits of bits 15:8) chooses amss/phy_ucode versus amss20/phy_ucode20; QMI board/chip IDs and CN project select the exact BDF. Missing variants fail closed.",
+  "search_order_evidence": "Captured Android bootargs: persist/copy, odm/etc/wifi, vendor/firmware_mnt/image, vendor/firmware_mnt/image/kiwi; ODM overrides are retained.",
+  "per_device_persist_imported": false,
+  "firmware_upload_implemented": false,
+  "rf_scan_implemented": false,
+  "offline_cases_passed": 22,
+  "preferred_v2_main": {
+    "path": "kiwi/amss20.bin",
+    "bytes": 6352960,
+    "sha256": "4d8b34c21ceef08924989b07227a73e345befcae871f876e492a5676481ecdbf",
+    "elf": {
+      "class": 32,
+      "endian": "little",
+      "machine": 40,
+      "entry": 24800512,
+      "program_headers": 26,
+      "bytes_preserved": true
+    },
+    "source": {
+      "image": "NON-HLOS.bin",
+      "path": "/image/kiwi/amss20.bin"
+    }
+  },
+  "cn_board_file": {
+    "path": "kiwi/bdwlan.b0c",
+    "bytes": 88768,
+    "sha256": "a5310f9dcf3600d402513148ac81d193ff785101d9f76af2354f65d079d8b7e4",
+    "elf": {
+      "class": 32,
+      "endian": "little",
+      "machine": 40,
+      "entry": 32768,
+      "program_headers": 1,
+      "bytes_preserved": true
+    },
+    "source": {
+      "image": "odm.img",
+      "path": "/etc/wifi/kiwi/bdwlan.b0c"
+    }
+  },
+  "regional_database": {
+    "path": "kiwi/regdb.bin",
+    "bytes": 24278,
+    "sha256": "ef4332da4bffac47f1a6134c21816131a2a7242178c4482b3a96e09a5859836e",
+    "source": {
+      "image": "odm.img",
+      "path": "/etc/wifi/kiwi/regdb.bin"
+    }
+  }
+}

@@ -49,6 +49,20 @@ def main():
               'header_version': 4, 'os_version_field': hex(u32(16)), 'size': len(image), 'fd_size': len(fd),
               'sha256': hashlib.sha256(image).hexdigest(), 'hardware_tested': False,
               'contains_xnu_kernel': False}
+    binaries=uefi/'Build/giuliaPkg/DEBUG_CLANGPDB/AARCH64'
+    wifi=binaries/'GiuliaInitrdDxe.efi'
+    loader=binaries/'DarwinBoot.efi'
+    report['wifi_pcie_handoff_available']=False
+    if wifi.is_file() and loader.is_file():
+        for version,driver_marker,loader_marker in (
+            (1,b'GIULIA WIFI: prepare protocol installed:',b' giulia_wifi='),
+            (2,b'GIULIA WIFI: prepare protocol v2 installed:',b' giulia_wifi2='),
+            (3,b'GIULIA WIFI: prepare protocol v3 installed:',b' giulia_wifi3='),
+            (4,b'GIULIA WIFI: prepare protocol v4 installed:',b' giulia_wifi4='),
+            (5,b'GIULIA WIFI: prepare protocol v5 installed:',b' giulia_wifi5=')):
+            if driver_marker in wifi.read_bytes() and loader_marker in loader.read_bytes():
+                report['wifi_pcie_handoff_available']=True
+                report['wifi_pcie_report_version']=version
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report, indent=2))

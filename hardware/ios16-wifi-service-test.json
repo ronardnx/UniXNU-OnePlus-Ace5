@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-22",
+  "status": "wifid device-tree prerequisite repaired and confirmed on device; actual Wi-Fi scanning remains unimplemented",
+  "user_screen_after": "Setup / select Wi-Fi network page, network list still empty",
+  "boot_image": "out/ios16/wifi-service-boot/giulia-ios16-wifi-service.img",
+  "boot_sha256": "d10fb54d93e7aa8b09a1d62db600fac5615ec3cee33d61b5bd590840b25a2f98",
+  "boot_bytes": 69275648,
+  "kernel_sha256": "ce118313ebc5b9dc49166f410958fa4fd0bb6da9d3d248904abb67819a5b665f",
+  "adt_sha256": "65090b247d40ee4371e9c013d6afe53baacdcbdc692865772fdb915639c0bced",
+  "userdata_source_sha256": "8136ac0905a90af79430c4ebc56231f2ad3ec947fe3c9b9c120fd9b58857ba3e",
+  "userdata_source_hash_is_live_readback": false,
+  "fastboot_product": "pineapple",
+  "fastboot_slot": "a",
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "previous_wifid_matching_nodes": [],
+  "previous_wifid_exec_seen": false,
+  "new_wifid_matching_nodes": [
+    "/device-tree/arm-io/wlan"
+  ],
+  "wifid_exec_records": [
+    "EXEC pid=43 ppid=1 name=wifid"
+  ],
+  "wifid_exit_records": [],
+  "setup_exec_records": [
+    "EXEC pid=192 ppid=1 name=Setup"
+  ],
+  "first_sample": {
+    "uptime_ns": 121499086250,
+    "wifid_main": "NSRunLoop",
+    "wifid_worker": "SCPreferencesCommitChanges -> SCDynamicStore -> bootstrap lookup; early service initialization"
+  },
+  "second_sample": {
+    "uptime_ns": 242125568645,
+    "wifid_main": "NSRunLoop",
+    "configd_main": "CFRunLoop",
+    "setup_main": "UIApplication event loop",
+    "early_dynamic_store_wait_still_seen": false,
+    "other_wifid_workers": "Two workers were in RunningBoard process-state XPC calls; this alone does not establish a deadlock"
+  },
+  "wifi_platform": {
+    "stage": "platform-description-only",
+    "device_tree_path": "/device-tree/arm-io/wlan",
+    "chip": "Qualcomm WCN7850 / Kiwi",
+    "pci_id": "17cb:1107",
+    "mac_identity": "a6:01:95:d1:57:36",
+    "wifid_device_tree_gate_satisfied": true,
+    "pcie_transport_implemented": false,
+    "firmware_loaded": false,
+    "io80211_interface_implemented": false,
+    "scan_supported": false
+  },
+  "scan_fixed": false,
+  "network_association_tested": false,
+  "kernel_panic_observed": false,
+  "wifid_or_setup_crash_observed": false,
+  "other_crash_headers": [
+    "CRASH driverkitd[68] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x1000b0000",
+    "CRASH LockScreenPeople[202] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x104bf0000",
+    "CRASH PhotosReliveWidg[210] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x104404000",
+    "CRASH LockScreenPeople[220] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x100128000",
+    "CRASH GCWidgets[219] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x100054000",
+    "CRASH ScreenTimeWidget[218] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x1001b0000",
+    "CRASH CollectionsPoste[240] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x1047bc000",
+    "CRASH PridePosterExten[243] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x104e4c000",
+    "CRASH EmojiPosterExten[242] sig 9 code 0x0 sub 0x0 slide 0x198d4000 mh 0x100d74000",
+    "CRASH assetsd[270] sig 6 code 0x0 sub 0x0 slide 0x198d4000 mh 0x100cbc000",
+    "CRASH assetsd[272] sig 6 code 0x0 sub 0x0 slide 0x198d4000 mh 0x1029f8000"
+  ],
+  "other_crash_note": "DriverKit and widget/photo-service failures also exist; driverkitd SIGKILL was present in the baseline. No broad no-crash claim is made.",
+  "capture": {
+    "rebooted": false,
+    "connections": 1,
+    "parts": [
+      {
+        "name": "serial-000.log",
+        "sha256": "ad61a5cb258d63860d42ab57e09aa81003bbe0377bae89ef598adb69c3ebacea",
+        "bytes": 1075475
+      }
+    ],
+    "bytes": 1075475,
+    "flashed": false
+  },
+  "capture_flags_scope": "capture.json rebooted/flashed describe commands sent by the capture script; the assistant separately performed the temporary boot recorded above",
+  "transport_audit": {
+    "boot_header_seen": true,
+    "status_samples": [
+      {
+        "events": 833,
+        "tx": 218370,
+        "rx": 14,
+        "log": 291866,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1479,
+        "tx": 445430,
+        "rx": 21,
+        "log": 429054,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1643,
+        "tx": 464782,
+        "rx": 28,
+        "log": 448406,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1877,
+        "tx": 503403,
+        "rx": 35,
+        "log": 487027,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 2174,
+        "tx": 694735,
+        "rx": 42,
+        "log": 994404,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      }
+    ],
+    "max_kernel_dropped_bytes": 0,
+    "ram_history_evicted_bytes": 0,
+    "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+  },
+  "decoded_ulog_records": 911,
+  "incomplete_ulog_records": 0,
+  "host_checks": {
+    "wifi_generator_and_job_gate_cases": 12,
+    "dram_handoff_cases": 22,
+    "payload_verification": true,
+    "android_boot_image_verification": true,
+    "old_baseline_payload_still_verifies": true
+  },
+  "launchd_gate_evidence": {
+    "job": "20H392 /System/Library/xpc/launchd.plist -> com.apple.wifid.plist -> _LimitLoadToDeviceTree",
+    "binary_disassembly": "out/ios16/wifi-baseline-audit/launchd-disassembly.txt",
+    "gate_function": "0x10000a3cc",
+    "node_query_function": "0x10003d1f0",
+    "xnu_source": "https://github.com/apple-oss-distributions/xnu/blob/xnu-8796.141.3/iokit/Kernel/IOUserClient.cpp#L6307",
+    "xnu_function": "is_io_device_tree_entry_exists_with_name -> IODTFindMatchingEntries(kIODTRecursive)"
+  },
+  "evidence": [
+    {
+      "path": "out/ios16/wifi-baseline-audit/audit.json",
+      "sha256": "25dc59ddc4a0460edb00323d948e2e2f3ffe66040d03fa6f6b271c21b5186eb4"
+    },
+    {
+      "path": "out/ios16/wifi-baseline-audit/wifi-launch-jobs.json",
+      "sha256": "9607c7cbdf25defb643528c754408cfe19d590d9d2730ae603de4bd43f959e2e"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/serial-000.log",
+      "sha256": "ad61a5cb258d63860d42ab57e09aa81003bbe0377bae89ef598adb69c3ebacea"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/capture.json",
+      "sha256": "a366e8831acfb34a5590b41d6f819f18e75dcdbd93eb29a41fdcc2aa19b01b6d"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/audit-final/audit.json",
+      "sha256": "2842e79d8d2bc1858c2b7bb0fafb11e34ca5bc773a5b38ecd3eee37b67f14728"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/decoded-final/index.json",
+      "sha256": "a4f5bbd95ceefda3850d9c01b1b4e1c3428c525513ed540b7cdd6fd3ebc60a26"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/wifid-startup.symbols.txt",
+      "sha256": "b60fdcdd4529c7fcb64c1ccff7395d3fc950d7343fbd2db6200ff6fb6bd95871"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/latest-stacks.log",
+      "sha256": "6fd3f9f113629efee59b966e514f282f9d7f5fbf8aac8930df5cea0875babeae"
+    },
+    {
+      "path": "out/ios16/wifi-service-test-1/latest-stacks.symbols.txt",
+      "sha256": "27526546d3c870cb3a9eaeb16ba821eccebc8aeab3c2eacf11591bec35dc145f"
+    },
+    {
+      "path": "out/ios16/wifi-service-boot/host-build.log",
+      "sha256": "18300360c79647ec0509045e28b0f8f094292e8c6b331b1babe51672399cf920"
+    },
+    {
+      "path": "out/ios16/wifi-service-boot/payload/payload.json",
+      "sha256": "e833ec42554c08e80750fc4cb1aba8e3be7da232448bd245d394051fb57d1e3b"
+    }
+  ]
+}

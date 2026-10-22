@@ -10,7 +10,9 @@ import subprocess
 import tempfile
 import tomllib
 import zlib
-from ios16_platform import check_platform
+from ios16_platform import check_platform, read_nodes
+from ios16_wifi import check_wifi_platform
+from ios16_wifi_runtime import check_runtime
 from ios16_trust_catalog import modules
 
 def sha(p):
@@ -29,6 +31,7 @@ def main():
     p.add_argument('--trace-all',action='store_true',help='All processes, byte-preserving stdout/stderr, unlimited periodic snapshots')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
     p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
+    p.add_argument('--wifi-pcie',action='store_true',help='Opt-in WCN7850 power/PCIe enumeration in the matching UEFI; a runtime kernel also requires locally embedded firmware')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
     if a.trace_all:a.trace_services=True
@@ -38,6 +41,14 @@ def main():
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
     platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    wifi=check_wifi_platform(read_nodes(a.adt.read_bytes()))
+    wifi_runtime=check_runtime(a.kernel.read_bytes(),report)
+    if wifi_runtime and not a.wifi_pcie:
+        raise ValueError('Native Wi-Fi runtime requires the matching PCIe handoff')
+    if a.wifi_pcie and not wifi:
+        raise ValueError('PCIe bring-up requires the Qualcomm wlan ADT declaration')
+    if wifi and (not a.root_report or not a.trace_all):
+        raise ValueError('Wi-Fi service bring-up requires a root entry and --trace-all')
     catalog=None
     if a.trust_catalog:
         catalog=json.loads((a.trust_catalog.parent/'trust-catalog.json').read_text())
@@ -140,6 +151,11 @@ def main():
         if a.touch_gpio:result['touch_gpio']=True
     if catalog:
         result['trust_catalog']={k:catalog[k] for k in ('sha256','bytes','build','source_ipsw_sha256','unique_hashes')}
+    if wifi:result['wifi_bringup']=wifi
+    if wifi_runtime:result['wifi_runtime']=wifi_runtime
+    if a.wifi_pcie:
+        result['wifi_pcie_handoff']=True
+        result['wifi_pcie_report_version']=5
     (a.out/'payload.json').write_text(json.dumps(result,indent=2)+'\n')
     (a.out/'identity.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result,indent=2))

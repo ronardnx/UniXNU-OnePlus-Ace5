@@ -1,0 +1,669 @@
+{
+  "date": "2026-10-22",
+  "status": "Current power/PCIe changes integrated and offline verified; full Wi-Fi driver incomplete; user requested no more incremental device testing",
+  "previous_report": {
+    "stage": 13,
+    "detail": 256,
+    "error": 7,
+    "firmware_status": 0,
+    "rails": 127,
+    "clocks": 4095,
+    "phy": 134,
+    "link": 269549576,
+    "elbi": 1,
+    "device": 0,
+    "clock_version": 65546,
+    "cleanup_status": 9223372036854775814,
+    "retained_rails": 125,
+    "root_device": 18028491,
+    "gpio_before": 0,
+    "gpio_after": 3,
+    "pipe_source": 131072,
+    "perst": 33619971,
+    "sw_ctrl": 65537,
+    "wlan_sw_ctrl": 65537,
+    "ref_clock": 1,
+    "report_version": 2,
+    "pin_readback": {
+      "perst": {
+        "config": 513,
+        "io": 3
+      },
+      "sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "wlan_sw_ctrl": {
+        "config": 1,
+        "io": 1
+      }
+    },
+    "ltssm_enable_readback": true,
+    "stage_name": "train PCIe link",
+    "error_name": "link timeout",
+    "endpoint_identified": false,
+    "firmware_loaded": false,
+    "scan_supported": false,
+    "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+    "retained_rail_names": [
+      "ldob15",
+      "smpi4",
+      "smpc2",
+      "smpc3",
+      "smpc6",
+      "smpc1"
+    ]
+  },
+  "boot_image": "out/ios16/wifi-pcie-core-link-boot/giulia-ios16-wifi-pcie.img",
+  "boot_sha256": "49d83039ea48bb4e22222f1239a3704274bc2bd8514c83cd262451808754506e",
+  "boot_bytes": 69283840,
+  "host_checks": {
+    "pcie_policy_fault_injection_cases": 43,
+    "command_line_capacity_cases": 23,
+    "report_abi_round_trip": true,
+    "patch_idempotence": true,
+    "old_firmware_abi_mixing_rejected": true,
+    "dram_handoff_cases": 22,
+    "asan_ubsan": true
+  },
+  "temporary_boot_command_succeeded": true,
+  "flash_commands_executed": false,
+  "scan_fixed": false,
+  "association_tested": false,
+  "new_live_report": {
+    "stage": 13,
+    "detail": 256,
+    "error": 7,
+    "firmware_status": 0,
+    "clock_version": 65546,
+    "rails": 127,
+    "clocks": 4095,
+    "phy": 134,
+    "link": 269549576,
+    "elbi": 1,
+    "device": 0,
+    "command": 0,
+    "bar0": 0,
+    "bar1": 0,
+    "gpio_before": 0,
+    "gpio_after": 3,
+    "root_device": 18028491,
+    "retained_rails": 125,
+    "pipe_source": 131072,
+    "cleanup_status": 9223372036854775814,
+    "perst": 33619971,
+    "sw_ctrl": 65537,
+    "wlan_sw_ctrl": 65537,
+    "ref_clock": 1,
+    "port_link_before": 196896,
+    "port_link_after": 65824,
+    "link_cap": 8014867,
+    "gen2_ctrl": 1245584,
+    "pipe_gate": 0,
+    "phy_common": 1,
+    "phy_status2": 32,
+    "phy_status3": 9,
+    "clkreq": 458752,
+    "ltssm_seen_lo": 1,
+    "ltssm_seen_hi": 0,
+    "ltssm_changes": 0,
+    "report_version": 3,
+    "pin_readback": {
+      "perst": {
+        "config": 513,
+        "io": 3
+      },
+      "sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "wlan_sw_ctrl": {
+        "config": 1,
+        "io": 1
+      },
+      "clkreq": {
+        "config": 7,
+        "io": 0
+      }
+    },
+    "ltssm_enable_readback": true,
+    "ltssm_states_seen": [
+      0
+    ],
+    "last_ltssm_state": 0,
+    "core_x1_configured": true,
+    "core_x2_configured": false,
+    "stage_name": "train PCIe link",
+    "error_name": "link timeout",
+    "endpoint_identified": false,
+    "firmware_loaded": false,
+    "scan_supported": false,
+    "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+    "retained_rail_names": [
+      "ldob15",
+      "smpi4",
+      "smpc2",
+      "smpc3",
+      "smpc6",
+      "smpc1"
+    ]
+  },
+  "capture_directory": "out/ios16/wifi-pcie-core-link-test-1",
+  "evidence": [
+    {
+      "path": "out/ios16/wifi-pcie-test-4/serial-000.log",
+      "sha256": "97d1818ab9cc85f2af5b2e532ab6ac33d75421115c44730f7788c7193fcc1888"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-test-4/capture.json",
+      "sha256": "3856f3b26ea4cd6239d9b2c6024523a1108a665d34432b81099c0fb0473e9272"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-test-4/pcie-final.json",
+      "sha256": "d519f29ce15805fc4ebce3c3f4a4f94d177b9e3d4505d6fb3d0d95ef41e30798"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-test-4/decoded-final/index.json",
+      "sha256": "1a1fddce361a3a77f1131c44dadecc8044f80422a940abcb65a4c20e29771b47"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-signals-resume-1/serial-000.log",
+      "sha256": "1b9b9eec208e9c956e3d5c52fc80055dd80eeb690ea326328048f0b6e1935be0"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-boot/host-build.log",
+      "sha256": "627bdb5b5e5397baea1f5891c2bf70be99d4e9afad7f38178cd65f292b957cf3"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-boot/firmware.json",
+      "sha256": "16ab8aa62f53dc3df3212677d8e79c004564079602df55553f4c32ab704fefc7"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-test-1/serial-000.log",
+      "sha256": "0234d6844eea078d54fac3d9e6778d8b60729b41bb1253239033d703d8b7137a"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-test-1/capture.json",
+      "sha256": "5b32bdb4e16dc25990513dc543ed5a839e3479f43b72c655bd82391f81258a3d"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-test-1/pcie-final.json",
+      "sha256": "55e5dbca797d49a3a69198ad9f965ecb3f8484eee301809d5713939214b1c4ae"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-core-link-test-1/decoded-final/index.json",
+      "sha256": "c4c0ab57a428cecdfbf36b7277b610573c285c186c3ec3b6d8ec79c5ddf47b5e"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-x2-test-1/serial-000.log",
+      "sha256": "fd87403bda6e22874a9bee0ca61f7e41fd550819124d12d832a356d6ec409737"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-x2-test-1/capture.json",
+      "sha256": "5790f77eb2e23ca08477b7a7cc97737965120dbfef837bcc61402fe20393a4b4"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-x2-test-1/pcie-final.json",
+      "sha256": "b93d8fede2f7981c1ddbeda23315fab4d13846d2785921e66449cbeac421f8c8"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-x2-test-1/decoded-final/index.json",
+      "sha256": "5e200be172610960fb4caadb41b43a62ae199b3f1a83b6355ddbe47aa943321f"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-clock-test-1/serial-000.log",
+      "sha256": "65ccfd9ab0b58e0527e7f17817e769683c7f8fd50965ff72837edf644e5f4b5c"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-clock-test-1/capture.json",
+      "sha256": "e42469a1ba6abeb2e0ffa29d2f1d89a9f906aa80afba6d8b854f0cbb7d579376"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-clock-test-1/pcie-final.json",
+      "sha256": "3e156f4d313fcf274a6115513639a9871f15232816e80efdfd274892c8754de7"
+    },
+    {
+      "path": "out/ios16/wifi-pcie-clock-test-1/decoded-final/index.json",
+      "sha256": "3dcbcef616b8f5c3df16eb727ec98e9eb976f1593a9e0f9ee9f56a4806875a43"
+    },
+    {
+      "path": "out/ios16/wifi-integrated-boot/offline-checks.json",
+      "sha256": "fbade91bedf6a0aa363ab8363f9d87f596fcac64f8a7a3e52d9e585b12f7c0a9"
+    },
+    {
+      "path": "out/ios16/wifi-integrated-boot/source-manifest.json",
+      "sha256": "f270548b3fa62092694fc8d0d74837702dc191f87a549eec8adb088213ba606e"
+    },
+    {
+      "path": "out/ios16/wifi-stock-firmware/manifest.json",
+      "sha256": "2b95127d4f4fd8c7b776ab1a00dc4c3eb7e37a8add27ebf9cef75ca90e0c62e1"
+    }
+  ],
+  "rejected_candidate": {
+    "path": "out/ios16/wifi-pcie-corecfg-boot/",
+    "boot_sha256": "dc4fa1d45a95997018a8d78875d5702de61d8166ce3573f14e504640c09b205b",
+    "reason": "Expanded ASCII report reservation cannot fit Darwin22 command line; never booted; replaced by fixed-size base64"
+  },
+  "capture": {
+    "parts": [
+      {
+        "name": "serial-000.log",
+        "sha256": "0234d6844eea078d54fac3d9e6778d8b60729b41bb1253239033d703d8b7137a",
+        "bytes": 1154215
+      }
+    ],
+    "flashed": false,
+    "connections": 1,
+    "rebooted": false,
+    "bytes": 1154215
+  },
+  "kernel_panic_observed": false,
+  "transport_audit": {
+    "boot_header_seen": true,
+    "status_samples": [
+      {
+        "events": 957,
+        "tx": 287075,
+        "rx": 14,
+        "log": 364293,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1589,
+        "tx": 463623,
+        "rx": 21,
+        "log": 447247,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 1767,
+        "tx": 483573,
+        "rx": 28,
+        "log": 467197,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 2020,
+        "tx": 544856,
+        "rx": 35,
+        "log": 528480,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      },
+      {
+        "events": 2247,
+        "tx": 677687,
+        "rx": 42,
+        "log": 1051186,
+        "dropped": 0,
+        "ring_bytes": 33554432
+      }
+    ],
+    "max_kernel_dropped_bytes": 0,
+    "ram_history_evicted_bytes": 0,
+    "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+  },
+  "decoded_ulog_records": 1118,
+  "incomplete_ulog_records": 0,
+  "lifecycle": [
+    "EXEC pid=43 ppid=1 name=wifid",
+    "EXEC pid=194 ppid=1 name=Setup"
+  ],
+  "clock_measurement_review": {
+    "native_clock_sha256": "53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc",
+    "CalcClockFreqHz_slot": 7,
+    "wrapper_rva": "0x16a8",
+    "dispatch_rva": "0x808c",
+    "clock_rva": "0x6a64",
+    "debug_mux_rva": "0x68fc",
+    "measurement_rva": "0xdf50",
+    "unbounded_poll_loops": [
+      "0xdf8c..0xdf94",
+      "0xdfc4..0xdfc8"
+    ],
+    "called_on_device": false,
+    "reason": "Native measurement has no timeout and changes global debug-mux state; a bounded adapter with state restoration is required before use."
+  },
+  "next_candidate": {
+    "boot_image": "out/ios16/wifi-pcie-x2-boot/giulia-ios16-wifi-pcie.img",
+    "boot_sha256": "359fc2e9327d181e86d52946e3658f250c2fd3ea89892e33b7f184791ad1a4ee",
+    "reason": "Match the two-lane PCIe0 PHY and native 0x30120 root port mode",
+    "hardware_tested": true,
+    "native_unbounded_clock_measurement_called": false,
+    "temporary_boot_command_succeeded": true,
+    "report": {
+      "stage": 13,
+      "detail": 256,
+      "error": 7,
+      "firmware_status": 0,
+      "clock_version": 65546,
+      "rails": 127,
+      "clocks": 4095,
+      "phy": 134,
+      "link": 269549576,
+      "elbi": 1,
+      "device": 0,
+      "command": 0,
+      "bar0": 0,
+      "bar1": 0,
+      "gpio_before": 0,
+      "gpio_after": 3,
+      "root_device": 18028491,
+      "retained_rails": 125,
+      "pipe_source": 131072,
+      "cleanup_status": 9223372036854775814,
+      "perst": 33619971,
+      "sw_ctrl": 65537,
+      "wlan_sw_ctrl": 65537,
+      "ref_clock": 1,
+      "port_link_before": 196896,
+      "port_link_after": 196896,
+      "link_cap": 8014883,
+      "gen2_ctrl": 1245840,
+      "pipe_gate": 0,
+      "phy_common": 1,
+      "phy_status2": 32,
+      "phy_status3": 9,
+      "clkreq": 458752,
+      "ltssm_seen_lo": 1,
+      "ltssm_seen_hi": 0,
+      "ltssm_changes": 0,
+      "report_version": 3,
+      "pin_readback": {
+        "perst": {
+          "config": 513,
+          "io": 3
+        },
+        "sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "wlan_sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "clkreq": {
+          "config": 7,
+          "io": 0
+        }
+      },
+      "ltssm_enable_readback": true,
+      "ltssm_states_seen": [
+        0
+      ],
+      "last_ltssm_state": 0,
+      "core_x1_configured": false,
+      "core_x2_configured": true,
+      "stage_name": "train PCIe link",
+      "error_name": "link timeout",
+      "endpoint_identified": false,
+      "firmware_loaded": false,
+      "scan_supported": false,
+      "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+      "retained_rail_names": [
+        "ldob15",
+        "smpi4",
+        "smpc2",
+        "smpc3",
+        "smpc6",
+        "smpc1"
+      ]
+    },
+    "capture": {
+      "bytes": 1227402,
+      "flashed": false,
+      "rebooted": false,
+      "parts": [
+        {
+          "bytes": 1227402,
+          "name": "serial-000.log",
+          "sha256": "fd87403bda6e22874a9bee0ca61f7e41fd550819124d12d832a356d6ec409737"
+        }
+      ],
+      "connections": 1
+    },
+    "transport_audit": {
+      "boot_header_seen": true,
+      "status_samples": [
+        {
+          "events": 929,
+          "tx": 242535,
+          "rx": 14,
+          "log": 334500,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1615,
+          "tx": 468392,
+          "rx": 21,
+          "log": 452016,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1759,
+          "tx": 487637,
+          "rx": 28,
+          "log": 471261,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1938,
+          "tx": 510288,
+          "rx": 35,
+          "log": 493912,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 2545,
+          "tx": 1154001,
+          "rx": 42,
+          "log": 1137625,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        }
+      ],
+      "max_kernel_dropped_bytes": 0,
+      "ram_history_evicted_bytes": 0,
+      "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+    },
+    "incomplete_ulog_records": 0,
+    "lifecycle": [
+      "EXEC pid=43 ppid=1 name=wifid",
+      "EXEC pid=197 ppid=1 name=Setup"
+    ]
+  },
+  "clock_candidate": {
+    "boot_image": "out/ios16/wifi-pcie-clock-boot/giulia-ios16-wifi-pcie.img",
+    "boot_sha256": "d4653113815ef31d530be35c126823e01b274d38a01e011ad5f27c461778f946",
+    "hardware_tested": true,
+    "host_checks": {
+      "pcie_fault_injection_cases": 51,
+      "command_line_capacity_cases": 609,
+      "v3_v4_mixing_rejected": true
+    },
+    "temporary_boot_command_succeeded": true,
+    "capture_directory": "out/ios16/wifi-pcie-clock-test-1",
+    "report": {
+      "stage": 13,
+      "detail": 256,
+      "error": 7,
+      "firmware_status": 0,
+      "clock_version": 65546,
+      "rails": 127,
+      "clocks": 4095,
+      "phy": 134,
+      "link": 269549576,
+      "elbi": 1,
+      "device": 0,
+      "command": 0,
+      "bar0": 0,
+      "bar1": 0,
+      "gpio_before": 0,
+      "gpio_after": 3,
+      "root_device": 18028491,
+      "retained_rails": 125,
+      "pipe_source": 131072,
+      "cleanup_status": 9223372036854775814,
+      "perst": 33619971,
+      "sw_ctrl": 65537,
+      "wlan_sw_ctrl": 65537,
+      "ref_clock": 1,
+      "port_link_before": 196896,
+      "port_link_after": 196896,
+      "link_cap": 8014883,
+      "gen2_ctrl": 1245840,
+      "pipe_gate": 0,
+      "phy_common": 1,
+      "phy_status2": 32,
+      "phy_status3": 9,
+      "clkreq": 458752,
+      "ltssm_seen_lo": 1,
+      "ltssm_seen_hi": 0,
+      "ltssm_changes": 0,
+      "pipe_hz": 62358622,
+      "pipe_measure_status": 1,
+      "report_version": 4,
+      "pin_readback": {
+        "perst": {
+          "config": 513,
+          "io": 3
+        },
+        "sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "wlan_sw_ctrl": {
+          "config": 1,
+          "io": 1
+        },
+        "clkreq": {
+          "config": 7,
+          "io": 0
+        }
+      },
+      "ltssm_enable_readback": true,
+      "ltssm_states_seen": [
+        0
+      ],
+      "last_ltssm_state": 0,
+      "core_x1_configured": false,
+      "core_x2_configured": true,
+      "pipe_measure_name": "measured",
+      "pipe_frequency_measured": true,
+      "stage_name": "train PCIe link",
+      "error_name": "link timeout",
+      "endpoint_identified": false,
+      "firmware_loaded": false,
+      "scan_supported": false,
+      "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+      "retained_rail_names": [
+        "ldob15",
+        "smpi4",
+        "smpc2",
+        "smpc3",
+        "smpc6",
+        "smpc1"
+      ]
+    },
+    "capture": {
+      "connections": 1,
+      "parts": [
+        {
+          "name": "serial-000.log",
+          "sha256": "65ccfd9ab0b58e0527e7f17817e769683c7f8fd50965ff72837edf644e5f4b5c",
+          "bytes": 1021755
+        }
+      ],
+      "flashed": false,
+      "bytes": 1021755,
+      "rebooted": false
+    },
+    "transport_audit": {
+      "boot_header_seen": true,
+      "status_samples": [
+        {
+          "events": 832,
+          "tx": 232824,
+          "rx": 14,
+          "log": 330068,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1563,
+          "tx": 469569,
+          "rx": 21,
+          "log": 453193,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1703,
+          "tx": 495612,
+          "rx": 28,
+          "log": 479236,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 1760,
+          "tx": 530401,
+          "rx": 35,
+          "log": 514025,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        },
+        {
+          "events": 2090,
+          "tx": 1013254,
+          "rx": 42,
+          "log": 996878,
+          "dropped": 0,
+          "ring_bytes": 33554432
+        }
+      ],
+      "max_kernel_dropped_bytes": 0,
+      "ram_history_evicted_bytes": 0,
+      "ram_history_note": "Eviction describes retained RAM history; a continuous host capture may already contain it. Missing status is unknown, not zero loss."
+    },
+    "incomplete_ulog_records": 0,
+    "kernel_panic_observed": false
+  },
+  "user_test_preference": "Complete and consolidate changes and offline checks before requesting one integrated device test; do not request repeated Fastboot tests for each individual change.",
+  "integrated_candidate": {
+    "boot_image": "out/ios16/wifi-integrated-boot/giulia-ios16-wifi-pcie.img",
+    "boot_sha256": "33dd156535c8187084d553a79a497d3f3c592d7e1e0e666d1f71c6baeb3ce9cd",
+    "report_version": 5,
+    "endpoint_rails": 7,
+    "host_phy_rails": 2,
+    "hardware_tested": false,
+    "firmware_uploaded": false,
+    "scan_implemented": false,
+    "build_script": "scripts/build-ios16-wifi-bringup.sh",
+    "offline_checks": "out/ios16/wifi-integrated-boot/offline-checks.json",
+    "source_manifest": "out/ios16/wifi-integrated-boot/source-manifest.json",
+    "host_checks": {
+      "pcie_policy_cases": 53,
+      "power_cache_cases": 9,
+      "command_line_capacity_cases": 609,
+      "board_voltage_constraints": 9,
+      "dram_handoff_cases": 22,
+      "v4_v5_abi_mix_rejected": true
+    }
+  },
+  "firmware_bundle": {
+    "path": "out/ios16/wifi-stock-firmware",
+    "assets": 73,
+    "selection_and_integrity_cases": 22,
+    "silicon_revision_and_qmi_board_id_observed": false,
+    "per_device_persist_copied": false,
+    "uploaded": false
+  }
+}

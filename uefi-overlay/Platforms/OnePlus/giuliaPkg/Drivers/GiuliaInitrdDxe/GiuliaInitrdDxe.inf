@@ -10,6 +10,7 @@
   ScanPolicy.h
   TouchClock.c
   TouchPower.c
+  WifiPcie.c
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec
@@ -18,8 +19,10 @@
   BaseLib
   BaseMemoryLib
   DebugLib
+  DxeServicesTableLib
   FdtLib
   HobLib
+  IoLib
   MemoryAllocationLib
   PrintLib
   UefiRuntimeServicesTableLib

@@ -1,0 +1,38 @@
+name: iPhone iOS 16 port qualification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          ref: fb2bb310564ce66779e472a021881cf7c5764919
+          path: upstream
+          submodules: true
+      - name: Restore iPhone firmware component cache
+        id: firmware-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/iphone16-cache
+          key: iphone16-kernel-v1-${{ hashFiles('targets/iphone16.json') }}
+      - name: Inspect official iPhone firmware ABI
+        run: python3 scripts/audit-iphone.py --unixnu "$GITHUB_WORKSPACE/upstream" --target targets/iphone16.json --cache "$RUNNER_TEMP/iphone16-cache" --out "$RUNNER_TEMP/iphone16-audit"
+      - name: Save verified firmware component
+        if: steps.firmware-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/iphone16-cache
+          key: iphone16-kernel-v1-${{ hashFiles('targets/iphone16.json') }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone16-qualification
+          path: ${{ runner.temp }}/iphone16-audit/architecture.json
+          if-no-files-found: error

@@ -45,6 +45,11 @@ def main():
     require(0 < kernel_size <= len(firmware)-4096, 'Invalid kernel size')
     payload = args.payload.read_bytes()
     pr = json.loads(args.payload_report.read_text())
+    if pr.get('wifi_pcie_handoff'):
+        require(fw_report.get('wifi_pcie_handoff_available') is True,
+                'PCIe payload requires the matching native Wi-Fi firmware adapter and loader')
+        require(pr.get('wifi_pcie_report_version',1)==fw_report.get('wifi_pcie_report_version',1),
+                'PCIe firmware/loader report ABI does not match the payload profile')
     require(len(payload) == pr['payload_bytes'] and sha(payload) == pr['payload_sha256'], 'Payload SHA256/size mismatch')
     require(512 <= len(payload) <= 224*1024*1024, 'Payload exceeds first-entry memory budget')
     require(payload[510:512] == b'\x55\xaa' and payload[82:90] == b'FAT32   ', 'Not a FAT32 payload')

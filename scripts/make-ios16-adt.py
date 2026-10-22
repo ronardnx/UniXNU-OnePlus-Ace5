@@ -5,6 +5,7 @@ import re
 import struct
 import sys
 from pathlib import Path
+from ios16_wifi import add_wifi_platform
 
 def main():
     p=argparse.ArgumentParser()
@@ -14,10 +15,13 @@ def main():
     p.add_argument('--gui',action='store_true')
     p.add_argument('--trust-catalog',action='store_true',help='Reserve DarwinBoot TrustCache memory-map handoff')
     p.add_argument('--wifi-mac',help='Stable unicast address for MobileGestalt identity; does not enable Wi-Fi transport')
+    p.add_argument('--wifi-bringup',action='store_true',help='Declare the WCN7850 wlan node for wifid diagnostics; no scanning driver yet')
     p.add_argument('--product-adt',type=Path,help='Local unwrapped D22AP ADT from the verified IPSW')
     a=p.parse_args()
     if a.gui and not a.product_adt:p.error('GUI requires the verified local D22AP product ADT')
     if a.trust_catalog and not a.gui:p.error('Trust catalogue requires GUI')
+    if a.wifi_bringup and (not a.gui or not a.wifi_mac):
+        p.error('--wifi-bringup requires --gui and the existing --wifi-mac identity')
     wifi_mac=None
     if a.wifi_mac:
         if not a.gui or not re.fullmatch(r'(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}',a.wifi_mac):
@@ -63,6 +67,8 @@ def main():
             # IONetworkController matching. The port has no network transport
             # driver yet; without identity data, lsd can wait here indefinitely.
             props(chosen,{'mac-address-wifi0':wifi_mac})
+    if a.wifi_bringup:
+        add_wifi_platform(tree, reference['node'])
     cpus=next(n for n in tree.children if n.name=='cpus')
     props(cpus.children[0],{'compatible':b'qcom,kryo\0ARM,v8\0'})
     fb=next(n for n in tree.children if n.name=='sweet-fbcon')

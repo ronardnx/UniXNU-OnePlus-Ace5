@@ -8,6 +8,7 @@ import re
 import json
 import difflib
 from pathlib import Path
+from ios16_display import native_display_patch
 
 def edit(path, old, new, count=1):
     text = path.read_text(errors='surrogateescape')
@@ -22,8 +23,10 @@ def main():
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--gui', action='store_true', help='Include bounded display/surface/HID compatibility services')
     p.add_argument('--touch', action='store_true', help='Include opt-in Ace 5 TouchCom v1 hardware bring-up')
+    p.add_argument('--wifi', action='store_true', help='Include WCN7850 PCIe/MHI/QMI/WMI passive scan transport and iOS16 IO80211 service')
     a = p.parse_args()
     if a.touch and not a.gui:p.error('--touch requires --gui')
+    if a.wifi and not a.gui:p.error('--wifi requires --gui')
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
     if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
         raise RuntimeError('Unpinned reference checkout')
@@ -161,16 +164,50 @@ def main():
         (a.out/'0072-giulia-read-only-trust-catalog.patch').write_text(patch)
         for name in ('0073-giulia-complete-boot-log.patch','0074-giulia-ios-pid-hibernate.patch'):
             shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/name,a.out/name)
+        native_display_patch(a.out, Path(__file__).resolve().parents[1])
+        if a.wifi:
+            patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
+                     '@@ -15,2 +15,3 @@\n'
+                     ' iokit/Kernel/arm/GiuliaAMFI.cpp                                  optional iokitcpp\n'
+                     '+iokit/Kernel/arm/GiuliaWiFi.cpp                                  optional iokitcpp\n'
+                     ' iokit/Kernel/arm/SweetWatchdog.cpp                               optional iokitcpp\n'
+                     '--- a/iokit/KernelConfigTables.cpp\n+++ b/iokit/KernelConfigTables.cpp\n'
+                     '@@ -55,3 +55,9 @@\n'
+                     '     "     \'IOMatchCategory\' = AppleMobileFileIntegrity;"\n'
+                     '     "   },"\n'
+                     '+    "   {"\n'
+                     '+    "     \'IOClass\'         = IO80211Controller;"\n'
+                     '+    "     \'IOProviderClass\' = IOResources;"\n'
+                     '+    "     \'IOResourceMatch\' = IOBSD;"\n'
+                     '+    "     \'IOMatchCategory\' = IO80211Controller;"\n'
+                     '+    "   },"\n'
+                     '     "   {"\n')
+            source = Path(__file__).resolve().parents[1] / 'ios16'
+            names = ['GiuliaWiFi.cpp', *[p.name for p in sorted(source.glob('giulia_wifi_*.h'))]]
+            for name in names:
+                data = (source / name).read_text()
+                data = data.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
+                patch += ''.join(difflib.unified_diff([], data.splitlines(True),
+                                 fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
+            (a.out/'0076-giulia-wifi-runtime.patch').write_text(patch)
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
-    if a.gui:checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
+    if a.gui:
+        checker=checker.replace('VERMEER FB:','GIULIA FB:').replace('1440x3200','1264x2780')
+        checker=checker.replace('logical canvas 1125x2436 centered in 1264x2780',
+                                'native panel 1264x2780 full coverage; UIKit canvas 1125x2436')
     (a.out/'check-kernel.py').write_text(checker)
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
+        'wifi_runtime_included':a.wifi,
+        'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211; association/data path excluded' if a.wifi else None,
         'read_only_trust_catalog_query':a.gui,
         'complete_boot_logging_available':a.gui,
+        'native_panel':{'width':1264,'height':2780,'stride':5056,
+                        'presentation':'full-panel','touch':'full-panel normalized',
+                        'uikit_canvas':[1125,2436]} if a.gui else None,
         'hardware_tested':False},indent=2)+'\n')
 
 if __name__=='__main__': main()

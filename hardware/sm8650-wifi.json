@@ -1,0 +1,466 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 / PKG110 / giulia / SM8650",
+  "chip": "Qualcomm WCN7850 / Kiwi",
+  "expected_pci_id": "17cb:1107",
+  "identity_basis": "Captured Android DT: supported-ids=0x1107 and qcom,cnss-kiwi. Upstream ath12k maps this Qualcomm PCI ID to WCN7850. Live PCI enumeration in XNU is pending.",
+  "android_device_tree": {
+    "path": "../ace5-analysis/running-device.dtb",
+    "sha256": "1f32afa0b9ec436bdad9726c557dc9abdd35b629531f9593002f5ed886447d9b",
+    "decoded_path": "../ace5-analysis/running-device.dts",
+    "decoded_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1",
+    "cnss_node": "/soc/qcom,cnss-kiwi@b0000000",
+    "pci_root_complex": 0,
+    "cnss_reg_name": "smmu_iova_ipa",
+    "cnss_reg": [
+      "0xb0000000",
+      "0x10000"
+    ],
+    "cnss_reg_is_endpoint_bar": false,
+    "gpio": {
+      "wlan_en": 16,
+      "bt_en": 17,
+      "sw_ctrl": 18,
+      "wlan_sw_ctrl": 19,
+      "pcie_perst": 94,
+      "pcie_clkreq": 95,
+      "pcie_wake": 96
+    },
+    "supply_microvolts": {
+      "vdd-wlan-io_L15B": 1800000,
+      "vdd-wlan-io12_L3C": 1200000,
+      "vdd-wlan_S4I": 940000,
+      "vdd-wlan-aon_S2C": 976000,
+      "vdd-wlan-dig_S3C": 916000,
+      "vdd-wlan-rfa1_S6C": 1864000,
+      "vdd-wlan-rfa2_S1C": 1316000
+    },
+    "pcie_register_ranges": {
+      "parf": [
+        "0x01c00000",
+        "0x3000"
+      ],
+      "phy": [
+        "0x01c06000",
+        "0x2000"
+      ],
+      "dm_core": [
+        "0x60000000",
+        "0x0f1d"
+      ],
+      "elbi": [
+        "0x60000f20",
+        "0x00a8"
+      ],
+      "iatu": [
+        "0x60001000",
+        "0x1000"
+      ],
+      "conf": [
+        "0x60100000",
+        "0x100000"
+      ],
+      "pcie_sm": [
+        "0x01d07000",
+        "0x7000"
+      ]
+    },
+    "iommu_map": [
+      {
+        "requester_id": "0x0000",
+        "stream_id": "0x1400",
+        "count": 1
+      },
+      {
+        "requester_id": "0x0100",
+        "stream_id": "0x1401",
+        "count": 1
+      }
+    ],
+    "android_dma_iova_pool": [
+      "0x98000000",
+      "0x18000000"
+    ],
+    "iova_pool_is_xnu_owned_memory": false,
+    "power_control": "CNSS regulator/PM domain sequence and AOP QMP votes; GPIO16 alone is insufficient"
+  },
+  "sources": [
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/wlan-devicetree/pineapple-kiwi-cnss.dtsi",
+      "git_blob": "d6eeb5ba889fdce44b0e430d110b515f969f450d"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2/pci.c",
+      "git_blob": "4cb2d7247e517127d7b8c002a6c90647cd4e7d98"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/kernel_platform/qcom/proprietary/devicetree/qcom/pineapple-pcie.dtsi",
+      "git_blob": "bc3619f67250733a99c45b158c7d788052637117",
+      "scope": "Path/blob pinned from complete source tree; register values above are from the captured Android DT"
+    },
+    {
+      "url": "https://github.com/torvalds/linux/blob/v6.12/drivers/net/wireless/ath/ath12k/pci.c",
+      "git_blob": "bd269aa1740bcd4e1d840ddc4a0f1de91fa8271a"
+    }
+  ],
+  "remaining_driver_work": [
+    "Power/clock/PHY/reset sequencing and PCIe endpoint enumeration on this board",
+    "Owned DMA mappings for PCIe streams, MSI/interrupt routing and MHI transport",
+    "Matching Kiwi firmware, board/calibration data and QMI firmware-ready handshake",
+    "WMI scan requests and actual RF scan results",
+    "iOS16 IO80211 interface/user-client compatibility for wifid",
+    "Association, authentication, data path, DHCP and sustained networking"
+  ],
+  "current_boot_change": "Integrated endpoint/host PHY power, consistent x2 link configuration, bounded clock diagnostics, versioned report and single build/check pipeline; final nine-rail image not tested on hardware.",
+  "rf_scan_supported": false,
+  "native_pcie_bringup": {
+    "opt_in_payload_option": "--wifi-pcie",
+    "implementation": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/WifiPcie.c",
+    "policy": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/WifiPciePolicy.h",
+    "invocation": "Versioned prepare protocol called by DarwinBoot after DXE dispatch and before ExitBootServices",
+    "implemented": [
+      "Resolve native CmdDb/RPMh/ClockDxe interfaces",
+      "Snapshot idle HLOS votes through RPMh resource-cache lookup",
+      "Apply seven endpoint and two host PHY voltage/mode/enable votes",
+      "Check GPIO ownership and refuse active inherited Wi-Fi/Bluetooth",
+      "Enable two PCIe0 power domains and twelve clocks",
+      "Reset PCIe0 core/PHY and apply captured 115-word PHY sequence",
+      "Poll PHY readiness and Gen1 x2 link training with bounded timeouts",
+      "Configure one outbound CFG0 window for bus 1/device 0/function 0",
+      "Verify the exact 17cb:1107 endpoint and reject unexpected bus mastering"
+    ],
+    "not_implemented": [
+      "DMA mappings and interrupts",
+      "MHI/BHI firmware transport",
+      "Firmware/board/calibration loading",
+      "WMI scans",
+      "IO80211 integration",
+      "Association and data traffic"
+    ],
+    "phy_sequence_entries": 115,
+    "phy_table_sha256_le_u32": "980eb829648394dc1b8969a0cdc436bba3be9717cb455b08fb6c08d5ae3592ff",
+    "mmio_mappings": [
+      [
+        "0x16b000",
+        "0x1000"
+      ],
+      [
+        "0x16c000",
+        "0x1000"
+      ],
+      [
+        "0x1c00000",
+        "0x3000"
+      ],
+      [
+        "0x1c06000",
+        "0x2000"
+      ],
+      [
+        "0x60000000",
+        "0x2000"
+      ],
+      [
+        "0x60100000",
+        "0x1000"
+      ],
+      [
+        "0x1ff1000",
+        "0x1000"
+      ],
+      [
+        "0x162000",
+        "0x1000"
+      ]
+    ],
+    "gpio_writes": [
+      16,
+      94,
+      95,
+      96
+    ],
+    "gpio17_read_only": true,
+    "endpoint_config_writes": false,
+    "bus_mastering_enabled": false,
+    "dma_or_smmu_changes": false,
+    "firmware_uploads": false,
+    "power_rollback": "Known HLOS cache values are restored. Missing cache state is unknown: those new votes are retained on failure and reported by retained_rails/cleanup_status, never replaced by an assumed zero. No software-client aggregation is assumed.",
+    "protocol_report_bytes": 168,
+    "boot_argument": "giulia_wifi5",
+    "host_fault_injection_cases": 53,
+    "native_firmware": {
+      "ClockDxe_original_sha256": "b1608ab9a4759dbbc50e5e5836ee402ff832d8076011e5145460e4af97ba7686",
+      "ClockDxe_actual_linked_sha256": "53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc",
+      "ClockDxe_version": "0x1000a",
+      "ClockDxe_note": "Existing platform build uses ClockDxe.patched.efi; only file offsets 0xa810..0xa813 differ from the original, and the protocol prefix is unchanged.",
+      "RpmhDxe_sha256": "cdebce5c9f96d16e71a0db8f9c4dbf591ed314dd94a6543b08c238902df65267",
+      "RpmhDxe_version": "0x10001",
+      "rpmh_hardware_read_slot17": "EFI_UNSUPPORTED stub at RVA 0x199c; not called",
+      "rpmh_cache_slot9": "Wrapper 0x188c calls 0x2a3c; native resource stride 24 bytes",
+      "rpmh_voter_layout": "Public 72-byte voter layout; native allocation size 0x48 observed at RVA 0x4adc",
+      "api_source": "https://github.com/Daniel224455/xbl2nd/blob/7531648266d2b06f2224d0abb6864831fb655259/QcomPkg/Include/Library/rpmh_resource_commands.h",
+      "rpmh_allocator": "Native allocator at RVA 0xa768 adds a four-byte size header and returns allocation+4 (0xa7a0); cache objects can be 4-mod-8 aligned.",
+      "rpmh_cache_access": "Copy 24-byte command and 72-byte voter records into aligned local structures before field access; four-byte alignment, bounded 32-node traversal, exact address and state validation."
+    },
+    "host_power_cache_cases": 9,
+    "first_live_result": {
+      "boot_sha256": "66b50133999f6972e891491618a1c10826484299c71b6a332c830d337ed0ac68",
+      "stage": 3,
+      "detail": "0x303",
+      "status": "EFI_COMPROMISED_DATA",
+      "rails_enabled": 0,
+      "clocks_enabled": 0,
+      "cause": "The initial eight-byte cache-pointer alignment assertion rejected native allocation+4; corrected in WifiPowerCache.h",
+      "log": "out/ios16/wifi-pcie-test-1/serial-000.log",
+      "log_sha256": "bdf1d01eb17493dcc3f22ecc3d4c69b9d8017d5112e0fc3d20f33d36703943cb"
+    },
+    "pipe_clock_source": {
+      "register": "GCC + 0x6b070",
+      "mask": 3,
+      "phy_source": 0,
+      "xo_source": 2,
+      "control": "ClockDxe SelectExternalSource(125000000, source=0, divider=2, M=N=2D=0), then MMIO readback; restore the observed selector on cleanup",
+      "source_evidence": "OnePlus gcc-pineapple.c parent_map_7 and gcc_pcie_0_pipe_clk_src; pinned native ClockDxe pipe node at file offset 0x27048, mux domain at 0x2e868 points to physical 0x16b070"
+    },
+    "second_live_result": {
+      "boot_sha256": "c14e369f100bb10a9225557e54166e7030ced24ef07f058639002afbc064c104",
+      "report": {
+        "stage": 13,
+        "detail": 0,
+        "error": 7,
+        "firmware_status": 0,
+        "rails": 127,
+        "clocks": 4095,
+        "phy": 134,
+        "link": 269549576,
+        "elbi": 4097,
+        "device": 0,
+        "clock_version": 65546,
+        "cleanup_status": 9223372036854775814,
+        "retained_rails": 125,
+        "root_device": 18028491,
+        "stage_name": "train PCIe link",
+        "error_name": "link timeout",
+        "endpoint_identified": false,
+        "firmware_loaded": false,
+        "scan_supported": false,
+        "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+        "retained_rail_names": [
+          "ldob15",
+          "smpi4",
+          "smpc2",
+          "smpc3",
+          "smpc6",
+          "smpc1"
+        ]
+      },
+      "interpretation": "Power/clock requests completed and PHY ready condition passed; PCIe LTSSM stayed in Detect.Active (ELBI=0x1001). Endpoint enumeration did not occur."
+    },
+    "protocol_report_version": 5,
+    "host_handoff_capacity_cases": 609,
+    "report_encoding": "168-byte fixed-width little-endian report, 224 base64 characters; 240-byte reservation before hardware access in Darwin22 608-byte CommandLine",
+    "core_link_configuration": {
+      "scope": "Gen1 x2 enumeration (x1 tested and still timed out)",
+      "port_link_control": "DBI 0x710: DLL bit 5 on, fast-link bit 7 off, x2 link mode bits 21:16 = 3",
+      "gen2_control": "DBI 0x80c bits 12:8 = 2",
+      "link_capability": "DBI 0x7c bits 9:4 = 2; original DBI 0x8bc RO-write control restored immediately",
+      "readback_required": true,
+      "ltssm_trace": "100 samples at up to 5ms intervals, 64-state bitmap and change count; clock/PHY/pin readbacks captured before cleanup",
+      "source": "https://github.com/torvalds/linux/blob/v6.12/drivers/pci/controller/dwc/pcie-designware.c",
+      "source_git_blob": "6d6cbc8b5b2c67b111d7e08006a833abc34d46b7",
+      "register_source": "https://github.com/torvalds/linux/blob/v6.12/drivers/pci/controller/dwc/pcie-designware.h",
+      "board_width_source": "https://github.com/torvalds/linux/blob/v6.12/arch/arm64/boot/dts/qcom/sm8650.dtsi",
+      "board_width_evidence": "PCIe0 num-lanes=2 and gen3x2 PHY; live root port before change reads 0x30120 (x2). Captured board PHY table programs both lanes."
+    },
+    "fourth_live_result": {
+      "boot_sha256": "11f79c33a2335b01f6cf37ccfaaf62f1e4dd0ac5302ad2142f6a8dcb91e6490e",
+      "report": {
+        "stage": 13,
+        "detail": 256,
+        "error": 7,
+        "firmware_status": 0,
+        "rails": 127,
+        "clocks": 4095,
+        "phy": 134,
+        "link": 269549576,
+        "elbi": 1,
+        "device": 0,
+        "clock_version": 65546,
+        "cleanup_status": 9223372036854775814,
+        "retained_rails": 125,
+        "root_device": 18028491,
+        "gpio_before": 0,
+        "gpio_after": 3,
+        "pipe_source": 131072,
+        "perst": 33619971,
+        "sw_ctrl": 65537,
+        "wlan_sw_ctrl": 65537,
+        "ref_clock": 1,
+        "report_version": 2,
+        "pin_readback": {
+          "perst": {
+            "config": 513,
+            "io": 3
+          },
+          "sw_ctrl": {
+            "config": 1,
+            "io": 1
+          },
+          "wlan_sw_ctrl": {
+            "config": 1,
+            "io": 1
+          }
+        },
+        "ltssm_enable_readback": true,
+        "stage_name": "train PCIe link",
+        "error_name": "link timeout",
+        "endpoint_identified": false,
+        "firmware_loaded": false,
+        "scan_supported": false,
+        "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+        "retained_rail_names": [
+          "ldob15",
+          "smpi4",
+          "smpc2",
+          "smpc3",
+          "smpc6",
+          "smpc1"
+        ]
+      },
+      "log": "out/ios16/wifi-pcie-test-4/serial-000.log",
+      "log_sha256": "97d1818ab9cc85f2af5b2e532ab6ac33d75421115c44730f7788c7193fcc1888",
+      "interpretation": "PERST input/output high, SW_CTRL and WLAN_SW_CTRL input high, TCSR refclk gate enabled, PIPE selector on PHY, LTSSM enabled; link timeout. This does not establish physical clock waveform or completed PCIe enumeration."
+    },
+    "bounded_pipe_measurement": {
+      "implementation": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/WifiClockMeasure.h",
+      "native_clock_original_sha256": "b1608ab9a4759dbbc50e5e5836ee402ff832d8076011e5145460e4af97ba7686",
+      "register_basis": "Pinned ClockDxe clock node 0x27048, GCC debug node 0x2e1f0, HAL register setup 0xde6c, counter function 0xdf50",
+      "selector": "0x14d",
+      "base": "0x162000",
+      "register_offsets": [
+        "0x00",
+        "0x04",
+        "0x08",
+        "0x24",
+        "0x48",
+        "0x4c"
+      ],
+      "debug_divider": 2,
+      "counter_reference_hz": 9600000,
+      "ticks": 32768,
+      "max_clear_poll_us": 10000,
+      "max_completion_poll_us": 10000,
+      "active_counter_is_rejected": true,
+      "five_configuration_registers_restored_and_checked": true,
+      "sampling": "After link-training polling, before clock/power cleanup",
+      "native_unbounded_api_called": false,
+      "vendor_source": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/clk/qcom/debugcc-pineapple.c",
+      "vendor_source_git_blob": "e7db9b677291d88f67484c8a36cc4e263beff3cc",
+      "vendor_source_crosscheck": "GCC pipe selector 0x14d, post-divider 2 and all six offsets match pinned firmware"
+    },
+    "host_phy_power": {
+      "rails": {
+        "ldoi1": {
+          "requested_mv": 880,
+          "maximum_mv": 912
+        },
+        "ldoi3": {
+          "requested_mv": 1200,
+          "maximum_mv": 1200
+        }
+      },
+      "voltage_constraints": "Captured running-device.dts, verified by tests/ios16_wifi_board.py",
+      "phy_supply_assignment_source": "https://github.com/torvalds/linux/blob/v6.12/arch/arm64/boot/dts/qcom/sm8650-qrd.dts",
+      "assignment_scope": "SM8650 reference board mapping; corresponding Ace 5 L1I/L3I regulator constraints are present. This is not a physical voltage measurement or a completed enumeration test.",
+      "new_votes_hardware_tested": false
+    },
+    "latest_live_result": {
+      "boot_sha256": "d4653113815ef31d530be35c126823e01b274d38a01e011ad5f27c461778f946",
+      "report": {
+        "stage": 13,
+        "detail": 256,
+        "error": 7,
+        "firmware_status": 0,
+        "clock_version": 65546,
+        "rails": 127,
+        "clocks": 4095,
+        "phy": 134,
+        "link": 269549576,
+        "elbi": 1,
+        "device": 0,
+        "command": 0,
+        "bar0": 0,
+        "bar1": 0,
+        "gpio_before": 0,
+        "gpio_after": 3,
+        "root_device": 18028491,
+        "retained_rails": 125,
+        "pipe_source": 131072,
+        "cleanup_status": 9223372036854775814,
+        "perst": 33619971,
+        "sw_ctrl": 65537,
+        "wlan_sw_ctrl": 65537,
+        "ref_clock": 1,
+        "port_link_before": 196896,
+        "port_link_after": 196896,
+        "link_cap": 8014883,
+        "gen2_ctrl": 1245840,
+        "pipe_gate": 0,
+        "phy_common": 1,
+        "phy_status2": 32,
+        "phy_status3": 9,
+        "clkreq": 458752,
+        "ltssm_seen_lo": 1,
+        "ltssm_seen_hi": 0,
+        "ltssm_changes": 0,
+        "pipe_hz": 62358622,
+        "pipe_measure_status": 1,
+        "report_version": 4,
+        "pin_readback": {
+          "perst": {
+            "config": 513,
+            "io": 3
+          },
+          "sw_ctrl": {
+            "config": 1,
+            "io": 1
+          },
+          "wlan_sw_ctrl": {
+            "config": 1,
+            "io": 1
+          },
+          "clkreq": {
+            "config": 7,
+            "io": 0
+          }
+        },
+        "ltssm_enable_readback": true,
+        "ltssm_states_seen": [
+          0
+        ],
+        "last_ltssm_state": 0,
+        "core_x1_configured": false,
+        "core_x2_configured": true,
+        "pipe_measure_name": "measured",
+        "pipe_frequency_measured": true,
+        "stage_name": "train PCIe link",
+        "error_name": "link timeout",
+        "endpoint_identified": false,
+        "firmware_loaded": false,
+        "scan_supported": false,
+        "observation_scope": "UEFI before ExitBootServices; not an XNU runtime link test",
+        "retained_rail_names": [
+          "ldob15",
+          "smpi4",
+          "smpc2",
+          "smpc3",
+          "smpc6",
+          "smpc1"
+        ]
+      },
+      "log_sha256": "65ccfd9ab0b58e0527e7f17817e769683c7f8fd50965ff72837edf644e5f4b5c",
+      "interpretation": "x2 configuration and bounded clock measurement passed; PIPE measured 62358622 Hz; five debug registers restored; all sampled LTSSM states were Detect.Quiet; no endpoint enumerated. Frequency alone does not establish whether the PHY/controller interface is configured correctly."
+    }
+  },
+  "firmware_assets": "hardware/sm8650-wifi-firmware.json"
+}

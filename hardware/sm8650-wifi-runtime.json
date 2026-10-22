@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-22",
+  "board": "OnePlus Ace 5 PKG110 / SM8650 / WCN7850",
+  "status": "Runtime source integrated; kernel build and final image verification in progress",
+  "driver": "ios16/GiuliaWiFi.cpp",
+  "build_option": "scripts/prepare-ios16.py --gui --touch --wifi",
+  "hardware_verified": false,
+  "latest_hardware_evidence": "PCIe Detect.Quiet before the new host PHY rail requests; no endpoint enumeration observed yet",
+  "startup_gate": "Exact successful version-5 UEFI handoff plus live root link and 17cb:1107 endpoint checks",
+  "dma": {
+    "physical_memory": "Allocator-owned, contiguous, 2 MiB aligned 64 MiB arena",
+    "iova": "0x20000000..0x23ffffff",
+    "stream_id": "0x1401",
+    "page_tables": "Separately allocated 16 KiB; not accessible to endpoint DMA",
+    "smmu_scope": "Only the owned PCIe stream and a disabled unused context bank; no global invalidation",
+    "interrupts": "Polled MHI/CE with one MSI routed to an owned arena sink",
+    "failure_policy": "Stop CE, reset MHI, disable bus mastering and drain transactions before releasing mappings; quarantine memory on uncertain shutdown"
+  },
+  "firmware": {
+    "local_pack": "out/ios16/wifi-runtime-assets/firmware.pack",
+    "bytes": 22438550,
+    "sha256": "5a84c3a28b23c7d0a3a94df89a52830f4b9d0807cd62e915f897774effcc41c5",
+    "assets": 73,
+    "source_release": "PKG110 16.0.3.500(CN01)",
+    "embedding": "Local read-only __WIFI_FW Mach-O segment after CI; only digest is compiled/uploaded",
+    "selection": "Observed SOC major and QMI chip/board identity; no guessed BDF fallback",
+    "protocol": "BHI bootstrap, BHIE full image, MHI IPCR 20/21, QRTR WLANFW service 0x45 instance 1, QMI memory/BDF/regdb/PHY exchange"
+  },
+  "scan": {
+    "transport": "CE0/1/2/3, HTC credit flow, WMI initialization and station vdev",
+    "mode": "Passive only",
+    "bands": "2.4 GHz channels 1..13 and 5 GHz channels 36,40,44,48,149,153,157,161,165",
+    "results": "Only received beacon/probe-response management frames, at most 64 BSS and 1024 IE bytes each",
+    "timeout_ms": 20000,
+    "association_authentication_data_path": false,
+    "real_scan_observed": false
+  },
+  "ios16_abi": {
+    "build": "20H392 arm64",
+    "framework": "/System/Library/PrivateFrameworks/IO80211.framework/IO80211",
+    "proxy_selector": 0,
+    "get": {
+      "ioctl": "0xc02869c9",
+      "envelope_bytes": 15408,
+      "data_capacity": 15360
+    },
+    "set": {
+      "ioctl": "0x802869c8",
+      "envelope_bytes": 245808,
+      "data_capacity": 245760
+    },
+    "embedded_user_pointer": "Never dereferenced",
+    "scan_request": {
+      "request_type": 10,
+      "bytes": 5456,
+      "version": 1
+    },
+    "scan_result": {
+      "request_type": 11,
+      "bytes": 1164,
+      "ie_offset": 140
+    },
+    "event_transport": "Verified PF_SYSTEM fallback: vendor 1, class 6, subclass 1, scan event 10",
+    "interface": "BSD en0 Wi-Fi subfamily and IO80211 controller/interface services; link remains unassociated",
+    "interface_role": {
+      "property": "IO80211InterfaceRole",
+      "type": "string",
+      "value": "Infrastructure",
+      "evidence": "Apple80211GetIfListCopy filter at 0x1d3ed3fec and CFStrings at 0x1d3efe5fd"
+    },
+    "supported_channels": {
+      "request_type": 27,
+      "bytes": 4824,
+      "count_offset": 4,
+      "entry_bytes": 12
+    },
+    "country_code": {
+      "request_type": 51,
+      "bytes": 3,
+      "value": "CN"
+    }
+  },
+  "primary_sources": [
+    "https://github.com/torvalds/linux/tree/v6.12/drivers/net/wireless/ath/ath12k",
+    "https://github.com/torvalds/linux/tree/v6.12/drivers/bus/mhi",
+    "https://github.com/torvalds/linux/tree/v6.12/net/qrtr",
+    "https://github.com/torvalds/linux/tree/v6.12/drivers/iommu/arm/arm-smmu",
+    "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/tree/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2",
+    "https://github.com/apple-oss-distributions/xnu/tree/xnu-8796.121.2"
+  ]
+}

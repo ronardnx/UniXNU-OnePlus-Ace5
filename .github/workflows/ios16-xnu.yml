@@ -14,6 +14,10 @@ on:
         description: Include the opt-in Ace 5 hardware touch driver (requires GUI)
         type: boolean
         default: false
+      wifi:
+        description: Include WCN7850 runtime and IO80211 passive scans (requires GUI; firmware stays local)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -44,13 +48,15 @@ jobs:
           /tmp/trust-test < /dev/null
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_log_bytes.c -o /tmp/log-test
           /tmp/log-test
+          bash scripts/test-ios16-wifi-runtime.sh
+          python3 tests/ios16_wifi_embed.py
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }}
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }}
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
@@ -81,6 +87,10 @@ jobs:
           if [ '${{ inputs.profile }}' = gui ]; then
             python3 -c "from pathlib import Path; assert b'GIULIA AMFI: trust catalogue ready;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
             python3 -c "from pathlib import Path; assert b'GIULIA LOG: launchd full activity/stderr logging enabled;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
+            python3 -c "from pathlib import Path; assert b'GIULIA FB: native panel 1264x2780 full coverage;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
+          fi
+          if [ '${{ inputs.wifi }}' = true ]; then
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in b; assert b'IO80211Controller' in b and b'GiuliaWiFiUserClient' in b"
           fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho

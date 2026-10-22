@@ -1,0 +1,108 @@
+{
+  "date": "2026-10-21",
+  "device": "OnePlus Ace 5 / giulia",
+  "kernel_source_commit": "8c36508",
+  "captures": [
+    {
+      "file": "out/ios16/service-stall-investigation/sample-current.log",
+      "sha256": "b13432db3b6cfe3ae5f29a22d774e5c1bf7df8afb035ccd33dbc688c42810553"
+    },
+    {
+      "file": "out/ios16/service-stall-investigation/sample-confirm.log",
+      "sha256": "8d1c7f3bf0e2a3c7529c12f5fe90bbfdd1d45cb0da0709d9bd5aa4f16189d271"
+    },
+    {
+      "file": "out/ios16/service-stall-investigation/sample-latest.symbols.txt",
+      "sha256": "c41c36831497bba15c8bc93f649a1a86de532bdfbc53fdfdb10ace2abc7a8aa4"
+    },
+    {
+      "file": "out/ios16/service-stall-investigation/sample-latest.plugins.txt",
+      "sha256": "2a90d1f642c7b4a99be550852c3d14dff9dce44c0e956eba9de4da763568fce3"
+    },
+    {
+      "file": "out/ios16/service-stall-investigation/memory-status.log",
+      "sha256": "21bb4d0b7cd7e127784d2443ace10076d973a947b6fe08f2da671fb5ae56ab09"
+    }
+  ],
+  "current_observations": {
+    "migration_plugin": "MISystemAppMigrator waitForSystemAppInstallDispatchGroup, offset 0x49b0, caller 0x8370",
+    "appstored": "DMPerformMigration waits synchronously for DataMigration; AMSFairPlayGetDeviceType blocks another worker; several AMSBagValue waiters",
+    "accountsd": "Main run loop and idle worker threads; previous ACAccountStore blocking stack is no longer the current appstored wait",
+    "installd": "Main run loop and idle worker threads",
+    "SpringBoard": "BKSSystemShellService _checkIn waits for backboardd migration gate",
+    "kernel": "Responsive to sample command; framebuffer swaps continue"
+  },
+  "fresh_base_audit": {
+    "build": "20H392",
+    "migration_preference_exists": false,
+    "required_container_directories_present": false,
+    "phone_filesystem_not_read": true
+  },
+  "candidate_scope": "Initialize a verified fresh base copy with build-specific migration metadata and container directories, following upstream ios-sweet; does not repair FairPlay, App Store or Apple account support",
+  "references": [
+    "reference-ios-sweet/tools/sweet-root-tweaks.py",
+    "reference-ios-sweet/NOTES.md, 2026-10-17 GUI milestone",
+    "UniXNU/docs/guide/skip-setup.md"
+  ],
+  "hardware_verified": false,
+  "phone_modified": false,
+  "memory": {
+    "allocated_bytes": 2147483648,
+    "page_bytes": 16384,
+    "bootstrap_free_pages": 128385,
+    "bootstrap_wired_pages": 2687,
+    "bootstrap_free_mib": 2006.015625,
+    "bootstrap_wired_mib": 41.984375,
+    "live_free_memory": null,
+    "per_process_rss": null,
+    "serial_memory_query_supported": false,
+    "transport_dropped_bytes": 0,
+    "memory_kill_observed_in_captures": false,
+    "jetsam_limit_error": "Could not opt into 50 MB Jetsam high watermark: 22: Invalid argument",
+    "swap_boot_log": "VM Swap Subsystem is ON",
+    "note": "Bootstrap counters are not current free memory. No OOM log does not establish absence of memory pressure.",
+    "adt_memory_request_verified": true,
+    "adt_chip_id": "0x8015",
+    "adt_has_unique_chip_id": true
+  },
+  "host_fsck_observation": {
+    "stock_tool": "hfsprogs 540.1.linux3-6build1",
+    "readonly_result": "-fn reports primary VHB result 35, both base and candidate",
+    "source_analysis": "cache.c CacheRead returns EDEADLK (35 on Linux) on a retained overlapping buffer; CacheWrite returns early on write failure without releasing that reference. The -n dirty-bit path can trigger this.",
+    "source_archive": "https://archive.ubuntu.com/ubuntu/pool/universe/h/hfsprogs/hfsprogs_540.1.linux3.orig.tar.gz",
+    "validation": "Require successful full fsck on generated copy and unchanged full-image SHA256 across the verification pass; never repair the source or phone."
+  },
+  "candidate": {
+    "directory": "out/ios16/gui-seed-candidate",
+    "build": "20H392",
+    "source_sha256": "52a1ba391b4e87ad765012abb9f50ba00ea44f255cc4f60b45a7c0d5da4730f5",
+    "source_unchanged": true,
+    "bytes": 17179869184,
+    "sha256": "cb70191c4e23a330b6e613c7319bd242f151e36d5160473518f48f9d1c8e093b",
+    "hfs_finder_id": "34320965bfe52d66",
+    "block_size": 4096,
+    "partition_table": false,
+    "raw_file": "giulia-ios16-gui-seed.img",
+    "sparse_file": "giulia-ios16-gui-seed.sparse.img",
+    "sparse_bytes": 11826057188,
+    "sparse_sha256": "9cfe02137fad51c27d85a4766cf4f35a8e1c2095f0d2bb756ee703fec25f7c56",
+    "sparse_expansion_verified": true,
+    "filesystem_check_passed": true,
+    "filesystem_check_mode": "full fsck, second pass SHA256 unchanged",
+    "numeric_ownership_independently_verified": true,
+    "target_partition": "userdata",
+    "flashed": false,
+    "hardware_verified": false,
+    "scope": "Fresh-root migration metadata and container directories",
+    "account_services_fixed": false,
+    "transport_encoder": "standard Android RAW/FILL, native Windows buffered I/O"
+  },
+  "validation": {
+    "gui_seed_tests": 5,
+    "gui_seed_tests_passed": true,
+    "python_syntax_passed": true,
+    "original_image_preserved": true,
+    "phone_rebooted": false,
+    "phone_flashed": false
+  }
+}

@@ -22,6 +22,7 @@
 #include "ScanPolicy.h"
 VOID GiuliaTouchClockSchedule (VOID);
 VOID GiuliaTouchPowerSchedule (VOID);
+VOID GiuliaWifiInstall (VOID);
 
 #define RAM_BLOCK_SIZE  512
 
@@ -253,6 +254,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   Report (1, 0, 0, EFI_NOT_READY);
   GiuliaTouchClockSchedule ();
   GiuliaTouchPowerSchedule ();
+  GiuliaWifiInstall ();
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);
   if ((Hob == NULL) || (GET_GUID_HOB_DATA_SIZE (Hob) < sizeof (UINT64))) {
     Report (2, 0, 0, EFI_NOT_FOUND);

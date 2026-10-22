@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-22",
+  "request": "Fill the Ace 5 native display and adapt touch coordinates",
+  "physical_framebuffer": {"address": "0xd5100000", "width": 1264, "height": 2780, "stride": 5056},
+  "uikit_canvas": {"width": 1125, "height": 2436, "reason": "Retain the supported iOS16 D22 layout and status-bar provider"},
+  "previous_presentation": "Centered 1:1 canvas with unused panel borders",
+  "new_presentation": "Scale both axes over the full native panel; independent bounded layer rectangles; no centered offset",
+  "filter": "Nearest-neighbor software presentation; existing presentation rate retained",
+  "touch": "Full panel normalized coordinates, including both physical edges; no centered-canvas subtraction",
+  "pixel_format": "BGRA8888, confirmed in prior backboardd/Setup swap logs",
+  "offline_verified": "All 3,513,920 output pixels, clipping, allocation bounds and touch monotonicity",
+  "hardware_verified": false,
+  "sources": ["ios16/giulia_display.h", "scripts/ios16_display.py", "tests/ios16_display.c"]
+}
