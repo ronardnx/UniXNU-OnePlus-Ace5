@@ -285,3 +285,19 @@ XNU 的 `gpu.status` 区分固件准备与运行时租约，始终保留
 `smmu_active=0 gmu_started=0 acceleration=0`。QMP 归属或协议结果不确定时，
 GPU／Wi-Fi 统一内核阻止 Wi-Fi 再次打开该通道，即使稍后邮箱看似为空。
 坏报告与陈旧结果不会被解释为本次启动准备成功。
+
+源码 `29df82d225f3999b704e77328f76a779720324f6` 的整合内核与链接检查
+通过：[run 39847492327](https://github.com/jasper2863/UniXNU-giulia/actions/runs/39847492327)。
+102 项电源策略、47 项加载器场景、原生 UEFI QMP 头文件的 78 项故障模型、
+报告消费者及原有 GPU 控制测试通过。固定快照的 Python 测试运行 83 项，
+两项依赖外部参考／C fixture 的场景按条件跳过；CI 另运行完整屏幕 runner。
+
+模式 3 候选为 `out/ios16/gpu-power-boot-20261023/giulia-ios16-wifi-pcie.img`，
+69,292,032 字节，SHA256
+`c95f909fe50f67e5ccaf15d2237d9351aae12dd94cdf8019334549c2309b4d9c`。
+原厂 ClockDxe 摘要、UEFI 协议／加载器、固件段、ADT 请求、根卷绑定和
+最终镜像布局均已校验；387 个固定源码文件及 79 份生成补丁／脚本与 CI
+匹配。记录见
+[`hardware/ios16-gpu-power-integration.json`](../hardware/ios16-gpu-power-integration.json)。
+当前仅完成编译与打包，未启动手机，也未实测电源／时钟／复位读取路径。
+本轮上游增量只拉取用于比较，尚未合并或更新版本锁定。
