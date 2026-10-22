@@ -37,6 +37,12 @@ See [development status](docs/DEVELOPMENT_STATUS.md) and the [firmware transfer 
 
 Source revisions are fixed in [`sources.json`](sources.json) and the target-specific workflows. Kernel, device tree, firmware and payload metadata must match.
 
+Committed UEFI and UniXNU development snapshots are also tracked as Git submodules under `sources/`. Download the recorded revisions with:
+
+```bash
+git submodule update --init sources/uefi-giulia sources/UniXNU
+```
+
 ## Build
 
 ### UEFI
@@ -78,6 +84,7 @@ For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal
 | --- | --- |
 | `board.toml`, `configs/`, `targets/` | Board and target configuration |
 | `sources.json`, `patches/`, `uefi-overlay/` | Upstream pins and UEFI integration |
+| `sources/uefi-giulia`, `sources/UniXNU` | Development source snapshots pinned as Git submodules |
 | `ios16/` | Darwin 22 drivers and compatibility patches |
 | `scripts/`, `tests/` | Build, packaging, diagnostic and test tools |
 | `hardware/`, `docs/` | Validation records and development documentation |

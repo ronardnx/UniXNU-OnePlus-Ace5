@@ -37,6 +37,12 @@
 
 上游版本由 [`sources.json`](sources.json) 及各目标工作流固定。内核、设备树、固件和负载元数据必须配套使用。
 
+已提交的 UEFI 与 UniXNU 开发源码快照同时以 Git 子模块记录在 `sources/` 下。拉取所记录的版本：
+
+```bash
+git submodule update --init sources/uefi-giulia sources/UniXNU
+```
+
 ## 构建
 
 ### UEFI
@@ -78,6 +84,7 @@ bash scripts/test-ios16-wifi-runtime.sh
 | --- | --- |
 | `board.toml`、`configs/`、`targets/` | 板级及目标配置 |
 | `sources.json`、`patches/`、`uefi-overlay/` | 上游版本锁定与 UEFI 集成 |
+| `sources/uefi-giulia`、`sources/UniXNU` | 以 Git 子模块固定版本的开发源码快照 |
 | `ios16/` | Darwin 22 驱动及兼容性补丁 |
 | `scripts/`、`tests/` | 构建、打包、诊断及测试工具 |
 | `hardware/`、`docs/` | 验证记录与开发文档 |

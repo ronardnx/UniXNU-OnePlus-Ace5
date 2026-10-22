@@ -1,0 +1,6 @@
+[submodule "sources/uefi-giulia"]
+	path = sources/uefi-giulia
+	url = https://github.com/tycykp/Mu-Silicium.git
+[submodule "sources/UniXNU"]
+	path = sources/UniXNU
+	url = https://github.com/tycykp/UniXNU.git
