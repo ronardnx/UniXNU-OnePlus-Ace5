@@ -24,15 +24,25 @@ def wifi_sae_patch(out: Path, root: Path) -> str:
                 "    shutil.copy2(source / 'src' / name, target / 'src' / name)\n")
     stage.write_text(original.replace(anchor, addition + anchor), encoding="utf-8", newline="\n")
     units = ["giulia_wifi_sae_crypto"] + ["giulia_sae_" + Path(name).stem for name in BEARSSL_SAE_SOURCES]
+    # Keep trailing context: git apply treats a hunk with no trailing context
+    # as an end-of-file change, while these anchors are inside both files.
+    # The following lines are already installed by the earlier AES patch and
+    # remain present after the MD5/SHA-1/SHA-384/512 patches.
     patch = ("--- a/libkern/conf/files\n+++ b/libkern/conf/files\n"
-             f"@@ -99,1 +99,{len(units)+1} @@\n"
+             f"@@ -99,4 +99,{len(units)+4} @@\n"
              " libkern/crypto/corecrypto_aes.c\t\t\toptional crypto\n")
     patch += "".join(f"+libkern/crypto/{name}.c\toptional crypto\n" for name in units)
+    patch += (" libkern/crypto/sweet_aes.c\toptional crypto\n"
+              " libkern/crypto/sweet_aes_ct.c\toptional crypto\n"
+              " libkern/crypto/sweet_aes_ct_enc.c\toptional crypto\n")
     patch += ("--- a/libkern/conf/Makefile.template\n+++ b/libkern/conf/Makefile.template\n"
-              f"@@ -26,1 +26,{1+2*len(units)} @@\n"
+              f"@@ -26,4 +26,{4+2*len(units)} @@\n"
               " sweet_aes.o_INCFLAGS = $(SWEET_AES_INC)\n")
     patch += "".join(f"+{name}.o_INCFLAGS = $(SWEET_AES_INC)\n"
                      f"+{name}.o_CFLAGS_ADD += -mgeneral-regs-only\n" for name in units)
+    patch += (" sweet_aes_ct.o_INCFLAGS = $(SWEET_AES_INC)\n"
+              " sweet_aes_ct_enc.o_INCFLAGS = $(SWEET_AES_INC)\n"
+              " sweet_aes_ct_dec.o_INCFLAGS = $(SWEET_AES_INC)\n")
     contents = {"giulia_wifi_sae_crypto.c": (root / "ios16/giulia_wifi_sae_crypto.c").read_text(),
                 "giulia_wifi_sae_crypto.h": (root / "ios16/giulia_wifi_sae_crypto.h").read_text()}
     contents.update({"giulia_sae_" + Path(name).name:
