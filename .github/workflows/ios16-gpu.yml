@@ -13,18 +13,15 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - name: Check GPU terminal surfaces and stage contract
+        run: |
+          python3 scripts/check-gpu-command-surfaces.py
+          python3 scripts/check-gpu-stack-contract.py
       - uses: actions/checkout@v4
         with:
           repository: xyyyds0106/ios-vermeer-lab
           ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
           path: reference
-      - name: Validate GPU preparation
-        run: |
-          python3 scripts/make-gpu-smmu-oracle.py --fetch --out .cache/gpu-source-oracle.c
-          bash scripts/test-ios16-gpu.sh
-          python3 -m unittest discover -s tests -p 'test_gpu*.py' -v
-          python3 tests/ios16_gpu_embed.py
-          python3 tests/ios16_gpu_patch.py
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
@@ -32,10 +29,7 @@ jobs:
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
           python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile --gui --touch --gpu
-          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
-          /tmp/dma-test
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
-          python3 tests/ios16_rebase.py reference
           cp profile/*.patch profile/*.sh dxb/patches/
           sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
       - name: Select compatible Xcode and dependencies

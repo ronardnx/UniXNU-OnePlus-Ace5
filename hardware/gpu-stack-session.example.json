@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "purpose": "Template for one GPU stack bring-up session on giulia. Copy to hardware/ios16-gpu-stack-session-<date>.json, fill only what the device actually printed, and keep it separate from host/build evidence. An unfilled field means 'not observed', never 'passed'.",
+  "template": true,
+  "device": {
+    "model": "OnePlus Ace 5 (PKG110)",
+    "soc": "SM8650",
+    "serial_redacted": true,
+    "boot_args": "giulia_gpu=<mode>, vermeer_usb=1",
+    "image_build": "<git describe or CI run id>",
+    "date_utc": "<YYYY-MM-DDThh:mm:ssZ>"
+  },
+  "session": {
+    "host_tool": "scripts/debug-terminal.cmd",
+    "port": "COM<n>",
+    "gpu_mode": 1,
+    "kernel_stage_seen": "<ready|stopping|unavailable>"
+  },
+  "commands": [
+    {
+      "name": "gpu.status",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "stage": null,
+        "mode": null,
+        "firmware_verified": null,
+        "host_prepared": null,
+        "platform_ready": null,
+        "power_acquired": null,
+        "smmu_active": null,
+        "gmu_started": null,
+        "device_writes": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    },
+    {
+      "name": "gpu.stack",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "entered": null,
+        "blocked_stage": null,
+        "leases": null,
+        "device_writes": null,
+        "first_stage_without_provider": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    },
+    {
+      "name": "gpu.share",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "authority_code": null,
+        "proofs": null,
+        "missing": null,
+        "share_initialized": null,
+        "snapshot_taken": null,
+        "rm_or_scm_traffic": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    },
+    {
+      "name": "gpu.fence",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "import_code": null,
+        "skip_reason": null,
+        "cpu_state": null,
+        "completion_verified": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    },
+    {
+      "name": "gpu.hfi.status",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "alloc_ready": null,
+        "packets": null,
+        "refused": null,
+        "quarantined": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    },
+    {
+      "name": "gpu.hfi.query",
+      "sent": false,
+      "raw_log_ref": "reports/<file>.log#Lx",
+      "fields": {
+        "scratch_request_seen": null,
+        "flags": null,
+        "kind": null,
+        "bytes": null,
+        "firmware_still_waiting": null
+      },
+      "verdict": "<one of: as-expected | regressed | unknown>"
+    }
+  ],
+  "not_claimed": [
+    "no GMU START completion",
+    "no CTX0 registration",
+    "no command submission",
+    "no scanout from a GPU-rendered frame",
+    "no Metal acceleration"
+  ],
+  "notes": "<free text: anything the raw logs do not show, e.g. resets, USB drops, retries>"
+}

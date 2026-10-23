@@ -8,9 +8,9 @@ enum { GGT_STATUS=1, GGT_OBSERVE=2, GGT_ACTIVE=4, GGT_CLOSING=8 };
 enum { GGT_HFI_PIN=16, GGT_HFI_STATUS=32, GGT_HFI_QUERY=64,
     GGT_HFI_POLL=128, GGT_HFI_LOG=256,
     GGT_GMU_LOAD=512, GGT_GMU_START=1024, GGT_GMU_STATUS=2048,
-    GGT_STACK=4096, GGT_SHARE=8192,
+    GGT_STACK=4096, GGT_SHARE=8192, GGT_FENCE=16384,
     GGT_GMU_COMMANDS=GGT_GMU_LOAD|GGT_GMU_START|GGT_GMU_STATUS,
-    GGT_COMMANDS=GGT_STATUS|GGT_OBSERVE|GGT_HFI_PIN|GGT_HFI_STATUS|GGT_HFI_QUERY|GGT_HFI_POLL|GGT_HFI_LOG|GGT_GMU_COMMANDS|GGT_STACK|GGT_SHARE };
+    GGT_COMMANDS=GGT_STATUS|GGT_OBSERVE|GGT_HFI_PIN|GGT_HFI_STATUS|GGT_HFI_QUERY|GGT_HFI_POLL|GGT_HFI_LOG|GGT_GMU_COMMANDS|GGT_STACK|GGT_SHARE|GGT_FENCE };
 enum { GGT_UNAVAILABLE, GGT_PREPARING, GGT_READY, GGT_STOPPING, GGT_STOPPED, GGT_FAILED };
 struct gg_terminal_mailbox { unsigned requests, stage, mode; };
 static inline int gg_terminal_equal(const char *a,const char *b)
@@ -32,7 +32,8 @@ static inline unsigned gg_terminal_command(const char *command)
         gg_terminal_equal(command,"gpu.gmu.start")?GGT_GMU_START:
         gg_terminal_equal(command,"gpu.gmu.status")?GGT_GMU_STATUS:
         gg_terminal_equal(command,"gpu.stack")?GGT_STACK:
-        gg_terminal_equal(command,"gpu.share")?GGT_SHARE:0;
+        gg_terminal_equal(command,"gpu.share")?GGT_SHARE:
+        gg_terminal_equal(command,"gpu.fence")?GGT_FENCE:0;
 }
 static inline int gg_terminal_open(struct gg_terminal_mailbox *m)
 {

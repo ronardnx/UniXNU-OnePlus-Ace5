@@ -45,6 +45,17 @@ scripts\debug-terminal.cmd --port COM21
 | `audio.map` | 固定的 ADSP／LPASS、中断、SIA9177／WCD939x 与 DMA 映射证据；不读取或写入寄存器 |
 | `gpu.status` | GPU 准备阶段、固件校验、RAM／未激活页表数量和最近一次观察；未编译或未启用服务时明确报告 unavailable |
 | `gpu.observe` | 向 GPU 工作线程提交一次有前置门控的只读电源／SMMU 观察，随后输出状态；不使能时钟、电源或 DMA |
+| `gpu.stack` | 只读推进 15 阶段计划并打印每阶段状态；策略固定 `device_writes=0`，不写任何寄存器 |
+| `gpu.share` | 准备一次 primary share 事务；authority 缺少 RM 侧证明时返回 `refused`，share 状态保持为零 |
+| `gpu.fence` | 尝试把已注册 provider 与冻结的 share 快照导入 CPU fence 状态机；未注册/未冻结时报告 skipped |
+| `gpu.hfi.pin` | 固定诊断 DMA 缓冲到重启（仅 mode 3）；成功后不再允许改变其所有权 |
+| `gpu.hfi.status` | 检查 17 个 HWSCHED 队列头，不推动协议 |
+| `gpu.hfi.query` | 入队一次 warmboot 查询；门铃仍需手动 |
+| `gpu.hfi.poll` | 有界收包并记录回复 |
+| `gpu.hfi.log` | 读取 GMU 日志缓冲前 64 个字 |
+| `gpu.gmu.status` | 报告 GMU load/start 状态，不访问硬件 |
+| `gpu.gmu.load` | 把固件装入 TCM；前置条件是电源已准备、mode 3 且 SID 5 翻译已活跃 |
+| `gpu.gmu.start` | 释放复位并等待 HFI ready；失败会 quarantine |
 
 这些命令通过 `prepare-ios16.py` 纳入 base/GUI 补丁；CMD 工具及守护进程源码也随 profile 输出。
 
@@ -54,8 +65,7 @@ scripts\debug-terminal.cmd --port COM21
 `raw`、`stable`、`delivered` 的位 0／1／2 分别表示电源、音量加、音量减；
 `events` 仅统计 HID provider 接受的边沿，`retries` 是 provider 尚未就绪或分配失败的重试次数。
 字段分别以原子操作读取，属于近似快照；`buttons_service=1` 表示 provider 已发布，
-不能单独证明 iOS 已响应按键。可用 `watch keys.status 2` 查询；离线验证运行
-`bash scripts/test-ios16-keys.sh`。
+不能单独证明 iOS 已响应按键。可用 `watch keys.status 2` 查询。
 
 2026-10-23 已用临时启动的旧 r2 镜像记录用户确认的音量加两次、音量减两次、
 电源两次寄存器变化；实测映射见 [`sm8650-keys.json`](../hardware/sm8650-keys.json)。
@@ -80,7 +90,6 @@ GENI／DMA，再临时取得 GPIO206／207，用开漏 I2C 校验 AK09970 `48 c1
 `slider.hid 1` 才开启实验性 Telephony RingEnable 事件桥接，策略为 down 发出
 ring=1、up／middle 发出 ring=0；iOS 的事件极性和实际静音效果仍需实机验证。
 middle 不代表已实现振动，当前没有触觉驱动。`slider.hid 0` 停止后续事件投递。
-离线测试运行 `bash scripts/test-ios16-slider.sh`。
 
 音频查询随本轮源码纳入所有 profile，需重新构建内核；不需要额外 `--audio` 开关。
 它们只显示静态映射，未进行实机音频验证，也不随 `all`／`collect` 自动执行。
@@ -181,8 +190,6 @@ scripts\debug-terminal.cmd --command screen.snapshot --seconds 10
 
 GSC1 每块带长度、帧编号、尺寸和 CRC32，整帧另有 CRC32；最大图像 7027840 字节，块负载不超过 1024 字节。默认 316×695 仍与旧 GSC1 帧兼容，旧电脑解码器需要更新才能接收更高分辨率。损坏／丢字节的数据不会输出到终端文本，也不会保存为有效截图；下一校验包或 `screen.stop` 的校验控制记录恢复解析。PTY 的 BEGIN/END 标记内不解析屏幕魔数，避免损坏 shell 原始输出。
 
-离线验证：`bash scripts/test-ios16-screen.sh`，包含真实 C 发送格式到 Python/PNG 的联测、可变分辨率、连续预览更新、CRC/丢字节、停止恢复、USB 任意分片、framebuffer 取样边界、HID 输入协议、输入租约、桌面控制队列和本地 HTTP 请求校验。离线模型通过不等于手机投屏或反向控制已验证。
-
 ## 真实 shell
 
 数据通路：电脑 CMD → USB CDC → `/dev/giulia-debug` → `giulia-debugd` → PTY → shell 进程。设备节点权限为 root `0600`，只允许一个守护进程打开。`giulia_debug=1` 开启后才注册节点。PTY 使用 Darwin 的 `forkpty`，接口参照 [Apple PTY 文档](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/login_tty.3.html)。
@@ -234,7 +241,14 @@ Wi-Fi 调试构建另支持 `wifi.status` 和 `wifi.start`。打包时指定
 等待 `wifi.start`。提前分配避免等待期间用户空间启动导致 64 MiB 连续内存分配失败。
 这样可以先建立串口连接，
 保留 SMMU 读写、失败寄存器及回滚日志。`wifi.start` 是一次性的继续执行命令，不会
-重启或重试已停止的 Wi-Fi 驱动；`wifi.status` 显示这个等待门的状态。
+重启或重试已停止的 Wi-Fi 驱动。新版 `wifi.status` 除了等待门，还显示硬件 worker
+发布的启动快照：快照时间、worker 是否仍运行、MHI 阶段和 EE、QMI 子阶段与错误、
+最后请求／通知、注册状态、固件返回的引脚结果、PDC 默认／覆盖命令计数，以及
+QMP pending／保留状态。快照在轮询时最多每 100 ms 更新，协议收发和退出时立即
+更新；worker 退出后仍保留最终快照。查询不读 MMIO，不持有运行时锁，不触发初始化。
+`pin_valid` 的三个 bit 分别表示电源、PHY IO、RF 字段实际存在；位图不解释为通过／失败。
+这些新增字段需重新构建内核；旧镜像仍只显示等待门。完整对应关系见
+[一加启动链审计](WIFI_UPSTREAM_CHAIN.md)。
 
 需要 `giulia_debug=1 giulia_mmio=1`。命令在内核使用 device MMIO 映射、指定宽度的 volatile load/store 和 ARM 屏障执行，结果来自实际访问，不来自历史日志。
 

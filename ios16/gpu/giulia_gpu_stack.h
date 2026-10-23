@@ -13,7 +13,9 @@
  *      other path into enter(). Evidence from an earlier boot never authorises
  *      entry.
  *   3. Host mutation and device writes are authorised separately. Both
- *      default to refused, which leaves the stack in prepare/observe mode.
+ *      default to refused, which leaves the stack in prepare/observe mode. A
+ *      lease (adopting state UEFI or firmware prepared) writes nothing but
+ *      claims ownership, so it needs the host grant and is counted separately.
  *   4. A failed device entry latches quarantine for the whole stack and stops
  *      the forward walk. An unconfirmed leave does the same and stops the
  *      reverse walk, because resources may still own DMA.
@@ -51,9 +53,10 @@ enum ggsk_stage {
 };
 
 enum ggsk_class {
-    GGSK_CLASS_RO=0,    /* read-only observation, never mutates anything      */
-    GGSK_CLASS_HOST=1,  /* CPU/page-table mutation only, no device writes     */
-    GGSK_CLASS_DEVICE=2 /* device MMIO, HVC, SMC or firmware-visible memory   */
+    GGSK_CLASS_RO=0,     /* read-only observation, never mutates anything       */
+    GGSK_CLASS_HOST=1,   /* CPU/page-table mutation only, no device writes      */
+    GGSK_CLASS_DEVICE=2, /* device MMIO, HVC, SMC or firmware-visible memory    */
+    GGSK_CLASS_LEASE=3   /* adopts inherited state: no write, but claims a lease */
 };
 
 struct ggsk_desc {
@@ -68,8 +71,8 @@ static inline const struct ggsk_desc *ggsk_desc_of(unsigned stage)
         {"boot-handoff",0,GGSK_CLASS_RO},
         {"firmware",GGSK_BIT(GGSK_BOOT),GGSK_CLASS_RO},
         {"host-memory",GGSK_BIT(GGSK_FIRMWARE),GGSK_CLASS_HOST},
-        {"power-lease",GGSK_BIT(GGSK_BOOT)|GGSK_BIT(GGSK_HOST_MEMORY),GGSK_CLASS_DEVICE},
-        {"gunyah-channel",GGSK_BIT(GGSK_BOOT),GGSK_CLASS_DEVICE},
+        {"power-lease",GGSK_BIT(GGSK_BOOT)|GGSK_BIT(GGSK_HOST_MEMORY),GGSK_CLASS_LEASE},
+        {"gunyah-channel",GGSK_BIT(GGSK_BOOT),GGSK_CLASS_LEASE},
         {"share",GGSK_BIT(GGSK_GUNYAH)|GGSK_BIT(GGSK_HOST_MEMORY),GGSK_CLASS_DEVICE},
         {"smmu-active",GGSK_BIT(GGSK_POWER)|GGSK_BIT(GGSK_HOST_MEMORY),GGSK_CLASS_DEVICE},
         {"gmu-load",GGSK_BIT(GGSK_SMMU)|GGSK_BIT(GGSK_FIRMWARE)|GGSK_BIT(GGSK_HOST_MEMORY),GGSK_CLASS_DEVICE},
@@ -87,7 +90,12 @@ static inline const struct ggsk_desc *ggsk_desc_of(unsigned stage)
 enum ggsk_state { GGSK_UNSET=0, GGSK_READY, GGSK_ENTERED, GGSK_STOPPED, GGSK_BLOCKED, GGSK_FAILED };
 
 enum ggsk_code { GGSK_OK=0, GGSK_ARGUMENT, GGSK_NO_PROVIDER, GGSK_BOUND, GGSK_FROZEN,
-    GGSK_PREREQ, GGSK_POLICY, GGSK_NOT_READY, GGSK_ENTER, GGSK_LEAVE, GGSK_QUARANTINED };
+    GGSK_PREREQ, GGSK_POLICY, GGSK_NOT_READY, GGSK_ENTER, GGSK_LEAVE, GGSK_QUARANTINED,
+    GGSK_REFUSED };
+
+/* enter() convention: 0 = entered, GGSK_ENTER_REFUSED (2) = refused before any
+ * mutation (no quarantine, the stage stays blocked), anything else = failed. */
+enum { GGSK_ENTER_REFUSED=2 };
 
 struct ggsk_ops {
     void *cookie;
@@ -97,7 +105,9 @@ struct ggsk_ops {
      * framework keeps no earlier "ready" answer. */
     int (*probe)(void *cookie,uint64_t *bits);
     /* Forward transition. Reachable only through ggsk_advance(), after this
-     * call's probe succeeded. Must not assume any later stage. */
+     * call's probe succeeded. Must not assume any later stage.
+     * Return 0 when entered, GGSK_ENTER_REFUSED (2) when the provider refused
+     * before mutating anything, anything else when the attempt failed. */
     int (*enter)(void *cookie);
     /* Reverse transition. 0 means the stop is confirmed. Anything else means
      * the stop is unconfirmed, so the stack quarantines and stops unwinding. */
@@ -118,7 +128,7 @@ struct ggsk_policy {
 struct ggsk {
     struct ggsk_policy policy;
     unsigned frozen,quarantined,entered_mask,reached,blocked,attempts;
-    unsigned writes,host_mutations; /* cumulative, never decremented */
+    unsigned writes,host_mutations,leases; /* cumulative, never decremented */
     struct ggsk_slot slot[GGSK_STAGES];
 };
 
@@ -131,7 +141,7 @@ static inline const char *ggsk_stage_name(unsigned stage)
 static inline const char *ggsk_class_name(unsigned klass)
 {
     return klass==GGSK_CLASS_RO?"read-only":klass==GGSK_CLASS_HOST?"host-mutation":
-        klass==GGSK_CLASS_DEVICE?"device-write":"invalid";
+        klass==GGSK_CLASS_DEVICE?"device-write":klass==GGSK_CLASS_LEASE?"lease-adopt":"invalid";
 }
 
 static inline const char *ggsk_state_name(unsigned state)
@@ -143,7 +153,8 @@ static inline const char *ggsk_state_name(unsigned state)
 static inline const char *ggsk_code_name(unsigned code)
 {
     const char *const names[]={"ok","argument","no-provider","already-bound","frozen",
-        "prerequisite","policy","not-ready","enter-failed","leave-unconfirmed","quarantined"};
+        "prerequisite","policy","not-ready","enter-failed","leave-unconfirmed","quarantined",
+        "refused"};
     return code<sizeof(names)/sizeof(names[0])?names[code]:"invalid";
 }
 
@@ -159,7 +170,7 @@ static inline int ggsk_init(struct ggsk *s,const struct ggsk_policy *policy)
     s->policy.allow_host_mutation=policy->allow_host_mutation?1u:0u;
     s->policy.allow_device_writes=policy->allow_device_writes?1u:0u;
     s->frozen=s->quarantined=s->entered_mask=s->attempts=0;
-    s->reached=0; s->blocked=0; s->writes=s->host_mutations=0;
+    s->reached=0; s->blocked=0; s->writes=s->host_mutations=s->leases=0;
     for (stage=0;stage<GGSK_STAGES;++stage) {
         struct ggsk_slot *slot=&s->slot[stage];
         slot->ops=0; slot->evidence=0; slot->state=GGSK_UNSET; slot->code=GGSK_NO_PROVIDER;
@@ -250,6 +261,12 @@ static inline int ggsk_advance(struct ggsk *s,unsigned target)
         if (desc->klass==GGSK_CLASS_HOST && !s->policy.allow_host_mutation) {
             slot->state=GGSK_BLOCKED; slot->code=GGSK_POLICY; continue;
         }
+        /* A lease adopts state someone else prepared (UEFI, firmware). It writes
+         * nothing, but it does claim ownership, so it needs the same grant as a
+         * host mutation and is counted separately. */
+        if (desc->klass==GGSK_CLASS_LEASE && !s->policy.allow_host_mutation) {
+            slot->state=GGSK_BLOCKED; slot->code=GGSK_POLICY; continue;
+        }
         if (desc->klass==GGSK_CLASS_DEVICE && !s->policy.allow_device_writes) {
             slot->state=GGSK_BLOCKED; slot->code=GGSK_POLICY; continue;
         }
@@ -257,6 +274,13 @@ static inline int ggsk_advance(struct ggsk *s,unsigned target)
         if (ggsk_probe(s,stage)) continue; /* fresh read-only evidence before entry */
         ++slot->enters;
         error=slot->ops->enter(slot->ops->cookie);
+        if (error==GGSK_ENTER_REFUSED) {
+            /* A refusal that provably performed no mutation: the stage stays
+             * blocked, the stack is not quarantined, and the walk stops because
+             * everything after it depends on it. */
+            slot->state=GGSK_BLOCKED; slot->code=GGSK_REFUSED;
+            break;
+        }
         if (error) {
             slot->state=GGSK_FAILED; slot->code=GGSK_ENTER;
             if (desc->klass==GGSK_CLASS_DEVICE) { s->quarantined=1; break; }
@@ -266,6 +290,7 @@ static inline int ggsk_advance(struct ggsk *s,unsigned target)
         s->entered_mask|=GGSK_BIT(stage);
         if (desc->klass==GGSK_CLASS_HOST) ++s->host_mutations;
         else if (desc->klass==GGSK_CLASS_DEVICE) ++s->writes;
+        else if (desc->klass==GGSK_CLASS_LEASE) ++s->leases;
     }
     ggsk_summarise(s);
     if (ggsk_entered(s,target)) return GGSK_OK;

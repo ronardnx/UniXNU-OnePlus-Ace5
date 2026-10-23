@@ -31,8 +31,9 @@ void giulia_gpu_stack_log(const struct ggsk *s)
         (unsigned)__builtin_popcount(s->entered_mask),GGSK_STAGES,s->reached,s->blocked,
         s->blocked<GGSK_STAGES?ggsk_stage_name(s->blocked):"none",
         s->quarantined,s->writes,s->host_mutations);
-    printf("GIULIA GPU STACK: frozen=%u attempts=%u policy_host=%u policy_device=%u acceleration=0\n",
-        s->frozen,s->attempts,s->policy.allow_host_mutation,s->policy.allow_device_writes);
+    printf("GIULIA GPU STACK: frozen=%u attempts=%u policy_host=%u policy_device=%u leases=%u acceleration=0\n",
+        s->frozen,s->attempts,s->policy.allow_host_mutation,s->policy.allow_device_writes,
+        s->leases);
 }
 
 __attribute__((used)) int giulia_gpu_stack_init(struct ggsk *s,const struct ggsk_policy *policy)

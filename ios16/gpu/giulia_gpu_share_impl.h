@@ -33,17 +33,38 @@ int GiuliaGPU::shareIdentity(void *cookie,uint64_t epoch,uint16_t *self_vmid,uin
     return 1;
 }
 
-/* Both the gate and ggsh's own assign-time authorize land here. A backend that
- * can prove primary role, exclusive carveout ownership and the absence of a
- * competing sharing driver replaces this body; a constant-1 stub would authorise
- * a second owner and must never be added here. */
+/* Both the gate and ggsh's own assign-time authorize land here. The decidable
+ * half lives in ggsa_verify(); the RM-side facts (primary role, exclusive
+ * ownership) are inputs the platform cannot produce yet, so the verdict stays
+ * UNPROVEN and the transaction is refused. A constant-1 stub here would
+ * authorise a second owner and must never be added. */
 int GiuliaGPU::shareAuthorize(void *cookie,uint64_t epoch,uint16_t self_vmid,
     uint16_t peer_vmid,uint64_t physical,uint32_t bytes)
 {
-    (void)cookie;
-    IOLog("GIULIA GPU SHARE: authority=unavailable epoch=%#llx self=%u peer=%u pa=%#llx bytes=%#x reason=no-primary-carveout-proof\n",
-        (unsigned long long)epoch,self_vmid,peer_vmid,(unsigned long long)physical,bytes);
-    return 0;
+    GiuliaGPU *self=(GiuliaGPU *)cookie;
+    struct ggsa_inputs in;
+    struct ggsa_verdict verdict;
+    int code;
+    if(!self)return 0;
+    in.epoch=epoch;
+    in.expected_epoch=self->gunyahOwner?self->gunyahOwner->epoch:0;
+    in.owner=self->gunyahOwner;
+    in.expected_owner=self->gunyahOwner;
+    in.control_pa=self->shareControlPA;
+    in.control_bytes=self->shareControlReady?(uint32_t)GGS_CONTROL_BYTES:0;
+    in.carveout_physical=physical;
+    in.carveout_bytes=bytes;
+    in.power_prepared=self->firmwarePowerState==GGPH_PREPARED;
+    in.platform_healthy=(!self->platformPoisoned && !self->gmuFaulted);
+    /* No RM-side backend exists: never infer these from local state. */
+    in.rm_primary=0;
+    in.rm_exclusive=0;
+    code=ggsa_verify(&in,&verdict);
+    IOLog("GIULIA GPU SHARE: authority=%s proofs=%#x missing=%#x epoch=%#llx self=%u peer=%u pa=%#llx bytes=%#x\n",
+        ggsa_code_name((unsigned)code),verdict.proofs,verdict.missing,
+        (unsigned long long)epoch,self_vmid,peer_vmid,
+        (unsigned long long)physical,bytes);
+    return code==GGSA_OK?1:0;
 }
 
 int GiuliaGPU::sharePublish(void *cookie,const void *bytes,size_t length)
@@ -114,6 +135,8 @@ int GiuliaGPU::shareCommand()
     result=ggsr_finish(&shareRuntime,2000);
     IOLog("GIULIA GPU SHARE: finish code=%s runs=%u parcel=%#x\n",
         ggsr_code_name((unsigned)result),shareRuntime.runs,shareRuntime.snapshot.frozen.parcel);
+    /* The frozen identity is the only input the fence import accepts. */
+    if(!result)(void)fenceImportAttempt();
     shareReport();
     return result;
 }

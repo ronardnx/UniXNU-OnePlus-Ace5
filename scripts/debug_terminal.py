@@ -18,12 +18,13 @@ from ios16_screen import ScreenWire, ScreenStore, ScreenViewer, ScreenControl
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
-                   'gpu.status','gpu.observe',
+                   'gpu.status','gpu.observe','gpu.stack','gpu.share','gpu.fence',
                    'keys.status',
                    'slider.status','slider.stop',
                    'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
                    'modem.status','modem.start','modem.stop','modem.suspend','modem.resume',
                    'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
+                   'gpu.gmu.load','gpu.gmu.start','gpu.gmu.status',
                    'screen.start','screen.stop','screen.snapshot',
                    'input.status','input.release','input.keepalive')
 TOPICS = {
@@ -43,14 +44,20 @@ TOPICS = {
 HELP = '''Device commands (new kernel needed except help/ping/status/replay/sample):
   info uptime memory ps bootargs display usb ufs features
   help / ping / status / replay / sample (GUI sampler)
-  wifi.status / wifi.start   inspect/release an opted-in pre-DMA wait
+  wifi.status / wifi.start   cached firmware boot status / release pre-DMA wait
   gpu.status              retained GPU preparation/last-observation state
   gpu.observe             queue gated read-only power/SMMU observation
+  gpu.stack               read-only 15-stage plan (no device writes)
+  gpu.share               prepare the primary share transaction; refuses at authority
+  gpu.fence               attempt the CPU import of a registered fence provider
   gpu.hfi.pin             retain diagnostic DMA buffers until reboot (mode 3)
   gpu.hfi.status          inspect the 17 HWSCHED queue headers
   gpu.hfi.query           enqueue warmboot query; manual doorbell still required
   gpu.hfi.poll            drain bounded HFI reply/debug packets
   gpu.hfi.log             read the first 64 words of the GMU log buffer
+  gpu.gmu.status          report GMU load/start state without touching hardware
+  gpu.gmu.load            load firmware into TCM (requires prepared power and active SID 5)
+  gpu.gmu.start           release reset and wait for HFI ready
   audio.status           audio implementation stage; no live hardware query
   audio.map              firmware/source board metadata; does not map MMIO
   audio.preflight        opted-in runtime firmware/provider status
@@ -352,7 +359,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test','slider.stop','modem.start','modem.stop','modem.suspend','modem.resume') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','gpu.stack','gpu.share','gpu.fence','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test','slider.stop','modem.start','modem.stop','modem.suspend','modem.resume') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:

@@ -35,6 +35,7 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #endif
 #include "giulia_gpu_ipcc_owner.h"
 #include "giulia_gpu_fence_provider.h"
+#include "giulia_gpu_fence_native.h"
 #include "giulia_gpu_fence_mapping.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_control.h"
@@ -47,6 +48,7 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_hfi_pump.h"
 #include "giulia_gpu_stack.h"
 #include "giulia_gpu_share_runtime.h"
+#include "giulia_gpu_share_authority.h"
 #include "../vendor/ArmSmmu4K/ArmSmmu4K.h"
 
 static struct gg_terminal_mailbox gpuTerminal;
@@ -122,6 +124,12 @@ class GiuliaGPU : public IOService {
     bool fenceMapped;
     uint32_t fenceFlags;
     const struct ggf_provider *fenceProvider;
+    /* CPU import of the registered provider: one attempt, fed by the frozen
+     * share snapshot. Without a completed share it refuses before touching
+     * anything, and a failure is retained by the ggfn state machine. */
+    struct ggfn_state fenceImport;
+    int fenceImportAttempt();
+    void fenceImportReport();
     int fenceAllocate(uint32_t,uint32_t,uint32_t,uint32_t);
     int fenceStatus();
     int auditFenceMappings();
@@ -201,12 +209,70 @@ class GiuliaGPU : public IOService {
     struct ggsk stackState;
     struct ggsk_ops stackOps[GGSK_STAGES];
     bool stackReady;
+    /* The UEFI mode-3 preparation is adopted, not repeated: UEFI enabled the CX,
+     * GMU/hub/SMMU clocks and left CM3 in reset. The lease only claims it. */
+    bool powerLeaseHeld;
+    bool gunyahChannelAdopted;
+    static int stackProbeGunyah(void *,uint64_t *);
+    static int stackEnterGunyah(void *);
+    static int stackLeaveGunyah(void *);
+    static int stackProbeShare(void *,uint64_t *);
+    static int stackEnterShare(void *);
+    static int stackLeaveShare(void *);
+    static int stackProbeGmuLoad(void *,uint64_t *);
+    static int stackEnterGmuLoad(void *);
+    static int stackLeaveGmuLoad(void *);
+    static int stackProbeGmuStart(void *,uint64_t *);
+    static int stackEnterGmuStart(void *);
+    static int stackLeaveGmuStart(void *);
+    static int stackProbeSmmu(void *,uint64_t *);
+    static int stackEnterSmmu(void *);
+    static int stackLeaveSmmu(void *);
+    static int stackProbeController(void *,uint64_t *);
+    static int stackEnterController(void *);
+    static int stackLeaveController(void *);
+    static int stackProbeFence(void *,uint64_t *);
+    static int stackEnterFence(void *);
+    static int stackLeaveFence(void *);
+    static int stackProbeHfi(void *,uint64_t *);
+    static int stackEnterHfi(void *);
+    static int stackLeaveHfi(void *);
+    static int stackProbeSubmit(void *,uint64_t *);
+    static int stackEnterSubmit(void *);
+    static int stackLeaveSubmit(void *);
+    static int stackProbeScanout(void *,uint64_t *);
+    static int stackEnterScanout(void *);
+    static int stackLeaveScanout(void *);
+    static int stackProbeMetal(void *,uint64_t *);
+    static int stackEnterMetal(void *);
+    static int stackLeaveMetal(void *);
+    bool smmuLeaseHeld;
+    /* SID 5 activation: the vendor library programs the context through these
+     * callbacks. Tables are the ones built during host preparation. */
+    struct gg_smmu_state smmuState;
+    struct gg_smmu_ops smmuOps;
+    ArmSmmu4KConfig gmuContextConfig;
+    ArmSmmu4KResult gmuTableResult;
+    bool gmuTablesBuilt;
+    void smmuInit();
+    static int smmuRead32(void *,size_t,uint32_t *);
+    static int smmuRead64(void *,size_t,uint64_t *);
+    static int smmuWrite32(void *,size_t,uint32_t);
+    static int smmuWrite64(void *,size_t,uint64_t);
+    static int smmuBarrier(void *);
+    static int smmuLease(void *,unsigned,unsigned,unsigned);
+    static int smmuQuiescent(void *);
+    static int smmuPublish(void *,const ArmSmmu4KConfig *,const ArmSmmu4KResult *);
+    static int smmuRelease(void *);
     void stackInit();
     int stackPlan();
     void stackReport();
     static int stackProbeBoot(void *,uint64_t *);
     static int stackProbeFirmware(void *,uint64_t *);
     static int stackProbeMemory(void *,uint64_t *);
+    static int stackProbePower(void *,uint64_t *);
+    static int stackEnterPower(void *);
+    static int stackLeavePower(void *);
     static int stackEnterNoop(void *);
     static int stackLeaveNoop(void *);
     /* Primary share transaction: gated by the platform authority backend, which
@@ -275,6 +341,7 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     memstoreMemory=NULL;memstoreFlags=0;memstoreMapped=false;
     ipcMapped=false;ipcFlags=0;
     fenceMapped=false;fenceFlags=0;fenceProvider=NULL;
+    bzero(&fenceImport,sizeof(fenceImport));
     bzero(secureData,sizeof(secureData));bzero(securePA,sizeof(securePA));bzero(secureSlots,sizeof(secureSlots));
     bzero(platformMemory,sizeof(platformMemory));bzero(platformMaps,sizeof(platformMaps));bzero(&scmState,sizeof(scmState));
     secureTables=scmMemory=zapMetadata=NULL;zapMemory=NULL;zapMap=NULL;
@@ -291,6 +358,12 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     bzero(&hfiPump,sizeof(hfiPump));bzero(hfiPumpScratch,sizeof(hfiPumpScratch));
     hfiAllocReady=false;
     bzero(&stackState,sizeof(stackState));bzero(stackOps,sizeof(stackOps));stackReady=false;
+    powerLeaseHeld=false;
+    gunyahChannelAdopted=false;
+    smmuLeaseHeld=false;
+    bzero(&smmuState,sizeof(smmuState));bzero(&smmuOps,sizeof(smmuOps));
+    bzero(&gmuContextConfig,sizeof(gmuContextConfig));bzero(&gmuTableResult,sizeof(gmuTableResult));
+    gmuTablesBuilt=false;
     bzero(&shareRuntime,sizeof(shareRuntime));bzero(&shareOwner,sizeof(shareOwner));
     bzero(&shareGate,sizeof(shareGate));
     shareControl=NULL;shareControlCPU=NULL;shareControlPA=0;shareControlReady=false;
@@ -489,6 +562,9 @@ bool GiuliaGPU::prepareMemory(const struct gg_pack *pack)
                     status==ArmSmmu4KSuccess?"ok":"fail",(unsigned)status,(unsigned long long)pa,
                     (unsigned long)capacity,(unsigned long)result.table_pages,(unsigned long)result.leaf_pages);
                 ok=ok && status==ArmSmmu4KSuccess;gmuRoot=pa;
+                if(ok) {
+                    gmuContextConfig=config;gmuTableResult=result;gmuTablesBuilt=true;
+                }
                 if(ok && !prepareInitialMappings()) {
                     IOLog("GIULIA GPU: subsystem=smmu phase=cache-publish result=fail\n");
                     ok=false;
@@ -547,19 +623,45 @@ int GiuliaGPU::readRegister(void *cookie,unsigned window,uint32_t offset,uint32_
 /* Independent 16 KiB Normal NC control page for the share transaction. It must
  * live outside the fence carveout, outside the development pool and inside the
  * 36-bit GPU address window; the transaction pins it until reset once
- * ggsh_init() accepted it. */
+ * ggsh_init() accepted it.
+ *
+ * ggsh_init() requires BOTH the CPU pointer and the physical address to be
+ * 16 KiB aligned. A window can only satisfy both when the allocation preserves
+ * 16 KiB congruence between CPU and PA, so the span is allocated with slack and
+ * the offset is chosen explicitly. A mismatched allocation is refused here with
+ * the real reason instead of failing later inside ggsh_init() with ARGUMENT. */
 bool GiuliaGPU::shareControlAllocate()
 {
+    const size_t span=(size_t)GGS_CONTROL_BYTES*2;
     IOByteCount contiguous=0;
-    uint64_t pa=0;
-    void *cpu=NULL;
+    uint64_t base_pa=0,pa=0;
+    uintptr_t base=0,aligned=0,delta=0;
+    uint8_t *cpu=NULL;
     if(shareControlReady)return true;
     if(shareControl)return false;
-    shareControl=gpuAllocateHostMemory(GGS_CONTROL_BYTES,true);
+    shareControl=gpuAllocateHostMemory(span,true);
     if(!shareControl)return false;
-    pa=shareControl->getPhysicalSegment(0,&contiguous,kIOMemoryMapperNone);
-    cpu=shareControl->getBytesNoCopy();
-    if(!gpuHostRangeValid(cpu,pa,contiguous,GGS_CONTROL_BYTES)) {
+    base_pa=shareControl->getPhysicalSegment(0,&contiguous,kIOMemoryMapperNone);
+    cpu=(uint8_t *)shareControl->getBytesNoCopy();
+    base=(uintptr_t)cpu;
+    if(!cpu || contiguous<span) {
+        IOLog("GIULIA GPU SHARE: control rejected reason=not-contiguous bytes=%llu requested=%llu\n",
+            (unsigned long long)contiguous,(unsigned long long)span);
+        OSSafeReleaseNULL(shareControl);
+        return false;
+    }
+    if((base_pa-(uint64_t)base)%16384u) {
+        IOLog("GIULIA GPU SHARE: control rejected reason=alignment-congruence pa=%#llx cpu=%#llx\n",
+            (unsigned long long)base_pa,(unsigned long long)base);
+        OSSafeReleaseNULL(shareControl);
+        return false;
+    }
+    aligned=(base+16383u)&~(uintptr_t)16383u;
+    delta=aligned-base;
+    pa=base_pa+(uint64_t)delta;
+    if(delta+16384u>contiguous || !gpuHostRangeValid((void *)aligned,pa,contiguous-delta,16384)) {
+        IOLog("GIULIA GPU SHARE: control rejected reason=range pa=%#llx delta=%llu contiguous=%llu\n",
+            (unsigned long long)pa,(unsigned long long)delta,(unsigned long long)contiguous);
         OSSafeReleaseNULL(shareControl);
         return false;
     }
@@ -570,16 +672,16 @@ bool GiuliaGPU::shareControlAllocate()
         OSSafeReleaseNULL(shareControl);
         return false;
     }
-    bzero(cpu,GGS_CONTROL_BYTES);
-    if(!giulia_gpu_cache_publish(cpu,GGS_CONTROL_BYTES)) {
+    bzero((void *)aligned,GGS_CONTROL_BYTES);
+    if(!giulia_gpu_cache_publish((void *)aligned,GGS_CONTROL_BYTES)) {
         OSSafeReleaseNULL(shareControl);
         return false;
     }
     gpuHfiBarrier(NULL);
-    shareControlCPU=(uint8_t *)cpu;
+    shareControlCPU=(uint8_t *)aligned;
     shareControlPA=pa;
     shareControlReady=true;
-    IOLog("GIULIA GPU SHARE: control bytes=%u pa=%#llx aligned=1 outside_carveout=1 published=1\n",
+    IOLog("GIULIA GPU SHARE: control bytes=%u pa=%#llx cpu_aligned=1 pa_aligned=1 outside_carveout=1 published=1\n",
         (unsigned)GGS_CONTROL_BYTES,(unsigned long long)pa);
     return true;
 }
@@ -697,13 +799,19 @@ void GiuliaGPU::reportStatus()
     IOLog("GIULIA GPU: command=gpu.status stage=%s mode=%u firmware_verified=%u host_prepared=%u reservations=%u table_pages=%u leaf_pages=%u\n",
         gg_terminal_stage_name(__atomic_load_n(&gpuTerminal.stage,__ATOMIC_ACQUIRE)),mode,
         firmwareVerified,hostPrepared,reservationCount,tablePages,leafPages);
-    IOLog("GIULIA GPU: power_acquired=0 smmu_active=0 gmu_started=0 hardware_ready=0 acceleration=0 device_writes=0\n");
+    /* Live readiness flags, not constants: the runbook reads this line to decide
+     * whether the chain can proceed. hardware_ready/acceleration stay 0 because
+     * they are end-to-end claims, not per-stage flags. */
+    IOLog("GIULIA GPU: platform_ready=%u power_acquired=%u smmu_active=%u gmu_started=%u hardware_ready=0 acceleration=0 device_writes=%u\n",
+        platformPrepared&&platformOwned,powerLeaseHeld,smmuActive,gmuActive,
+        stackReady?stackState.writes:0);
     IOLog("GIULIA GPU: observations=%u observation_stage=%u valid_fields=%#x\n",
         observations,powerObservation.stage,powerObservation.valid_fields);
     IOLog("GIULIA GPU: host_cache_published=%u cpu_cache=normal-copyback gpu_memory_attribute=normal-nc runtime_cache_ownership=unassigned\n",hostPrepared);
     hfiAllocReport();
     stackReport();
     shareReport();
+    fenceImportReport();
     IOLog("GIULIA GPU: firmware_power_valid=%u firmware_power_prepared=%u phase=%u code=%u attempted=%#x confirmed=%#x retained=%u flags=%#x qmp_available=%d\n",
         firmwarePowerState!=GGPH_INVALID,firmwarePowerState==GGPH_PREPARED,
         firmwarePower.phase,firmwarePower.code,firmwarePower.attempted,
@@ -790,6 +898,8 @@ void GiuliaGPU::hfiCommand(unsigned requests)
 #include "giulia_gpu_gunyah_impl.h"
 #include "giulia_gpu_gmu_impl.h"
 #include "giulia_gpu_hfi_alloc_impl.h"
+#include "giulia_gpu_smmu_impl.h"
+#include "giulia_gpu_fence_import_impl.h"
 #include "giulia_gpu_stack_impl.h"
 #include "giulia_gpu_share_impl.h"
 void GiuliaGPU::worker(void *cookie,wait_result_t)
@@ -812,6 +922,7 @@ void GiuliaGPU::worker(void *cookie,wait_result_t)
         if(requests&GGT_GMU_STATUS)self->gmuCommand(0);
         if(requests&GGT_STACK)self->stackPlan();
         if(requests&GGT_SHARE)self->shareCommand();
+        if(requests&GGT_FENCE)self->fenceImportAttempt();
         if(requests&(GGT_COMMANDS&~(GGT_STATUS|GGT_OBSERVE|GGT_GMU_COMMANDS)))self->hfiCommand(requests);
         if(requests&GGT_OBSERVE) {
             IOLog("GIULIA GPU: command=gpu.observe phase=begin device_writes=0\n");
@@ -846,6 +957,11 @@ void GiuliaGPU::releaseResources()
 {
     if(manualMemoryPinned) {
         IOLog("GIULIA GPU: manual hardware memory retained until reset; teardown not assumed\n");return;
+    }
+    if(smmuState.leased || smmuState.active) {
+        /* A live SID 5 context still walks these tables after the service stops. */
+        IOLog("GIULIA GPU SMMU: tables retained until reset; active=%u leased=%u\n",
+            smmuState.active,smmuState.leased);return;
     }
     for (unsigned i=0;i<GGP_WINDOWS;++i) {
         OSSafeReleaseNULL(registerMaps[i]); OSSafeReleaseNULL(registerMemory[i]);

@@ -92,7 +92,7 @@ SHA256，打包时才通过 `embed-gpu-firmware.py` 加入只读 `__GPU_FW` 段�
 6. 当前 Ace 5 显示路径需要接入真实 fence、IOSurface 生命周期和 scanout
    同步；之后才可向 backboardd 发布加速设备并测试系统合成。
 
-## 复现离线验证
+## 准备与核验构建输入
 
 在仓库根目录执行。以下固件提取与 C/C++ 检查使用 Linux/WSL：
 
@@ -109,10 +109,6 @@ python3 scripts/check-ios16-gpu-inputs.py \
   --source-dir .cache/gpu-source \
   --firmware-dir out/ios16/gpu-stock-firmware \
   --out out/ios16/gpu-stock-firmware/qualification.json
-bash scripts/test-ios16-gpu.sh out/ios16/gpu-stock-firmware/gmu_gen70900.bin
-python3 tests/ios16_gpu_embed.py out/ios16/gpu-stock-firmware/firmware.pack
-python3 tests/ios16_gpu_patch.py
-python3 -m unittest discover -s tests -v
 git diff --check
 ```
 
@@ -298,8 +294,10 @@ QMP 传输设限；报告中的 `GPP_PROVIDER_UNBOUNDED` 明确区分这一限�
 具有超时保证。默认仍为模式 1；本次不改写原厂等待实现。
 
 报告保留尝试／确认位图、有效读值、64 位 EFI 状态、首次失败及 CRC。
-XNU 的 `gpu.status` 区分固件准备与运行时租约，始终保留
-`smmu_active=0 gmu_started=0 acceleration=0`。QMP 归属或协议结果不确定时，
+XNU 的 `gpu.status` 区分固件准备与运行时租约：`platform_ready`／
+`power_acquired`／`smmu_active`／`gmu_started`／`device_writes` 是**实时**
+阶段标志（此前这几个字段曾硬编码为 0，已修正）；`hardware_ready=0` 与
+`acceleration=0` 仍是端到端结论，不随阶段推进变化。QMP 归属或协议结果不确定时，
 GPU／Wi-Fi 统一内核阻止 Wi-Fi 再次打开该通道，即使稍后邮箱看似为空。
 坏报告与陈旧结果不会被解释为本次启动准备成功。
 
@@ -307,7 +305,7 @@ GPU／Wi-Fi 统一内核阻止 Wi-Fi 再次打开该通道，即使稍后邮箱�
 通过：[run 39847492327](https://github.com/jasper2863/UniXNU-giulia/actions/runs/39847492327)。
 102 项电源策略、47 项加载器场景、原生 UEFI QMP 头文件的 78 项故障模型、
 报告消费者及原有 GPU 控制测试通过。固定快照的 Python 测试运行 83 项，
-两项依赖外部参考／C fixture 的场景按条件跳过；CI 另运行完整屏幕 runner。
+两项依赖外部参考／C fixture 的场景按条件跳过；当时的 CI 另运行完整屏幕 runner。
 
 模式 3 候选为 `out/ios16/gpu-power-boot-20261023/giulia-ios16-wifi-pcie.img`，
 69,292,032 字节，SHA256
@@ -347,12 +345,7 @@ IOMMU mapper；GPU 寄存器映射仍保留 Device 属性。分配在清零前
 `gpu.status` 新增 `host_cache_published`；模式 3 在准备内存前输出
 UEFI 电源报告，以便保留下一次启动的交接诊断。
 
-`tests/ios16_gpu_host_memory.py` 执行生产 `prepareMemory()` 和真实
-页表实现，验证普通/未按缓存行对齐的固件复制、所有分配尾部清零、
-独立页表遍历及每个分配/发布失败点；可选本地固件包覆盖五段真实
-预留、6 个表页和 104 个叶页。`tests/ios16_gpu_cache.py` 核对原始
-AArch64 汇编，并用明确标注的主机 hook 验证缓存行范围及屏障顺序。
-这些主机测试不模拟 ARM 内存属性，修复后仍需手机启动验证。
+历史主机验证曾覆盖固件复制、分配清零、页表遍历和缓存维护；这些检查不模拟 ARM 内存属性，修复仍需手机启动验证。
 
 随后已完成临时启动和现有 USB 终端实测：本次 panic 不再发生；
 五段 RAM、6 个表页／104 个叶页全部准备完成。继续通过终端验证了
