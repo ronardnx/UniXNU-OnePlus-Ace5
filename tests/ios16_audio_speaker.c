@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_audio_speaker.h"
-#include "../ios16/giulia_wifi_sha256.h"
+#include "../ios16/audio/giulia_audio_speaker.h"
+#include "../ios16/common/giulia_sha256.h"
 
 struct mock {
     const uint8_t *trusted_fixture;

@@ -12,7 +12,9 @@ from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
 from ios16_gpu_runtime import check_runtime as check_gpu_runtime
 from ios16_audio_runtime import check_runtime as check_audio_runtime
+from ios16_modem import check_contract as check_modem_contract, metadata_from_runtime
 from ios16_gpu_power import check_request as check_gpu_power_request
+from ios16_gpu_gunyah import check_request as check_gpu_gunyah_request
 from ios16_trust_catalog import modules
 
 folder=Path(sys.argv[1]).resolve()
@@ -58,6 +60,14 @@ with tempfile.TemporaryDirectory() as directory:
     audio_runtime=check_audio_runtime((temporary/'kernel.macho').read_bytes(),audio_meta)
     if audio_runtime!=audio_report:
         raise SystemExit('Audio firmware/coordinator binding differs from the embedded kernel')
+    modem_report=report.get('modem_contract')
+    modem_actual=check_modem_contract((temporary/'kernel.macho').read_bytes(),
+        metadata_from_runtime(modem_report),(temporary/'kernel.macho.adt').read_bytes(),
+        {'cellular_policy':report.get('modem_root_policy',{})},report.get('modem_mode'))
+    if modem_actual!=modem_report:
+        raise SystemExit('Modem runtime/ADT/root policy differs from the embedded payload')
+    if report.get('modem_mode') and (not report.get('root_finder_id') or not report.get('platform_match',{}).get('gui')):
+        raise SystemExit('Modem mode requires a matching GUI root')
     if report.get('audio_prepare') and (not audio_runtime or not report.get('root_finder_id') or
                                       not report.get('platform_match',{}).get('gui')):
         raise SystemExit('Audio preparation requires the verified GUI root and audio firmware')
@@ -68,6 +78,10 @@ with tempfile.TemporaryDirectory() as directory:
         report.get('gpu_mode'),(temporary/'kernel.macho').read_bytes())
     if gpu_power!=report.get('gpu_power_handoff'):
         raise SystemExit('GPU power request differs from the embedded ADT/kernel/report')
+    gpu_gunyah=check_gpu_gunyah_request((temporary/'kernel.macho.adt').read_bytes(),
+        report.get('gpu_mode'),(temporary/'kernel.macho').read_bytes())
+    if gpu_gunyah!=report.get('gpu_gunyah_handoff'):
+        raise SystemExit('Gunyah boot request differs from the embedded ADT/kernel/report')
     if report.get('wifi_pcie_handoff') and not wifi:
         raise SystemExit('PCIe handoff lacks the verified Qualcomm Wi-Fi platform')
     if report.get('wifi_stock_handoff') and not report.get('wifi_cesta_handoff'):
@@ -160,6 +174,7 @@ with tempfile.TemporaryDirectory() as directory:
             expected+=' giulia_slider=1'
         elif report.get('hall_prepare_handoff'):
             raise SystemExit('Hall preparation requires the explicit slider worker profile')
+        if report.get('modem_mode'):expected+=' giulia_modem='+str(1 if report['modem_mode']=='diagnostic' else 2)
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

@@ -51,7 +51,7 @@ def check_runtime(kernel, report):
         raise ValueError('Firmware segment metadata mismatch')
     if not ranges or max(stop for _,stop in ranges)-(min(start for start,_ in ranges)&~0x1ffffff) > 0x20000000-0x200000:
         raise ValueError('Audio firmware exceeds loader window')
-    pin = (Path(__file__).resolve().parents[1]/'ios16/giulia_audio_firmware_pin.h').read_text()
+    pin = (Path(__file__).resolve().parents[1]/'ios16/audio/giulia_audio_firmware_pin.h').read_text()
     digest = bytes(int(x, 16) for x in re.findall(r'0x([0-9a-f]{2})\b', pin))
     sizes = re.findall(r'^#define GA_FIRMWARE_PACK_BYTES ([0-9]+)u$', pin, re.M)
     if len(sizes) != 1 or found['bytes'] != int(sizes[0]):

@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "purpose": "Pinned gen7 HFI allocation-branch evidence. No hardware, HVC, MMIO mapping, allocation or GPU readiness is established by this file.",
+  "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+  "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+  "verification": {
+    "date": "2026-10-23",
+    "method": "Fetched immutable raw URL bytes; computed canonical raw SHA-256/Git blob SHA-1 and matched each blob against the complete pinned module Git tree. Local cache equality was checked only after CRLF-to-LF normalization; canonical hashes below never hash normalized cache bytes.",
+    "requires_network_for_tests": false
+  },
+  "files": [
+    {
+      "file": "adreno_gen7_hwsched_hfi.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "bytes": 124261,
+      "sha256": "306930a131d0fa3bc3cc3873dbfaf205b6bd5a4243f55a74cced411c08de6782",
+      "git_blob": "3c02fbf92e11b058460e7d902a8a356bcc77e6a9",
+      "git_tree_blob_verified": true,
+      "normalized_lf_sha256": "306930a131d0fa3bc3cc3873dbfaf205b6bd5a4243f55a74cced411c08de6782",
+      "cached_newline_normalized_equal": true,
+      "evidence": [
+        {
+          "lines": [
+            1611,
+            1618
+          ],
+          "supports": "GFX privilege/read-only/secure flags are independent inputs."
+        },
+        {
+          "lines": [
+            1620,
+            1634
+          ],
+          "supports": "Without GFX_ACC, only kind19 uses a named fixed resource; other kinds allocate a GMU kernel SYSRAM block."
+        },
+        {
+          "lines": [
+            1648,
+            1689
+          ],
+          "supports": "Kinds22 and23 use preallocated descriptors on this path; other GFX-accessible kinds allocate global SYSRAM and import to GMU only when GMU_ACC is present."
+        },
+        {
+          "lines": [
+            1697,
+            1717
+          ],
+          "supports": "Successful replies publish the actual descriptor addresses and host handle without replacing request flags or logical size."
+        }
+      ]
+    },
+    {
+      "file": "adreno_gen7_gmu.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_gen7_gmu.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_gmu.c",
+      "bytes": 90472,
+      "sha256": "776f894dc59a95b485ff7538755be274e8cd944bbfa29931e026f58c43cb0851",
+      "git_blob": "6397bc4647e44225ba0fb0426490051a3f526a64",
+      "git_tree_blob_verified": true,
+      "normalized_lf_sha256": "776f894dc59a95b485ff7538755be274e8cd944bbfa29931e026f58c43cb0851",
+      "cached_newline_normalized_equal": true,
+      "evidence": [
+        {
+          "lines": [
+            1178,
+            1205
+          ],
+          "supports": "GMU kernel block allocates owned SYSMEM and maps with hard-coded READ|WRITE|PRIV regardless of the request GMU_ACC/PRIV/WRITE bits."
+        },
+        {
+          "lines": [
+            1209,
+            1226
+          ],
+          "supports": "Fixed-resource helper takes an explicit resource name; kind19 passes qcom,ipc-core."
+        }
+      ]
+    },
+    {
+      "file": "kgsl_sharedmem.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/kgsl_sharedmem.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl_sharedmem.c",
+      "bytes": 50673,
+      "sha256": "69c46df984557e6c227b829b7c7191263dd8c6df939ee2572effa46cce5ce6e0",
+      "git_blob": "b7bcc73343c4ff90e43b55144247b2567af20931",
+      "git_tree_blob_verified": true,
+      "normalized_lf_sha256": "69c46df984557e6c227b829b7c7191263dd8c6df939ee2572effa46cce5ce6e0",
+      "cached_newline_normalized_equal": true,
+      "evidence": [
+        {
+          "lines": [
+            1928,
+            1955
+          ],
+          "supports": "The ordinary global allocation path forces GLOBAL|SYSMEM and allocates kernel backing; secure flags use a separate secure allocator."
+        }
+      ]
+    },
+    {
+      "file": "adreno_hfi.h",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_hfi.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_hfi.h",
+      "bytes": 38194,
+      "sha256": "03fe8212d1a75148999f67df2044133a047501e91a234d0c1176d264428f713c",
+      "git_blob": "5557f2cf584b8801f9a32ad736bd0e7e6e31639d",
+      "git_tree_blob_verified": true,
+      "normalized_lf_sha256": "03fe8212d1a75148999f67df2044133a047501e91a234d0c1176d264428f713c",
+      "cached_newline_normalized_equal": true,
+      "evidence": [
+        {
+          "lines": [
+            153,
+            247
+          ],
+          "supports": "Kind11/12/13/20 enum names are DPU/TCSR/QDSS STM/IPCC AOSS; these names alone do not select a fixed resource in gen7 get_mem_alloc_entry."
+        },
+        {
+          "lines": [
+            280,
+            311
+          ],
+          "supports": "Wire bits distinguish GFX/GMU ACC/PRIV/WRITE, GMU VA cache region, host access/init and secure GFX ownership."
+        }
+      ]
+    }
+  ],
+  "implementation_contract": {
+    "ordinary_sysram_kinds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      21,
+      24,
+      25
+    ],
+    "gmu_only_effective_flags": "For ordinary SYSRAM with GFX_ACC clear, effective_flags=request_flags|0x38; preserve all original flags in the HFI reply and cache signature, and return actual GMU VA even when original GMU_ACC is clear.",
+    "gfx_effective_flags": "For ordinary SYSRAM with GFX_ACC set, effective_flags=request_flags; return GMU VA only when GMU_ACC is set.",
+    "local_reserved_kinds": [
+      5,
+      19,
+      22,
+      23
+    ],
+    "reserved_limit": "Local secure kind5, GMU-only fixed kind19, GFX memstore kind22 and fence kind23 backends remain explicit; unsupported variants are not silently generalized.",
+    "mapping_limit": "This change selects the existing owned RAM/debug mapping backend. It creates no DPU/TCSR/QDSS/AOSS physical mapping and proves no running firmware/source equivalence or completion."
+  }
+}

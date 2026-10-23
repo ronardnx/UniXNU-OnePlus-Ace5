@@ -13,6 +13,7 @@ enum { GPA_ADT_INVALID=-1, GPA_ADT_ABSENT=0, GPA_ADT_PRESENT=1 };
 struct gpa_adt_node { UINTN name, length; unsigned parent; };
 struct gpa_adt_scan {
   const UINT8 *data;
+  const char *report_key;
   UINTN bytes, at, report, report_bytes;
   unsigned nodes, chosen, matches, work, board;
   struct gpa_adt_node node[GPA_ADT_MAX_NODES];
@@ -69,7 +70,7 @@ static int gpa_adt_node_read(struct gpa_adt_scan *s,unsigned depth,unsigned pare
     if(gpa_adt_key(s->data+property,"name")) {name=s->at;name_bytes=length;}
     if(!depth && gpa_adt_key(s->data+property,"physical-model"))
       s->board=length==14 && gpa_adt_equal(s->data+s->at,(const UINT8 *)"OnePlus Ace 5",14);
-    if(gpa_adt_key(s->data+property,"giulia-gpu-power")) {
+    if(gpa_adt_key(s->data+property,s->report_key)) {
       if(has_candidate || length!=s->report_bytes)return 0;
       candidate=s->at;has_candidate=1;
     }
@@ -90,17 +91,24 @@ static int gpa_adt_node_read(struct gpa_adt_scan *s,unsigned depth,unsigned pare
   for(i=0;i<children;++i)if(!gpa_adt_node_read(s,depth+1,id))return 0;
   return 1;
 }
-static int gpa_adt_find(const void *data,UINTN bytes,UINTN report_bytes,UINTN *offset)
+static int gpa_adt_find_named(const void *data,UINTN bytes,UINTN report_bytes,
+    const char *report_key,UINTN *offset)
 {
   struct gpa_adt_scan scan;
+  unsigned key_bytes;
   if(!offset)return GPA_ADT_INVALID;
   *offset=0;
-  if(!data || !bytes || bytes>GPA_ADT_MAX_BYTES || !report_bytes || report_bytes>256)return GPA_ADT_INVALID;
+  if(!data || !bytes || bytes>GPA_ADT_MAX_BYTES || !report_bytes || report_bytes>256 || !report_key)return GPA_ADT_INVALID;
+  for(key_bytes=0;key_bytes<32 && report_key[key_bytes];++key_bytes) {}
+  if(!key_bytes || key_bytes==32)return GPA_ADT_INVALID;
   scan.data=(const UINT8 *)data;scan.bytes=bytes;scan.at=scan.report=0;scan.report_bytes=report_bytes;
+  scan.report_key=report_key;
   scan.nodes=scan.chosen=scan.matches=scan.work=scan.board=0;
   if(!gpa_adt_node_read(&scan,0,GPA_ADT_MAX_NODES) || scan.at!=bytes || scan.chosen!=1 || scan.matches>1)return GPA_ADT_INVALID;
   if(!scan.matches)return GPA_ADT_ABSENT;
   if(!scan.board)return GPA_ADT_INVALID;
   *offset=scan.report;return GPA_ADT_PRESENT;
 }
+static inline int gpa_adt_find(const void *data,UINTN bytes,UINTN report_bytes,UINTN *offset)
+{return gpa_adt_find_named(data,bytes,report_bytes,"giulia-gpu-power",offset);}
 #endif

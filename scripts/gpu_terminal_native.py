@@ -282,7 +282,9 @@ class NativeHfi:
                 # A matching signature still requires a live OP20 recheck.
                 if kind!=23:
                     desc[0]=a['gpu'] if flags&1 else 0
-                    desc[1]=0;desc[4]=handle;desc[6]=a['gmu'] if flags&8 else 0
+                    desc[1]=0;desc[4]=handle
+                    desc[6]=a['gmu'] if (a.get('gmu_only_sysram',False) or flags&8) else 0
+                    if 'request_flags' in a:request['effective_flags']=hex(a['flags'])
                     request['reused']=True
                     self.packet(20,[words[0],*desc],1)
                     return
@@ -299,7 +301,6 @@ class NativeHfi:
                 request['blocked_reason']='Secure GPU allocation and secure context mapping are not implemented'
                 self.report['blocked_memory_request']=request
                 raise RuntimeError(request['blocked_reason'])
-            if kind in (11,12,13,20):raise RuntimeError('Firmware requires a specific MMIO mapping, not a RAM substitute')
             if kind==23:
                 a=self.fence_allocate(bytes,align,flags,kind)
                 desc[0]=0;desc[1]=0;desc[4]=handle;desc[6]=a['gmu']
@@ -312,6 +313,8 @@ class NativeHfi:
                 self.packet(20,[words[0],*desc],1)
                 return
             if kind==19:
+                # This local resource contract implements the fixed GMU-only
+                # IPC_CORE form. Do not route unsupported GFX variants to RAM.
                 a=self.ipc_allocate(bytes,align,flags,kind)
                 desc[0]=0;desc[1]=0;desc[4]=handle;desc[6]=a['gmu']
                 # Return the requested logical size; the fixed provider owns
@@ -322,6 +325,8 @@ class NativeHfi:
                 self.packet(20,[words[0],*desc],1)
                 return
             if kind==22:
+                # This local memstore backend requires its existing GFX
+                # descriptor. A GMU-only request is not a generic pool alias.
                 a=self.memstore_allocate(bytes,align,flags,kind)
                 desc[0]=a['gpu'];desc[1]=0;desc[4]=handle;desc[6]=a['gmu'] if flags&8 else 0
                 # Logical request size remains unchanged; the provider owns a
@@ -335,15 +340,27 @@ class NativeHfi:
             if va_align>22 or size_align>22 or align>>16:raise RuntimeError('Unsupported alignment')
             alignment=max(4096,1<<va_align);rounded=(bytes+(1<<size_align)-1)&~((1<<size_align)-1)
             if rounded>0x4000000:raise RuntimeError('Allocation exceeds the owned RAM pool')
-            a=self.allocate(rounded,alignment,flags,kind)
+            # Fixed gen7 branches by GFX_ACC, not the enum's MMIO name. With
+            # no GFX access, gen7_reserve_gmu_kernel_block allocates SYSRAM
+            # and hard-codes IOMMU_READ|WRITE|PRIV even without GMU_ACC in the
+            # request. Keep the raw debug mapping API unchanged: normalize
+            # only this HFI request's effective mapping flags. CACHEABLE still
+            # selects its separate GMU VA region. GFX buffers keep get_attrs.
+            gmu_only_sysram=not flags&1
+            effective_flags=flags|0x38 if gmu_only_sysram else flags
+            request['effective_flags']=hex(effective_flags)
+            a=self.allocate(rounded,alignment,effective_flags,kind)
             self.dev(4,a['offset'],a['bytes'])
             assert self.read(a['offset'])==[0]
             # Vendor process_mem_alloc updates addresses/host handle only.
             # Reply preserves the requested logical size (e.g. SMMU_INFO 24B),
             # even when the owned backing allocation occupies complete pages.
             desc[0]=a['gpu'] if flags&1 else 0
-            desc[1]=0;desc[4]=handle;desc[6]=a['gmu'] if flags&8 else 0
-            a['request_signature']=signature;self.allocations[key]=a
+            desc[1]=0;desc[4]=handle
+            desc[6]=a['gmu'] if (gmu_only_sysram or flags&8) else 0
+            a=dict(a,request_flags=flags,effective_flags=effective_flags,
+                gmu_only_sysram=gmu_only_sysram,request_signature=signature)
+            self.allocations[key]=a
             self.report.setdefault('memory_allocations',[]).append(dict(a,gmu_handle=handle))
             self.packet(20,[words[0],*desc],1)
             print('Allocated kind='+str(kind)+' bytes='+str(a['bytes']),flush=True)

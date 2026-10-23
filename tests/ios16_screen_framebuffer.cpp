@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <vector>
-#include "../ios16/giulia_display.h"
+#include "../ios16/display/giulia_display.h"
 
 struct IOLock { bool held; unsigned locks, unlocks; };
 static void IOLockLock(IOLock *lock)
@@ -18,7 +18,7 @@ struct AppleCLCD {
     void retain() { references++; }
     void release() { assert(references); references--; }
 };
-#include "../ios16/giulia_screen_framebuffer.inc"
+#include "../ios16/display/giulia_screen_framebuffer.inc"
 
 int main()
 {

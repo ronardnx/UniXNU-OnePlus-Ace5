@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fixtures/ath12k_wifi_station_layout.h"
-#include "../ios16/giulia_wifi_wmi.h"
+#include "../ios16/wifi/giulia_wifi_wmi.h"
 struct fixture {struct gww_state w;struct gww_io io;uint64_t now;unsigned sent,done,status,send_error;uint8_t command[1100];size_t bytes;};
 static int sendmsg(void *p,unsigned pipe,const void *v,size_t n){struct fixture *f=p;assert(pipe==3 && n-8<=sizeof(f->command));memcpy(f->command,(const uint8_t *)v+8,n-8);f->bytes=n-8;f->sent++;f->w.credits=f->w.credit_total;return (int)f->send_error;}
 static int pump(void *p,unsigned us){((struct fixture *)p)->now+=us/1000;return 0;}

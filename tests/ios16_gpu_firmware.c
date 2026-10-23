@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_firmware.h"
+#include "../ios16/gpu/giulia_gpu_firmware.h"
 
 static void word(uint8_t *p, uint32_t v)
 {

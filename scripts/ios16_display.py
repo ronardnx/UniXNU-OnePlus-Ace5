@@ -1,4 +1,5 @@
 """Generate the native-panel presentation patch against the applied GUI series."""
+from ios16_sources import kernel_source
 import difflib
 from pathlib import Path
 import subprocess
@@ -136,17 +137,17 @@ def native_display_patch(profile: Path, repository: Path):
     for name, before, after in zip(targets, old, (fb, hid)):
         output += ''.join(difflib.unified_diff(before.splitlines(True), after.splitlines(True),
                                              fromfile='a/' + name, tofile='b/' + name))
-    header = (repository / 'ios16/giulia_display.h').read_text()
+    header = kernel_source((repository / 'ios16/display/giulia_display.h').read_text())
     header = header.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
     output += ''.join(difflib.unified_diff([], header.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_display.h'))
-    capture = (repository / 'ios16/giulia_screen_framebuffer.inc').read_text()
+    capture = kernel_source((repository / 'ios16/display/giulia_screen_framebuffer.inc').read_text())
     output += ''.join(difflib.unified_diff([], capture.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_screen_framebuffer.inc'))
-    remote = (repository / 'ios16/giulia_input_hid.inc').read_text()
+    remote = kernel_source((repository / 'ios16/display/giulia_input_hid.inc').read_text())
     output += ''.join(difflib.unified_diff([], remote.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_input_hid.inc'))
-    keyboard = (repository / 'ios16/giulia_input_keyboard.inc').read_text()
+    keyboard = kernel_source((repository / 'ios16/display/giulia_input_keyboard.inc').read_text())
     output += ''.join(difflib.unified_diff([], keyboard.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_input_keyboard.inc'))
     personality = ('    "     \'IOClass\'         = SweetHIDTouch;"\n'
@@ -162,4 +163,8 @@ def native_display_patch(profile: Path, repository: Path):
                  '    "     \'IOClass\'         = IOPanicPlatform;"\n')
     output += ''.join(difflib.unified_diff((personality+following).splitlines(True), (composite+following).splitlines(True),
                      fromfile='a/iokit/KernelConfigTables.cpp', tofile='b/iokit/KernelConfigTables.cpp'))
+    contract = (repository / 'ios16/common/giulia_input_provider.h').read_text()
+    for directory in ('bsd/dev', 'iokit/Kernel/arm'):
+        output += ''.join(difflib.unified_diff([], contract.splitlines(True), fromfile='/dev/null',
+                         tofile='b/' + directory + '/giulia_input_provider.h'))
     (profile / '0075-giulia-native-panel.patch').write_text(output, errors='surrogateescape')

@@ -18,7 +18,7 @@
 #include "giulia_wifi_ce.h"
 #include "giulia_wifi_apple.h"
 #include "giulia_wifi_firmware.h"
-#include "giulia_wifi_qmp.h"
+#include "giulia_platform_qmp.h"
 #include "giulia_wifi_pmu.h"
 #include "giulia_wifi_mapping.h"
 #include "giulia_wifi_network.h"
@@ -285,6 +285,14 @@ static void selectors_and_validation() {
 
 static void query_lengths_and_failures() {
     Fixture f;
+    // Apple80211Bind's first probe has no input body; the framework still
+    // requests the full 256-byte driver-version response through UserClient.
+    auto bind=envelope(false,GWI_DRIVER_VERSION,0);uint8_t version[272];memset(version,0xa5,sizeof(version));
+    size_t versionBytes=sizeof(version);
+    assert(f.call(bind,version,versionBytes)==kIOReturnSuccess && versionBytes==256 && version[0] && version[256]==0xa5);
+    memset(version,0xa5,sizeof(version));versionBytes=255;
+    assert(f.call(bind,version,versionBytes)==kIOReturnBadArgument && !versionBytes);
+    for(auto b:version)assert(b==0xa5);
     const struct {unsigned type;size_t bytes;} cases[]={{12,13},{13,4},{14,12},{15,4},{19,24},{27,0x12d8},{51,3}};
     for(auto c:cases) {
         auto input=envelope(false,c.type,gwi_scalar(c.type)?0:c.bytes);std::vector<uint8_t> out(c.bytes+16,0xa5);size_t n=out.size();
@@ -503,6 +511,7 @@ static void concurrent_client_requests() {
 #include "ios16_wifi_network_rsn.inc"
 #include "ios16_wifi_network_security.inc"
 #include "ios16_wifi_network_session.inc"
+#include "ios16_wifi_network_traffic.inc"
 
 int main() {
     mapping_ownership_and_boundaries();allocation_and_shutdown();
@@ -510,9 +519,10 @@ int main() {
     service_lifecycle();
     selectors_and_validation();query_lengths_and_failures();descriptor_io();scan_and_power();
     concurrent_client_requests();
-    network_queries();network_packets();network_shutdown();network_native_abi();
+    network_dma_mapping();network_queries();network_packets();network_shutdown();network_ioctls();network_extended_queries();network_native_abi();
     network_rsn_bridge();
     network_security_bridge();
     network_session_paths();
+    network_traffic_bridge();
     puts("Actual Wi-Fi runtime passed: mapping/lifecycle/query/concurrency, station sessions, BSD TX/RX, EAPOL isolation, RSN/key-ACK/TCL, SAE/PMF and secret/queue teardown");
 }

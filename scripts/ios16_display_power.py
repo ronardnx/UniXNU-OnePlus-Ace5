@@ -1,5 +1,6 @@
 """Attach iOS RequestPowerChange to the proven native DSI0 display command."""
 import difflib
+from ios16_sources import source_path, kernel_source
 from pathlib import Path
 import subprocess
 import tempfile
@@ -49,7 +50,7 @@ def display_power_patch(profile, repository):
     patch=''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),
                                      fromfile='a/'+target,tofile='b/'+target))
     for name in ('giulia_display_power.h','giulia_display_power.inc'):
-        data=(repository/'ios16'/name).read_text().replace('#include <stdint.h>\n','')
+        data=kernel_source(source_path(repository,name).read_text())
         patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',
                         tofile='b/iokit/Kernel/arm/'+name))
     (profile/'0085-giulia-native-display-power.patch').write_text(patch,encoding='utf-8',newline='\n')

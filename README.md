@@ -31,6 +31,8 @@ Display rotation, full system suspend/resume and application compatibility requi
 
 See [development status](docs/DEVELOPMENT_STATUS.md), [audio bring-up](docs/AUDIO_BRINGUP.md) and the [firmware transfer test record](hardware/sm8650-wifi-root-master.json) for evidence and remaining work.
 
+The [modem integration map](docs/MODEM_BRINGUP.md) covers hardware resources, firmware startup, SIM/data protocols and iOS interface dependencies. The unified lifecycle, shared resource broker, QMI/QMUX/QMAP codecs and recovered 20H392 ABI are checked through one integrated acceptance entry. Native MPSS/PDP providers are not yet connected; managed cellular remains gated.
+
 ## Requirements
 
 - Linux or Ubuntu under WSL for UEFI and local image packaging.
@@ -41,7 +43,7 @@ See [development status](docs/DEVELOPMENT_STATUS.md), [audio bring-up](docs/AUDI
 
 Source revisions are fixed in [`sources.json`](sources.json) and the target-specific workflows. Kernel, device tree, firmware and payload metadata must match.
 
-The GUI kernel workflow also accepts `gpu=true` alongside touch and Wi-Fi. Local unified packaging uses `GIULIA_GPU_PACK` and `GIULIA_GPU_MODE=1/2`; USB `gpu.status` / `gpu.observe` expose preparation and gated observation. See [GPU bring-up](docs/GPU_BRINGUP.md) for inputs and remaining hardware work.
+The GUI kernel workflow also accepts `gpu=true` alongside touch and Wi-Fi. Local unified packaging uses `GIULIA_GPU_PACK` and `GIULIA_GPU_MODE=1/2`; USB `gpu.status` / `gpu.observe` expose preparation and gated observation. See [GPU bring-up](docs/GPU_BRINGUP.md) for inputs and remaining hardware work, and the [GPU stack framework](docs/GPU_STACK_FRAMEWORK.md) for the ordered stage machine, gates and milestones.
 
 Committed UEFI and UniXNU development snapshots are also tracked as Git submodules under `sources/`. Download the recorded revisions with:
 
@@ -89,6 +91,8 @@ See [Wi-Fi mappings](docs/WIFI_MAPPING.md) for MMIO resources, CPU/physical/IOVA
 See [GPU mappings](docs/GPU_MAPPING.md) for GPU/GMU permissions, firmware allocation lifecycle, HFI resource coverage and the remaining dedicated backends.
 
 ## Repository layout
+
+Driver sources are organized into 13 modules under `ios16/`. Shared resource arbitration lives in the platform layer; optional driver registration and input startup are assembled centrally. See the [driver module rules](docs/DRIVER_MODULES.md) for ownership, allowed dependencies, and validation commands.
 
 For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal.cmd`. Protocol 2 diagnostics, explicit MMIO access and `reboot.fastboot` have been tested on the device. The PTY shell still requires a separately staged daemon and signed ARM64 shell/tools and has not been validated on hardware. See [USB terminal instructions](docs/USB_TERMINAL.md) for deployment and commands.
 

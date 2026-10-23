@@ -30,6 +30,6 @@ with tempfile.TemporaryDirectory(prefix="wifi-sae-") as folder:
     subprocess.run([os.environ.get("CC", "clang"), "-std=c11", "-O1", "-g", "-Wall", "-Wextra", "-Werror",
         "-Wno-misleading-indentation", "-Wno-deprecated-declarations", "-fsanitize=address,undefined",
         "-fno-sanitize-recover=all", "-I", str(BEAR / "inc"), "-I", str(BEAR / "src"), "-I", str(path),
-        str(ROOT / "tests/ios16_wifi_sae.c"), str(ROOT / "ios16/giulia_wifi_sae_crypto.c"),
+        str(ROOT / "tests/ios16_wifi_sae.c"), str(ROOT / "ios16/wifi/giulia_wifi_sae_crypto.c"),
         *[str(BEAR / "src" / p) for p in sources], "-lcrypto", "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

@@ -1,0 +1,2649 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "board": "giulia",
+  "model": "OnePlus Ace 5 / PKG110",
+  "soc": "SM8650",
+  "status": "captured-board-mapping-only",
+  "hardware_validated": false,
+  "modem_boot_validated": false,
+  "network_registration_validated": false,
+  "packet_data_validated": false,
+  "android_device_tree": {
+    "path": "../ace5-analysis/running-device.dtb",
+    "sha256": "1f32afa0b9ec436bdad9726c557dc9abdd35b629531f9593002f5ed886447d9b",
+    "decoded_path": "../ace5-analysis/running-device.dts",
+    "decoded_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1"
+  },
+  "reproduce": "python scripts/ios16_modem_board.py --dts ../ace5-analysis/running-device.dts --source-root .cache/audio-source --local-evidence",
+  "source_files": [
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/remoteproc/qcom_q6v5_pas.c",
+      "sha256": "c9ffea4f7b25b1f9227b5b80f29e2af02a0aa3f01504246a1193c8877d905977",
+      "git_blob": "ce974db4a8f75dbef2835e8edad2d66006c2a64d",
+      "bytes": 81060,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/remoteproc/qcom_q6v5_pas.c",
+      "upstream_path": "drivers/remoteproc/qcom_q6v5_pas.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_smem.c",
+      "sha256": "9fec6a165cd729403f7bca9c22523c03b23d2a5bfb897d78fec7779ef2fa4ce3",
+      "git_blob": "ae367ef51227e578a3de03ad933e46fb6edf463c",
+      "bytes": 7532,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_smem.c",
+      "upstream_path": "drivers/rpmsg/qcom_glink_smem.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_native.c",
+      "sha256": "ed801e228372edac1922d2e57b927362ef59073c779f672ca5d4ee2649d280a8",
+      "git_blob": "2463f7f46944be04f6e39bd532d01745270b2e6a",
+      "bytes": 67851,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_native.c",
+      "upstream_path": "drivers/rpmsg/qcom_glink_native.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/soc/qcom/smem.c",
+      "bytes": 34216,
+      "sha256": "4967df8c12bef1758751243fb7759edbe56cc7340cdf587ec8839a9383442741",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/smem.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/soc/qcom/smp2p.c",
+      "bytes": 24269,
+      "sha256": "81a36bad06a689ae4679dd1aca4a17867bb2603c01266bd491101c6e00d790e5",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/smp2p.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/hwspinlock/qcom_hwspinlock.c",
+      "bytes": 6002,
+      "sha256": "23d90884f565dcd869ced0c1e519b2a0b776d7e1874230c138c853545ce4e485",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/hwspinlock/qcom_hwspinlock.c"
+    }
+  ],
+  "source_details": {
+    "remoteproc": {
+      "source": "drivers/remoteproc/qcom_q6v5_pas.c",
+      "symbol": "pineapple_mpss_resource",
+      "line": 2687,
+      "firmware_name": "modem.mdt",
+      "dtb_firmware_name": "modem_dtb.mdt",
+      "pas_id": 4,
+      "dtb_pas_id": 38,
+      "uses_elf64": true,
+      "crash_reason_smem": 421,
+      "ssr_hyp_assign_mem": true,
+      "auto_boot": false,
+      "dma_phys_below_32b": true,
+      "ssctl_id": 18,
+      "qmp_name": "modem",
+      "uses_elf64_semantics": "uses_elf64 configures ELFCLASS64 coredumps. Actual paired stock modem/DTB/IPA files are now structurally verified ELF32 little-endian; see hardware/sm8650-modem-stock.json.",
+      "rmb": "The captured modem has one MMIO resource. qcom_q6v5_init requests optional resource index 1 for RMB, so this DT supplies no RMB base. Do not interpret offsets 8/12/16 as modem_base-relative MMIO.",
+      "stock_firmware_evidence": "hardware/sm8650-modem-stock.json",
+      "verified_modem_load_span": [
+        2344615936,
+        2581594112
+      ],
+      "verified_dtb_load_span": [
+        2600468480,
+        2600484156
+      ]
+    },
+    "glink": {
+      "source": "drivers/rpmsg/qcom_glink_smem.c",
+      "descriptor_smem_id": 478,
+      "tx_fifo_smem_id": 479,
+      "rx_fifo_smem_id": 480,
+      "remote_host": 1,
+      "partition_note": "Item IDs are host-partition scoped; ADSP host 2 buffers cannot be reused for modem host 1."
+    },
+    "uefi_pil": {
+      "detail_document": "docs/MODEM_BOOT_MAP.md",
+      "configuration": ".cache/stock-boot-16.0.3.500/modules/uefi-uefipil.cfg.raw.strings",
+      "full_modem_reserved_base": 2317352960,
+      "full_modem_reserved_bytes": 283115520,
+      "captured_dt_reserved_base": 2344615936,
+      "captured_dt_reserved_bytes": 255852544,
+      "shared_end_exclusive": 2600468480,
+      "retail_boot_images": [
+        "ImageFv",
+        "FULL_ADSP",
+        "FULL_ADSP_DTB"
+      ],
+      "modem_in_retail_boot_images": false,
+      "status": "Actual stock modem entry/load minimum 0x8bc00000 and end0x99e00000 match the captured DT layout. Do not apply the old 0x8a200000 OverrideElfAddr config to that DSM layout. Configuration existence is not boot evidence."
+    },
+    "ipa": {
+      "source": "ipa_utils.c",
+      "selection_line": 7638,
+      "hardware_name": "IPA_HW_v5_5",
+      "platform_name": "IPA_PLAT_TYPE_MSM",
+      "gsi_version": "GSI_VER_5_5",
+      "gsi_version_source": "ipa.c:7722",
+      "tuple_source": "include/linux/ipa.h:1299",
+      "tuple_fields": [
+        "ipa_ep_num",
+        "ipa_gsi_chan_num",
+        "ipa_if_tlv",
+        "ipa_if_aos",
+        "ee",
+        "prefetch_mode",
+        "prefetch_threshold"
+      ],
+      "execution_environment_source": "ipa_i.h:1711",
+      "event_ring_note": "The second tuple value is a GSI channel ID, not an event-ring ID. Rings and their DMA addresses are allocated/configured at runtime and remain unvalidated.",
+      "runtime_note": "Endpoint and GSI entries are static driver configuration; availability, DMA ownership, firmware compatibility and traffic have not been tested."
+    },
+    "smp2p": {
+      "source": "drivers/soc/qcom/smp2p.c",
+      "inbound_item": 435,
+      "outbound_item": 428,
+      "inbound_index": 0,
+      "outbound_index": 1,
+      "local_pid": 0,
+      "remote_pid": 1,
+      "ipcc_client": 2,
+      "ipcc_signal": 2
+    },
+    "memory_reservation_overlay": {
+      "path": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Library/MemoryMapLib/MemoryMapLib.c",
+      "baseline_commit": "6c6755012728c9f7de748228758bad94d1e9a660",
+      "baseline_git_blob": "f9023c8561c70d75dc128fa8af98211cc353dbae",
+      "baseline_descriptors": 38,
+      "overlay_descriptors": 41,
+      "added": [
+        "QLINK_Logging",
+        "MPSS_DSM0",
+        "MPSS_DSM1"
+      ],
+      "prepare_entry": "scripts/prepare.py:apply_uefi_overlay",
+      "verification_entry": "scripts/ios16_modem_stock.py:verify_prepared_memory_map",
+      "scope": "Explicit source reservations before dynamic RAM mapping; not SCM permission or live ownership evidence."
+    }
+  },
+  "dt_nodes": {
+    "mpss": {
+      "path": "/reserved-memory/mpss_region@8bc00000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2344615936,
+          0,
+          255852544
+        ]
+      }
+    },
+    "mpss_dtb": {
+      "path": "/reserved-memory/q6_mpss_dtb_region@9b000000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2600468480,
+          0,
+          524288
+        ]
+      }
+    },
+    "dsm": {
+      "path": "/reserved-memory/mpss_dsm_region@86b00000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2259681280,
+          0,
+          76546048
+        ]
+      }
+    },
+    "dsm2": {
+      "path": "/reserved-memory/mpss_dsm_region_2@8b400000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2336227328,
+          0,
+          8388608
+        ]
+      }
+    },
+    "qlink_log": {
+      "path": "/reserved-memory/qlink_logging_region@84800000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2222981120,
+          0,
+          2097152
+        ]
+      }
+    },
+    "cma": {
+      "path": "/reserved-memory/linux,cma",
+      "strings": {
+        "compatible": [
+          "shared-dma-pool"
+        ]
+      },
+      "cells": {
+        "alloc-ranges": [
+          0,
+          0,
+          0,
+          4294967295
+        ],
+        "alignment": [
+          0,
+          4194304
+        ],
+        "size": [
+          0,
+          33554432
+        ]
+      },
+      "flags": [
+        "reusable",
+        "linux,cma-default"
+      ]
+    },
+    "smem": {
+      "path": "/reserved-memory/smem_region@81d00000",
+      "strings": {
+        "compatible": [
+          "qcom,smem"
+        ]
+      },
+      "cells": {
+        "reg": [
+          0,
+          2177892352,
+          0,
+          2097152
+        ]
+      },
+      "flags": [
+        "no-map"
+      ]
+    },
+    "ipa_fw": {
+      "path": "/reserved-memory/ipa_fw_region@9b080000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2600992768,
+          0,
+          65536
+        ]
+      }
+    },
+    "ipa_gsi": {
+      "path": "/reserved-memory/ipa_gsi_region@9b090000",
+      "flags": [
+        "no-map"
+      ],
+      "cells": {
+        "reg": [
+          0,
+          2601058304,
+          0,
+          40960
+        ]
+      }
+    },
+    "ipcc": {
+      "path": "/soc/qcom,ipcc@406000",
+      "strings": {
+        "compatible": [
+          "qcom,ipcc"
+        ]
+      },
+      "cells": {
+        "reg": [
+          4218880,
+          4096
+        ],
+        "interrupts": [
+          0,
+          229,
+          4
+        ],
+        "#interrupt-cells": [
+          3
+        ],
+        "#mbox-cells": [
+          2
+        ]
+      },
+      "flags": [
+        "interrupt-controller"
+      ],
+      "absent": [
+        "interrupt-parent"
+      ]
+    },
+    "modem": {
+      "path": "/soc/remoteproc-mss@04080000",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-modem-pas"
+        ],
+        "status": [
+          "ok"
+        ],
+        "clock-names": [
+          "xo"
+        ],
+        "reg-names": [
+          "cx",
+          "mx"
+        ],
+        "interconnect-names": [
+          "rproc_ddr",
+          "crypto_ddr"
+        ],
+        "interrupt-names": [
+          "wdog",
+          "fatal",
+          "handover",
+          "ready",
+          "stop-ack",
+          "shutdown-ack"
+        ],
+        "qcom,smem-state-names": [
+          "stop"
+        ]
+      },
+      "cells": {
+        "reg": [
+          67633152,
+          65536
+        ],
+        "cx-uV-uA": [
+          384,
+          100000
+        ],
+        "mx-uV-uA": [
+          320,
+          100000
+        ]
+      },
+      "flags": [
+        "qcom,signal-aop"
+      ],
+      "absent": [
+        "power-domains"
+      ]
+    },
+    "smp2p": {
+      "path": "/soc/qcom,smp2p-modem",
+      "strings": {
+        "compatible": [
+          "qcom,smp2p"
+        ]
+      },
+      "cells": {
+        "qcom,smem": [
+          435,
+          428
+        ],
+        "interrupts": [
+          2,
+          2,
+          1
+        ],
+        "qcom,local-pid": [
+          0
+        ],
+        "qcom,remote-pid": [
+          1
+        ]
+      }
+    },
+    "ipa": {
+      "path": "/soc/qcom,ipa@3e00000",
+      "cells": {
+        "qcom,ipa-gen-rx-ll-pool-sz-factor": [
+          1
+        ],
+        "qcom,turbo": [
+          3600000,
+          0,
+          3600000,
+          5500000,
+          0,
+          400000
+        ],
+        "qcom,nominal": [
+          2400000,
+          0,
+          2400000,
+          5500000,
+          0,
+          400000
+        ],
+        "qcom,svs": [
+          1200000,
+          0,
+          1200000,
+          2800000,
+          0,
+          150000
+        ],
+        "qcom,svs2": [
+          0,
+          0,
+          0,
+          1300000,
+          0,
+          76800
+        ],
+        "qcom,no-vote": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "qcom,interconnect,num-paths": [
+          3
+        ],
+        "qcom,interconnect,num-cases": [
+          5
+        ],
+        "qcom,throughput-threshold": [
+          2000,
+          4000,
+          8000
+        ],
+        "qcom,max_num_smmu_cb": [
+          4
+        ],
+        "qcom,ulso-ip-id-max-windows-val": [
+          32767
+        ],
+        "qcom,ulso-ip-id-min-windows-val": [
+          0
+        ],
+        "qcom,ulso-ip-id-max-linux-val": [
+          65535
+        ],
+        "qcom,ulso-ip-id-min-linux-val": [
+          0
+        ],
+        "qcom,tx-wrapper-cache-max-size": [
+          400
+        ],
+        "qcom,ipa-holb-monitor-max-cnt-11ad": [
+          10
+        ],
+        "qcom,ipa-holb-monitor-max-cnt-usb": [
+          10
+        ],
+        "qcom,ipa-holb-monitor-max-cnt-wlan": [
+          10
+        ],
+        "qcom,ipa-holb-monitor-poll-period": [
+          5
+        ],
+        "qcom,mhi-event-ring-id-limits": [
+          9,
+          11
+        ],
+        "qcom,entire-ipa-block-size": [
+          2097152
+        ],
+        "qcom,ee": [
+          0
+        ],
+        "qcom,platform-type": [
+          1
+        ],
+        "qcom,ipa-hw-mode": [
+          0
+        ],
+        "qcom,ipa-hw-ver": [
+          24
+        ],
+        "interrupts": [
+          0,
+          654,
+          4,
+          0,
+          432,
+          4
+        ],
+        "qcom,ipa-cfg-offset": [
+          1310720
+        ],
+        "pas-ids": [
+          15
+        ],
+        "reg": [
+          65011712,
+          540672,
+          65028096,
+          1032192
+        ]
+      },
+      "strings": {
+        "qcom,bus-vector-names": [
+          "MIN",
+          "SVS2",
+          "SVS",
+          "NOMINAL",
+          "TURBO"
+        ],
+        "interconnect-names": [
+          "ipa_to_llcc",
+          "llcc_to_ebi1",
+          "appss_to_ipa"
+        ],
+        "clock-names": [
+          "core_clk"
+        ],
+        "interrupt-names": [
+          "ipa-irq",
+          "gsi-irq"
+        ],
+        "firmware-names": [
+          "ipa_fws"
+        ],
+        "reg-names": [
+          "ipa-base",
+          "gsi-base"
+        ],
+        "compatible": [
+          "qcom,ipa"
+        ]
+      },
+      "flags": [
+        "qcom,ipa-wdi-opt-dpath",
+        "qcom,scaling-exceptions",
+        "qcom,ulso-supported",
+        "qcom,ipa-gpi-event-rp-ddr",
+        "qcom,ipa-uc-holb-monitor",
+        "qcom,rmnet-ll-enable",
+        "qcom,rmnet-ctl-enable",
+        "qcom,wan-use-skb-page",
+        "qcom,non-tn-collection-on-crash",
+        "qcom,testbus-collection-on-crash",
+        "qcom,register-collection-on-crash",
+        "qcom,tx-poll",
+        "qcom,tx-napi",
+        "qcom,lan-rx-napi",
+        "qcom,ipa-endp-delay-wa-v2",
+        "qcom,use-64-bit-dma-mask",
+        "qcom,smmu-fast-map",
+        "qcom,arm-smmu",
+        "qcom,ipa-wdi3-over-gsi",
+        "qcom,modem-cfg-emb-pipe-flt",
+        "qcom,use-ipa-tethering-bridge"
+      ],
+      "absent": [
+        "interrupt-parent"
+      ]
+    },
+    "rmnet": {
+      "path": "/soc/qcom,rmnet-ipa",
+      "flags": [
+        "qcom,ipa-napi-enable",
+        "qcom,ipa-advertise-sg-support",
+        "qcom,ipa-platform-type-msm",
+        "qcom,rmnet-ipa-ssr"
+      ],
+      "strings": {
+        "compatible": [
+          "qcom,rmnet-ipa3"
+        ]
+      }
+    },
+    "gsi_driver": {
+      "path": "/soc/qcom,msm_gsi",
+      "strings": {
+        "compatible": [
+          "qcom,msm_gsi"
+        ]
+      }
+    },
+    "ipa_pas_legacy": {
+      "path": "/soc/qcom,ipa_fws",
+      "strings": {
+        "status": [
+          "disabled"
+        ],
+        "qcom,firmware-name": [
+          "ipa_fws"
+        ],
+        "compatible": [
+          "qcom,pil-tz-generic"
+        ]
+      },
+      "flags": [
+        "qcom,pil-force-shutdown"
+      ],
+      "cells": {
+        "qcom,pas-id": [
+          15
+        ]
+      }
+    },
+    "glink": {
+      "path": "/soc/remoteproc-mss@04080000/glink-edge",
+      "cells": {
+        "qcom,remote-pid": [
+          1
+        ],
+        "interrupts": [
+          2,
+          0,
+          1
+        ]
+      },
+      "strings": {
+        "transport": [
+          "smem"
+        ],
+        "mbox-names": [
+          "mpss_smem"
+        ],
+        "label": [
+          "modem"
+        ],
+        "qcom,glink-label": [
+          "mpss"
+        ]
+      }
+    },
+    "qrtr": {
+      "path": "/soc/remoteproc-mss@04080000/glink-edge/qcom,modem_qrtr",
+      "strings": {
+        "qcom,glink-channels": [
+          "IPCRTR"
+        ]
+      },
+      "flags": [
+        "qcom,low-latency"
+      ],
+      "cells": {
+        "qcom,intents": [
+          2048,
+          5,
+          8192,
+          3,
+          17408,
+          2
+        ]
+      }
+    },
+    "ds": {
+      "path": "/soc/remoteproc-mss@04080000/glink-edge/qcom,modem_ds",
+      "strings": {
+        "qcom,glink-channels": [
+          "DS"
+        ]
+      },
+      "cells": {
+        "qcom,intents": [
+          16384,
+          2
+        ]
+      }
+    },
+    "smp2p_out": {
+      "path": "/soc/qcom,smp2p-modem/master-kernel",
+      "strings": {
+        "qcom,entry-name": [
+          "master-kernel"
+        ]
+      },
+      "cells": {
+        "#qcom,smem-state-cells": [
+          1
+        ]
+      }
+    },
+    "smp2p_in": {
+      "path": "/soc/qcom,smp2p-modem/slave-kernel",
+      "strings": {
+        "qcom,entry-name": [
+          "slave-kernel"
+        ]
+      },
+      "flags": [
+        "interrupt-controller"
+      ],
+      "cells": {
+        "#interrupt-cells": [
+          2
+        ]
+      }
+    },
+    "smp2p_ipa_out": {
+      "path": "/soc/qcom,smp2p-modem/qcom,smp2p-ipa-1-out",
+      "strings": {
+        "qcom,entry-name": [
+          "ipa"
+        ]
+      },
+      "cells": {
+        "#qcom,smem-state-cells": [
+          1
+        ]
+      }
+    },
+    "smp2p_ipa_in": {
+      "path": "/soc/qcom,smp2p-modem/qcom,smp2p-ipa-1-in",
+      "strings": {
+        "qcom,entry-name": [
+          "ipa"
+        ]
+      },
+      "flags": [
+        "interrupt-controller"
+      ],
+      "cells": {
+        "#interrupt-cells": [
+          2
+        ]
+      }
+    },
+    "ipa_smp2p_out": {
+      "path": "/soc/qcom,ipa@3e00000/qcom,smp2p_map_ipa_1_out",
+      "strings": {
+        "qcom,smem-state-names": [
+          "ipa-smp2p-out"
+        ],
+        "compatible": [
+          "qcom,smp2p-map-ipa-1-out"
+        ]
+      },
+      "cells": {}
+    },
+    "ipa_smp2p_in": {
+      "path": "/soc/qcom,ipa@3e00000/qcom,smp2p_map_ipa_1_in",
+      "strings": {
+        "interrupt-names": [
+          "ipa-smp2p-in"
+        ],
+        "compatible": [
+          "qcom,smp2p-map-ipa-1-in"
+        ]
+      },
+      "cells": {}
+    },
+    "ipa_smmu_ap": {
+      "path": "/soc/qcom,ipa@3e00000/ipa_smmu_ap",
+      "cells": {
+        "qcom,ipa-q6-smem-size": [
+          45056
+        ],
+        "qcom,additional-mapping": [
+          342372352,
+          342372352,
+          8192
+        ],
+        "qcom,iommu-dma-addr-pool": [
+          536870912,
+          536870912
+        ]
+      },
+      "flags": [
+        "dma-coherent"
+      ],
+      "strings": {
+        "qcom,iommu-dma": [
+          "atomic"
+        ],
+        "compatible": [
+          "qcom,ipa-smmu-ap-cb"
+        ]
+      }
+    },
+    "ipa_smmu_wlan": {
+      "path": "/soc/qcom,ipa@3e00000/ipa_smmu_wlan",
+      "flags": [
+        "dma-coherent"
+      ],
+      "strings": {
+        "qcom,iommu-dma": [
+          "atomic"
+        ],
+        "compatible": [
+          "qcom,ipa-smmu-wlan-cb"
+        ]
+      },
+      "cells": {}
+    },
+    "ipa_smmu_uc": {
+      "path": "/soc/qcom,ipa@3e00000/ipa_smmu_uc",
+      "flags": [
+        "dma-coherent"
+      ],
+      "strings": {
+        "qcom,iommu-dma": [
+          "atomic"
+        ],
+        "compatible": [
+          "qcom,ipa-smmu-uc-cb"
+        ]
+      },
+      "cells": {
+        "qcom,iommu-dma-addr-pool": [
+          536870912,
+          536870912
+        ]
+      }
+    },
+    "ipa_smmu_11ad": {
+      "path": "/soc/qcom,ipa@3e00000/ipa_smmu_11ad",
+      "flags": [
+        "qcom,iommu-group",
+        "qcom,shared-cb",
+        "dma-coherent"
+      ],
+      "cells": {},
+      "strings": {
+        "compatible": [
+          "qcom,ipa-smmu-11ad-cb"
+        ]
+      }
+    },
+    "gic": {
+      "path": "/soc/interrupt-controller@17100000",
+      "strings": {
+        "compatible": [
+          "arm,gic-v3"
+        ]
+      },
+      "cells": {
+        "#interrupt-cells": [
+          3
+        ],
+        "reg": [
+          386924544,
+          65536,
+          387448832,
+          2097152
+        ]
+      }
+    },
+    "smmu": {
+      "path": "/soc/apps-smmu@15000000",
+      "strings": {
+        "compatible": [
+          "qcom,qsmmu-v500"
+        ],
+        "reg-names": [
+          "base",
+          "tcu-base"
+        ]
+      },
+      "cells": {
+        "reg": [
+          352321536,
+          1048576,
+          354410496,
+          64
+        ],
+        "#iommu-cells": [
+          2
+        ]
+      },
+      "flags": [
+        "dma-coherent"
+      ]
+    },
+    "hwlock": {
+      "path": "/soc/hwlock",
+      "strings": {
+        "compatible": [
+          "qcom,tcsr-mutex"
+        ]
+      },
+      "cells": {
+        "#hwlock-cells": [
+          1
+        ]
+      }
+    },
+    "tcsr": {
+      "path": "/soc/syscon@1f40000",
+      "strings": {
+        "compatible": [
+          "syscon"
+        ]
+      },
+      "cells": {
+        "reg": [
+          32768000,
+          131072
+        ]
+      }
+    },
+    "rpmh_clock": {
+      "path": "/soc/rsc@17a00000/drv@2/clock-controller",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-rpmh-clk"
+        ]
+      },
+      "cells": {
+        "#clock-cells": [
+          1
+        ]
+      }
+    },
+    "cx": {
+      "path": "/soc/rsc@17a00000/drv@2/rpmh-regulator-cxlvl/regulator-pm-v8-s8-level",
+      "strings": {
+        "regulator-name": [
+          "pm_v8_s8_level"
+        ]
+      },
+      "cells": {
+        "qcom,set": [
+          3
+        ],
+        "regulator-min-microvolt": [
+          16
+        ],
+        "regulator-max-microvolt": [
+          65535
+        ],
+        "qcom,init-voltage-level": [
+          384
+        ],
+        "qcom,proxy-consumer-voltage": [
+          384,
+          65535
+        ]
+      },
+      "flags": [
+        "qcom,proxy-consumer-enable"
+      ]
+    },
+    "mx": {
+      "path": "/soc/rsc@17a00000/drv@2/rpmh-regulator-msslvl/regulator-pm-v6g-s5-level",
+      "strings": {
+        "regulator-name": [
+          "pm_v6g_s5_level"
+        ]
+      },
+      "cells": {
+        "qcom,set": [
+          3
+        ],
+        "regulator-min-microvolt": [
+          16
+        ],
+        "regulator-max-microvolt": [
+          65535
+        ],
+        "qcom,init-voltage-level": [
+          16
+        ]
+      }
+    },
+    "mc_virt": {
+      "path": "/soc/interconnect@1",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-mc_virt"
+        ],
+        "qcom,bcm-voter-names": [
+          "hlos",
+          "disp",
+          "cam_ife_0",
+          "cam_ife_1",
+          "cam_ife_2",
+          "pcie_crm_hw_0",
+          "pcie_crm_hw_1"
+        ]
+      },
+      "cells": {
+        "#interconnect-cells": [
+          1
+        ],
+        "qcom,bcm-voters": [
+          37,
+          40,
+          41,
+          42,
+          43,
+          38,
+          39
+        ]
+      }
+    },
+    "aggre2_noc": {
+      "path": "/soc/interconnect@1700000",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-aggre2_noc"
+        ],
+        "qcom,bcm-voter-names": [
+          "hlos"
+        ]
+      },
+      "cells": {
+        "reg": [
+          24117248,
+          123904
+        ],
+        "#interconnect-cells": [
+          1
+        ],
+        "qcom,bcm-voters": [
+          37
+        ]
+      }
+    },
+    "gem_noc": {
+      "path": "/soc/interconnect@24100000",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-gem_noc"
+        ],
+        "clock-names": [
+          "gcc_ddrss_ubwcp_clk"
+        ],
+        "qcom,bcm-voter-names": [
+          "hlos",
+          "disp",
+          "cam_ife_0",
+          "cam_ife_1",
+          "cam_ife_2",
+          "pcie_crm_hw_0",
+          "pcie_crm_hw_1"
+        ]
+      },
+      "cells": {
+        "reg": [
+          605028352,
+          807040
+        ],
+        "#interconnect-cells": [
+          1
+        ],
+        "clocks": [
+          44,
+          13
+        ],
+        "qcom,bcm-voters": [
+          37,
+          40,
+          41,
+          42,
+          43,
+          38,
+          39
+        ]
+      }
+    },
+    "cnoc_main": {
+      "path": "/soc/interconnect@1500000",
+      "strings": {
+        "compatible": [
+          "qcom,pineapple-cnoc_main"
+        ],
+        "qcom,bcm-voter-names": [
+          "hlos"
+        ]
+      },
+      "cells": {
+        "reg": [
+          22020096,
+          82048
+        ],
+        "#interconnect-cells": [
+          1
+        ],
+        "qcom,bcm-voters": [
+          37
+        ]
+      }
+    },
+    "qmp": {
+      "path": "/soc/power-controller@c300000",
+      "strings": {
+        "compatible": [
+          "qcom,aoss-qmp"
+        ]
+      },
+      "cells": {
+        "reg": [
+          204472320,
+          1024
+        ],
+        "interrupts": [
+          0,
+          0,
+          1
+        ],
+        "#power-domain-cells": [
+          1
+        ],
+        "#clock-cells": [
+          0
+        ]
+      }
+    },
+    "cx_provider": {
+      "path": "/soc/rsc@17a00000/drv@2/rpmh-regulator-cxlvl",
+      "strings": {
+        "compatible": [
+          "qcom,rpmh-arc-regulator"
+        ],
+        "qcom,resource-name": [
+          "cx.lvl"
+        ]
+      },
+      "cells": {}
+    },
+    "mx_provider": {
+      "path": "/soc/rsc@17a00000/drv@2/rpmh-regulator-msslvl",
+      "strings": {
+        "compatible": [
+          "qcom,rpmh-arc-regulator"
+        ],
+        "qcom,resource-name": [
+          "mss.lvl"
+        ]
+      }
+    },
+    "soc": {
+      "path": "/soc",
+      "cells": {
+        "#address-cells": [
+          1
+        ],
+        "#size-cells": [
+          1
+        ],
+        "ranges": [
+          0,
+          0,
+          0,
+          4294967295
+        ]
+      },
+      "strings": {
+        "compatible": [
+          "simple-bus"
+        ]
+      }
+    }
+  },
+  "dt_references": [
+    {
+      "source": "modem",
+      "property": "memory-region",
+      "specifiers": [
+        {
+          "target": "mpss",
+          "args": []
+        },
+        {
+          "target": "mpss_dtb",
+          "args": []
+        },
+        {
+          "target": "cma",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "mpss_dsm_mem_reg",
+      "specifiers": [
+        {
+          "target": "dsm",
+          "args": []
+        },
+        {
+          "target": "dsm2",
+          "args": []
+        },
+        {
+          "target": "qlink_log",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "interrupts-extended",
+      "specifiers": [
+        {
+          "target": "gic",
+          "args": [
+            0,
+            264,
+            1
+          ]
+        },
+        {
+          "target": "smp2p_in",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "target": "smp2p_in",
+          "args": [
+            2,
+            0
+          ]
+        },
+        {
+          "target": "smp2p_in",
+          "args": [
+            1,
+            0
+          ]
+        },
+        {
+          "target": "smp2p_in",
+          "args": [
+            3,
+            0
+          ]
+        },
+        {
+          "target": "smp2p_in",
+          "args": [
+            7,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "qcom,smem-states",
+      "specifiers": [
+        {
+          "target": "smp2p_out",
+          "args": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "clocks",
+      "specifiers": [
+        {
+          "target": "rpmh_clock",
+          "args": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "cx-supply",
+      "specifiers": [
+        {
+          "target": "cx",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "mx-supply",
+      "specifiers": [
+        {
+          "target": "mx",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "qcom,qmp",
+      "specifiers": [
+        {
+          "target": "qmp",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "modem",
+      "property": "interconnects",
+      "specifiers": [
+        {
+          "target": "mc_virt",
+          "args": [
+            4
+          ]
+        },
+        {
+          "target": "mc_virt",
+          "args": [
+            512
+          ]
+        },
+        {
+          "target": "aggre2_noc",
+          "args": [
+            41
+          ]
+        },
+        {
+          "target": "mc_virt",
+          "args": [
+            512
+          ]
+        }
+      ]
+    },
+    {
+      "source": "smem",
+      "property": "hwlocks",
+      "specifiers": [
+        {
+          "target": "hwlock",
+          "args": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "source": "hwlock",
+      "property": "syscon",
+      "specifiers": [
+        {
+          "target": "tcsr",
+          "args": [
+            0,
+            4096
+          ]
+        }
+      ]
+    },
+    {
+      "source": "glink",
+      "property": "mboxes",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": [
+            2,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "glink",
+      "property": "interrupt-parent",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "smp2p",
+      "property": "mboxes",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": [
+            2,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "source": "smp2p",
+      "property": "interrupt-parent",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "ipa",
+      "property": "clocks",
+      "specifiers": [
+        {
+          "target": "rpmh_clock",
+          "args": [
+            12
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa",
+      "property": "memory-regions",
+      "specifiers": [
+        {
+          "target": "ipa_gsi",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "ipa",
+      "property": "interconnects",
+      "specifiers": [
+        {
+          "target": "aggre2_noc",
+          "args": [
+            42
+          ]
+        },
+        {
+          "target": "gem_noc",
+          "args": [
+            561
+          ]
+        },
+        {
+          "target": "mc_virt",
+          "args": [
+            4
+          ]
+        },
+        {
+          "target": "mc_virt",
+          "args": [
+            512
+          ]
+        },
+        {
+          "target": "gem_noc",
+          "args": [
+            3
+          ]
+        },
+        {
+          "target": "cnoc_main",
+          "args": [
+            532
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smp2p_out",
+      "property": "qcom,smem-states",
+      "specifiers": [
+        {
+          "target": "smp2p_ipa_out",
+          "args": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smp2p_in",
+      "property": "interrupts-extended",
+      "specifiers": [
+        {
+          "target": "smp2p_ipa_in",
+          "args": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smmu_ap",
+      "property": "iommus",
+      "specifiers": [
+        {
+          "target": "smmu",
+          "args": [
+            1184,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smmu_wlan",
+      "property": "iommus",
+      "specifiers": [
+        {
+          "target": "smmu",
+          "args": [
+            1185,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smmu_uc",
+      "property": "iommus",
+      "specifiers": [
+        {
+          "target": "smmu",
+          "args": [
+            1186,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "ipa_smmu_11ad",
+      "property": "iommus",
+      "specifiers": [
+        {
+          "target": "smmu",
+          "args": [
+            1188,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "soc",
+      "property": "interrupt-parent",
+      "specifiers": [
+        {
+          "target": "gic",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "qmp",
+      "property": "interrupt-parent",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "qmp",
+      "property": "mboxes",
+      "specifiers": [
+        {
+          "target": "ipcc",
+          "args": [
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "source": "cx_provider",
+      "property": "proxy-supply",
+      "specifiers": [
+        {
+          "target": "cx",
+          "args": []
+        }
+      ]
+    },
+    {
+      "source": "aggre2_noc",
+      "property": "clocks",
+      "specifiers": [
+        {
+          "target": "rpmh_clock",
+          "args": [
+            12
+          ]
+        }
+      ]
+    }
+  ],
+  "qualification_notes": [
+    "All DT properties are captured Android configuration, not established XNU ownership or runtime readiness.",
+    "The pinned modem node has no power-domains property: cx/mx RPMh ARC regulators, XO clock, AOP QMP and interconnect votes are its explicit dependencies.",
+    "DT memory-region index 2 is dynamically allocated linux,cma, not a fixed modem firmware region.",
+    "The original PIL_Reserved alone omits DSM/QLINK. The current qualified MemoryMapLib overlay adds exactly those three reserved descriptors, and production preparation checks drift, copy and DSC/INF/FDF wiring.",
+    "modem reg-names cx/mx are consumed by adsp_init_regulator as supply names; the single reg tuple is the sole MMIO resource.",
+    "uses_elf64 describes coredump format. Do not infer firmware MDT ELF class from it.",
+    "Stock UEFI FULL_MODEM reserves 0x8a200000..0x9b000000, while the running Android DT MPSS span begins at 0x8bc00000. See docs/MODEM_BOOT_MAP.md.",
+    "IPA DT version 0x18 resolves to IPA_HW_v5_5=24; platform-type 1 resolves to MSM, selecting the IPA_5_5 production table and GSI_VER_5_5.",
+    "All 31 production IPA 5.5 endpoint/GSI routes and 10 test aliases are recorded. The test aliases overlap production hardware and are not separate deployable endpoints. Runtime event rings, routing/filtering rules, mux IDs and DMA ownership are not established.",
+    "Matching factory ROM firmware is available in private local cache: 55 files, all nonempty load segments sized/hashed, BSS identified, MDT header-plus-hash metadata verified, and IPA split payloads match GSI ELF. Hardware startup and secure authentication are not claimed.",
+    "The baseline RamManager can fill uncovered RAM-partition gaps. The current overlay supplies explicit DSM/QLINK reservations before that stage; final firmware map/SCM ownership remains a distinct handoff requirement."
+  ],
+  "local_evidence": [
+    {
+      "path": ".cache/modem-source/qcom_q6v5.c",
+      "bytes": 21082,
+      "sha256": "96904780dacd7f101c2b5df61abd9979491a0a8a61094d928f6b32959019d502",
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "upstream_path": "drivers/remoteproc/qcom_q6v5.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/remoteproc/qcom_q6v5.c"
+    },
+    {
+      "path": ".cache/modem-source/qcom_q6v5.h",
+      "bytes": 1500,
+      "sha256": "398187e6321d41843dfd501ad87551272cfbc82ea9048364dda8a5197b406cb0",
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "upstream_path": "drivers/remoteproc/qcom_q6v5.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/remoteproc/qcom_q6v5.h"
+    },
+    {
+      "path": ".cache/modem-source/mdt_loader.c",
+      "bytes": 14088,
+      "sha256": "97b468a0e487fe1afd90c1af9d295bfe73901144aa69d72f95df2962e85c4db9",
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "upstream_path": "drivers/soc/qcom/mdt_loader.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/mdt_loader.c"
+    },
+    {
+      "path": ".cache/stock-boot-16.0.3.500/modules/uefi-uefipil.cfg.raw.strings",
+      "bytes": 7471,
+      "sha256": "4c7422509c74257da314ab76f7cb3e92fc1718a0f2402bdb3083816e8f3c7fa6",
+      "kind": "locally extracted stock UEFI PIL configuration strings; configuration evidence only"
+    },
+    {
+      "path": ".cache/modem-source/ipa.c",
+      "bytes": 352993,
+      "sha256": "5d3e222f1a9bc882f8054ec6034b70c4be910606017c2a73d68a768027b28c0b",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa.c"
+    },
+    {
+      "path": ".cache/modem-source/ipa_i.h",
+      "bytes": 117830,
+      "sha256": "15e8e3c859e099317e327911e886c4efae0723fcb04c5a6884b8f757ad085d20",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_i.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_i.h"
+    },
+    {
+      "path": ".cache/modem-source/ipa_utils.c",
+      "bytes": 443396,
+      "sha256": "cdcceaeea9611e2887cc9bb37e9a4d56c29e8bd960b08a83bb2a9cfaccc96351",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_utils.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_utils.c"
+    },
+    {
+      "path": ".cache/modem-source/ipa_qmi_service.h",
+      "bytes": 19088,
+      "sha256": "4083ac8b2bcc37d0055a7b2f50f8ccd0234d14857948256c4fde63ecdb18d2c3",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service.h"
+    },
+    {
+      "path": ".cache/modem-source/ipa_defs.h",
+      "bytes": 3859,
+      "sha256": "590c14f60f6c0a463fecc9b4be21b42a41cb8ff6821844c0c12be781d2a6eedd",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_defs.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_defs.h"
+    },
+    {
+      "path": ".cache/modem-source/ipa.h",
+      "bytes": 69167,
+      "sha256": "e29a07afa03aaa640794c471b45d48cb4476be63f7822c975aed3e2235d1f509",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/include/linux/ipa.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/include/linux/ipa.h"
+    },
+    {
+      "path": ".cache/modem-source/msm_ipa.h",
+      "bytes": 122182,
+      "sha256": "364bc19116d94b5036181c4f4745dc0a0036244118964c49b30fe4c2064796b1",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/include/uapi/linux/msm_ipa.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/include/uapi/linux/msm_ipa.h"
+    },
+    {
+      "path": ".cache/modem-source/rpmh-clock.h",
+      "bytes": 1373,
+      "sha256": "11cf36321ba8ef0e31055ae706ee2062c079d35d6c2350656dd560e37e9496f2",
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "upstream_path": "include/dt-bindings/clock/qcom,rpmh.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/include/dt-bindings/clock/qcom,rpmh.h"
+    },
+    {
+      "path": ".cache/modem-source/pineapple-interconnect.h",
+      "bytes": 6856,
+      "sha256": "f1801c7138296b2174b81df22c161b54f1cbb849392fae6a0a5de22155f2c433",
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "upstream_path": "include/dt-bindings/interconnect/qcom,pineapple.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/include/dt-bindings/interconnect/qcom,pineapple.h"
+    },
+    {
+      "path": ".cache/modem-source/ipa_qmi_service.c",
+      "bytes": 85378,
+      "sha256": "3040262ca4fdb91433516766e949cc77a95a892fef28793d64aed260856cf637",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service.c"
+    },
+    {
+      "path": ".cache/modem-source/ipa_qmi_service_v01.c",
+      "bytes": 146087,
+      "sha256": "1eac85232249cdbcbf68ca11223dbfe3539af812a57ec1970a08f09d8238c710",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service_v01.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/ipa_qmi_service_v01.c"
+    },
+    {
+      "path": ".cache/modem-source/ipa_qmi_service_v01.h",
+      "bytes": 106394,
+      "sha256": "e3cbead5363d3dc4eb5b60a9018eca8a5080bf612353c65535b64a8e62b8d345",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/include/uapi/linux/ipa_qmi_service_v01.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/include/uapi/linux/ipa_qmi_service_v01.h"
+    },
+    {
+      "path": ".cache/modem-source/rmnet_ipa.c",
+      "bytes": 203441,
+      "sha256": "616c3474a979fafa63cda0946df253f431c7eb3d25f66797e43d3d0f28549efd",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/dataipa/drivers/platform/msm/ipa/ipa_v3/rmnet_ipa.c"
+    }
+  ],
+  "ipa_endpoint_map": {
+    "hardware_enum": 24,
+    "platform_enum": 1,
+    "table": "IPA_5_5",
+    "production_routes": [
+      {
+        "client": "IPA_CLIENT_USB_PROD",
+        "client_id": 18,
+        "valid": true,
+        "endpoint": 1,
+        "gsi_channel": 0,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5445
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_PROD",
+        "client_id": 34,
+        "valid": true,
+        "endpoint": 2,
+        "gsi_channel": 11,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 25,
+        "ipa_if_aos": 32,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5453
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_LOW_LAT_PROD",
+        "client_id": 104,
+        "valid": true,
+        "endpoint": 4,
+        "gsi_channel": 9,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_URLLC",
+        "group_id": 4,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5461
+      },
+      {
+        "client": "IPA_CLIENT_WLAN2_PROD",
+        "client_id": 12,
+        "valid": true,
+        "endpoint": 6,
+        "gsi_channel": 16,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 2,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5469
+      },
+      {
+        "client": "IPA_CLIENT_WIGIG_PROD",
+        "client_id": 86,
+        "valid": true,
+        "endpoint": 7,
+        "gsi_channel": 17,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 2,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5477
+      },
+      {
+        "client": "IPA_CLIENT_APPS_LAN_PROD",
+        "client_id": 32,
+        "valid": true,
+        "endpoint": 9,
+        "gsi_channel": 19,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 26,
+        "ipa_if_aos": 32,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 4,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5485
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD",
+        "client_id": 120,
+        "valid": true,
+        "endpoint": 10,
+        "gsi_channel": 5,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 10,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_URLLC",
+        "group_id": 4,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5493
+      },
+      {
+        "client": "IPA_CLIENT_APPS_CMD_PROD",
+        "client_id": 36,
+        "valid": true,
+        "endpoint": 14,
+        "gsi_channel": 12,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 20,
+        "ipa_if_aos": 24,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5501
+      },
+      {
+        "client": "IPA_CLIENT_Q6_WAN_PROD",
+        "client_id": 52,
+        "valid": true,
+        "endpoint": 12,
+        "gsi_channel": 0,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 16,
+        "ipa_if_aos": 28,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 2,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5509
+      },
+      {
+        "client": "IPA_CLIENT_Q6_CMD_PROD",
+        "client_id": 54,
+        "valid": true,
+        "endpoint": 13,
+        "gsi_channel": 1,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 20,
+        "ipa_if_aos": 24,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5517
+      },
+      {
+        "client": "IPA_CLIENT_Q6_DL_NLO_DATA_PROD",
+        "client_id": 74,
+        "valid": true,
+        "endpoint": 15,
+        "gsi_channel": 2,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 28,
+        "ipa_if_aos": 32,
+        "prefetch_mode": "GSI_FREE_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5525
+      },
+      {
+        "client": "IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD",
+        "client_id": 122,
+        "valid": true,
+        "endpoint": 5,
+        "gsi_channel": 8,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 28,
+        "ipa_if_aos": 32,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_URLLC",
+        "group_id": 4,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5533
+      },
+      {
+        "client": "IPA_CLIENT_APPS_LAN_COAL_CONS",
+        "client_id": 127,
+        "valid": true,
+        "endpoint": 16,
+        "gsi_channel": 13,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 23,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5541
+      },
+      {
+        "client": "IPA_CLIENT_APPS_LAN_CONS",
+        "client_id": 33,
+        "valid": true,
+        "endpoint": 17,
+        "gsi_channel": 14,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5549
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_COAL_CONS",
+        "client_id": 95,
+        "valid": true,
+        "endpoint": 23,
+        "gsi_channel": 4,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 23,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5557
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_CONS",
+        "client_id": 35,
+        "valid": true,
+        "endpoint": 24,
+        "gsi_channel": 1,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5565
+      },
+      {
+        "client": "IPA_CLIENT_USB_DPL_CONS",
+        "client_id": 27,
+        "valid": true,
+        "endpoint": 25,
+        "gsi_channel": 20,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 5,
+        "ipa_if_aos": 5,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5573
+      },
+      {
+        "client": "IPA_CLIENT_ODL_DPL_CONS",
+        "client_id": 83,
+        "valid": true,
+        "endpoint": 26,
+        "gsi_channel": 2,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 5,
+        "ipa_if_aos": 5,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5581
+      },
+      {
+        "client": "IPA_CLIENT_WIGIG1_CONS",
+        "client_id": 87,
+        "valid": true,
+        "endpoint": 27,
+        "gsi_channel": 21,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 14,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5589
+      },
+      {
+        "client": "IPA_CLIENT_WLAN2_CONS",
+        "client_id": 13,
+        "valid": true,
+        "endpoint": 28,
+        "gsi_channel": 3,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 14,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5597
+      },
+      {
+        "client": "IPA_CLIENT_WLAN2_CONS1",
+        "client_id": 119,
+        "valid": true,
+        "endpoint": 29,
+        "gsi_channel": 22,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 14,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5605
+      },
+      {
+        "client": "IPA_CLIENT_USB_CONS",
+        "client_id": 19,
+        "valid": true,
+        "endpoint": 30,
+        "gsi_channel": 23,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5613
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_LOW_LAT_CONS",
+        "client_id": 105,
+        "valid": true,
+        "endpoint": 32,
+        "gsi_channel": 8,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5621
+      },
+      {
+        "client": "IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS",
+        "client_id": 121,
+        "valid": true,
+        "endpoint": 33,
+        "gsi_channel": 10,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5629
+      },
+      {
+        "client": "IPA_CLIENT_WIGIG2_CONS",
+        "client_id": 89,
+        "valid": true,
+        "endpoint": 34,
+        "gsi_channel": 6,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 14,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5637
+      },
+      {
+        "client": "IPA_CLIENT_WIGIG3_CONS",
+        "client_id": 91,
+        "valid": true,
+        "endpoint": 35,
+        "gsi_channel": 25,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 14,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5645
+      },
+      {
+        "client": "IPA_CLIENT_Q6_LAN_CONS",
+        "client_id": 51,
+        "valid": true,
+        "endpoint": 18,
+        "gsi_channel": 3,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5653
+      },
+      {
+        "client": "IPA_CLIENT_Q6_QBAP_STATUS_CONS",
+        "client_id": 79,
+        "valid": true,
+        "endpoint": 19,
+        "gsi_channel": 4,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5661
+      },
+      {
+        "client": "IPA_CLIENT_Q6_UL_NLO_DATA_CONS",
+        "client_id": 75,
+        "valid": true,
+        "endpoint": 20,
+        "gsi_channel": 5,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 5,
+        "ipa_if_aos": 5,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 2,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5669
+      },
+      {
+        "client": "IPA_CLIENT_Q6_UL_NLO_ACK_CONS",
+        "client_id": 77,
+        "valid": true,
+        "endpoint": 21,
+        "gsi_channel": 6,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 5,
+        "ipa_if_aos": 5,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 2,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5677
+      },
+      {
+        "client": "IPA_CLIENT_Q6_WAN_CONS",
+        "client_id": 53,
+        "valid": true,
+        "endpoint": 22,
+        "gsi_channel": 7,
+        "execution_environment": 1,
+        "execution_environment_name": "IPA_EE_Q6",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_UL",
+        "source_line": 5685
+      }
+    ],
+    "test_aliases": [
+      {
+        "client": "IPA_CLIENT_TEST_PROD",
+        "client_id": 62,
+        "valid": true,
+        "endpoint": 4,
+        "gsi_channel": 9,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_URLLC",
+        "group_id": 4,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5694
+      },
+      {
+        "client": "IPA_CLIENT_TEST1_PROD",
+        "client_id": 64,
+        "valid": true,
+        "endpoint": 3,
+        "gsi_channel": 7,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5702
+      },
+      {
+        "client": "IPA_CLIENT_TEST2_PROD",
+        "client_id": 66,
+        "valid": true,
+        "endpoint": 1,
+        "gsi_channel": 0,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 8,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5710
+      },
+      {
+        "client": "IPA_CLIENT_TEST3_PROD",
+        "client_id": 68,
+        "valid": true,
+        "endpoint": 10,
+        "gsi_channel": 5,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 10,
+        "ipa_if_aos": 16,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_URLLC",
+        "group_id": 4,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5718
+      },
+      {
+        "client": "IPA_CLIENT_TEST4_PROD",
+        "client_id": 70,
+        "valid": true,
+        "endpoint": 2,
+        "gsi_channel": 11,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 25,
+        "ipa_if_aos": 32,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_UL",
+        "group_id": 0,
+        "filtering": true,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_NA",
+        "source_line": 5726
+      },
+      {
+        "client": "IPA_CLIENT_TEST_CONS",
+        "client_id": 63,
+        "valid": true,
+        "endpoint": 32,
+        "gsi_channel": 8,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5734
+      },
+      {
+        "client": "IPA_CLIENT_TEST1_CONS",
+        "client_id": 65,
+        "valid": true,
+        "endpoint": 26,
+        "gsi_channel": 2,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 5,
+        "ipa_if_aos": 5,
+        "prefetch_mode": "GSI_ESCAPE_BUF_ONLY",
+        "prefetch_threshold": 0,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5742
+      },
+      {
+        "client": "IPA_CLIENT_TEST2_CONS",
+        "client_id": 67,
+        "valid": true,
+        "endpoint": 33,
+        "gsi_channel": 10,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5750
+      },
+      {
+        "client": "IPA_CLIENT_TEST3_CONS",
+        "client_id": 69,
+        "valid": true,
+        "endpoint": 30,
+        "gsi_channel": 23,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5758
+      },
+      {
+        "client": "IPA_CLIENT_TEST4_CONS",
+        "client_id": 71,
+        "valid": true,
+        "endpoint": 24,
+        "gsi_channel": 1,
+        "execution_environment": 0,
+        "execution_environment_name": "IPA_EE_AP",
+        "ipa_if_tlv": 9,
+        "ipa_if_aos": 9,
+        "prefetch_mode": "GSI_SMART_PRE_FETCH",
+        "prefetch_threshold": 3,
+        "group": "IPA_v5_5_GROUP_DL",
+        "group_id": 1,
+        "filtering": false,
+        "sequencer": "IPA_DPS_HPS_SEQ_TYPE_INVALID",
+        "qmb_master": "QMB_MASTER_SELECT_DDR",
+        "tx_instance": "IPA_TX_INSTANCE_DL",
+        "source_line": 5766
+      }
+    ]
+  },
+  "binding_constants": {
+    "RPMH_CXO_CLK": 0,
+    "RPMH_IPA_CLK": 12,
+    "MASTER_APPSS_PROC": 3,
+    "MASTER_LLCC": 4,
+    "MASTER_CRYPTO": 41,
+    "MASTER_IPA": 42,
+    "SLAVE_EBI1": 512,
+    "SLAVE_IPA_CFG": 532,
+    "SLAVE_LLCC": 561
+  }
+}

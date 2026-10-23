@@ -13,15 +13,13 @@ import argparse
 from gpu_terminal_boot import LEASE
 parser=argparse.ArgumentParser(description='Native HWSCHED experiment using current kernel roots; answers owned RAM allocation requests and stops on unsupported resources.')
 parser.add_argument('--execute',action='store_true',help='Perform temporary device writes and reset/cleanup')
-parser.add_argument('--stage',choices=('tables','start','gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'),default='tables')
+parser.add_argument('--stage',choices=('tables','start','gx','configure','cp-mapped'),default='tables')
 parser.add_argument('--platform',action='store_true',help='Required: use ABI3 allocation mappings, secure-CX and owned secure context')
 parser.add_argument('--without-aqe',action='store_true',help='Register-only baseline without AQE; incomplete vendor startup, never for CP submission')
 parser.add_argument('--watch-read-audit',action='store_true',help='Checkpoint individual watch preflight MMIO reads; never submits RAW')
 parser.add_argument('--kernel-snapshot-audit',action='store_true',help='After successful host read audit, invoke snapshot-only OP14 (no HFI submission)')
 args=parser.parse_args()
 if not args.platform:parser.error('Native HWSCHED requires --platform and ABI3 allocation mapping policy')
-if args.stage in ('cp','cpv2','nop','cp-secure'):parser.error('CP experiment disabled after 900E; isolate pre-dispatch diagnostics before any replay')
-if args.stage=='cp-secure' and (not args.platform or args.without_aqe):parser.error('cp-secure requires --platform and AQE')
 if args.stage=='cp-mapped' and (not args.platform or args.without_aqe):parser.error('cp-mapped requires --platform and AQE')
 if args.watch_read_audit and (args.stage!='configure' or not args.platform or args.without_aqe):parser.error('Watch audit requires configure --platform with AQE')
 if args.kernel_snapshot_audit and not args.watch_read_audit:parser.error('Kernel snapshot audit requires --watch-read-audit')
@@ -186,13 +184,13 @@ with Live('gpu-native-hwsched-terminal') as live:
                     assert reply['value']==0 and reply['status'] in (0,None)
                 report['performance_and_bandwidth_tables_accepted']=True
                 report['hwsched_feature_enabled']=True
-                if args.stage in ('start','gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'):
+                if args.stage in ('start','gx','configure','cp-mapped'):
                     start_hwsched(transport,report,aqe=not args.without_aqe)
                     if args.platform:
                         report['start_mapping_audit']=transport.dev(16)
                         if 'audit_complete=1' not in report['start_mapping_audit']:raise RuntimeError('Mapping audit incomplete after START')
                     capture_phase('hwsched_started')
-                    if args.stage in ('gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'):
+                    if args.stage in ('gx','configure','cp-mapped'):
                         report['gx_before']=live.read(reg(0x1f8d0))
                         report['new_bandwidth_vote']=True
                         reply=transport.send(30,[1,1,1])
@@ -204,7 +202,7 @@ with Live('gpu-native-hwsched-terminal') as live:
                         rw(reg(0x1f991),1<<31,verify=False)
                         report['gx_after']=live.read(reg(0x1f8d0))
                         assert report['oob_ack'] and report['gx_after']&3==0, 'GX power/clock did not become ready'
-                        if args.stage in ('configure','cp-mapped','cp-secure','nop','cpv2'):
+                        if args.stage in ('configure','cp-mapped'):
                             for base in (0x3d10000,0x3d20000,0x3d30000):maps.append(live.map(base,0x10000))
                         report['rbbm_status']=live.read(reg(0x210))
                         report['rbbm_status3']=live.read(reg(0x213))
@@ -230,21 +228,9 @@ with Live('gpu-native-hwsched-terminal') as live:
                                 from gpu_terminal_gen7_config import Gen7Config
                                 Gen7Config(live,transport,report).configure()
                                 capture_phase('registers_configured',include_gx=True)
-                        if args.stage=='cp-secure':
-                            from gpu_terminal_cp_secure import run
-                            run(live,transport,report)
                         if args.stage=='cp-mapped':
                             from gpu_terminal_cp_secure import run_mapped
                             run_mapped(live,transport,report)
-                        if args.stage=='nop':
-                            from gpu_terminal_cpv3 import run
-                            run(live,transport,report)
-                        if args.stage=='cpv2':
-                            from gpu_terminal_cpv2 import run
-                            run(live,transport,report)
-                        if args.stage=='cp':
-                            from gpu_terminal_cp import run
-                            run(live,transport,report)
         report.update(smmu_fsr=live.read(0x3dc2058),smmu_far=live.read(0x3dc2060,64),
             global_fault=live.read(0x3da0048),gmu_irq=live.read(reg(0x1f992)),ao_irq=live.read(reg(0x23b05)))
         live.command('gpu.hfi.log',r'GIULIA GPU HFI: log_word=63 value=')
@@ -308,5 +294,5 @@ with Live('gpu-native-hwsched-terminal') as live:
 
 if (report.get('error') or report.get('cleanup_error') or report.get('slumber_error') or
         not report.get('native_transport_stopped') or
-        (args.stage in ('gx','configure','cp-mapped','cp-secure') and not report.get('gx_off'))):
+        (args.stage in ('gx','configure','cp-mapped') and not report.get('gx_off'))):
     raise SystemExit(1)

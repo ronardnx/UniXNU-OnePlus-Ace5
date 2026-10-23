@@ -1,7 +1,7 @@
 """Isolate the existing RAW watch's MMIO reads without publishing an HFI packet.
 
-Reviewed source: ios16/giulia_gpu_platform_impl.h:platformWatch/platformSnapshot,
-ios16/giulia_gpu_power.h:ggp_observe, GiuliaGPU.cpp:readRegister. These fixed
+Reviewed source: ios16/gpu/giulia_gpu_platform_impl.h:platformWatch/platformSnapshot,
+ios16/gpu/giulia_gpu_power.h:ggp_observe, GiuliaGPU.cpp:readRegister. These fixed
 addresses deliberately include the previously unobserved secure CB3 diagnostics;
 they are candidates to test, not a declaration that every read is safe. Each
 pending read is fsynced on the host before execution. No device import, mapping,
@@ -99,8 +99,8 @@ def audit_watch_reads(live, report, output_path, phase="watch_preflight", *,
         "read_only": True, "raw_cp_submitted": False, "kernel_snapshot_requested": False,
         "prerequisites": {"cx_ready": bool(cx_ready), "gx_held": bool(gx_held)},
         "baseline_phase": baseline.get("phase"), "reads": [], "max_reads": MAX_READS,
-        "source": ["ios16/giulia_gpu_platform_impl.h:platformWatch/platformSnapshot",
-                   "ios16/giulia_gpu_power.h:ggp_observe", "ios16/GiuliaGPU.cpp:readRegister"],
+        "source": ["ios16/gpu/giulia_gpu_platform_impl.h:platformWatch/platformSnapshot",
+                   "ios16/gpu/giulia_gpu_power.h:ggp_observe", "ios16/gpu/GiuliaGPU.cpp:readRegister"],
         "limitations": ["host reg.read path; kernel mapping requires separate OP14",
                         "prior completed reads are not an accessibility guarantee",
                         "no HFI enqueue, doorbell, RAW, or kernel watch operation"],

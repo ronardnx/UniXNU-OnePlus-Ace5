@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_screen.h"
+#include "../ios16/terminal/giulia_screen.h"
 static struct {unsigned mps;} u={512};
 static uint64_t fake_ms;
 static unsigned captures,enabled=1,available=1;
@@ -19,8 +19,8 @@ static int giulia_screen_capture_size(uint8_t *out,size_t n,unsigned *width,unsi
 static unsigned giulia_remote_ready(void){return 0;}
 static int giulia_remote_touch(unsigned d,unsigned x,unsigned y){(void)d;(void)x;(void)y;return 0;}
 static int giulia_remote_hid(unsigned p,unsigned u,unsigned d){(void)p;(void)u;(void)d;return 0;}
-#include "../ios16/giulia_input.inc"
-#include "../ios16/giulia_screen.inc"
+#include "../ios16/terminal/giulia_input.inc"
+#include "../ios16/terminal/giulia_screen.inc"
 static uint32_t le32(const uint8_t *p)
 {return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
 int main(int argc,char **argv)

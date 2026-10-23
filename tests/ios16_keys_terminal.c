@@ -17,7 +17,7 @@ static int capture_printf(const char *format, ...)
 }
 static unsigned giulia_remote_ready(void) { return ready; }
 #define printf capture_printf
-#include "../ios16/giulia_keys_terminal.inc"
+#include "../ios16/keys/giulia_keys_terminal.inc"
 #undef printf
 
 int main(void)

@@ -24,6 +24,7 @@ memory. The USB parser never executes SCM. No accelerator is published by this A
 | 19 | bytes,wire alignment,flags,19 | Import fixed IPC_CORE into GMU only after excluding host IPCC clients; no CPU offset and no writes to resource contents |
 | 20 | bytes,wire alignment,flags,23 | Import a real kernel-registered CTX0 descriptor into GMU 0x68000000 after live epoch/ownership/queue validation; absent provider returns 7 |
 | 21 | 0,0,0,0 | Read provider registration/readiness/mapping state and valid queue indices; completion_verified=0 |
+| 22 | action,b,c,0 | Native Gunyah owner: 0 historical status; 1 full query probe with b=timeout ms; 2 poll with b=frames/c=timeout ms; 3 compatibility/channel bootstrap only with b=timeout ms; 4 invalidate |
 
 Platform actions: 0 reports state; 1 prepares isolated resources and probes SCM64,
 secure-CX, memory assignment and aperture availability; 2 initializes fixed CX request
@@ -58,8 +59,11 @@ The ordinary allocation pool rejects overlapping/corrupt records and reserved
 resource kinds. Memstore and IPC_CORE use dedicated providers. Hardware-fence
 queues require the kernel-only registered-provider contract described in
 [GPU_FENCE_PROVIDER.md](GPU_FENCE_PROVIDER.md); no actual Gunyah producer is
-included, so default kind23 requests remain unavailable. Other MMIO kinds
-remain unsupported without a verified resource binding.
+included, so default kind23 requests remain unavailable.
+The ordinary gen7 SYSRAM path also handles kinds11/12/13/20 despite their
+MMIO enum names. For HFI requests without GFX_ACC, the host normalizes the
+effective mapping flags with 0x38, matching the source's forced GMU privileged
+RW branch, while preserving the original reply flags and request signature.
 CPU mutations in managed mode require a single allocation owner. SQE/AQE copy
 revokes device access before changing bytes, clears padding, then seals the
 allocation; UCODE identity is also retained when loaded before action 9. Sealed

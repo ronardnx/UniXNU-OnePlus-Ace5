@@ -3,6 +3,14 @@
 enum {IFF_RUNNING=0x40,IFNET_FAMILY_ETHERNET=1,KEV_VENDOR_APPLE=1,
     KEV_NETWORK_CLASS=1,KEV_DL_SUBCLASS=2,KEV_DL_LINK_ON=16,KEV_DL_LINK_OFF=17,
     MBUF_DONTWAIT=0,MBUF_MCAST=1,MBUF_BCAST=2};
+// OS callback boundary types; the production ioctl body is extracted verbatim.
+enum {IFF_UP=1,IF_MINMTU=72,IFM_IEEE80211=0x80,IFM_AUTO=0,IFM_AVALID=1,IFM_ACTIVE=2};
+enum {SIOCSIFADDR=1,SIOCSIFMTU,SIOCGIFDEVMTU,SIOCSIFFLAGS,SIOCADDMULTI,SIOCDELMULTI,
+    SIOCGIFMEDIA32,SIOCGIFMEDIA64,SIOCSIFMEDIA};
+#define SIOCGIFMEDIA SIOCGIFMEDIA64
+struct ifdevmtu {int ifdm_current,ifdm_min,ifdm_max;};
+struct ifreq {int ifr_mtu,ifr_media;struct ifdevmtu ifr_devmtu;};
+struct ifmediareq {int ifm_current,ifm_active,ifm_mask,ifm_status,ifm_count;};
 struct net_event_data {unsigned if_family,if_unit;char if_name[16];};
 struct kev_msg {
     unsigned vendor_code,kev_class,kev_subclass,event_code;
@@ -21,6 +29,14 @@ static size_t host_strlcpy(char *dst,const char *src,size_t n) {
 #define strlcpy host_strlcpy
 static unsigned networkFlags;
 static int ifnet_set_flags(ifnet_t,unsigned flags,unsigned mask) {networkFlags=(networkFlags&~mask)|(flags&mask);return 0;}
+static unsigned networkMtu=1500,networkMtuCalls;
+static int networkMtuError;
+static unsigned ifnet_flags(ifnet_t) {return networkFlags;}
+static unsigned ifnet_mtu(ifnet_t) {return networkMtu;}
+static int ifnet_set_mtu(ifnet_t,unsigned mtu) {
+    ++networkMtuCalls;if(networkMtuError)return networkMtuError;networkMtu=mtu;return 0;
+}
+static int ether_ioctl(ifnet_t,uint32_t,void *) {return EOPNOTSUPP;}
 struct FakeMbuf {
     std::vector<uint8_t> bytes;
     size_t offset=0,length=0;

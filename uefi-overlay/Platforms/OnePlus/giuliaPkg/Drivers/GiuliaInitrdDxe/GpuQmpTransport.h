@@ -13,7 +13,7 @@
  */
 #ifndef GIULIA_GPU_QMP_TRANSPORT_H
 #define GIULIA_GPU_QMP_TRANSPORT_H
-/* Identical qpt algorithm to ios16/giulia_wifi_qmp.h; only firmware type
+/* Identical qpt algorithm to ios16/platform/giulia_platform_qmp.h; only firmware type
  * aliases and this include guard differ. Host tests exercise the original. */
 typedef UINT32 uint32_t;
 typedef UINT64 uint64_t;

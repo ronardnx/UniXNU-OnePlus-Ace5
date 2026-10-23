@@ -12,6 +12,8 @@
 
 ## 验证
 
+驱动按 [模块规范](docs/DRIVER_MODULES.md) 放入 `ios16/<module>/`。业务驱动只能依赖公共契约和平台服务，不得包含兄弟驱动的私有实现；注册、启动顺序及可选组合统一由 `scripts/ios16_modules.py` 装配。提交前运行 `python3 scripts/check-driver-modules.py`，并覆盖受影响的模块组合。
+
 在仓库根目录运行：
 
 ```bash

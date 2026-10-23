@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_qmp.h"
+#include "../ios16/platform/giulia_platform_qmp.h"
 
 struct model {
     uint32_t ram[QPT_MSGRAM_BYTES/4],before[QPT_MSGRAM_BYTES/4];

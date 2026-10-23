@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_qmi.h"
+#include "../ios16/wifi/giulia_wifi_qmi.h"
 struct fixture {
     struct gwq_state s;struct gwq_io io;
     unsigned phase,requests,chunks[5],resumes,drop,wrong_id,remote_fail,secure,missing_board;

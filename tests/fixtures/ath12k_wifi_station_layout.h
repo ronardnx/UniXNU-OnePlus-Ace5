@@ -84,6 +84,21 @@ typedef int32_t a_sle32;
 #define WMI_TAG_MGMT_RX_HDR 0x2cu
 #define WMI_TAG_REG_CHAN_LIST_CC_EXT_EVENT 0x3aau
 #define WMI_TAG_REGULATORY_RULE_EXT_STRUCT 0x3a9u
+#define MODE_11A 0x0u
+#define MODE_11G 0x1u
+#define MODE_11B 0x2u
+#define WMI_STA_POWERSAVE_MODE_CMDID 0x9001u
+#define WMI_STA_POWERSAVE_PARAM_CMDID 0x9002u
+#define WMI_TAG_STA_POWERSAVE_MODE_CMD 0x6cu
+#define WMI_TAG_STA_POWERSAVE_PARAM_CMD 0x6du
+#define WMI_STA_PS_MODE_DISABLED 0x0u
+#define WMI_STA_PS_PARAM_RX_WAKE_POLICY 0x0u
+#define WMI_STA_PS_PARAM_TX_WAKE_THRESHOLD 0x1u
+#define WMI_STA_PS_PARAM_PSPOLL_COUNT 0x2u
+#define WMI_STA_PS_PARAM_UAPSD 0x4u
+#define WMI_STA_PS_RX_WAKE_POLICY_WAKE 0x0u
+#define WMI_STA_PS_TX_WAKE_THRESHOLD_ALWAYS 0x1u
+#define WMI_STA_PS_PSPOLL_COUNT_NO_MAX 0x0u
 struct ath12k_wmi_mac_addr_params {
 	u8 addr[ETH_ALEN];
 	u8 padding[2];
@@ -486,5 +501,16 @@ struct wmi_pdev_set_param_cmd {
 	__le32 pdev_id;
 	__le32 param_id;
 	__le32 param_value;
+} __packed;
+struct wmi_pdev_set_ps_mode_cmd {
+	__le32 tlv_header;
+	__le32 vdev_id;
+	__le32 sta_ps_mode;
+} __packed;
+struct wmi_sta_powersave_param_cmd {
+	__le32 tlv_header;
+	__le32 vdev_id;
+	__le32 param;
+	__le32 value;
 } __packed;
 #endif

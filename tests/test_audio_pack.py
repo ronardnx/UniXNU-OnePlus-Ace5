@@ -152,7 +152,7 @@ class AudioPack(unittest.TestCase):
         data = packer.build_pack(folder, manifest['firmware'])
         self.assertEqual(len(manifest['firmware']['files']), 56)
         self.assertEqual(packer.pin_header(data),
-                         (ROOT / 'ios16/giulia_audio_firmware_pin.h').read_text(encoding='utf-8'))
+                         (ROOT / 'ios16/audio/giulia_audio_firmware_pin.h').read_text(encoding='utf-8'))
         self.assertEqual(len(data), 41603072)
         result = self.check_c(data)
         self.assertEqual(result.returncode, 0, result.stderr)

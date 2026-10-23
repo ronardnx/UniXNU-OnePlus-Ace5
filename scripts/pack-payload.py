@@ -49,6 +49,21 @@ def main():
         require(pr.get('physical_slider_worker') is True and
                 fw_report.get('hall_prepare_handoff_available') is True,
                 'Slider requires matched native Hall preparation and bounded loader handoff')
+    if pr.get('modem_contract'):
+        mc=pr['modem_contract']
+        from ios16_modem import build_binding
+        require(mc.get('build_binding')==build_binding(),'Modem firmware/resource/Apple evidence binding mismatch')
+        require(mc.get('schema')==1 and mc.get('runtime_abi')==1 and
+                mc.get('board')=='giulia' and mc.get('system_build')=='20H392' and
+                mc.get('platform_broker_included') is True,
+                'Modem payload contract mismatch')
+        require(mc.get('mode') in ('disabled','diagnostic') and
+                mc.get('native_provider_included') is False and
+                mc.get('cellular_policy')=='disabled' and not mc.get('baseband_paths'),
+                'Native modem firmware handoff is not qualified by this UEFI packer')
+    if pr.get('gpu_gunyah_handoff'):
+        require(pr.get('gpu_mode') in (1,2,3) and fw_report.get('gpu_gunyah_handoff_available') is True,
+                'GPU Gunyah resources require the matching UEFI capture and loader handoff')
     if pr.get('gpu_power_handoff'):
         require(pr.get('gpu_mode')==3 and fw_report.get('gpu_power_handoff_available') is True,
                 'GPU mode 3 requires the matched GPU prepare protocol and fixed ADT loader')
@@ -100,6 +115,7 @@ def main():
               'sha256': sha(result), 'bytes': len(result), 'header_version': args.header_version,
               'payload_crc32':f'{crc:08x}',
               'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
+    if pr.get('modem_contract'):report['modem_contract']=pr['modem_contract']
     args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 

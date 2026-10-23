@@ -5,7 +5,7 @@
 [终端记录](GPU_TERMINAL_BRINGUP.md)；源码依据与安全所有权要求不变。
 
 本文记录固定原厂源码的启动顺序、内存所有权和窄 SCM 候选接口。
-`ios16/giulia_gpu_scm.h` 当前只供离线验证，未接入 `GiuliaGPU` worker 或
+`ios16/platform/giulia_scm.h` 当前只供离线验证，未接入 `GiuliaGPU` worker 或
 `gpu.dev` 命令；该候选接口没有构建进新内核，也没有在设备执行 SMC。
 安全分配器、secure context 和完整故障 IRQ 处理尚未完成，因此不能据此
 解除 CP/RAW 提交禁用。实机时间线和结果由 [终端记录](GPU_TERMINAL_BRINGUP.md)

@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include "../ios16/giulia_display.h"
+#include "../ios16/display/giulia_display.h"
 using UInt32 = uint32_t;
 static uint64_t mach_absolute_time() { return 0; }
 static bool failEvent;
@@ -35,7 +35,7 @@ struct IOHIDEventService {
 enum { kHIDPage_GenericDesktop=1, kHIDUsage_GD_Keyboard=6, kHIDPage_KeyboardOrKeypad=7 };
 static const char *kIOHIDBuiltInKey="BuiltIn";
 static const bool kOSBooleanFalse=false;
-#include "../ios16/giulia_input_keyboard.inc"
+#include "../ios16/display/giulia_input_keyboard.inc"
 struct SweetHIDButtons {
     IOLock lock; IOLock *fButtonLock = &lock;
     UInt32 fPhysicalButtons = 0, fRemoteButtons = 0;
@@ -52,7 +52,7 @@ struct SweetHIDTouch {
 };
 static SweetHIDButtons *gSweetButtons;
 static SweetHIDTouch *gSweetTouch;
-#include "../ios16/giulia_input_hid.inc"
+#include "../ios16/display/giulia_input_hid.inc"
 int main()
 {
     assert(giulia_remote_ready()==0 && !giulia_remote_touch(1,0,0) && !giulia_remote_hid(7,4,1));

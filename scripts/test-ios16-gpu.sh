@@ -56,6 +56,61 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-rec
 cc -std=c11 -Wall -Wextra -Werror -Wno-misleading-indentation -fsanitize=address,undefined -fno-sanitize-recover=all -pthread \
     tests/ios16_gpu_fence_provider.c -o "$tmp/fence-provider"
 "$tmp/fence-provider"
+for name in fence_queue gunyah_queries gunyah_rm gunyah_memory; do
+    cc -std=c11 -Wall -Wextra -Werror -Wno-misleading-indentation \
+        -fsanitize=address,undefined -fno-sanitize-recover=all \
+        "tests/ios16_gpu_$name.c" -o "$tmp/$name"
+    "$tmp/$name"
+done
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_GUNYAH_HVC_STANDALONE -DGG_GUNYAH_HVC_TEST \
+    tests/ios16_gpu_gunyah_hvc.c ios16/gpu/giulia_gpu_gunyah_hvc.c -o "$tmp/gunyah-hvc"
+"$tmp/gunyah-hvc"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_GUNYAH_HVC_STANDALONE -DGG_GUNYAH_HVC_TEST -DGG_GUNYAH_HVC_NO_PROBE_HOOK \
+    tests/ios16_gpu_gunyah_hvc.c ios16/gpu/giulia_gpu_gunyah_hvc.c -o "$tmp/gunyah-hvc-no-probe"
+"$tmp/gunyah-hvc-no-probe"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_GUNYAH_SESSION_STANDALONE -DGG_GUNYAH_HVC_STANDALONE -DGG_GUNYAH_HVC_TEST \
+    tests/ios16_gpu_gunyah_session.c ios16/gpu/giulia_gpu_gunyah_session.c \
+    ios16/gpu/giulia_gpu_gunyah_hvc.c -o "$tmp/gunyah-session"
+"$tmp/gunyah-session"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_GUNYAH_OWNER_STANDALONE -DGG_GUNYAH_SESSION_STANDALONE -DGG_GUNYAH_HVC_STANDALONE -DGG_GUNYAH_HVC_TEST \
+    tests/ios16_gpu_gunyah_owner.c ios16/gpu/giulia_gpu_gunyah_owner.c \
+    ios16/gpu/giulia_gpu_gunyah_session.c ios16/gpu/giulia_gpu_gunyah_hvc.c -o "$tmp/gunyah-owner"
+"$tmp/gunyah-owner"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_GUNYAH_SHARE_STANDALONE -DGG_HOST_TEST \
+    tests/ios16_gpu_gunyah_share.c ios16/gpu/giulia_gpu_gunyah_share.c -o "$tmp/gunyah-share"
+"$tmp/gunyah-share"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_gunyah_irq.c -o "$tmp/gunyah-irq"
+"$tmp/gunyah-irq"
+python3 tests/ios16_gpu_gunyah_irq_platform.py
+python3 tests/ios16_gpu_gunyah_build.py
+python3 tests/ios16_gpu_gunyah_loader.py
+python3 tests/ios16_gpu_gunyah_runtime.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -pthread \
+    tests/ios16_gpu_fence_cpu.c -o "$tmp/fence-cpu"
+"$tmp/fence-cpu"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_fence_pmap.c -o "$tmp/fence-pmap"
+"$tmp/fence-pmap"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_pmap.c -o "$tmp/gpu-pmap"
+"$tmp/gpu-pmap"
+python3 tests/ios16_gpu_pmap_patch_static.py
+python3 tests/ios16_gpu_pmap_platform.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_FENCE_NATIVE_STANDALONE \
+    tests/ios16_gpu_fence_native.c ios16/gpu/giulia_gpu_fence_native.c -o "$tmp/fence-native"
+"$tmp/fence-native"
+python3 tests/ios16_gpu_fence_native_build.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_gmu_boot.c -o "$tmp/gmu-boot"
+"$tmp/gmu-boot"
+python3 tests/ios16_gpu_gmu_adapter.py
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
     tests/ios16_gpu_platform.c -o "$tmp/platform"
 if [ "$#" = 1 ]; then
@@ -102,16 +157,39 @@ for name in tables context program streams; do
     "$tmp/$name"
 done
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -O1 -DGG_HOST_TEST \
-    tests/ios16_gpu_control.c ios16/giulia_gpu_control.c "${sources[@]}" -o "$tmp/control"
+    tests/ios16_gpu_control.c ios16/gpu/giulia_gpu_control.c "${sources[@]}" -o "$tmp/control"
 if [ "$#" = 1 ] && [ -f "$(dirname "$1")/firmware.pack" ]; then
     "$tmp/control" "$(dirname "$1")/firmware.pack" | tee "$tmp/control.log"
 else
     "$tmp/control" | tee "$tmp/control.log"
 fi
 python3 tests/ios16_gpu_log.py "$tmp/control.log"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST tests/ios16_gpu_stack.c ios16/gpu/giulia_gpu_stack.c -o "$tmp/stack"
+"$tmp/stack"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST tests/ios16_gpu_hfi_alloc.c -o "$tmp/hfi-alloc"
+"$tmp/hfi-alloc"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST tests/ios16_gpu_hfi_alloc_pool.c -o "$tmp/hfi-pool"
+"$tmp/hfi-pool"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST tests/ios16_gpu_hfi_pump.c -o "$tmp/hfi-pump"
+"$tmp/hfi-pump"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST tests/ios16_gpu_share_snapshot.c -o "$tmp/share-snapshot"
+"$tmp/share-snapshot"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    -DGG_HOST_TEST -DGG_GUNYAH_SHARE_STANDALONE \
+    tests/ios16_gpu_share_runtime.c ios16/gpu/giulia_gpu_gunyah_share.c -o "$tmp/share-runtime"
+"$tmp/share-runtime"
+python3 tests/ios16_gpu_stack_contract.py
+python3 tests/ios16_gpu_hfi_wiring.py
 c++ -x c++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only \
-    -include ios16/giulia_gpu_pack.h -include ios16/giulia_gpu_memory.h \
-    -include ios16/giulia_gpu_power.h -include ios16/giulia_gpu_control.h /dev/null
+    -include ios16/gpu/giulia_gpu_pack.h -include ios16/gpu/giulia_gpu_memory.h \
+    -include ios16/gpu/giulia_gpu_power.h -include ios16/gpu/giulia_gpu_control.h \
+    -include ios16/gpu/giulia_gpu_stack.h -include ios16/gpu/giulia_gpu_hfi_alloc.h \
+    -include ios16/gpu/giulia_gpu_hfi_alloc_pool.h -include ios16/gpu/giulia_gpu_hfi_pump.h /dev/null
 python3 -m unittest discover -s tests -p 'test_gpu.py' -v
 
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_gpu_dev.c -o "$tmp/dev"

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_audio_native.h"
+#include "../ios16/audio/giulia_audio_native.h"
 
 struct fixture {
     struct gan_native native;

@@ -67,10 +67,10 @@ managed 模式先撤销该分配的所有设备别名并同步，然后清零整
 | 0–4 | generic、ringbuffer、scratch、SMMU info、非安全 privileged context | 普通池，按请求映射 GPU/GMU |
 | 5 | secure privileged context | 仅显式 secure 后端，flags `0x1007`；普通池拒绝 |
 | 6–10 | nonpriv context、counter、preemption counter、syslog、crash dump | 普通池，按请求权限映射 |
-| 11–13 | DPU、TCSR、QDSS STM MMIO | 拒绝用普通 RAM 替代；需专用资源与所有权后端 |
+| 11–13 | 枚举名为 DPU、TCSR、QDSS STM MMIO | 固定 gen7 分配器实际走 SYSRAM；按 GFX/GMU 分支处理 |
 | 14–18 | profile、profile IB、command、GPU busy data/command | 普通池，按请求权限映射 |
 | 19 | IPC core MMIO | OP19 导入固定窗口，GMU-only；与宿主 IPCC 使用者互斥 |
-| 20 | IPCC AOSS MMIO | 固定源尚未证明板级资源绑定，拒绝替代映射 |
+| 20 | 枚举名为 IPCC AOSS MMIO | 同固定 gen7 普通 SYSRAM 分支，不凭名称选择寄存器地址 |
 | 21 | LPAC nonsecure privileged context | 普通池，按请求权限映射 |
 | 22 | memstore | OP17 导入独立固定单例；请求须匹配现有权限，重复请求不清零 |
 | 23 | hardware fence | OP20 支持已注册提供者的 GMU 导入；默认无真实 Gunyah 提供者，拒绝并保持未映射 |
@@ -81,6 +81,20 @@ managed 模式先撤销该分配的所有设备别名并同步，然后清零整
 直接拒绝。回复保留固件请求的逻辑大小；已拥有的 backing 按页/请求对齐。
 请求格式、内核返回的地址和大小、分配数及连续请求数都有边界检查。
 没有成功建立相应资源时不会发送成功分配应答。
+
+此前按枚举名称把 kind11/12/13/20 排除是不正确的：固定 gen7 的
+`get_mem_alloc_entry` 只对无 GFX 的 kind19 使用固定 `qcom,ipc-core`；
+其他普通种类没有 GFX 时调用 `gen7_reserve_gmu_kernel_block` 分配 SYSRAM，
+有 GFX 时调用 `kgsl_allocate_global`。因此这四种现在使用已拥有的普通池，
+没有映射同名 DPU/TCSR/QDSS/AOSS 寄存器。精确源码摘要和控制流见
+[HFI 分配源码记录](../hardware/gpu-hfi-allocation-source.json)。
+
+HFI 普通 SYSRAM 无 GFX 的分支在原厂强制 GMU READ/WRITE/PRIV；主机
+据此以 `effective_flags = request_flags | 0x38` 调用现有 kernel mapping
+API，即使原请求未置 GMU_ACC 也返回真实 GMU 地址。原 flags、逻辑大小、
+对齐和缓存 signature 保留，重复请求不重新分配/清零。有 GFX 时仍按原
+GMU_ACC/PRIV/WRITEABLE 位处理。原始 debug pool API 的 flags 语义保持。
+本地 kind5/19/22/23 仍经过各自专用后端，不自动泛化其未支持的变体。
 
 ## Memstore 专用资源
 
@@ -141,6 +155,23 @@ GPU 配置的原始 `reg.map` 同时拒绝任何与该物理窗口相交的范�
 详见 [fence 提供者接口](GPU_FENCE_PROVIDER.md)。它不包含真实 Gunyah
 生产者、队列提交或完成后端，默认返回 provider-not-registered。
 
+[Gunyah 传输与查询会话](GPU_GUNYAH_TRANSPORT.md) 已连接 native HVC、
+RM 分片和动态 VM/parcel/doorbell 查询，整个尝试使用单一截止时间并在
+生命周期变化时撤销结果。查询记录仍须由真实启动通道所有者取得，不能
+自动授予共享内存或 fence 注册权限。相关离线测试现已加入 GPU runner。
+后续已增加空闲通知收包和 primary 的 SCM assign / MEM_SHARE / parcel
+lookup / READY 重查事务；失败保留并隔离。它仍依赖真实通道和 carveout
+所有者提供现场授权，事务成功也不代替控制器/CPU 映射证明。
+现在已加入 current-boot FDT → UEFI protocol → ADT → XNU 的实际资源
+交接、UUID/API probe 及 native 单 CPU GIC polling lease，并通过 OP22 接入
+实际 worker；共享 carveout 的 CPU mapper 与 pmap 审计已作为内核入口
+`ggfn_import` 实现（见 [CPU pmap 门控](GPU_CPU_PMAP.md)），但服务侧仍没有
+可用的 share 快照，不会自动发起导入；controller provider 与相邻页授权仍待接入，
+默认仍不导入 kind23。
+另外，原 carveout 从 `0xd4e23000` 开始，直接按 XNU 16 KiB 页向下映射
+会覆盖额外 12 KiB。后续 CPU Normal NC map 必须只使用授权范围内的
+完整 CPU 页或取得邻页所有权证明，不能直接扩大 carveout。
+
 ```bash
 bash scripts/test-ios16-gpu.sh
 python3 -m unittest discover -s tests -v
@@ -168,8 +199,8 @@ Wi-Fi runtime runner 通过；GPU / Wi-Fi / Audio 的八种 GUI 组合补丁应�
 本轮日志保存在 `reports/gpu-fence-20261023/`，前轮日志仍保留；未执行完整
 XNU 内核构建。
 
-kind11–13 / 20、hardware fence 的真实平台/完成后端、按任务的地址空间、生产回收、完整提交和
-Metal 集成仍未实现。固定源尚未给出其他 MMIO kind 的确定板级绑定。
+hardware fence 的真实平台/完成后端、按任务的地址空间、生产回收、完整提交和
+Metal 集成仍未实现。kind11/12/13/20 的原 SYSRAM 误排除现已纠正。
 [硬件 fence 源码清单](../hardware/gpu-fence-source.json) 核对了真实队列表头、
 共享表、IPCC signal 和 Gunyah 依赖。原厂注册采用静态布局，没有可伪造的
 注册 ACK；实际 fence 操作仍要求 peer READY、精确共享内存所有权和
@@ -178,3 +209,24 @@ Gunyah doorbell。库存模块指令与独立 boot 配置现已分别证明 4 Ki
 队列地址仍需真实提供者验证后才能导入，不能用条件推导授权初始化，
 也不能用 memstore 冒充完成事件。
 本轮没有刷机、执行 SMC、提交 RAW 或新增实机验证。
+
+后续 Gunyah 会话补齐验证记录位于 `reports/gpu-gunyah-20261023/`：完整
+GPU runner（含真实适配代码的合成 HVC 测试）通过，271 项 Python 回归中
+268 项通过、3 项按条件跳过，八种配置补丁应用通过。最终会话失效/输出
+对齐收紧另跑专项测试与生成源码交叉编译，均通过。19 份固定源码的长度、
+SHA-256 与 Git blob 摘要已重新核验；未执行完整 XNU 构建或设备操作。
+
+## CPU pmap 门控
+
+固定 fence 队列的 CPU 侧不再只有描述符解码器：`giulia_gpu_pmap.h` 增加了
+boot 锁存、TCR/T1SZ/TTBR1、直接映射与管理 RAM 别名窗口、整段 seal；
+`0086-giulia-gpu-pmap.patch` 在真实 pmap 中读取 MAIR/TCR/TTBR1、逐叶审计，
+并在 `pmap_enter_options_addr` 处只放行 attr index 1（Normal NC），把
+“无 WB 别名”从观察变成执行点。`giulia_gpu_fence_native.c` 把已注册 provider
+与 share 身份接到 `ggfc_import`，映射使用真实 `IOMemoryDescriptor` Normal NC
+映射并 retain 到重启。生成器、锚点、LF `git apply --check`、RAM 页表模型与
+Darwin/AArch64 交叉编译均通过，详见 [CPU pmap 门控](GPU_CPU_PMAP.md) 和
+`reports/gpu-native-pmap-20261023/`。
+
+该层仍缺 share 事务运行时接入、控制器相邻页授权、完整 XNU 构建与实机
+TTBR/TCR/MAIR 观测；服务不会在没有真实 share 快照时发起 CPU 导入。

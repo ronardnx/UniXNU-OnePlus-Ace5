@@ -10,6 +10,8 @@ import runpy
 import struct
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ios16_modem import kernel_declaration
 
 def require(ok,why):
     if not ok: raise ValueError(why)
@@ -76,12 +78,14 @@ def main():
                     struct.pack_into('<Q',buf,loc,target); count+=1
                     if not nxt: break
                     loc+=nxt*stride
+    modem_declaration=kernel_declaration(buf)
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_bytes(buf)
     report={'input_sha256':original,'output_sha256':hashlib.sha256(buf).hexdigest(),
             'rebases':count,'virtual_base':hex(m['segs'][0]['vmaddr']&~0x1ffffff),
             'entry':hex(m['entry']),'boot_args_bytes':736,'page_bytes':16384,
             'hardware_verified':False}
+    report.update(modem_declaration)
     a.out.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 

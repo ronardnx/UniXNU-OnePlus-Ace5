@@ -115,6 +115,20 @@ static inline int gpp_enable(const struct gpp_io *io,struct gpp_report *r,unsign
     if(status) {(void)gpp_fail(r,GPP_ERR_RESOURCE,status);return 0;}
     return 1;
 }
+/* Every prepared GPU branch except the CXO branch is BRANCH_HALT_VOTED in the
+ * pinned gpucc-pineapple tables: HLOS owns the vote bit while the halt state is
+ * decided by the hardware voter. gpu_cc_ahb_clk is BRANCH_HALT_DELAY and
+ * gcc_ddrss_gpu_axi_clk is BRANCH_HALT_SKIP, so their raw CBCR is not an
+ * enable proof at all; the provider's accepted enable is the supported one.
+ */
+static inline int gpp_branch_raw(unsigned resource)
+{
+    return resource!=GPP_AHB_CLK && resource!=GPP_AXI_CLK;
+}
+static inline GPP_U32 gpp_branch_mask(unsigned resource)
+{
+    return resource==GPP_CXO_CLK?0x80000001u:1u;
+}
 static inline int gpp_set_rate(const struct gpp_io *io,struct gpp_report *r,
     unsigned resource,GPP_U32 requested,unsigned value_slot)
 {
@@ -146,7 +160,7 @@ static inline int gpp_set_rate(const struct gpp_io *io,struct gpp_report *r,
 static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
 {
     GPP_U64 status;
-    unsigned i;
+    unsigned i,gmu_running;
     static const unsigned branches[]={GPP_CXO_CLK,GPP_AXI_CLK,
         GPP_MEMNOC_CLK,GPP_DVM_CLK,GPP_AHB_CLK,GPP_HUB_CLK,GPP_SMMU_CLK};
     static const unsigned registers[]={GPP_REG_CXO,GPP_REG_AXI,
@@ -188,58 +202,79 @@ static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
        !gpp_wait_register(io,r,GPP_REG_CX_HW,0x80000000u,0x80000000u))return r->code;
     r->confirmed|=1u<<GPP_CX;
 
-    /* Do not change a running/inherited GMU core clock. The CX config AHB
-     * path exposes its GPUCC branch independently of the GMU core source.
+    /* gpu_cc_cx_gmu_clk is BRANCH_HALT_VOTED. ABL can leave it running for the
+     * boot splash, so an inherited enabled branch is a valid starting state:
+     * only the configured rate is changed and verified, never the branch. A
+     * clean GPUCC keeps the cold sequence below.
      */
     gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_READ,GPP_GMU_CLK);
     if(!gpp_read_value(io,r,GPP_REG_GMU))return r->code;
+    gmu_running=r->values[GPP_REG_GMU]&1u;
     r->expected=0;r->mask=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
-    if(r->values[GPP_REG_GMU]&1) {
-        r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_INITIAL,0);
-    }
     gpp_action(r,GPP_PHASE_HUB_RATE,GPP_OP_SET_RATE,GPP_HUB_RATE);
     if(!gpp_set_rate(io,r,GPP_HUB_RATE,200000000u,GPP_VALUE_HUB_RATE))return r->code;
 
     for(i=0;i<sizeof(branches)/sizeof(branches[0]);i++) {
         gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_ENABLE,branches[i]);
         if(!gpp_enable(io,r,branches[i]))return r->code;
-        /* DDRSS AXI uses vendor BRANCH_HALT_SKIP: enable readback is the
-         * supported proof; do not invent an active-toggling guarantee.
-         */
-        if(!gpp_wait_register(io,r,registers[i],
-            branches[i]==GPP_AXI_CLK?1u:0x80000001u,1u))return r->code;
+        if(!gpp_branch_raw(branches[i])) {
+            /* Record the raw value for diagnostics; never gate on it. */
+            if(!gpp_read_value(io,r,registers[i]))return r->code;
+        } else if(!gpp_wait_register(io,r,registers[i],
+            gpp_branch_mask(branches[i]),1u)) {
+            return r->code;
+        }
         r->confirmed|=1u<<branches[i];
     }
-    /* GEN7_GMU_CM3_SYSRESET is the CX AHB register at GPU+0x1f800*4.
-     * GPUCC defines AHB/HUB and CXO separately from the GMU core branch.
-     * Only after this bus path is ready may reset be observed while the core
-     * branch remains disabled. A bad read or released reset blocks both the
-     * GMU rate request and core-clock enable; no reset writes are permitted.
-     * This observation does not prove that outstanding GPU DMA was drained.
-     */
-    gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
-    if(!gpp_read_value(io,r,GPP_REG_GMU))return r->code;
-    if(r->values[GPP_REG_GMU]&1) {
-        r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_INITIAL,0);
+    if(!gmu_running) {
+        /* GEN7_GMU_CM3_SYSRESET is the CX AHB register at GPU+0x1f800*4.
+         * GPUCC defines AHB/HUB and CXO separately from the GMU core branch.
+         * Only after this bus path is ready may reset be observed while the
+         * core branch remains disabled. A bad read or released reset blocks
+         * both the GMU rate request and core-clock enable; no reset writes are
+         * permitted. This observation does not prove that outstanding GPU DMA
+         * was drained.
+         */
+        gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
+        if(!gpp_read_value(io,r,GPP_REG_GMU))return r->code;
+        if(r->values[GPP_REG_GMU]&1) {
+            r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_INITIAL,0);
+        }
+        if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
+        r->mask=1;r->expected=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+        if(!(r->values[GPP_REG_SYSRESET]&1)) {
+            r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
+        }
+        gpp_action(r,GPP_PHASE_GMU_RATE,GPP_OP_SET_RATE,GPP_GMU_RATE);
+        if(!gpp_set_rate(io,r,GPP_GMU_RATE,625000000u,GPP_VALUE_GMU_RATE))return r->code;
+        /* Keep the reset proof adjacent to the actual clock-enable transaction. */
+        gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
+        if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
+        r->mask=1;r->expected=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+        if(!(r->values[GPP_REG_SYSRESET]&1)) {
+            r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
+        }
+        gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_ENABLE,GPP_GMU_CLK);
+        if(!gpp_enable(io,r,GPP_GMU_CLK) ||
+           !gpp_wait_register(io,r,GPP_REG_GMU,1u,1u))return r->code;
+        r->confirmed|=1u<<GPP_GMU_CLK;
+    } else {
+        /* Inherited running core: never disable or re-enable it. Reset is
+         * proved before the rate changes, the rate is read back, the vote bit
+         * must stay set, and reset is re-read for the kernel's TCM load. */
+        gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_RESOURCE_COUNT);
+        if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
+        r->mask=1;r->expected=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+        if(!(r->values[GPP_REG_SYSRESET]&1)) {
+            r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
+        }
+        gpp_action(r,GPP_PHASE_GMU_RATE,GPP_OP_SET_RATE,GPP_GMU_RATE);
+        if(!gpp_set_rate(io,r,GPP_GMU_RATE,625000000u,GPP_VALUE_GMU_RATE))return r->code;
+        r->attempted|=1u<<GPP_GMU_CLK;
+        gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_VALIDATE,GPP_GMU_CLK);
+        if(!gpp_wait_register(io,r,GPP_REG_GMU,1u,1u))return r->code;
+        r->confirmed|=1u<<GPP_GMU_CLK;
     }
-    if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
-    r->mask=1;r->expected=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
-    if(!(r->values[GPP_REG_SYSRESET]&1)) {
-        r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
-    }
-    gpp_action(r,GPP_PHASE_GMU_RATE,GPP_OP_SET_RATE,GPP_GMU_RATE);
-    if(!gpp_set_rate(io,r,GPP_GMU_RATE,625000000u,GPP_VALUE_GMU_RATE))return r->code;
-    /* Keep the reset proof adjacent to the actual clock-enable transaction. */
-    gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
-    if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
-    r->mask=1;r->expected=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
-    if(!(r->values[GPP_REG_SYSRESET]&1)) {
-        r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
-    }
-    gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_ENABLE,GPP_GMU_CLK);
-    if(!gpp_enable(io,r,GPP_GMU_CLK) ||
-       !gpp_wait_register(io,r,GPP_REG_GMU,0x80000001u,1u))return r->code;
-    r->confirmed|=1u<<GPP_GMU_CLK;
     gpp_action(r,GPP_PHASE_READY,GPP_OP_READ,GPP_CX);
     if(!gpp_read_value(io,r,GPP_REG_CFG))return r->code;
     if(!(r->values[GPP_REG_CFG]&1)) {
@@ -252,11 +287,15 @@ static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
     }
     for(i=0;i<sizeof(branches)/sizeof(branches[0]);i++) {
         r->resource=branches[i];
-        if(!gpp_wait_register(io,r,registers[i],
-            branches[i]==GPP_AXI_CLK?1u:0x80000001u,1u))return r->code;
+        if(!gpp_branch_raw(branches[i])) {
+            if(!gpp_read_value(io,r,registers[i]))return r->code;
+        } else if(!gpp_wait_register(io,r,registers[i],
+            gpp_branch_mask(branches[i]),1u)) {
+            return r->code;
+        }
     }
     r->resource=GPP_GMU_CLK;
-    if(!gpp_wait_register(io,r,GPP_REG_GMU,0x80000001u,1u))return r->code;
+    if(!gpp_wait_register(io,r,GPP_REG_GMU,1u,1u))return r->code;
     gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_RESOURCE_COUNT);
     if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
     r->mask=1;r->expected=1;

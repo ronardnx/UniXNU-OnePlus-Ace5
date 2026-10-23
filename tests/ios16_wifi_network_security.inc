@@ -11,7 +11,9 @@ struct NetworkSecurityFixture : NetworkRsnFixture {
         r.join_request.pmf=r.station.request.pmf=1;assert(!gns_prepare(&r));
         auto *base=(uint8_t *)(((uintptr_t)arena.data()+0x3fff)&~(uintptr_t)0x3fff);
         assert(gwmap_dma_init(&r.dma,(uintptr_t)base,0x90000000,GW_IOVA,GWMAP_ARENA_BYTES));
-        r.dp_offset=GWMAP_ALLOC_START;r.dio.memory=base+r.dp_offset;r.dio.dma=GW_IOVA+r.dp_offset;
+        uintptr_t cpu=0;uint64_t physical=0,iova=0;
+        assert(gwmap_dma_allocate(&r.dma,GWD_BYTES,0x4000,&cpu,&physical,&iova));
+        r.dp_offset=(size_t)(iova-r.dma.iova);r.dio.memory=(uint8_t *)cpu;r.dio.dma=iova;
         r.station.rates[0]=0x82;r.station.rate_count=1;
     }
     std::vector<uint8_t> header(unsigned type,size_t bytes) {

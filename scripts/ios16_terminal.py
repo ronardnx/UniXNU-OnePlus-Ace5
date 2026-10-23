@@ -1,4 +1,5 @@
 """Attach bounded terminal queries to the pinned CDC and UFS owners."""
+from ios16_sources import kernel_source
 from pathlib import Path
 import json
 import re
@@ -58,31 +59,31 @@ def keys_terminal_source(gui=False):
 def audio_terminal_source(audio=False):
     """Embed board metadata queries without acquiring audio hardware resources."""
     root = Path(__file__).resolve().parents[1]
-    mapping = (root/'ios16/giulia_audio_mapping.h').read_text().replace(
+    mapping = kernel_source((root/'ios16/audio/giulia_audio_mapping.h').read_text()).replace(
         '#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
     runtime = ('extern int giulia_audio_runtime_command(const char *);\n' if audio else
                'static int giulia_audio_runtime_command(const char *cmd) {(void)cmd;return 0;}\n')
-    return runtime + mapping + '\n' + (root/'ios16/giulia_audio_terminal.inc').read_text()
+    return runtime + mapping + '\n' + kernel_source((root/'ios16/audio/giulia_audio_terminal.inc').read_text())
 
 
-def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=False, audio=False):
+def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=False, audio=False, modem=False):
     if 'giulia_terminal_command' in usb.read_text():
         raise ValueError('Terminal integration already applied')
     root = Path(__file__).resolve().parents[1]
-    abi = (root/'ios16/giulia_debug_abi.h').read_text().replace('#include <stdint.h>\n', '')
-    shell = (root/'ios16/giulia_shell.inc').read_text().replace(
+    abi = kernel_source((root/'ios16/common/giulia_debug_abi.h').read_text()).replace('#include <stdint.h>\n', '')
+    shell = kernel_source((root/'ios16/terminal/giulia_shell.inc').read_text()).replace(
         '/* GIULIA_DEBUG_ABI is embedded here by the profile generator. */', abi)
-    reboot = (root/'ios16/giulia_reboot.inc').read_text().replace(
+    reboot = kernel_source((root/'ios16/platform/giulia_reboot.inc').read_text()).replace(
         '/* GIULIA_REBOOT_CORE is embedded here by the profile generator. */',
-        (root/'ios16/giulia_reboot.h').read_text().replace('#include <stdint.h>\n', ''))
-    screen = (root/'ios16/giulia_screen.inc').read_text().replace(
+        kernel_source((root/'ios16/platform/giulia_reboot.h').read_text()).replace('#include <stdint.h>\n', ''))
+    screen = kernel_source((root/'ios16/terminal/giulia_screen.inc').read_text()).replace(
         '/* GIULIA_SCREEN_CORE is embedded here by the profile generator. */',
-        (root/'ios16/giulia_screen.h').read_text().replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n',''))
+        kernel_source((root/'ios16/terminal/giulia_screen.h').read_text()).replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n',''))
     screen = screen.replace('/* GIULIA_SCREEN_PROVIDER is embedded here by the profile generator. */',
         'extern int giulia_screen_capture_size(uint8_t *,size_t,unsigned *,unsigned *,unsigned);' if gui else
         'static int giulia_screen_capture_size(uint8_t *p,size_t n,unsigned *w,unsigned *h,unsigned m) '
         '{(void)p;(void)n;(void)w;(void)h;(void)m;return 0;}')
-    remote = (root/'ios16/giulia_input.inc').read_text().replace(
+    remote = kernel_source((root/'ios16/terminal/giulia_input.inc').read_text()).replace(
         '/* GIULIA_INPUT_PROVIDER is embedded here by the profile generator. */',
         ('extern unsigned giulia_remote_ready(void);\n'
          'extern int giulia_remote_touch(unsigned,unsigned,unsigned);\n'
@@ -92,12 +93,20 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          'static int giulia_remote_hid(unsigned p,unsigned u,unsigned d) {(void)p;(void)u;(void)d;return 0;}'))
     screen = screen.replace('/* GIULIA_INPUT_CORE is embedded here by the profile generator. */', remote)
     code = (keys_terminal_source(gui) + gpu_terminal_source(gpu) + 'extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
-            (root/'ios16/giulia_mmio.inc').read_text() + '\n' +
+            kernel_source((root/'ios16/terminal/giulia_mmio.inc').read_text()) + '\n' +
             reboot + '\n' + screen + '\n' + audio_terminal_source(audio) + '\n' +
-            (root / 'ios16/giulia_terminal.inc').read_text())
+            kernel_source((root / 'ios16/terminal/giulia_terminal.inc').read_text()))
     if audio:
         code = code.replace('audio=audio.status,audio.map stage=board-mapping-only hardware_ready=0 playback=0 recording=0',
                             'audio=audio.status,audio.map,audio.preflight,audio.start,audio.stop,audio.test runtime=1 provider_required=1 hardware_verified=0')
+    if modem:
+        code='extern int giulia_modem_terminal(const char *);\n'+code
+        code=code.replace('    if(gaudio_command(cmd))return 1;',
+                          '    if(giulia_modem_terminal(cmd))return 1;\n    if(gaudio_command(cmd))return 1;')
+        anchor='        printf("GIULIA TERM: keys=keys.status compiled='
+        if code.count(anchor)!=1:raise ValueError('Terminal feature anchor changed')
+        code=code.replace(anchor,
+                          '        printf("GIULIA TERM: modem=modem.status,modem.start,modem.stop,modem.suspend,modem.resume runtime_abi=1\\n");\n'+anchor)
     if wifi:
         code='extern int giulia_wifi_terminal(const char *);\n'+code
         code=code.replace('    if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;',
@@ -112,6 +121,9 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
          + ' keys.status slider.status slider.calibrate slider.hid slider.stop'
          + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
+    if modem:
+        edit(usb, 'audio.status audio.map',
+             'audio.status audio.map modem.status modem.start modem.stop modem.suspend modem.resume')
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')
@@ -136,5 +148,5 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '        if (!u.configured || !u.dtr) {gs_disconnect();gscreen_disconnect();}\n        transmit();')
     edit(usb, '    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());',
          '    gs_disconnect();gscreen_disconnect();\n    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());')
-    code = (root / 'ios16/giulia_terminal_ufs.inc').read_text()
+    code = kernel_source((root / 'ios16/storage/giulia_terminal_ufs.inc').read_text())
     edit(block, 'static uint64_t vb_device_bytes(void)', code + '\nstatic uint64_t vb_device_bytes(void)')

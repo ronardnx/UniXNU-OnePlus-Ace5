@@ -19,7 +19,8 @@ STRUCTS = '''ath12k_wmi_mac_addr_params ath12k_wmi_ppe_threshold_params
     wmi_mgmt_send_cmd wmi_mgmt_tx_compl_event ath12k_wmi_mgmt_rx_params
     wmi_vdev_stopped_event wmi_peer_delete_resp_event
     wmi_reg_chan_list_cc_ext_event ath12k_wmi_reg_rule_ext_params
-    wmi_start_scan_cmd wmi_stop_scan_cmd wmi_scan_event wmi_roam_event wmi_peer_sta_kickout_event wmi_pdev_set_param_cmd'''.split()
+    wmi_start_scan_cmd wmi_stop_scan_cmd wmi_scan_event wmi_roam_event wmi_peer_sta_kickout_event wmi_pdev_set_param_cmd
+    wmi_pdev_set_ps_mode_cmd wmi_sta_powersave_param_cmd'''.split()
 MACROS = '''MAX_HE_NSS WMI_MAX_NUM_SS ATH12K_WMI_SSID_LEN WMI_MAX_HECAP_PHY_SIZE
     WMI_MAX_EHTCAP_MAC_SIZE WMI_MAX_EHTCAP_PHY_SIZE ATH_MAX_ANTENNA
     WMI_REG_CLIENT_MAX WMI_IE_BITMAP_SIZE WMI_SCAN_FLAG_PASSIVE WMI_SCAN_FLAG_STRICT_PASSIVE_ON_PCHN
@@ -43,7 +44,12 @@ CONSTANTS = '''WMI_VDEV_START_REQUEST_CMDID WMI_VDEV_UP_CMDID WMI_VDEV_STOP_CMDI
     WMI_TAG_PEER_ASSOC_CONF_EVENT WMI_TAG_PEER_DELETE_RESP_EVENT
     WMI_TAG_REORDER_QUEUE_SETUP_CMD WMI_TAG_MGMT_TX_SEND_CMD
     WMI_TAG_MGMT_TX_COMPL_EVENT WMI_TAG_MGMT_RX_HDR
-    WMI_TAG_REG_CHAN_LIST_CC_EXT_EVENT WMI_TAG_REGULATORY_RULE_EXT_STRUCT'''.split()
+    WMI_TAG_REG_CHAN_LIST_CC_EXT_EVENT WMI_TAG_REGULATORY_RULE_EXT_STRUCT
+    MODE_11A MODE_11G MODE_11B WMI_STA_POWERSAVE_MODE_CMDID WMI_STA_POWERSAVE_PARAM_CMDID
+    WMI_TAG_STA_POWERSAVE_MODE_CMD WMI_TAG_STA_POWERSAVE_PARAM_CMD
+    WMI_STA_PS_MODE_DISABLED WMI_STA_PS_PARAM_RX_WAKE_POLICY WMI_STA_PS_PARAM_TX_WAKE_THRESHOLD
+    WMI_STA_PS_PARAM_PSPOLL_COUNT WMI_STA_PS_PARAM_UAPSD WMI_STA_PS_RX_WAKE_POLICY_WAKE
+    WMI_STA_PS_TX_WAKE_THRESHOLD_ALWAYS WMI_STA_PS_PSPOLL_COUNT_NO_MAX'''.split()
 
 
 def fixture(source):
@@ -51,7 +57,9 @@ def fixture(source):
     assert hashlib.sha256(raw).hexdigest() == SHA256, 'Linux v6.12 wmi.h hash mismatch'
     header = raw.decode()
     constants = {}
-    for enum in ('wmi_cmd_group', 'wmi_tlv_cmd_id', 'wmi_tlv_event_id', 'wmi_tlv_tag', 'wmi_tlv_vdev_param', 'wmi_tlv_pdev_param'):
+    for enum in ('wmi_cmd_group', 'wmi_tlv_cmd_id', 'wmi_tlv_event_id', 'wmi_tlv_tag', 'wmi_tlv_vdev_param', 'wmi_tlv_pdev_param', 'wmi_phy_mode',
+                 'wmi_sta_ps_mode', 'wmi_sta_powersave_param', 'wmi_sta_ps_param_rx_wake_policy',
+                 'wmi_sta_ps_param_tx_wake_threshold', 'wmi_sta_ps_param_pspoll_count'):
         body = re.search(r'enum ' + enum + r' \{(.*?)\n\};', header, re.S)[1]
         body = re.sub(r'/\*.*?\*/', '', body, flags=re.S)
         value = -1

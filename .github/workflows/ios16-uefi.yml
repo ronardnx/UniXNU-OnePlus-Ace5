@@ -41,11 +41,13 @@ jobs:
       - name: Install UEFI and packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono mtools
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler libfdt-dev mono-devel ca-certificates-mono mtools
       - name: Check initrd scan boundaries
         run: |
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/giulia_initrd_scan.c -o /tmp/initrd-scan-test
           /tmp/initrd-scan-test
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -DGG_GUNYAH_FDT_STANDALONE tests/ios16_gpu_gunyah_handoff.c uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/GpuGunyah.c -lfdt -o /tmp/gunyah-fdt-test
+          /tmp/gunyah-fdt-test
       - name: Make matching FAT payload
         run: |
           python3 tests/ios16_platform_match.py --reference reference --kernel kernel-artifact/profile/kernel.macho
@@ -57,6 +59,7 @@ jobs:
           set -o pipefail
           export GIULIA_PAYLOAD_IDENTITY="$RUNNER_TEMP/ios16-payload/identity.json"
           bash scripts/build-uefi.sh "$RUNNER_TEMP/ace5-ios16" 2>&1 | tee uefi-build.log
+          python3 scripts/check-gpu-gunyah-uefi.py --uefi "$RUNNER_TEMP/ace5-ios16/uefi-giulia"
       - name: Pack temporary boot v3 image
         run: |
           python3 scripts/pack-payload.py --firmware "$RUNNER_TEMP/ace5-ios16/uefi-giulia/Mu-giulia-0.img" --firmware-report "$RUNNER_TEMP/ace5-ios16/image-verification.json" --payload "$RUNNER_TEMP/ios16-payload/payload.img" --payload-report "$RUNNER_TEMP/ios16-payload/payload.json" --header-version 3 --output "$RUNNER_TEMP/giulia-ios16-ufs-usb.img"

@@ -138,7 +138,7 @@ class WatchAuditTests(unittest.TestCase):
         self.assertEqual([item.address for item in audit.AO_REGISTERS], historical)
         self.assertEqual([item.address for item in audit.GX_REGISTERS],
                          [0x3d000e0, 0x3d02084, 0x3d0208c, 0x3d02090, 0x3d3d000])
-        source = (ROOT / "ios16/giulia_gpu_platform_impl.h").read_text()
+        source = (ROOT / "ios16/gpu/giulia_gpu_platform_impl.h").read_text()
         body = re.search(r"const uint64_t ao\[\]=\{([^}]+)\};", source).group(1)
         self.assertRegex(body, r"^\s*0x[0-9a-f]+(?:\s*,\s*0x[0-9a-f]+)*\s*$")
         statuses = [int(token, 16) for token in re.findall(r"0x[0-9a-f]+", body)]

@@ -4,6 +4,7 @@ import json
 import pathlib
 import shutil
 import subprocess
+from ios16_modem_stock import preflight_memory_overlay, verify_prepared_memory_map
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -19,6 +20,21 @@ def checkout(source, destination):
     actual = subprocess.check_output(['git', '-C', str(destination), 'rev-parse', 'HEAD'], text=True).strip()
     if actual != source['commit']:
         raise SystemExit(f'{destination}: unexpected source commit {actual}')
+
+
+def apply_uefi_overlay(uefi):
+    """Stage the production overlay after board patches, preserving drift errors.
+
+    Exact previously staged content is allowed for repeat preparation. The
+    imported function deliberately propagates ValueError to build validators.
+    """
+    uefi = pathlib.Path(uefi)
+    overlay = ROOT / 'uefi-overlay'
+    if not overlay.is_dir():
+        raise ValueError('Missing production UEFI overlay directory')
+    preflight_memory_overlay(uefi, ROOT)
+    shutil.copytree(overlay, uefi, dirs_exist_ok=True)
+    return verify_prepared_memory_map(uefi, ROOT)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -47,8 +63,10 @@ def main():
         run('git', 'apply', '--check', patch, cwd=uefi)
         run('git', 'apply', patch, cwd=uefi)
     run('git', 'submodule', 'update', '--init', '--depth', '1', '--jobs', '4', cwd=uefi)
-    if (ROOT / 'uefi-overlay').is_dir():
-        shutil.copytree(ROOT / 'uefi-overlay', uefi, dirs_exist_ok=True)
+    try:
+        apply_uefi_overlay(uefi)
+    except (OSError, ValueError) as error:
+        raise SystemExit(str(error)) from error
     identity = json.loads(args.payload_identity.read_text())
     size = identity['payload_bytes']
     crc = int(identity['payload_crc32'], 16)

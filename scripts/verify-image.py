@@ -57,11 +57,16 @@ def main():
     report['wifi_stock_handoff_available']=False
     report['gpu_power_handoff_available']=False
     report['hall_prepare_handoff_available']=False
+    report['gpu_gunyah_handoff_available']=False
     if wifi.is_file() and loader.is_file():
         report['hall_prepare_handoff_available']=(
             b'GIULIA HALL POWER: stage=' in wifi.read_bytes() and
             b'GIULIA HALL CLOCK: stage=' in wifi.read_bytes() and
             b'GIULIA HALL: native-preparation bits=' in loader.read_bytes())
+        report['gpu_gunyah_handoff_available']=(
+            b'GIULIA GUNYAH: current boot FDT report=' in wifi.read_bytes() and
+            b'GIULIA GUNYAH: boot FDT report status=' in loader.read_bytes() and
+            b'giulia-gpu-gunyah' in loader.read_bytes())
         report['gpu_power_handoff_available']=(
             b'GIULIA GPU POWER: prepare protocol v1 installed' in wifi.read_bytes() and
             b'GIULIA GPU POWER: loader prepare=' in loader.read_bytes() and

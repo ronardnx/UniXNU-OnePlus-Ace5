@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_touch_wire.h"
+#include "../ios16/touch/giulia_touch_wire.h"
 static uint8_t input[600],output[600];
 static unsigned cursor,total,written,waits;
 static int rd(uint8_t *p,unsigned n){if(cursor+n>total)return 1;memcpy(p,input+cursor,n);cursor+=n;return 0;}

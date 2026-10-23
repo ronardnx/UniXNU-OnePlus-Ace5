@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_hfi.h"
+#include "../ios16/gpu/giulia_gpu_hfi.h"
 static uint32_t memory[GGH_BYTES/4+16],before[GGH_BYTES/4+16];
 static unsigned barriers;
 static void barrier(void *cookie){(void)cookie;++barriers;}

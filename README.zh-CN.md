@@ -31,6 +31,8 @@
 
 详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)、[音频驱动进展](docs/AUDIO_BRINGUP.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
 
+基带的硬件资源、固件启动、SIM/数据协议与 iOS 接口依赖见[完整接入映射](docs/MODEM_BRINGUP.md)。统一生命周期、共享资源仲裁、QMI/QMUX/QMAP 与 20H392 ABI 映射已加入；通过一个全链路验收入口检查。原生硬件 provider 和 managed 系统接入仍按契约推进。
+
 ## 环境要求
 
 - UEFI 构建与本地镜像打包使用 Linux 或 WSL 中的 Ubuntu。
@@ -41,7 +43,7 @@
 
 上游版本由 [`sources.json`](sources.json) 及各目标工作流固定。内核、设备树、固件和负载元数据必须配套使用。
 
-GUI 内核工作流支持同时选择触控、Wi-Fi 和 `gpu=true`。本地统一打包通过 `GIULIA_GPU_PACK` 与 `GIULIA_GPU_MODE=1/2` 启用 GPU，USB `gpu.status`／`gpu.observe` 提供准备状态和门控观察。输入及硬件待办见 [GPU 适配说明](docs/GPU_BRINGUP.md)。
+GUI 内核工作流支持同时选择触控、Wi-Fi 和 `gpu=true`。本地统一打包通过 `GIULIA_GPU_PACK` 与 `GIULIA_GPU_MODE=1/2` 启用 GPU，USB `gpu.status`／`gpu.observe` 提供准备状态和门控观察。输入及硬件待办见 [GPU 适配说明](docs/GPU_BRINGUP.md)，分层顺序、门控与里程碑见 [GPU 接入框架](docs/GPU_STACK_FRAMEWORK.md)。
 
 已提交的 UEFI 与 UniXNU 开发源码快照同时以 Git 子模块记录在 `sources/` 下。拉取所记录的版本：
 
@@ -91,6 +93,8 @@ Wi-Fi 的 MMIO、CPU/物理地址/IOVA、资源释放及 iOS 请求映射范围�
 GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用后端见 [GPU 映射层](docs/GPU_MAPPING.md)。
 
 ## 仓库结构
+
+驱动源码已按职责拆分到 `ios16/` 下的 13 个模块目录。共享资源仲裁位于平台层，可选驱动与输入启动注册由统一装配入口处理。目录职责、依赖规则及检查命令见[驱动模块规范](docs/DRIVER_MODULES.md)。
 
 | 路径 | 用途 |
 | --- | --- |

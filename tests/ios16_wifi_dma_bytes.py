@@ -1,4 +1,8 @@
 """Verify unaligned DMA wire operations and their optimized AArch64 accesses."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import re,subprocess,tempfile
 ROOT=Path(__file__).resolve().parents[1]
@@ -43,12 +47,12 @@ with tempfile.TemporaryDirectory() as directory:
     root=Path(directory);c=root/'dma.c';c.write_text(source)
     native=root/'native'
     subprocess.run(['clang','-std=c11','-Wall','-Wextra','-Werror','-O2',
-        '-fsanitize=address,undefined','-DHOST_TEST','-I',str(ROOT/'ios16'),str(c),'-o',str(native)],check=True)
+        '-fsanitize=address,undefined','-DHOST_TEST',*include_flags(ROOT),str(c),'-o',str(native)],check=True)
     subprocess.run([str(native)],check=True)
     for level in ('-O2','-O3'):
         asm=root/(level+'.s')
         subprocess.run(['clang','--target=aarch64-none-elf','-std=c11',level,'-ffreestanding',
-            '-I',str(ROOT/'ios16'),'-S',str(c),'-o',str(asm)],check=True)
+            *include_flags(ROOT),'-S',str(c),'-o',str(asm)],check=True)
         text=asm.read_text();count=0
         for line in text.splitlines():
             match=re.match(r'\s+([a-z][a-z0-9]*)\s',line)

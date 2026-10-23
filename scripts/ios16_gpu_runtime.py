@@ -42,7 +42,7 @@ def check_runtime(kernel, report):
         at += size
     if at != end or found != report['gpu_firmware']:
         raise ValueError('Firmware segment metadata mismatch')
-    pin = (Path(__file__).resolve().parents[1]/'ios16/giulia_gpu_firmware_pin.h').read_text()
+    pin = (Path(__file__).resolve().parents[1]/'ios16/gpu/giulia_gpu_firmware_pin.h').read_text()
     digest = bytes(int(x, 16) for x in re.findall(r'0x([0-9a-f]{2})\b', pin))
     if len(digest) != 32 or found['sha256'] != digest.hex() or digest not in kernel[:found['file_offset']]:
         raise ValueError('Compiled firmware pin mismatch')

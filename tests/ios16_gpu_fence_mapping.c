@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_fence_mapping.h"
+#include "../ios16/gpu/giulia_gpu_fence_mapping.h"
 
 static uint64_t words[128*512],before[128*512];
 static struct ggm_tables gmu={words,sizeof(words),UINT64_C(0x880100000)};

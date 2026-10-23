@@ -1,0 +1,3349 @@
+{
+  "schema": 1,
+  "board": "giulia",
+  "system_build": "20H392",
+  "date": "2026-10-23",
+  "runtime_abi": 1,
+  "status": "unified-mechanism-map-with-explicit-implementation-boundaries",
+  "hardware_validated": false,
+  "groups": [
+    {
+      "id": "resources",
+      "name": "平台资源与启动交接"
+    },
+    {
+      "id": "firmware_ipc",
+      "name": "固件、共享内存与 IPC"
+    },
+    {
+      "id": "control_subscription",
+      "name": "发现、控制协议、SIM 与订阅"
+    },
+    {
+      "id": "persistence",
+      "name": "RMTFS/RFSA 与持久化"
+    },
+    {
+      "id": "carrier_policy",
+      "name": "PDC、运营商与注册策略"
+    },
+    {
+      "id": "packet_data",
+      "name": "IPA、数据会话与 IPv4/IPv6"
+    },
+    {
+      "id": "voice_messaging",
+      "name": "IMS、通话媒体与短信"
+    },
+    {
+      "id": "rf_recovery",
+      "name": "射频、SAR、热、休眠与恢复"
+    },
+    {
+      "id": "ios_integration",
+      "name": "iOS、终端与一致产物"
+    }
+  ],
+  "implementation_levels": {
+    "source-ABI": "Pinned source definitions/binary evidence mapped; no native execution is implied.",
+    "wire-codec": "Bounded packet encode/decode exists; physical transport is not provided.",
+    "typed-runtime-contract": "Actions and matched event lifecycle exist; native provider and wire codec are separate work.",
+    "kernel-software-broker": "Real shared kernel ledger exists; lease is not hardware readiness or secure ownership proof.",
+    "kernel-service-adapter": "Kernel worker/queue/provider interfaces exist; registration is not the missing native backend.",
+    "build-artifact-contract": "Production build, kernel marker, root policy and packer validate the same evidence binding; this does not implement a native provider."
+  },
+  "sources": {
+    "board": {
+      "path": "hardware/sm8650-modem.json",
+      "bytes": 76492,
+      "sha256": "304827d3d62ad9d252ad94457b0293ef19e71fa852e851b1099a546d2e87897d"
+    },
+    "contract": {
+      "path": "ios16/modem/giulia_modem_contract.h",
+      "bytes": 8413,
+      "sha256": "5de94344c2f433137a36f1447c286b322554ae8b7090f8aeecb9cf6335c11293"
+    },
+    "apple_abi": {
+      "path": "hardware/ios16-modem-abi.json",
+      "bytes": 587111,
+      "sha256": "41afe2dde1239b329fe0cc4eba8ef2813a7812dda19acff26e9ff42b34ad782c"
+    },
+    "boot_map": {
+      "path": "docs/MODEM_BOOT_MAP.md",
+      "bytes": 15913,
+      "sha256": "bb152d8d209f9a31d63c7a3d33d245be30a4d0999949434a8b574f26020e9e6f"
+    },
+    "protocol_map": {
+      "path": "docs/MODEM_PROTOCOL_MAP.md",
+      "bytes": 27939,
+      "sha256": "1f776c71970e261e2a385304a32d2332e46bb3353756e02d1a97632fe25f596c"
+    },
+    "architecture": {
+      "path": "docs/MODEM_ARCHITECTURE.md",
+      "bytes": 7795,
+      "sha256": "796664722d5184fa4233ce1376bb41e5da9205995738c989d751db2a1ec4e70f"
+    },
+    "stock_rmt": {
+      "path": ".cache/wifi-stock-16.0.3.500/vendor-init/vendor.qti.rmt_storage.rc",
+      "bytes": 255,
+      "sha256": "e43198fb1fbdac63e8439d1445d9068d5a2c168a7daeb8683c3168e1155d0169"
+    },
+    "stock_tftp": {
+      "path": ".cache/wifi-stock-16.0.3.500/vendor-init/vendor.qti.tftp.rc",
+      "bytes": 324,
+      "sha256": "07f8714fea9616c2ae240ee120117b8b12a94770a3f6e1102d3c5c22e402a833"
+    },
+    "stock_thermal": {
+      "path": ".cache/wifi-stock-16.0.3.500/vendor-init/init_thermal-engine-v2.rc",
+      "bytes": 520,
+      "sha256": "98a6dc503592da46e035a07b4b2bf64071da61c2e269bf54d747124cd83c78ea"
+    },
+    "uim": {
+      "path": ".cache/modem-source/qmi-service-uim.json",
+      "bytes": 68911,
+      "sha256": "4808b1f724165d724410088e8ab9c70da394594ead221dbe886c212ea1a60dfe",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-uim.json"
+    },
+    "nas": {
+      "path": ".cache/modem-source/qmi-service-nas.json",
+      "bytes": 298952,
+      "sha256": "55e9a39dd9c9c3341dad47ccd60b0e0da1728908dddd6b472adbec4f634740e0",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-nas.json"
+    },
+    "dms": {
+      "path": ".cache/modem-source/qmi-service-dms.json",
+      "bytes": 75436,
+      "sha256": "196e2da7c006bd3a021857134473217fd7f11a4515b86390c78dd9966b17e438",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-dms.json"
+    },
+    "wds": {
+      "path": ".cache/modem-source/qmi-service-wds.json",
+      "bytes": 128765,
+      "sha256": "1075980946b039f42fc9292e056370013bdd16218b08a871c459d826976bab59",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-wds.json"
+    },
+    "wda": {
+      "path": ".cache/modem-source/qmi-service-wda.json",
+      "bytes": 18126,
+      "sha256": "dc549c159f0267a7fda6f0f8e65a2b16630e80a4cf8cc71ed63b644a36349666",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-wda.json"
+    },
+    "pdc": {
+      "path": ".cache/modem-source/qmi-service-pdc.json",
+      "bytes": 19349,
+      "sha256": "82ede0d4125521198ac93e4935a9684df47637010e73e563e741a1ae04639f7a",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-pdc.json"
+    },
+    "imsa": {
+      "path": ".cache/modem-source/qmi-service-imsa.json",
+      "bytes": 13954,
+      "sha256": "eea1c3c9a94af8819e77c3fa0515a402b3423321728904d474aea469e27a097d",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-imsa.json"
+    },
+    "ims": {
+      "path": ".cache/modem-source/qmi-service-ims.json",
+      "bytes": 19808,
+      "sha256": "6cbfc5c845e3b55239e1a3279891c9fec286b4ff765a5bdc1a6b9e6995c0c341",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-ims.json"
+    },
+    "wms": {
+      "path": ".cache/modem-source/qmi-service-wms.json",
+      "bytes": 44431,
+      "sha256": "5b2c51675107ac77d40335eea5faf13c7ccb89449aa9f8a6a1f53694c432592e",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-wms.json"
+    },
+    "voice": {
+      "path": ".cache/modem-source/qmi-service-voice.json",
+      "bytes": 45894,
+      "sha256": "fc1019a1c9da76fcf09d55dfb2f40bc4988ab589b682a7b94a28aeeca54f2662",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-voice.json"
+    },
+    "sar": {
+      "path": ".cache/modem-source/qmi-service-sar.json",
+      "bytes": 1796,
+      "sha256": "04b4e646c541fd772b2295caff012caed9bd669db485652eff5251df12e2a559",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-sar.json"
+    },
+    "dpm": {
+      "path": ".cache/modem-source/qmi-service-dpm.json",
+      "bytes": 4663,
+      "sha256": "c9994954f005aca8f4a6b583c7ef1261e240bb7ba06f4cb0a6eb0800997769af",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-dpm.json"
+    },
+    "rmtfs_qmi_rmtfs_qmi": {
+      "path": ".cache/modem-source/rmtfs/qmi_rmtfs.qmi",
+      "bytes": 1482,
+      "sha256": "4ead7aaff329133ada930f4e3748478cdb28620c4a7ffff3a774c0400c2aa734"
+    },
+    "rmtfs_storage_c": {
+      "path": ".cache/modem-source/rmtfs/storage.c",
+      "bytes": 6855,
+      "sha256": "602734a3da420e2a35a9233dc687233f20a30987068657dc5f9399f719cdc336"
+    },
+    "rmtfs_sharedmem_c": {
+      "path": ".cache/modem-source/rmtfs/sharedmem.c",
+      "bytes": 10054,
+      "sha256": "be19a457b027d6a4bb18dba9c6c0f0068306bb61500cbaac2c904d0d4db014ad"
+    },
+    "rmtfs_rmtfs_c": {
+      "path": ".cache/modem-source/rmtfs/rmtfs.c",
+      "bytes": 14084,
+      "sha256": "d4e63854fb4f696a0ed7de381c0bb7474ac99be0305715f3e66fd2a711f8e344"
+    },
+    "ipa_qmi_service_c": {
+      "path": ".cache/modem-source/ipa_qmi_service.c",
+      "bytes": 85378,
+      "sha256": "3040262ca4fdb91433516766e949cc77a95a892fef28793d64aed260856cf637"
+    },
+    "ipa_qmi_service_v01_h": {
+      "path": ".cache/modem-source/ipa_qmi_service_v01.h",
+      "bytes": 106394,
+      "sha256": "e3cbead5363d3dc4eb5b60a9018eca8a5080bf612353c65535b64a8e62b8d345"
+    },
+    "ipa_utils_c": {
+      "path": ".cache/modem-source/ipa_utils.c",
+      "bytes": 443396,
+      "sha256": "cdcceaeea9611e2887cc9bb37e9a4d56c29e8bd960b08a83bb2a9cfaccc96351"
+    },
+    "rmnet_ipa_c": {
+      "path": ".cache/modem-source/rmnet_ipa.c",
+      "bytes": 203441,
+      "sha256": "616c3474a979fafa63cda0946df253f431c7eb3d25f66797e43d3d0f28549efd"
+    },
+    "qcom_q6v5_c": {
+      "path": ".cache/modem-source/qcom_q6v5.c",
+      "bytes": 21082,
+      "sha256": "96904780dacd7f101c2b5df61abd9979491a0a8a61094d928f6b32959019d502"
+    },
+    "mdt_loader_c": {
+      "path": ".cache/modem-source/mdt_loader.c",
+      "bytes": 14088,
+      "sha256": "97b468a0e487fe1afd90c1af9d295bfe73901144aa69d72f95df2962e85c4db9"
+    },
+    "qmi-enums_h": {
+      "path": ".cache/modem-source/qmi-enums.h",
+      "bytes": 9807,
+      "sha256": "b1976db20c50fb2ca64959f34432c72a0a0aeccb3bfb0ebaa7511e327ff9af1e"
+    },
+    "pas": {
+      "path": ".cache/audio-source/android_kernel_oneplus_sm8650/drivers/remoteproc/qcom_q6v5_pas.c",
+      "bytes": 81060,
+      "sha256": "c9ffea4f7b25b1f9227b5b80f29e2af02a0aa3f01504246a1193c8877d905977"
+    },
+    "smem": {
+      "path": ".cache/audio-source/android_kernel_oneplus_sm8650/drivers/soc/qcom/smem.c",
+      "bytes": 34216,
+      "sha256": "4967df8c12bef1758751243fb7759edbe56cc7340cdf587ec8839a9383442741"
+    },
+    "smp2p": {
+      "path": ".cache/audio-source/android_kernel_oneplus_sm8650/drivers/soc/qcom/smp2p.c",
+      "bytes": 24269,
+      "sha256": "81a36bad06a689ae4679dd1aca4a17867bb2603c01266bd491101c6e00d790e5"
+    },
+    "glink": {
+      "path": ".cache/audio-source/android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_native.c",
+      "bytes": 67851,
+      "sha256": "ed801e228372edac1922d2e57b927362ef59073c779f672ca5d4ee2649d280a8"
+    },
+    "rmnet_map_h": {
+      "path": ".cache/modem-source/rmnet_map.h",
+      "bytes": 9112,
+      "sha256": "841c82cc31b47ee75d33cfebaf151bef1a7dd539340494e1e76753ee163db48b",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/datarmnet/core/rmnet_map.h",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/datarmnet/core/rmnet_map.h"
+    },
+    "rmnet_map_data_c": {
+      "path": ".cache/modem-source/rmnet_map_data.c",
+      "bytes": 45548,
+      "sha256": "f4181f54157ed0be7e9410d6c02047723a298dd4ea94d4598d72633c8c40fdb6",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/datarmnet/core/rmnet_map_data.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/datarmnet/core/rmnet_map_data.c"
+    },
+    "rmnet_map_command_c": {
+      "path": ".cache/modem-source/rmnet_map_command.c",
+      "bytes": 12167,
+      "sha256": "a11101d7d72af95cdc7cf7b79986910dea3cb4122ab2bbd5f29ed78e19c34744",
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "upstream_path": "vendor/qcom/opensource/datarmnet/core/rmnet_map_command.c",
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/datarmnet/core/rmnet_map_command.c"
+    },
+    "ctl": {
+      "path": ".cache/modem-source/qmi-service-ctl.json",
+      "bytes": 10746,
+      "sha256": "14fdd5aa8b9cc84b9c4634d56bbebccbaab7cb06232bc87080986238b37658f0",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "upstream_path": "data/qmi-service-ctl.json",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/data/qmi-service-ctl.json"
+    },
+    "qmi_message_c": {
+      "path": ".cache/modem-source/qmi-message.c",
+      "bytes": 64642,
+      "sha256": "a315cd2feb8273d3492bfdbc66bb809d5602739e97cfbcd0e84d260e8bdc99ff",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "upstream_path": "src/libqmi-glib/qmi-message.c",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-message.c"
+    },
+    "qmi_message_h": {
+      "path": ".cache/modem-source/qmi-message.h",
+      "bytes": 42385,
+      "sha256": "ad0d19bd17310601b3216a6379ac91fd71259271129802848f9cd3e3833275d2",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "upstream_path": "src/libqmi-glib/qmi-message.h",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-message.h"
+    },
+    "qmi_private": {
+      "path": ".cache/modem-source/qmi-enums-private.h",
+      "bytes": 2917,
+      "sha256": "8e68c7e9a1b42e266c7005a96f245090121c3af8c6534f56a63c889bc784f258",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "upstream_path": "src/libqmi-glib/qmi-enums-private.h",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-enums-private.h"
+    },
+    "qmi_errors": {
+      "path": ".cache/modem-source/qmi-errors.h",
+      "bytes": 23527,
+      "sha256": "20338363406547f675c512f59640d8f2a70a20bd6d0dff63f17a2069854f9137",
+      "repository": "linux-mobile-broadband/libqmi",
+      "commit": "d9e8af5cae7fdf9749baf87606568d3af4d03082",
+      "upstream_path": "src/libqmi-glib/qmi-errors.h",
+      "url": "https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-errors.h"
+    },
+    "data_router": {
+      "path": "ios16/modem/giulia_modem_data.h",
+      "bytes": 4313,
+      "sha256": "b31f7d51ccbe0958c3b84c466d5b8dca24d9261f77117ac22da9c3a49f5135cc"
+    },
+    "qmux_codec": {
+      "path": "ios16/modem/giulia_modem_qmux.h",
+      "bytes": 20211,
+      "sha256": "37b9bd0491fb6897ac79950853d838a6ebd4658f006339fa5c97a5da59706e8f"
+    },
+    "xnu_iolocks": {
+      "path": ".cache/modem-xnu-base/iokit/IOKit/IOLocks.h",
+      "bytes": 23227,
+      "sha256": "b51eed984ef2082a302a252bf2107f1b9eedcb16f8837ca8a7236f348f5ce39d"
+    },
+    "full_service_map": {
+      "path": "hardware/modem-qmi-service-map.json",
+      "bytes": 6270216,
+      "sha256": "5dd9f2055839d6a9742c505bf90895bf3a666393bc26050d0b0fb785f0bf8824"
+    },
+    "service_map_generator": {
+      "path": "scripts/ios16_modem_protocol_map.py",
+      "bytes": 34802,
+      "sha256": "864a95857ba443344870e480d92952ebf3d00b5f18892518897f03097aaf9955"
+    },
+    "libqmi_directory": {
+      "path": ".cache/modem-source/libqmi-data-listing.json",
+      "bytes": 4143,
+      "sha256": "3681a54f4cf551bb5e06b89847af4d1006e769a15420c05e4433308a84177359"
+    },
+    "tqftp_source": {
+      "path": ".cache/modem-source/tqftpserv/tqftpserv.c",
+      "bytes": 26128,
+      "sha256": "9a6114c337657bbbd4d351770e6abb6c0cabdcff27039c9ff59adf7e2f31468e",
+      "repository": "linux-msm/tqftpserv",
+      "commit": "0bf5b98c24229b0042554d99bb1509d813219f36",
+      "upstream_path": "tqftpserv.c",
+      "url": "https://github.com/linux-msm/tqftpserv/blob/0bf5b98c24229b0042554d99bb1509d813219f36/tqftpserv.c"
+    },
+    "tqftp_paths": {
+      "path": ".cache/modem-source/tqftpserv/translate.c",
+      "bytes": 8761,
+      "sha256": "92bcf9700e1759fdb7045579a17cefb0edd493a66f7e2ea6dd504ffc0ace92b2",
+      "repository": "linux-msm/tqftpserv",
+      "commit": "0bf5b98c24229b0042554d99bb1509d813219f36",
+      "upstream_path": "translate.c",
+      "url": "https://github.com/linux-msm/tqftpserv/blob/0bf5b98c24229b0042554d99bb1509d813219f36/translate.c"
+    },
+    "modem_build_contract": {
+      "path": "scripts/ios16_modem.py",
+      "bytes": 5722,
+      "sha256": "2868d2e6dfd3b049af33dbcadf4fef3a79e4024d0b6a06cc561870327703a043"
+    },
+    "modem_patch_builder": {
+      "path": "scripts/ios16_modem_patch.py",
+      "bytes": 4162,
+      "sha256": "58f1be7df1f1c50a9466ac40bb8b027b4b61862d276d6a281e51d961350e3395"
+    },
+    "modem_unified_gate": {
+      "path": "scripts/verify-ios16-modem.py",
+      "bytes": 27251,
+      "sha256": "b0dc67909824140d3e10022c63b63ca1aaf9e5e2a023d765fcbcd7a1404a2932"
+    },
+    "modem_stock_evidence": {
+      "path": "hardware/sm8650-modem-stock.json",
+      "bytes": 609073,
+      "sha256": "5d2feae482f0f6bfbb2085d0f4d8fc867d18edcc6e974b3f35af276dad310e35"
+    },
+    "modem_uefi_overlay": {
+      "path": "uefi-overlay/Platforms/OnePlus/giuliaPkg/Library/MemoryMapLib/MemoryMapLib.c",
+      "bytes": 4878,
+      "sha256": "4b39a085f4807a162f8b4db218f4c703119134a234cd8be795c8d7e163494ea6"
+    },
+    "modem_uefi_prepare": {
+      "path": "scripts/prepare.py",
+      "bytes": 4489,
+      "sha256": "1b65c00cb19278e1f7b4ef2eb1e23146b0dd7107d531f55f41a3fd49a626ec94"
+    },
+    "modem_stock_verifier": {
+      "path": "scripts/ios16_modem_stock.py",
+      "bytes": 32006,
+      "sha256": "8f8240a3ef2e5558461b7fef5f2cd11a0dd5feb85933b272a7f2d4ccc40a6a19"
+    },
+    "wifi_platform_consumer": {
+      "path": "ios16/wifi/GiuliaWiFi.cpp",
+      "bytes": 60844,
+      "sha256": "8e15a39b47e97b34c7f40bebecf758957f11358f023ccfbcf4e5dfed5dbdece5"
+    },
+    "audio_platform_consumer": {
+      "path": "ios16/audio/GiuliaAudio.cpp",
+      "bytes": 11698,
+      "sha256": "25ea04c0397c13e3bea2679d11b9129011d7b273748ca3a8ebe49b0b52fb0733"
+    },
+    "qmp_transport": {
+      "path": "ios16/platform/giulia_platform_qmp.h",
+      "bytes": 12435,
+      "sha256": "bdcda2c4b2d25f9883472845121587124a2b957ead88821ffa54b0e2ec33b181"
+    }
+  },
+  "mechanisms": [
+    {
+      "ownership": [
+        "Each completion belongs to epoch/opid/slot generation/endpoint generation/node/port/service/txn/bearer; submit acceptance is not completion."
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "board",
+          "architecture"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_RESOURCES_ACQUIRE",
+        "GMR_ACT_RESOURCES_RELEASE"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "resource_transaction",
+      "group": "resources",
+      "producer": "UEFI inventory and gmr lifecycle",
+      "consumer": "Global broker and native resource providers",
+      "inputs": [
+        "Actual occupied/reserved spans, provider identities, owner/epoch and pinned board"
+      ],
+      "outputs": [
+        "Software tokens plus separately observed hardware preparation"
+      ],
+      "preconditions": [
+        "OFF; no unresolved prior leases"
+      ],
+      "success": [
+        "All required reservations and power/IRQ preparations complete in the same epoch"
+      ],
+      "ios_effect": "Determines whether modem startup may proceed",
+      "sources": [
+        "board",
+        "architecture"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h",
+          "ios16/platform/giulia_platform_resources.h",
+          "ios16/platform/GiuliaPlatformResources.cpp"
+        ],
+        "symbols": [
+          "gpr_claim",
+          "gpr_open_epoch",
+          "gmr_start"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "GPU aperture excludes every overlapping host channel; separate MPROC channels may coexist; QMP/SCM remain transaction-exclusive.",
+        "SMEM domain names the remote host; HWLOCK names controller+lock index; neither software lease performs the hardware lock operation.",
+        "Votes compute desired aggregate only; provider transaction must serialize application and withdrawal across hardware completion.",
+        "Explicit process-context gpr_global_initialize is the only allocating entry; ownership checks before initialization return false without allocation. All other global operations use interrupt-disabled IOSimpleLock around bounded ledger work only."
+      ],
+      "timeouts": [
+        "No hardware waits under kernel broker lock"
+      ],
+      "failure": [
+        "Overflow, capacity, physical or masked SID overlap, reentrant transaction and stale token rejected without partial mutation",
+        "Failed AOP close or uncertain publication retains the mailbox and its owner, preventing another subsystem from reusing the shared buffer."
+      ],
+      "recovery": [
+        "Partial/unknown assignment isolates complete original span; owner epoch cannot advance while a lease remains"
+      ],
+      "notifications": [
+        "No hardware-ready event is generated by gpr"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "board",
+          "architecture"
+        ]
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "shared_ipcc_votes_dma",
+      "group": "resources",
+      "producer": "Modem/audio/Wi-Fi/GPU adapters",
+      "consumer": "The single global gpr ledger",
+      "inputs": [
+        "kind/domain/id/subid/base/bytes; owner/epoch/token; DMA and vote state"
+      ],
+      "outputs": [
+        "Conflict outcome, retained leases and per-owner aggregate"
+      ],
+      "preconditions": [
+        "Validated canonical key, live owner epoch and bounded table capacity"
+      ],
+      "success": [
+        "Same global state observed by all clients; DMA-active, remote, pending and isolated leases cannot be released",
+        "AOP IPCC client0/signal0 mapping membership may be shared; an exclusive QMP mailbox lease spans the complete open/send/close session. Successful WLAN PMU configuration closes the session while its voltage vote survives."
+      ],
+      "ios_effect": "Modem recovery preserves other devices' resources",
+      "sources": [
+        "board",
+        "architecture",
+        "xnu_iolocks",
+        "wifi_platform_consumer",
+        "audio_platform_consumer",
+        "qmp_transport"
+      ],
+      "implementation": {
+        "level": "kernel-software-broker",
+        "paths": [
+          "ios16/platform/giulia_platform_resources.h",
+          "ios16/platform/GiuliaPlatformResources.cpp",
+          "ios16/gpu/giulia_gpu_ipcc_owner.h",
+          "ios16/gpu/GiuliaGPU.cpp",
+          "ios16/wifi/GiuliaWiFi.cpp",
+          "ios16/audio/GiuliaAudio.cpp"
+        ],
+        "symbols": [
+          "gpr_conflicts",
+          "gpr_aggregate",
+          "gpr_mark_dma",
+          "gpr_quiesce",
+          "gpr_transfer_complete",
+          "ggi_claim",
+          "gpr_global_initialize",
+          "gqp_claim",
+          "gqp_release",
+          "gq_power"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Software owner remains stable across hardware-world transfer; partial transfer retains the entire original reservation"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Unknown or partial result never treated as unchanged"
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "pas",
+          "qcom_q6v5_c",
+          "board"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_MEMORY_RECLAIM"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "memory_assignment_reclaim",
+      "group": "resources",
+      "producer": "Native PAS/SCM provider",
+      "consumer": "Secure monitor and gpr",
+      "inputs": [
+        "MPSS/DTB/DSM/QLINK spans, current VMID ownership and complete secure result"
+      ],
+      "outputs": [
+        "Verified recipient world or isolated unreclaimed span"
+      ],
+      "preconditions": [
+        "DMA drained; authentic epoch; known original range"
+      ],
+      "success": [
+        "Secure result and transport result both succeed for the complete assigned/reclaimed extent"
+      ],
+      "ios_effect": "Blocks unsafe restart and reuse of memory still owned by MPSS",
+      "sources": [
+        "pas",
+        "qcom_q6v5_c",
+        "board"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/platform/giulia_platform_resources.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gpr_transfer_begin",
+          "gpr_transfer_complete",
+          "gpr_quarantine"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Addresses and successful mappings never prove ownership"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Stock FULL_MODEM begins at 0x8a200000; captured MPSS begins at 0x8bc00000; incompatible layouts cannot silently merge",
+        "Reject memory-map drift before copying the overlay; source reservation does not grant SCM access or confirm remote ownership."
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "sources": [
+          "boot_map",
+          "pas"
+        ],
+        "operation": "Compare modem/DTB ELF load segments, selected PIL image list and final UEFI memory map; resolve the stock layout discrepancy and produce a fresh ownership transcript."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "uefi_handoff",
+      "group": "resources",
+      "producer": "UEFI boot owner",
+      "consumer": "XNU native platform provider",
+      "inputs": [
+        "Firmware identities, ADT, final memory map and inherited subsystem state"
+      ],
+      "outputs": [
+        "Consistent ownership transcript and boot epoch"
+      ],
+      "preconditions": [
+        "Pinned system and firmware inputs"
+      ],
+      "success": [
+        "Every live reservation and resource owner agrees across UEFI and XNU",
+        "Pinned UEFI board patch and the production overlay stager reserve QLINK, DSM0 and DSM1; 41 descriptors preserve every other baseline source line. Firmware/DTB/IPA and DSM spans are covered before RamManager fills gaps."
+      ],
+      "ios_effect": "Controls whether a native managed startup can be selected",
+      "sources": [
+        "boot_map",
+        "board",
+        "pas",
+        "modem_stock_evidence",
+        "modem_uefi_overlay",
+        "modem_uefi_prepare",
+        "modem_stock_verifier"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [
+          "docs/MODEM_BOOT_MAP.md",
+          "uefi-overlay/Platforms/OnePlus/giuliaPkg/Library/MemoryMapLib/MemoryMapLib.c",
+          "scripts/prepare.py",
+          "scripts/ios16_modem_stock.py"
+        ],
+        "symbols": [
+          "apply_uefi_overlay",
+          "preflight_memory_overlay",
+          "verify_prepared_memory_map"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Metadata, firmware and resources stay pinned through uncertainty; uses_elf64 is a coredump flag, not an input ELF format assertion"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "No second modem MMIO resource exists in DT; do not fabricate RMB base from offsets"
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Fatal/watchdog overrides ready; SCM success alone does not signal ready"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "pas",
+          "mdt_loader_c",
+          "qcom_q6v5_c",
+          "boot_map"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_FIRMWARE_BOOT",
+        "GMR_ACT_FIRMWARE_STOP"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "firmware_pas_lifecycle",
+      "group": "firmware_ipc",
+      "producer": "Runtime firmware actions",
+      "consumer": "Native loader, PAS and MPSS",
+      "inputs": [
+        "Paired modem/DTB image pins, PAS4/38, metadata and DSM authorization"
+      ],
+      "outputs": [
+        "Fresh boot-ready or verified shutdown"
+      ],
+      "preconditions": [
+        "Resources, storage and IPC_PREPARE complete before remote execution"
+      ],
+      "success": [
+        "DTB/main authentication plus fresh SMP2P ready; shutdown requires correct acknowledgments"
+      ],
+      "ios_effect": "Changes modem availability without asserting registration",
+      "sources": [
+        "pas",
+        "mdt_loader_c",
+        "qcom_q6v5_c",
+        "boot_map"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_teardown_next"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Modem host1 and ADSP host2 must never reuse each other's same-numbered SMEM items"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "board",
+          "smem",
+          "smp2p",
+          "glink"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_IPC_PREPARE"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "ipc_prepare",
+      "group": "firmware_ipc",
+      "producer": "Runtime startup",
+      "consumer": "Native IRQ/SMEM/GLINK/QRTR provider",
+      "inputs": [
+        "Host1 SMEM, hwlock3, fresh IRQ baseline and reverse-request handlers"
+      ],
+      "outputs": [
+        "Receive path prepared before firmware runs"
+      ],
+      "preconditions": [
+        "Resources and storage active; MPSS not yet executing"
+      ],
+      "success": [
+        "IRQ observation, receive queues and reverse-service routing ready"
+      ],
+      "ios_effect": "Preserves early modem persistence requests during boot",
+      "sources": [
+        "board",
+        "smem",
+        "smp2p",
+        "glink"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "FIFO pointers, intents and channel identities belong to one remote epoch"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Discard old intents only after remote stopped or authoritatively replaced; rebuild edge and services"
+      ],
+      "notifications": [
+        "Edge reset withdraws all endpoint generations"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "glink",
+          "smem",
+          "board"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_IPC_START",
+        "GMR_ACT_IPC_STOP"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "ipc_edge",
+      "group": "firmware_ipc",
+      "producer": "Native GLINK/QRTR provider",
+      "consumer": "Runtime control and reverse-file router",
+      "inputs": [
+        "Host1 items478/479/480, IPCC2/0 and IPCRTR channel"
+      ],
+      "outputs": [
+        "Validated datagrams and edge lifecycle"
+      ],
+      "preconditions": [
+        "IPC prepared and fresh MPSS ready"
+      ],
+      "success": [
+        "Version/channel/intent negotiation and frame bounds verified before delivery"
+      ],
+      "ios_effect": "Provides actual transport for control and persistence",
+      "sources": [
+        "glink",
+        "smem",
+        "board"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Service, instance and port are distinct namespaces; reused addresses after restart receive new generations"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Rediscover and bind services before new transactions"
+      ],
+      "notifications": [
+        "Endpoint loss invalidates matching pending operations and business state"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "qmi-enums_h",
+          "protocol_map"
+        ]
+      },
+      "actions": [],
+      "commands": [],
+      "events": [
+        "GMR_EV_SERVICE_UP",
+        "GMR_EV_SERVICE_DOWN"
+      ],
+      "id": "qrtr_discovery",
+      "group": "control_subscription",
+      "producer": "Native QRTR decoder",
+      "consumer": "gmr service registry",
+      "inputs": [
+        "Validated service/version/instance/node/port, subscription and epoch"
+      ],
+      "outputs": [
+        "Current endpoint generation and availability"
+      ],
+      "preconditions": [
+        "Native framing/source validation"
+      ],
+      "success": [
+        "SERVICE_UP/DOWN updates only current epoch and valid slot mapping"
+      ],
+      "ios_effect": "Makes availability reflect current remote services",
+      "sources": [
+        "qmi-enums_h",
+        "protocol_map"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_contract.h"
+        ],
+        "symbols": [
+          "gmr_service_find",
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Pending transaction is correlated with the complete source identity"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject truncation, duplicate TLV, failing result and wrong endpoint/transaction"
+      ],
+      "recovery": [
+        "Cancel/reconcile matching operation; do not blindly replay ambiguous external effects"
+      ],
+      "notifications": [
+        "QMI_RESPONSE is distinct from generic non-QMI COMPLETE"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "uim",
+          "nas",
+          "wds",
+          "protocol_map"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_QMI"
+      ],
+      "commands": [],
+      "events": [
+        "GMR_EV_QMI_RESPONSE",
+        "GMR_EV_COMPLETE"
+      ],
+      "id": "qmi_transactions",
+      "group": "control_subscription",
+      "producer": "gmr QMI request core",
+      "consumer": "Native QRTR sender and strict payload codec",
+      "inputs": [
+        "Endpoint generation, transaction/message identity and exact TLV payload"
+      ],
+      "outputs": [
+        "Validated UIM/NAS/WDS request/response"
+      ],
+      "preconditions": [
+        "Service available and request/pending capacity bounded"
+      ],
+      "success": [
+        "Exact response framing, flags, message and unique successful result TLV"
+      ],
+      "ios_effect": "Only validated control state enters runtime snapshots",
+      "sources": [
+        "uim",
+        "nas",
+        "wds",
+        "protocol_map"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmi.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_qmi",
+          "gmr_qmi_complete",
+          "gmr_identity_equal"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "No subscriber credentials enter diagnostics; stale slot state cannot configure a bearer"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "SIM_CHANGED/SIM_REMOVED invalidate dependent sessions"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "uim",
+          "protocol_map"
+        ]
+      },
+      "actions": [],
+      "commands": [
+        "GMR_CMD_QUERY_SIM"
+      ],
+      "events": [
+        "GMR_EV_SIM_CHANGED",
+        "GMR_EV_SIM_REMOVED"
+      ],
+      "id": "sim_card_state",
+      "group": "control_subscription",
+      "producer": "UIM response or authenticated indication",
+      "consumer": "Per-slot runtime",
+      "inputs": [
+        "Card/application/provisioning indices and PIN state"
+      ],
+      "outputs": [
+        "Absent/locked/ready/error and slot generation"
+      ],
+      "preconditions": [
+        "Current UIM endpoint and selected application mapping"
+      ],
+      "success": [
+        "Nested counts and application selection validate before state update"
+      ],
+      "ios_effect": "Supplies accurate SIM and lock state",
+      "sources": [
+        "uim",
+        "protocol_map"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmi.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Physical slot, logical slot, provisioning session and WDS subscription are explicitly bound"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "No automatic fallback to another subscription after timeout"
+      ],
+      "recovery": [
+        "Requery mapping and rebind every service/session generation"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "uim",
+          "wds"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_SELECT_SLOT"
+      ],
+      "commands": [
+        "GMR_CMD_SELECT_SLOT"
+      ],
+      "events": [],
+      "id": "dual_sim_switch",
+      "group": "control_subscription",
+      "producer": "Slot-selection command",
+      "consumer": "UIM/subscription provider",
+      "inputs": [
+        "Target logical slot, current generations and active sessions"
+      ],
+      "outputs": [
+        "Verified selection and advanced generations for both slots"
+      ],
+      "preconditions": [
+        "Old subscription's live bearer/call handled before switching"
+      ],
+      "success": [
+        "Actual provider selection completion precedes selected_slot change and fresh SIM query"
+      ],
+      "ios_effect": "Selects the intended SIM without carrying old handles over",
+      "sources": [
+        "uim",
+        "wds"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_submit",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Credentials transient; retries must not consume attempts without policy"
+      ],
+      "timeouts": [
+        "Derive credential and logical-channel retry semantics from source"
+      ],
+      "failure": [
+        "Unsupported capability remains unavailable; never guess eSIM or credential behavior"
+      ],
+      "recovery": [
+        "Build bounded schema-based codecs and integrate cancellation/restart into the same runtime"
+      ],
+      "notifications": [
+        "STK/eSIM notifications require separate ABI mapping"
+      ],
+      "next_mapping": {
+        "sources": [
+          "uim",
+          "apple_abi"
+        ],
+        "operation": "Map Verify/Unblock/Change PIN, logical channels and slot-status schemas to 20H392 call sites; establish STK/eSIM capabilities and retry ownership before adding commands."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "pin_puk_stk_esim",
+      "group": "control_subscription",
+      "producer": "Future authenticated SIM commands and indications",
+      "consumer": "UIM/STK and iOS SIM policy",
+      "inputs": [
+        "PIN/PUK retry state, logical channels, STK transaction and eSIM capability evidence"
+      ],
+      "outputs": [
+        "Bounded verified application/credential result"
+      ],
+      "preconditions": [
+        "Exact capability, schema and caller contracts mapped"
+      ],
+      "success": [
+        "These operations have no current native/wire implementation"
+      ],
+      "ios_effect": "Required beyond basic SIM presence and application status",
+      "sources": [
+        "uim",
+        "apple_abi"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "No arbitrary remote path access; original device NV/calibration never fabricated"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Missing backend cannot be replaced with empty modem data"
+      ],
+      "recovery": [
+        "Preserve unresolved ownership; use the unified stop/reclaim/restart sequence rather than zeroing independent driver state."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "stock_rmt",
+          "stock_tftp",
+          "rmtfs_rmtfs_c"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_STORAGE_START",
+        "GMR_ACT_STORAGE_STOP"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "storage_server_lifecycle",
+      "group": "persistence",
+      "producer": "Startup/shutdown runtime",
+      "consumer": "AP reverse-service provider",
+      "inputs": [
+        "RMTFS/RFSA registration, bounded object table and backing storage"
+      ],
+      "outputs": [
+        "Prepared server before remote requests; stopped server after durable drain"
+      ],
+      "preconditions": [
+        "Native resources available before MPSS startup"
+      ],
+      "success": [
+        "Backend preparation/close completion observed, not merely callback registration"
+      ],
+      "ios_effect": "Provides persistence required by firmware startup and normal operation",
+      "sources": [
+        "stock_rmt",
+        "stock_tftp",
+        "rmtfs_rmtfs_c"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_teardown_next"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Peer identity and monotonic logical-request cookie survive WRITE/FLUSH/REPLY; bounded dedup cache/highwater prevent stale retransmission rewriting data"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Short write, bad source, conflicting duplicate payload or flush failure keeps uncertainty"
+      ],
+      "recovery": [
+        "Provider reuses logical request cookie on wire retransmission; reconcile duplicate state without replaying committed writes"
+      ],
+      "notifications": [
+        "STORAGE_REQUEST is not success; acknowledgement must follow durable completion"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "rmtfs_qmi_rmtfs_qmi",
+          "rmtfs_storage_c",
+          "rmtfs_sharedmem_c",
+          "stock_tftp"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_STORAGE_WRITE",
+        "GMR_ACT_STORAGE_FLUSH",
+        "GMR_ACT_STORAGE_REPLY"
+      ],
+      "commands": [
+        "GMR_CMD_STORAGE_WRITE",
+        "GMR_CMD_STORAGE_FLUSH"
+      ],
+      "events": [
+        "GMR_EV_STORAGE_REQUEST"
+      ],
+      "id": "storage_write_flush_reply",
+      "group": "persistence",
+      "producer": "Authenticated remote request or local storage command",
+      "consumer": "Bounded persistence provider and remote response adapter",
+      "inputs": [
+        "RMTFS0x0e/RFSA0x1c endpoint, object/offset/payload and original peer identity"
+      ],
+      "outputs": [
+        "Exact write count, durable flush, then explicit remote reply"
+      ],
+      "preconditions": [
+        "Storage active; source current; caller/object/shared-buffer bounds verified"
+      ],
+      "success": [
+        "WRITE exact byte count then FLUSH completes before STORAGE_REPLY; local writes with no peer do not reply"
+      ],
+      "ios_effect": "Prevents restart and registration state from depending on uncommitted or duplicated storage writes",
+      "sources": [
+        "rmtfs_qmi_rmtfs_qmi",
+        "rmtfs_storage_c",
+        "rmtfs_sharedmem_c",
+        "stock_tftp"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_contract.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_event",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Physical offsets resolve only inside validated shared allocations; object table restricts partition access"
+      ],
+      "timeouts": [
+        "Bound individual requests, shared-buffer ownership and durable flush"
+      ],
+      "failure": [
+        "Reject entire bad iovec before any partial access"
+      ],
+      "recovery": [
+        "Use pinned schema/storage/sharedmem sources to build frame decoder and caller tables"
+      ],
+      "notifications": [
+        "FORCE_SYNC is an indication, not a normal request response"
+      ],
+      "next_mapping": {
+        "sources": [
+          "rmtfs_qmi_rmtfs_qmi",
+          "rmtfs_storage_c",
+          "rmtfs_sharedmem_c"
+        ],
+        "operation": "Implement six pinned message shapes and caller/buffer tables; resolve vendor object names against local partition geometry; replay malformed/duplicate/SSR requests through unified lifecycle."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "rmtfs_wire_geometry",
+      "group": "persistence",
+      "producer": "MPSS RMTFS requests",
+      "consumer": "Future native RMTFS wire server",
+      "inputs": [
+        "OPEN/CLOSE/RW_IOVEC/ALLOC_BUFF/GET_DEV_ERROR/FORCE_SYNC, sector geometry and caller id"
+      ],
+      "outputs": [
+        "Correct bounded backing-store operation and wire response"
+      ],
+      "preconditions": [
+        "Pinned message schema and caller/buffer inventory"
+      ],
+      "success": [
+        "RMTFS wire decoder and native storage server are not currently implemented"
+      ],
+      "ios_effect": "Completes actual persistence transport beyond typed events",
+      "sources": [
+        "rmtfs_qmi_rmtfs_qmi",
+        "rmtfs_storage_c",
+        "rmtfs_sharedmem_c"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "RFSA is not RMTFS; do not copy RMTFS message ids or path semantics"
+      ],
+      "timeouts": [
+        "Derive actual retransmission and acknowledgement timing from server source/binary"
+      ],
+      "failure": [
+        "No invented method/port/address constants"
+      ],
+      "recovery": [
+        "Extract and analyze stock tftp_server and dependent RFSA/QMI objects"
+      ],
+      "notifications": [
+        "Request/response and retry identity derived from stock handlers"
+      ],
+      "next_mapping": {
+        "sources": [
+          "stock_tftp",
+          "libqmi_directory",
+          "tqftp_source"
+        ],
+        "operation": "Extract matching stock remote-file executables and linked service objects; identify actual QRTR service registration and RFSA generated IDL/element tables. Do not interpret the existing TFTP4096 implementation as RFSA0x1c."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "rfsa_tftp_wire",
+      "group": "persistence",
+      "producer": "MPSS QMI RFSA client; distinct from the QRTR TFTP client",
+      "consumer": "Future AP RFSA QMI server; stock tftp_server is separate evidence",
+      "inputs": [
+        "RFSA QMI service0x1c is present in the service enum; its schema is absent from the pinned libqmi data directory.",
+        "Pinned tqftpserv publishes QRTR service4096/version1/instance0 using a TFTP opcode protocol, not QMI RFSA."
+      ],
+      "outputs": [
+        "RFSA-specific bounded framing once an authoritative RFSA IDL/service object is obtained; no TFTP-to-RFSA field substitution."
+      ],
+      "preconditions": [
+        "Stock binary and dependent service schemas extracted and pinned offline"
+      ],
+      "success": [
+        "Typed STORAGE_REQUEST exists; RFSA wire protocol remains unmapped"
+      ],
+      "ios_effect": "Supports firmware-requested remote files separately from NV sectors",
+      "sources": [
+        "stock_tftp",
+        "qmi-enums_h",
+        "full_service_map",
+        "libqmi_directory",
+        "tqftp_source",
+        "tqftp_paths"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Registration per subscription does not imply data or IMS readiness"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Reject stale identity, malformed payload, missing evidence or contradictory state without promoting readiness."
+      ],
+      "recovery": [
+        "Requery and reconcile existing WDS handles before reconnection"
+      ],
+      "notifications": [
+        "NAS_CHANGED and REGISTRATION_LOST invalidate dependent data usability"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "nas",
+          "protocol_map"
+        ]
+      },
+      "actions": [],
+      "commands": [
+        "GMR_CMD_QUERY_REGISTRATION"
+      ],
+      "events": [
+        "GMR_EV_NAS_CHANGED",
+        "GMR_EV_REGISTRATION_LOST"
+      ],
+      "id": "nas_registration",
+      "group": "carrier_policy",
+      "producer": "NAS response/indication",
+      "consumer": "Per-subscription registration state",
+      "inputs": [
+        "Serving-system, packet attach, roaming and current source identity"
+      ],
+      "outputs": [
+        "Registered/searching/denied/offline separate from packet attach"
+      ],
+      "preconditions": [
+        "Current NAS endpoint and SIM generation"
+      ],
+      "success": [
+        "Strict NAS codec or authenticated typed change validates"
+      ],
+      "ios_effect": "Feeds current network/roaming availability",
+      "sources": [
+        "nas",
+        "protocol_map"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmi.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Carrier configuration identity remains bound to modem firmware and subscription"
+      ],
+      "timeouts": [
+        "Separate chunk and final-activation deadlines; no uncontrolled retry"
+      ],
+      "failure": [
+        "Partial load or ambiguous activation cannot become carrier readiness"
+      ],
+      "recovery": [
+        "Reconcile currently selected configuration before any new mutation"
+      ],
+      "notifications": [
+        "Request result and token-correlated activation/load indications are distinct"
+      ],
+      "next_mapping": {
+        "sources": [
+          "pdc",
+          "ims",
+          "wds"
+        ],
+        "operation": "Extract List/Get Selected/Load/Set Selected/Activate TLVs and completion tokens from pinned PDC schema; pin stock MBN inventory and selection policy; define rollback before typed actions."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "pdc_carrier_configuration",
+      "group": "carrier_policy",
+      "producer": "Future carrier policy",
+      "consumer": "PDC0x24",
+      "inputs": [
+        "Config type/id/token; chunked load; select/activate; firmware/subscription pairing"
+      ],
+      "outputs": [
+        "Indication-confirmed selected and active configuration"
+      ],
+      "preconditions": [
+        "Pinned PDC schema and applicable configuration inventory"
+      ],
+      "success": [
+        "No PDC action or wire codec currently implemented"
+      ],
+      "ios_effect": "Affects operator and IMS behavior beyond APN selection",
+      "sources": [
+        "pdc",
+        "ims",
+        "wds"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Credentials transient; never mix selected SIM, carrier profile and bearer APN"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "No silent subscription/APN fallback or blind credential-bearing replay"
+      ],
+      "recovery": [
+        "Map NAS selection and WDS profile semantics to iOS policy inputs"
+      ],
+      "notifications": [
+        "Distinguish policy denial, network rejection and transport failure"
+      ],
+      "next_mapping": {
+        "sources": [
+          "nas",
+          "wds",
+          "apple_abi"
+        ],
+        "operation": "Trace 20H392 operator/APN/roaming call sites and notifications against pinned NAS selection and WDS profile schemas; specify credentials, per-SIM policy and rollback."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "operator_roaming_apn_policy",
+      "group": "carrier_policy",
+      "producer": "iOS subscription/carrier policy",
+      "consumer": "NAS/WDS/IMS policy adapter",
+      "inputs": [
+        "Operator selection, roaming allowance, APN/auth and entitlement"
+      ],
+      "outputs": [
+        "Policy-consistent bearer request or precise denial"
+      ],
+      "preconditions": [
+        "Pinned protocol schemas and actual Apple caller mapping"
+      ],
+      "success": [
+        "Basic APN codec exists; full operator/provisioning policy is not implemented"
+      ],
+      "ios_effect": "Required for correct settings and roaming behavior",
+      "sources": [
+        "nas",
+        "wds",
+        "apple_abi"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "AP client and server directions remain distinct; neither is WDS"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Missing flag or stale endpoint prevents WDA/WDS progression"
+      ],
+      "recovery": [
+        "Repeat handshake after SSR with fresh memory and endpoint generation"
+      ],
+      "notifications": [
+        "Initialization-complete indication is separate from request result"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "ipa_qmi_service_c",
+          "ipa_qmi_service_v01_h",
+          "ipa_utils_c"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_IPA_PREPARE"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "ipa_peer_initialization",
+      "group": "packet_data",
+      "producer": "IPA_PREPARE provider",
+      "consumer": "AP/Q6 IPA QMI peers",
+      "inputs": [
+        "Service0x31 instances, shared-memory/endpoint tables and init indications"
+      ],
+      "outputs": [
+        "AP_READY/Q6_READY/MAP_VALID evidence bits=7"
+      ],
+      "preconditions": [
+        "Current service endpoints and verified memory/SMMU ownership"
+      ],
+      "success": [
+        "All flags observed after actual peer handshake"
+      ],
+      "ios_effect": "Prepares real data hardware dependency",
+      "sources": [
+        "ipa_qmi_service_c",
+        "ipa_qmi_service_v01_h",
+        "ipa_utils_c"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_data_stage",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Format belongs to the same bearer/data port and subscription"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Unknown format/aggregation cannot be assumed compatible"
+      ],
+      "recovery": [
+        "Rollback partial setup and renegotiate after endpoint change"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wda",
+          "rmnet_ipa_c"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_WDA_FORMAT"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "wda_format",
+      "group": "packet_data",
+      "producer": "Bearer runtime",
+      "consumer": "WDA0x1a provider",
+      "inputs": [
+        "Raw-IP/QMAP, endpoint/interface and aggregation limits"
+      ],
+      "outputs": [
+        "Verified RAW_IP/QMAP bits=3"
+      ],
+      "preconditions": [
+        "IPA peer prepared and WDA endpoint current"
+      ],
+      "success": [
+        "Actual format response verified before binding"
+      ],
+      "ios_effect": "Determines real data frame interpretation",
+      "sources": [
+        "wda",
+        "rmnet_ipa_c"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_data_stage"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Binding and data port share one bearer/slot/generation identity"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Wrong subscription/endpoint invalidates binding"
+      ],
+      "recovery": [
+        "Rebind after slot/endpoint change; close DPM ports when opened"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "sources": [
+          "wds",
+          "dpm",
+          "rmnet_ipa_c"
+        ],
+        "operation": "Implement exact WDS subscription/mux/port binding and source-selected DPM Open/Close Port; resolve endpoint/interface through provider evidence instead of arbitrary constants."
+      },
+      "actions": [
+        "GMR_ACT_WDS_BIND"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "wds_binding_dpm",
+      "group": "packet_data",
+      "producer": "Bearer setup runtime",
+      "consumer": "WDS/DPM provider",
+      "inputs": [
+        "Subscription, mux, endpoint/interface and port capability"
+      ],
+      "outputs": [
+        "Verified subscription/mux/endpoint bits=7"
+      ],
+      "preconditions": [
+        "IPA/WDA prepared and WDS current"
+      ],
+      "success": [
+        "Actual binding complete before WDS Start"
+      ],
+      "ios_effect": "Prevents wrong-SIM or wrong-session delivery",
+      "sources": [
+        "wds",
+        "dpm",
+        "rmnet_ipa_c"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_data_stage"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Handle tied to bearer, subscription and endpoint generations",
+        "Bearer generation survives disconnect and increases on reconnect. DMA_CONFIGURE supplies immutable ring identity including epoch, slot, endpoint and bearer generations; current snapshots cannot relabel old descriptors."
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Lost Start response is ambiguous; never silently issue duplicate Start"
+      ],
+      "recovery": [
+        "Reconcile/stop handle, drain DMA, remove owned network state",
+        "Retire queued local TX and RX receipts on disconnect; require explicit network withdrawal, RX drain, TX drain and DMA-stop completion before WDS Stop and bearer reuse."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wds",
+          "protocol_map"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_DATA_REMOVE"
+      ],
+      "commands": [
+        "GMR_CMD_CONNECT",
+        "GMR_CMD_DISCONNECT"
+      ],
+      "events": [],
+      "id": "wds_bearer_lifecycle",
+      "group": "packet_data",
+      "producer": "Connect/disconnect commands",
+      "consumer": "WDS codec and runtime",
+      "inputs": [
+        "APN, IP family4/6, packet-data handle and endpoint"
+      ],
+      "outputs": [
+        "Validated handle/settings and explicit teardown"
+      ],
+      "preconditions": [
+        "SIM ready, registered/attached, RF enabled; IPA/WDA/binding done"
+      ],
+      "success": [
+        "Successful Start+handle and current settings precede DMA/network setup"
+      ],
+      "ios_effect": "Creates and removes underlying cellular session",
+      "sources": [
+        "wds",
+        "protocol_map"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmi.h",
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_ip.h"
+        ],
+        "symbols": [
+          "gmr_qmi_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "IPv6 addresses use network byte order; generic QMI scalar little endian does not apply to address arrays"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Missing address/prefix or impossible geometry blocks configuration"
+      ],
+      "recovery": [
+        "Requery per family after session change"
+      ],
+      "notifications": [
+        "Settings alone do not mark bearer UP"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wds"
+        ]
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "ipv4_ipv6_settings",
+      "group": "packet_data",
+      "producer": "WDS settings response",
+      "consumer": "Runtime and network provider",
+      "inputs": [
+        "IPv4 address/mask/gateway/DNS/MTU; IPv6 address/prefix/gateway/prefix/DNS/MTU"
+      ],
+      "outputs": [
+        "Typed explicit-presence settings and IP family"
+      ],
+      "preconditions": [
+        "Exact response identity and successful result"
+      ],
+      "success": [
+        "Exact TLV lengths, usable address/prefix and MTU validate before configuration"
+      ],
+      "ios_effect": "Provides correct IPv4/IPv6 network configuration",
+      "sources": [
+        "wds"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmi.h",
+          "ios16/modem/giulia_modem_ip.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_parse_ipv6",
+          "gmr_ipv6_usable"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "GSI channel is keyed by EE and is not event-ring id; DMA backing and page tables remain separately owned",
+        "Bearer generation survives disconnect and increases on reconnect. DMA_CONFIGURE supplies immutable ring identity including epoch, slot, endpoint and bearer generations; current snapshots cannot relabel old descriptors."
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "TLB/ring/programming uncertainty retains affected buffers"
+      ],
+      "recovery": [
+        "Drain and fault owned streams before unmap; never reset shared SMMU globally",
+        "Retire queued local TX and RX receipts on disconnect; require explicit network withdrawal, RX drain, TX drain and DMA-stop completion before WDS Stop and bearer reuse."
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "board",
+          "ipa_utils_c",
+          "rmnet_ipa_c"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_DMA_CONFIGURE",
+        "GMR_ACT_DATA_DRAIN"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "dma_gsi_smmu",
+      "group": "packet_data",
+      "producer": "DMA_CONFIGURE provider",
+      "consumer": "SMMU/GSI/IPA and broker",
+      "inputs": [
+        "31 endpoint routes, EE/channel, SID/mask, event-ring/IOVA allocation and mux"
+      ],
+      "outputs": [
+        "Verified IOVA/GSI/endpoint/RX/TX bits=31; drained completion"
+      ],
+      "preconditions": [
+        "Usable WDS settings; quiescent DMA before mapping; leases held"
+      ],
+      "success": [
+        "Actual translations/rings observed, not inferred from static table"
+      ],
+      "ios_effect": "Enables real packet transfer only after hardware preparation",
+      "sources": [
+        "board",
+        "ipa_utils_c",
+        "rmnet_ipa_c"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/platform/giulia_platform_resources.h"
+        ],
+        "symbols": [
+          "gmr_data_stage",
+          "gpr_mark_dma",
+          "gpr_quiesce"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Remove only bearer-owned addresses/routes/DNS; preserve Wi-Fi and other bearers"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Partial network setup cannot masquerade as an established link"
+      ],
+      "recovery": [
+        "Rollback only owned network objects"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wds",
+          "architecture"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_NETWORK_CONFIGURE"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "network_configuration",
+      "group": "packet_data",
+      "producer": "NETWORK_CONFIGURE provider",
+      "consumer": "XNU ifnet and network configuration owner",
+      "inputs": [
+        "Bearer identity, IPv4/IPv6, route, MTU, DNS and mux"
+      ],
+      "outputs": [
+        "IFNET/ADDRESS/ROUTE plus DNS when present bits=7 or15"
+      ],
+      "preconditions": [
+        "Actual DMA preparation and valid settings"
+      ],
+      "success": [
+        "Each required effect observed before runtime UP"
+      ],
+      "ios_effect": "Makes cellular data usable by applications",
+      "sources": [
+        "wds",
+        "architecture"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_data_stage"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Borrowed payload lifetime bounded; queued actions copied; old epoch completion cannot credit new bearer",
+        "Bearer generation survives disconnect and increases on reconnect. DMA_CONFIGURE supplies immutable ring identity including epoch, slot, endpoint and bearer generations; current snapshots cannot relabel old descriptors."
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Bad packet/source or delivery failure never increases successful delivery counters"
+      ],
+      "recovery": [
+        "Stop queue/drain on service loss; withdraw only affected bearer",
+        "Retire queued local TX and RX receipts on disconnect; require explicit network withdrawal, RX drain, TX drain and DMA-stop completion before WDS Stop and bearer reuse."
+      ],
+      "notifications": [
+        "DATA_RX/DATA_DELIVERED/DATA_ERROR are separate effects"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wds",
+          "rmnet_ipa_c",
+          "architecture"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_DATA_TX"
+      ],
+      "commands": [
+        "GMR_CMD_PACKET_TX"
+      ],
+      "events": [
+        "GMR_EV_DATA_RX",
+        "GMR_EV_DATA_DELIVERED",
+        "GMR_EV_DATA_ERROR"
+      ],
+      "id": "packet_tx_rx",
+      "group": "packet_data",
+      "producer": "Application TX and native RX",
+      "consumer": "Runtime packet validator and native network/DMA provider",
+      "inputs": [
+        "Complete raw IPv4/IPv6 bytes and authenticated bearer/source identity"
+      ],
+      "outputs": [
+        "Separate TX completion, RX received and RX delivered counters"
+      ],
+      "preconditions": [
+        "Bearer UP; family and exact packet lengths valid"
+      ],
+      "success": [
+        "TX matched completion; RX delivered only after interface acceptance/delivery event"
+      ],
+      "ios_effect": "Distinguishes real user-data delivery from QMI success",
+      "sources": [
+        "wds",
+        "rmnet_ipa_c",
+        "architecture",
+        "data_router"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/modem/giulia_modem_ip.h",
+          "ios16/modem/giulia_modem_data.h"
+        ],
+        "symbols": [
+          "gmr_event",
+          "gmr_submit",
+          "gmd_receive",
+          "gmd_transmit"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Mux map tied to WDA/WDS endpoint and subscription generations"
+      ],
+      "timeouts": [
+        "Bound aggregation/ring progress and flow-control stalls"
+      ],
+      "failure": [
+        "Coalescing, TSO, command frames and unsupported chained headers are rejected and never interpreted as IP; malformed input does not commit output"
+      ],
+      "recovery": [
+        "Implement matching frame codec and fault-inject in same bearer lifecycle"
+      ],
+      "notifications": [
+        "Flow-control messages are separate from WDS indications"
+      ],
+      "next_mapping": {
+        "sources": [
+          "rmnet_map_h",
+          "rmnet_map_data_c",
+          "rmnet_map_command_c",
+          "wda"
+        ],
+        "operation": "Bind negotiated version and mux to native IPA rings and the same raw-IP bearer validator; separately map command/flow-control and coalescing/TSO before advertising those unsupported capabilities."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "qmap_rmnet_framing",
+      "group": "packet_data",
+      "producer": "IPA DMA buffers",
+      "consumer": "Bounded independent QMAP codec and native data adapter",
+      "inputs": [
+        "Negotiated basic-QMAP/version1 or QMAPv5 checksum-header mode; mux; complete aggregate bytes; software-completed TX checksums"
+      ],
+      "outputs": [
+        "One frame with exact consumed length, IP span, mux and checksum status; repeated decoding supports bounded aggregate traversal"
+      ],
+      "preconditions": [
+        "Pinned packet definitions and negotiated format"
+      ],
+      "success": [
+        "Actual independent gmap_encode/decode exists for basic QMAP and terminal QMAPv5 checksum-header framing; native transport and negotiation remain separate"
+      ],
+      "ios_effect": "Bridges raw runtime packets to actual IPA wire buffers",
+      "sources": [
+        "rmnet_ipa_c",
+        "wda",
+        "rmnet_map_h",
+        "rmnet_map_data_c",
+        "rmnet_map_command_c"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmap.h"
+        ],
+        "symbols": [
+          "gmap_encode",
+          "gmap_decode"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "IMS configuration/bearer/subscription remain bound"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Default-data success or action acceptance never implies IMS"
+      ],
+      "recovery": [
+        "Reconcile after service loss and reject previous-generation status"
+      ],
+      "notifications": [
+        "IMS_STATUS validates endpoint and slot generations"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "ims",
+          "imsa",
+          "pdc"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_IMS_REGISTER"
+      ],
+      "commands": [
+        "GMR_CMD_IMS_REGISTER"
+      ],
+      "events": [
+        "GMR_EV_IMS_STATUS"
+      ],
+      "id": "ims_registration",
+      "group": "voice_messaging",
+      "producer": "IMS register command and IMSA indication",
+      "consumer": "IMS policy provider and per-slot state",
+      "inputs": [
+        "Subscription, settings, current IMSA0x21 endpoint and status"
+      ],
+      "outputs": [
+        "REGISTERING after acceptance; REGISTERED after authenticated indication"
+      ],
+      "preconditions": [
+        "SIM/registration and required control services usable"
+      ],
+      "success": [
+        "Typed completion only starts registration; IMSA business state confirms success"
+      ],
+      "ios_effect": "Controls actual IMS availability for voice policy",
+      "sources": [
+        "ims",
+        "imsa",
+        "pdc"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Call and media ids bound to slot+epoch"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Ambiguous dial cannot be blindly redialed; media failure is not connected-call success"
+      ],
+      "recovery": [
+        "Reconcile/terminate uncertain call and drain its media"
+      ],
+      "notifications": [
+        "VOICE_ENDED withdraws media and current call"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "voice",
+          "ims",
+          "imsa"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_VOICE_START",
+        "GMR_ACT_VOICE_STOP"
+      ],
+      "commands": [
+        "GMR_CMD_VOICE_START",
+        "GMR_CMD_VOICE_STOP"
+      ],
+      "events": [
+        "GMR_EV_VOICE_ENDED"
+      ],
+      "id": "voice_network_control",
+      "group": "voice_messaging",
+      "producer": "Voice commands and authenticated VOICE event",
+      "consumer": "VOICE provider and runtime",
+      "inputs": [
+        "Call parameters, slot, call id and current VOICE0x09 endpoint"
+      ],
+      "outputs": [
+        "NETWORK_ACTIVE distinct from media ACTIVE; ended/uncertain state"
+      ],
+      "preconditions": [
+        "Network/IMS policy allows call and service current"
+      ],
+      "success": [
+        "Network success followed by actual MEDIA_START before ACTIVE"
+      ],
+      "ios_effect": "Provides truthful call lifecycle and teardown",
+      "sources": [
+        "voice",
+        "ims",
+        "imsa"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Shared broker protects ADSP host2, clocks, buffers and existing audio clients"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "A media callback alone cannot prove audible bidirectional calls"
+      ],
+      "recovery": [
+        "Stop graph and route before releasing shared power; retain uncertain allocations"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "voice",
+          "architecture",
+          "board"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_MEDIA_START",
+        "GMR_ACT_MEDIA_DRAIN"
+      ],
+      "commands": [],
+      "events": [],
+      "id": "call_media",
+      "group": "voice_messaging",
+      "producer": "VOICE network success or termination",
+      "consumer": "ADSP/codec/audio provider",
+      "inputs": [
+        "Call id, negotiated codec/rate, graph and routing"
+      ],
+      "outputs": [
+        "Observed media-ready or drained completion"
+      ],
+      "preconditions": [
+        "Network call state and supported media route known"
+      ],
+      "success": [
+        "Actual media start acknowledgement before ACTIVE; actual drain before release"
+      ],
+      "ios_effect": "Connects real call audio without stealing other audio resources",
+      "sources": [
+        "voice",
+        "architecture",
+        "board"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h",
+          "ios16/audio/giulia_audio_platform.h"
+        ],
+        "symbols": [
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Message report associated with slot/endpoint generation; payload absent from diagnostics"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Submission timeout is uncertain and cannot trigger duplicate send"
+      ],
+      "recovery": [
+        "Reconcile assigned id/delivery through provider protocol before retry"
+      ],
+      "notifications": [
+        "SMS_DELIVERED is separate from send completion"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "wms"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_SMS_SEND"
+      ],
+      "commands": [
+        "GMR_CMD_SMS_SEND"
+      ],
+      "events": [
+        "GMR_EV_SMS_DELIVERED"
+      ],
+      "id": "sms_send_delivery",
+      "group": "voice_messaging",
+      "producer": "SMS command and WMS0x05 report",
+      "consumer": "Typed WMS provider and runtime",
+      "inputs": [
+        "Message format/payload, subscription, assigned message id and delivery status"
+      ],
+      "outputs": [
+        "ACCEPTED distinct from DELIVERED"
+      ],
+      "preconditions": [
+        "Current WMS service and permitted subscription",
+        "Current framework supports one in-flight SMS per subscription: SUBMITTING/ACCEPTED/UNCERTAIN reject another submission without replacing its message ID."
+      ],
+      "success": [
+        "Matched authenticated delivery report, not initial submission response, produces DELIVERED"
+      ],
+      "ios_effect": "Prevents duplicate SMS and incorrect delivery state",
+      "sources": [
+        "wms"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_complete",
+          "gmr_event"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Outgoing SMS and ordinary calls do not imply receive/broadcast/emergency support"
+      ],
+      "timeouts": [
+        "Derive service-specific response/ack deadlines"
+      ],
+      "failure": [
+        "Do not advertise emergency or incoming SMS capability from enum/callback presence"
+      ],
+      "recovery": [
+        "Map each separate path and integrate failure handling before enabling capabilities"
+      ],
+      "notifications": [
+        "Map WMS Event Report/Send Ack/broadcast and emergency call causes explicitly"
+      ],
+      "next_mapping": {
+        "sources": [
+          "wms",
+          "voice",
+          "ims",
+          "apple_abi"
+        ],
+        "operation": "Map incoming PDU/storage/ack, cell-broadcast selection and emergency dialing/status fields against 20H392 callbacks; specify separate bounded actions, notifications and failure causes."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "incoming_broadcast_emergency",
+      "group": "voice_messaging",
+      "producer": "Future WMS/VOICE/IMS notifications",
+      "consumer": "iOS telephony policy adapters",
+      "inputs": [
+        "Incoming PDU/ack, broadcast subscriptions, emergency capabilities/routes/location and call state"
+      ],
+      "outputs": [
+        "Explicit receive/ack/emergency business results"
+      ],
+      "preconditions": [
+        "Pinned schemas and exact iOS caller/notification contracts"
+      ],
+      "success": [
+        "These business paths are not implemented by current generic send/dial callbacks"
+      ],
+      "ios_effect": "Completes incoming messaging, broadcast and emergency behavior",
+      "sources": [
+        "wms",
+        "voice",
+        "ims",
+        "apple_abi"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "DMS mode is separate from power votes and SAR levels"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "No local boolean can replace uncertain remote mode result"
+      ],
+      "recovery": [
+        "Read back and reconcile actual mode after restart"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "dms"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_RF_MODE"
+      ],
+      "commands": [
+        "GMR_CMD_RF_MODE"
+      ],
+      "events": [],
+      "id": "rf_mode",
+      "group": "rf_recovery",
+      "producer": "RF mode command",
+      "consumer": "DMS0x02 provider and runtime",
+      "inputs": [
+        "Desired operating mode, active business state and current DMS endpoint"
+      ],
+      "outputs": [
+        "Verified RF enabled/disabled state"
+      ],
+      "preconditions": [
+        "Current DMS endpoint; active sessions handled before RF disable"
+      ],
+      "success": [
+        "Actual mode result verified before rf_enabled update"
+      ],
+      "ios_effect": "Supports airplane/radio policy",
+      "sources": [
+        "dms"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_submit",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "SAR enum is not arbitrary RF power; thermal mitigation composes with radio and shared-resource policy"
+      ],
+      "timeouts": [
+        "Bound update/stale-sensor handling with source-specific limits"
+      ],
+      "failure": [
+        "Never invent calibrated units/limits or silently bypass missing mitigation"
+      ],
+      "recovery": [
+        "Map RF Set/Get State and stock TS/TMD handlers/configuration before adding runtime actions"
+      ],
+      "notifications": [
+        "Sensor/mitigation changes are distinct from DMS operating mode"
+      ],
+      "next_mapping": {
+        "sources": [
+          "sar",
+          "qmi-enums_h",
+          "stock_thermal"
+        ],
+        "operation": "Parse pinned SAR schema, extract stock thermal-engine executable and configuration via init path, map TS/TMD request/notification handlers and policy tables offline; define supported levels and failures."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "sar_thermal",
+      "group": "rf_recovery",
+      "producer": "Proximity/thermal/power policy",
+      "consumer": "SAR0x11 and TS0x17/TMD0x18 or stock mitigation adapter",
+      "inputs": [
+        "Calibrated policy level, sensor identity, RF state and capability"
+      ],
+      "outputs": [
+        "Acknowledged source-unit mitigation state"
+      ],
+      "preconditions": [
+        "Pinned SAR schema and offline stock thermal implementation/config mapping"
+      ],
+      "success": [
+        "No SAR/thermal action or native mitigation currently implemented"
+      ],
+      "ios_effect": "Required for correct device RF and thermal behavior",
+      "sources": [
+        "sar",
+        "qmi-enums_h",
+        "stock_thermal"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Retention is not a new epoch; wake/IRQ and memory leases remain owned"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Unknown transition isolates instead of dropping ownership"
+      ],
+      "recovery": [
+        "Observe actual remote state and reconcile services or perform controlled SSR"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "pas",
+          "smp2p",
+          "architecture"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_SUSPEND",
+        "GMR_ACT_RESUME"
+      ],
+      "commands": [
+        "GMR_CMD_SUSPEND",
+        "GMR_CMD_RESUME"
+      ],
+      "events": [],
+      "id": "suspend_resume",
+      "group": "rf_recovery",
+      "producer": "System suspend/resume command",
+      "consumer": "Native power/IPC/DMA provider",
+      "inputs": [
+        "Pending actions, storage, active sessions, wake sources and retained resources"
+      ],
+      "outputs": [
+        "SUSPENDED/ONLINE after observed provider effects"
+      ],
+      "preconditions": [
+        "No prohibited pending work and provider-defined drain/retention plan"
+      ],
+      "success": [
+        "Actual power/IPC/DMA reconciliation before ONLINE"
+      ],
+      "ios_effect": "Preserves coherent cellular behavior across sleep",
+      "sources": [
+        "pas",
+        "smp2p",
+        "architecture"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_submit",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Old endpoint/transaction/handle/route/intent cannot affect a new epoch"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Stop/reclaim timeout leaves ISOLATED; state zeroing is not recovery"
+      ],
+      "recovery": [
+        "Retain ambiguous memory/votes; reconcile actual completion then start fresh qualified epoch",
+        "An external STOP during SSR teardown cancels the scheduled restart and joins the existing drain sequence; worker shutdown cannot restart the modem."
+      ],
+      "notifications": [
+        "FATAL preempts success; late prior events counted stale"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "architecture",
+          "pas",
+          "smp2p"
+        ]
+      },
+      "actions": [],
+      "commands": [
+        "GMR_CMD_STOP",
+        "GMR_CMD_SSR"
+      ],
+      "events": [
+        "GMR_EV_FATAL"
+      ],
+      "id": "ssr_stop_recovery",
+      "group": "rf_recovery",
+      "producer": "Fatal/watchdog/service loss/STOP/SSR",
+      "consumer": "One runtime and all native providers",
+      "inputs": [
+        "Pending operations, dirty storage, media, DMA and remote ownership"
+      ],
+      "outputs": [
+        "Invalidated old identities; ordered stop; restart only after certainty"
+      ],
+      "preconditions": [
+        "All unresolved resources remain represented"
+      ],
+      "success": [
+        "Flush then media drain/data drain/IPC stop/FW stop/memory reclaim/storage stop/resource release completes before OFF"
+      ],
+      "ios_effect": "Coherent withdrawal and recovery across UI/data/persistence",
+      "sources": [
+        "architecture",
+        "pas",
+        "smp2p"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_invalidate",
+          "gmr_begin_stop",
+          "gmr_teardown_next",
+          "gmr_tick",
+          "gmr_cancel"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Adapt transport semantics, never import Apple physical addresses"
+      ],
+      "timeouts": [
+        "Preserve original caller timeout/cancellation semantics"
+      ],
+      "failure": [
+        "Marker presence or restored jobs cannot enable managed cellular capability"
+      ],
+      "recovery": [
+        "Map selector dispatch and asynchronous completion to bounded runtime actions"
+      ],
+      "notifications": [
+        "Every buffer ownership and notification layout must match pinned build"
+      ],
+      "next_mapping": {
+        "sources": [
+          "apple_abi",
+          "architecture"
+        ],
+        "operation": "Finish dispatch and buffer/notification ownership from pinned 20H392 binaries, then implement IOKit bridges to unified runtime and validate exact emitted ADT/root/kernel selection."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "apple_abi_bridge",
+      "group": "ios_integration",
+      "producer": "20H392 CommCenter/CoreTelephony ABI",
+      "consumer": "IOKit compatibility adapter and unified runtime",
+      "inputs": [
+        "Verified Mav17/ABP matching keys/selectors/buffers/notifications"
+      ],
+      "outputs": [
+        "Apple-required calls mapped to the same commands and snapshots"
+      ],
+      "preconditions": [
+        "Exact selected system/product ABI and native requirements"
+      ],
+      "success": [
+        "ABI evidence is not an implemented UserClient or connected modem"
+      ],
+      "ios_effect": "Required for original iOS telephony UI",
+      "sources": [
+        "apple_abi",
+        "architecture"
+      ],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [
+          "hardware/ios16-modem-abi.json",
+          "ios16/modem/giulia_modem_platform.h"
+        ],
+        "symbols": [],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Provider callbacks pinned; callbacks outside core lock; no parallel business state machine"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Queue full/reentrancy/provider error/stale callback explicit"
+      ],
+      "recovery": [
+        "Cancel/teardown via common lifecycle, not terminal-only reset"
+      ],
+      "notifications": [
+        "Only matched provider events advance the serial runtime."
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "contract",
+          "architecture"
+        ]
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "kernel_executor_terminal",
+      "group": "ios_integration",
+      "producer": "IOKit worker and USB terminal",
+      "consumer": "One serial gmr runtime",
+      "inputs": [
+        "Bounded command/event queues, actual provider poll and snapshots"
+      ],
+      "outputs": [
+        "Consistent asynchronous operation identity and state"
+      ],
+      "preconditions": [
+        "Valid native provider registration or explicit disconnected diagnostics"
+      ],
+      "success": [
+        "Action acceptance waits for actual matching completion"
+      ],
+      "ios_effect": "Service infrastructure and diagnosis without pretending private ABI or hardware",
+      "sources": [
+        "contract",
+        "architecture"
+      ],
+      "implementation": {
+        "level": "kernel-service-adapter",
+        "paths": [
+          "ios16/modem/GiuliaModem.cpp",
+          "ios16/modem/giulia_modem_platform.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "giulia_modem_platform_register",
+          "giulia_modem_submit",
+          "giulia_modem_get_snapshot",
+          "giulia_modem_terminal"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "One manifest determines all outputs; mode is not hardware-ready assertion"
+      ],
+      "timeouts": [
+        "Bound validation subprocesses"
+      ],
+      "failure": [
+        "Missing provider/ABI cannot be hidden by job restoration"
+      ],
+      "recovery": [
+        "Rebuild from one qualified manifest and rerun unified scenario plus artifact verification"
+      ],
+      "notifications": [
+        "Static consistency distinguished from hardware runtime evidence"
+      ],
+      "next_mapping": {
+        "sources": [
+          "apple_abi",
+          "architecture"
+        ],
+        "operation": "Cross-check production pack/unpack scripts and actual emitted kernel/ADT/root contents against one manifest; bind native provider and Apple ABI evidence instead of mode flags."
+      },
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "artifact_consistency",
+      "group": "ios_integration",
+      "producer": "Build and packaging inputs",
+      "consumer": "Artifact verifier and boot selection",
+      "inputs": [
+        "Manifest/runtime ABI/broker marker/kernel/ADT/root policy/Apple ABI"
+      ],
+      "outputs": [
+        "Consistent diagnostic or managed artifact"
+      ],
+      "preconditions": [
+        "Pinned20H392 and matching profile"
+      ],
+      "success": [
+        "Every component agrees and mismatches reject",
+        "modem-config.json and compiled kernel bind the same firmware manifest, board resources, Apple ABI and production core source digest; rebase and both pack/unpack paths reject mismatches."
+      ],
+      "ios_effect": "Avoids contradictory boot and cellular capability selection",
+      "sources": [
+        "apple_abi",
+        "architecture",
+        "modem_build_contract",
+        "modem_patch_builder",
+        "modem_unified_gate"
+      ],
+      "implementation": {
+        "level": "build-artifact-contract",
+        "paths": [
+          "scripts/ios16_modem.py",
+          "scripts/ios16_modem_patch.py",
+          "scripts/verify-ios16-modem.py",
+          "scripts/make-ios16-payload.py",
+          "scripts/verify-payload.py",
+          "scripts/pack-payload.py"
+        ],
+        "symbols": [
+          "build_binding",
+          "build_header",
+          "kernel_declaration",
+          "check_contract"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "ownership": [
+        "Reserved numeric ABI values do not imply extra feature paths"
+      ],
+      "timeouts": [
+        "Runtime deadline is 30000 ms; native providers must bound retries and report uncertain operations separately."
+      ],
+      "failure": [
+        "Unused/unknown action cannot advance state"
+      ],
+      "recovery": [
+        "Use staged IPA/WDA/WDS/DMA/NETWORK actions"
+      ],
+      "notifications": [
+        "Legacy DATA_COMPLETION accepted only for validated matching DATA_TX completion"
+      ],
+      "next_mapping": {
+        "operation": "Bind the source-defined boundary to a native provider, derive required completion evidence and exercise failures in the unified end-to-end scenario.",
+        "sources": [
+          "contract"
+        ]
+      },
+      "actions": [
+        "GMR_ACT_NONE",
+        "GMR_ACT_DATA_CONFIGURE"
+      ],
+      "commands": [],
+      "events": [
+        "GMR_EV_DATA_COMPLETION"
+      ],
+      "id": "reserved_compatibility_values",
+      "group": "ios_integration",
+      "producer": "ABI enum decoder",
+      "consumer": "Compatibility guard",
+      "inputs": [
+        "GMR_ACT_NONE, reserved DATA_CONFIGURE and legacy DATA_COMPLETION"
+      ],
+      "outputs": [
+        "Explicit no-operation/reserved/compatibility handling"
+      ],
+      "preconditions": [
+        "Current contract enum snapshot"
+      ],
+      "success": [
+        "DATA_CONFIGURE not emitted by staged setup; DATA_COMPLETION cannot replace required preparation flags"
+      ],
+      "ios_effect": "Prevents capability claims from enum presence",
+      "sources": [
+        "contract"
+      ],
+      "implementation": {
+        "level": "typed-runtime-contract",
+        "paths": [
+          "ios16/modem/giulia_modem_contract.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmr_event",
+          "gmr_complete"
+        ],
+        "native_hardware_backend": false
+      }
+    },
+    {
+      "timeouts": [
+        "Use the unified operation deadline; native adapters separately bound stream, socket and DMA waits."
+      ],
+      "failure": [
+        "Reject stale generation, malformed payload or unsupported negotiated mode without updating successful business state."
+      ],
+      "recovery": [
+        "Use the same lifecycle and resource ledger; do not invent a parallel connected state.",
+        "Retire queued local TX and RX receipts on disconnect; require explicit network withdrawal, RX drain, TX drain and DMA-stop completion before WDS Stop and bearer reuse."
+      ],
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "qmap_bearer_routing",
+      "group": "packet_data",
+      "producer": "Native DMA adapter and unified runtime snapshot",
+      "consumer": "gmd_receive/gmd_transmit and QMAP codec",
+      "inputs": [
+        "Native receive-ring epoch and nonzero packet cookie; negotiated QMAP mode; full frame; actual gmr snapshot/action"
+      ],
+      "outputs": [
+        "Validated raw-IP DATA_RX event with source identity and consumed length, or encoded TX frame for the action-owned bearer"
+      ],
+      "ownership": [
+        "Old receive rings cannot be relabelled with current epoch; mux resolves to exactly one UP bearer; slot generation, WDS endpoint generation and handle come from runtime state.",
+        "DMA ownership remains with the native provider until the corresponding actual completion.",
+        "Bearer generation survives disconnect and increases on reconnect. DMA_CONFIGURE supplies immutable ring identity including epoch, slot, endpoint and bearer generations; current snapshots cannot relabel old descriptors."
+      ],
+      "preconditions": [
+        "Same serial executor as gmr; runtime ONLINE; bearer UP; current slot/WDS endpoint; payload family, length and MTU valid."
+      ],
+      "success": [
+        "Actual state-based router implements RX mux lookup and TX endpoint/handle checks before QMAP encoding; no independent connected flag is used."
+      ],
+      "notifications": [
+        "RX enters the same gmr event path and delivered accounting; consumed length commits only after event acceptance."
+      ],
+      "ios_effect": "Connects negotiated wire frames to the same live bearer and prevents cross-session or stale-ring delivery.",
+      "sources": [
+        "data_router",
+        "rmnet_map_h",
+        "rmnet_map_data_c",
+        "wda",
+        "wds",
+        "contract"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_data.h",
+          "ios16/modem/giulia_modem_qmap.h",
+          "ios16/modem/giulia_modem_runtime.h"
+        ],
+        "symbols": [
+          "gmd_receive",
+          "gmd_transmit"
+        ],
+        "native_hardware_backend": false
+      },
+      "next_mapping": {
+        "sources": [
+          "board",
+          "ipa_utils_c",
+          "data_router"
+        ],
+        "operation": "Bind actual IPA/GSI RX ring epochs and TX completion cookies to this router; preserve runtime ownership and negotiated limits while implementing native rings/ifnet."
+      }
+    },
+    {
+      "timeouts": [
+        "Use the unified operation deadline; native adapters separately bound stream, socket and DMA waits."
+      ],
+      "failure": [
+        "Unsupported CTL methods return a structured unsupported error; compound/invalid-sender/length-mismatched frames are rejected.",
+        "Opaque forwarded service TLVs are not a semantic implementation of PDC/IMS/WMS or the complete Apple private ABI."
+      ],
+      "recovery": [
+        "Use the same lifecycle and resource ledger; do not invent a parallel connected state."
+      ],
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "id": "qmux_virtual_client_router",
+      "group": "ios_integration",
+      "producer": "Proven Apple QMUX transport adapter and actual QRTR sockets",
+      "consumer": "gmux context and current QRTR service endpoints",
+      "inputs": [
+        "Complete QMUX frame; monotonic logical-request cookie; slot/epoch; service/CID/client generation; real local QRTR port"
+      ],
+      "outputs": [
+        "Bounded CTL Allocate/Release CID reply, raw QMI QRTR payload with rewritten transaction, or framed host response/indication with original transaction restored"
+      ],
+      "ownership": [
+        "One context per proven transport/subscription; each live virtual CID requires a dedicated actual nonzero QRTR socket/local port.",
+        "CTL allocation alone is not a socket allocation; adapter binds actual socket before publishing success; release waits actual close/quiescence.",
+        "Bounded request/reply cache and highwater reject changed duplicates and stale evicted retries; reset retires still-bound sockets and prevents CID/port reuse until drained."
+      ],
+      "preconditions": [
+        "Verified Apple transport framing boundary; exact CTL versus service header rules; current endpoint/slot generations; non-reentrant serial executor."
+      ],
+      "success": [
+        "Independent bounded QMUX codec and routing exist; CTL Allocate0x22 and Release0x23 handled; service traffic forwards only after framing validation.",
+        "Raw QRTR payload has no QMUX prefix; response/indication routing uses receiving socket and client generation, not server endpoint alone."
+      ],
+      "notifications": [
+        "Asynchronous indications are routed only to the matching current bound CID; request completions restore host transaction; gmux does not independently mutate SIM/NAS/data business state."
+      ],
+      "ios_effect": "Provides a bounded QMUX-to-QRTR client/transaction adapter for a proven Apple transport, while Apple IOKit/ABP binding remains separate work.",
+      "sources": [
+        "qmux_codec",
+        "ctl",
+        "qmi_message_c",
+        "qmi_message_h",
+        "qmi_private",
+        "qmi_errors",
+        "apple_abi"
+      ],
+      "implementation": {
+        "level": "wire-codec",
+        "paths": [
+          "ios16/modem/giulia_modem_qmux.h",
+          "ios16/modem/giulia_modem_contract.h"
+        ],
+        "symbols": [
+          "gmux_decode",
+          "gmux_encode",
+          "gmux_from_host",
+          "gmux_from_peer",
+          "gmux_bind_client",
+          "gmux_unbind_client",
+          "gmux_reset"
+        ],
+        "native_hardware_backend": false
+      },
+      "next_mapping": {
+        "sources": [
+          "apple_abi",
+          "ctl",
+          "qmi_message_c"
+        ],
+        "operation": "Bind verified ABP framing/completion to this router and actual native QRTR socket creation/close; complete remaining CTL and per-service semantic mappings from pinned source before claiming those capabilities."
+      }
+    },
+    {
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [
+          "hardware/modem-qmi-service-map.json",
+          "scripts/ios16_modem_protocol_map.py"
+        ],
+        "symbols": [
+          "generate"
+        ],
+        "native_hardware_backend": false
+      },
+      "id": "complete_service_schema_detail",
+      "group": "control_subscription",
+      "producer": "Pinned libqmi schemas, RMTFS declarations and OnePlus IPA element tables",
+      "consumer": "Source-derived protocol map and future native service adapters",
+      "inputs": [
+        "All selected message records, nested field definitions, common TLVs/prerequisites, vendor-qualified ids and IPA handler/call-site bindings."
+      ],
+      "outputs": [
+        "545 libqmi directional messages and4035 nested fields; RMTFS11 messages; IPA71 declarations/103 tables with67 explicit usage bindings."
+      ],
+      "ownership": [
+        "Schema coverage is not firmware support, a native provider, an Apple ABI bridge or implementation of every codec."
+      ],
+      "preconditions": [
+        "Fixed source paths/hashes, exact codegen default rules and deterministic generation."
+      ],
+      "success": [
+        "Saved JSON is reproduced byte-for-byte by --check; no known format, common-ref or table is silently omitted."
+      ],
+      "notifications": [
+        "Request/response/indication and service direction/instance remain explicit; unbound declarations stay visible."
+      ],
+      "timeouts": [
+        "No hardware execution; bounded local source parsing only."
+      ],
+      "failure": [
+        "Unknown schema syntax, unresolved common-ref or missing table fails generation; source boundaries are not filled with guessed constants."
+      ],
+      "recovery": [
+        "Locate the authoritative source for each explicit gap, pin it, then regenerate and compare in the one unified gate."
+      ],
+      "ios_effect": "Provides full protocol detail for all telephony mechanisms without mistaking a codec subset for complete cellular support.",
+      "sources": [
+        "full_service_map",
+        "service_map_generator"
+      ],
+      "next_mapping": {
+        "sources": [
+          "full_service_map"
+        ],
+        "operation": "Implement native service adapters and missing wire semantics from the complete source-derived records; preserve pending identities, ownership and lifecycle across all services."
+      }
+    },
+    {
+      "actions": [],
+      "commands": [],
+      "events": [],
+      "implementation": {
+        "level": "source-ABI",
+        "paths": [
+          "hardware/modem-qmi-service-map.json",
+          "scripts/ios16_modem_protocol_map.py"
+        ],
+        "symbols": [
+          "generate"
+        ],
+        "native_hardware_backend": false
+      },
+      "id": "qrtr_tftp_remote_files",
+      "group": "persistence",
+      "producer": "Remote-processor TFTP client",
+      "consumer": "Future AP TFTP server",
+      "inputs": [
+        "RRQ/WRQ/DATA/ACK/ERROR/OACK with network-order opcode; QRTR service4096/version1/instance0; bounded read-only/read-write path translation."
+      ],
+      "outputs": [
+        "TFTP file transfer and option negotiation according to pinned tqftpserv, separate from QMI."
+      ],
+      "ownership": [
+        "Path allowlists, transfer socket/session identity, bounded buffers and durable write policy must be native-provider owned."
+      ],
+      "preconditions": [
+        "Firmware-selected remote-file service identified; actual requested paths verified against permitted backend objects."
+      ],
+      "success": [
+        "Pinned public source fully identifies a distinct TFTP-over-QRTR protocol; XNU server is not implemented."
+      ],
+      "notifications": [
+        "TFTP ACK/error/OACK are not QMI response TLVs or RMTFS replies."
+      ],
+      "timeouts": [
+        "Derive block/window/retransmission/timeoutms rules from the pinned implementation; retain transfer identity."
+      ],
+      "failure": [
+        "Do not map arbitrary paths or fabricate RFSA QMI schemas from TFTP examples."
+      ],
+      "recovery": [
+        "Implement restricted TFTP session/path/flush handling and place duplicate/lost-ack/SSR cases in the unified persistence lifecycle."
+      ],
+      "ios_effect": "Supplies firmware-requested files where the actual remote firmware uses TFTP; does not replace RMTFS/NV or RFSA support.",
+      "sources": [
+        "tqftp_source",
+        "tqftp_paths",
+        "stock_tftp",
+        "full_service_map"
+      ],
+      "next_mapping": {
+        "sources": [
+          "tqftp_source",
+          "tqftp_paths",
+          "stock_tftp"
+        ],
+        "operation": "Map the pinned TFTP state/options/path handling to a bounded native QRTR server and actual offline firmware resource inventory; establish durable-write acknowledgement and shutdown behavior."
+      }
+    }
+  ],
+  "cross_layer_scenarios": [
+    "Cold ownership -> storage -> IPC_PREPARE -> firmware -> discovery -> SIM/NAS -> IPA/WDA/WDS -> IPv4/IPv6 DMA/network -> TX/RX -> durable storage reply -> stop.",
+    "Concurrent audio/Wi-Fi/GPU/modem resource claims: aperture versus channel exclusion, votes, DMA quiescence and generation safety.",
+    "SSR while persistence and packet/media work are pending: delay shutdown/reclaim and inject stale QMI/DMA/subscription completions.",
+    "Subscription change with live and idle bearers/calls; IMS registration and SMS delivery remain distinct from acceptance.",
+    "Fault every action boundary: short writes, failed flush, duplicate/replayed remote request, missing flags, partial memory transfer and lost acknowledgments."
+  ],
+  "remaining_native_work": "Native MPSS loader/IPC/reverse-file servers/IPA/ifnet policy/telephony and Apple ABI bridges remain explicit implementation work. Source gaps identify offline extraction or pinned-source analysis; absence of a connected device does not terminate those tasks."
+}

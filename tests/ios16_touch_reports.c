@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_touch_report.h"
+#include "../ios16/touch/giulia_touch_report.h"
 
 static void contact(uint8_t *p,unsigned id,unsigned kind,unsigned x,unsigned y)
 {

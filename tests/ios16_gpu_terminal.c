@@ -2,7 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_terminal.h"
+#include "../ios16/gpu/giulia_gpu_terminal.h"
 
 struct race {
     struct gg_terminal_mailbox mailbox;

@@ -17,6 +17,6 @@ static int aes_encrypt_cbc(const unsigned char *in,const unsigned char *iv,unsig
     unsigned char copy[16];memcpy(copy,iv,16);AES_cbc_encrypt(in,out,16*blocks,s,copy,AES_ENCRYPT);return 0;
 }
 #define GWR_CRYPTO_HOST 1
-#include "../ios16/giulia_wifi_rsn_crypto.h"
+#include "../ios16/wifi/giulia_wifi_rsn_crypto.h"
 #define GPM_CRYPTO_HOST 1
-#include "../ios16/giulia_wifi_pmf_crypto.h"
+#include "../ios16/wifi/giulia_wifi_pmf_crypto.h"

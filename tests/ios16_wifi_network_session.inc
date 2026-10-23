@@ -82,6 +82,21 @@ static int network_session_send(void *v,unsigned pipe,const void *data,size_t n)
 }
 static void network_session_paths() {
     {
+        NetworkSessionFixture f;auto &r=f.f.runtime;uint8_t out[4];size_t bytes=sizeof(out);
+        auto power_save=envelope(false,GWI_POWERSAVE,0);
+        assert(f.f.call(power_save,out,bytes)==kIOReturnNotReady && !bytes);
+        IOLockLock(&f.f.lock);assert(!gwt_active_policy(&r.station));IOLockUnlock(&f.f.lock);
+        assert(r.station.active_policy && f.commands.size()==5);
+        bytes=sizeof(out);assert(!f.f.call(power_save,out,bytes) && bytes==4 && !gwq_u32(out));
+        auto extended=envelope(false,GWI_ASSOCIATE_RESULT_EXTENDED,0);r.net_status=17;
+        for(unsigned result:{GWN_RESULT_PENDING,GWN_RESULT_SUCCESS,GWN_RESULT_FAILURE,GWN_RESULT_TIMEOUT,GWN_RESULT_RSN_TIMEOUT}) {
+            r.net_result=result;bytes=sizeof(out);
+            assert(!f.f.call(extended,out,bytes) && bytes==4 && gwq_u32(out)==result && r.net_status==17);
+        }
+        r.station.active_policy=0;bytes=sizeof(out);
+        assert(f.f.call(power_save,out,bytes)==kIOReturnNotReady && !bytes);
+    }
+    {
         NetworkSessionFixture f;auto &r=f.f.runtime;r.wmi.bss_count=0;f.request();f.tick();
         assert(r.join_pending==GWN_JOIN_SCAN && r.wmi.scanning && r.wmi.scan_request.active);
         assert(r.wmi.scan_request.ssid_count==1 && !memcmp(r.wmi.scan_request.ssids[0].bytes,"lab",3));
@@ -96,6 +111,24 @@ static void network_session_paths() {
         NetworkSessionFixture f;auto &r=f.f.runtime;r.wmi.bss_count=0;f.request();f.tick();f.scan_event(1);f.scan_event(2);f.tick();
         assert(!r.join_pending && !r.station.peer_created && r.net_result==GWN_RESULT_TIMEOUT && !r.profile_valid);
         assert(!gwn_nonzero((const uint8_t *)&r.join,sizeof(r.join)));
+    }
+    for(unsigned stage=0;stage<3;stage++) {
+        NetworkSessionFixture f;auto &r=f.f.runtime;r.wmi.bss_count=0;f.request();
+        if(stage)f.tick();if(stage==2)f.scan_event(1);
+        auto leave=envelope(true,GWN_DISASSOCIATE,0);size_t bytes=0;
+        assert(!f.f.call(leave,nullptr,bytes));f.tick();
+        assert(!r.join_pending && !r.profile_valid);
+        if(stage){assert(r.wmi.scanning && r.wmi.scan_cancel_pending);f.scan_event(2);f.tick();}
+        // An idle station has no STOPPING callback to finish the cancelled
+        // association. The original waiter must still receive a final result.
+        assert(r.station.phase==GWT_IDLE && !r.station.peer_created && !r.wmi.scanning);
+        auto result=envelope(false,GWI_ASSOCIATE_RESULT,0);uint8_t reply[4];bytes=sizeof(reply);
+        assert(!f.f.call(result,reply,bytes) && bytes==sizeof(reply) && gwq_u32(reply)==GWN_RESULT_FAILURE);
+        assert(r.assoc_notice && !gwn_nonzero((const uint8_t *)&r.join,sizeof(r.join)));
+        networkEventData.clear();gn_deliver(&r);unsigned notices=0;
+        for(const auto &event:networkEventData)if(event.kind==6 && event.code==9)notices++;
+        assert(notices==1 && !r.assoc_notice);
+        runtimeNow+=60000;f.tick();assert(!r.join_pending && !r.wmi.scanning && !r.retry_count);
     }
     {
         NetworkSessionFixture f;auto &r=f.f.runtime;f.connected();r.wmi.bss[0].rssi=-80;
@@ -125,6 +158,11 @@ static void network_session_paths() {
         assert(r.join_pending==GWN_JOIN_SCAN && r.net_result==GWN_RESULT_PENDING && !r.assoc_notice);
         f.scan_event(1);f.scan_event(2);f.tick();assert(!r.join_pending && r.dp.authorized && r.profile_connected);
         assert(!memcmp(r.profile.ssid,"lab",3));
+        assert(r.net_result==GWN_RESULT_TIMEOUT);gn_deliver(&r);assert(!r.assoc_notice);
+        // A late rekey of the retained connection is still not completion of
+        // the failed replacement request after its scheduler flag is cleared.
+        IOLockLock(&f.f.lock);gt_notify(&r,GWT_RUN,0);IOLockUnlock(&f.f.lock);
+        assert(r.net_result==GWN_RESULT_TIMEOUT && !r.assoc_notice && r.dp.authorized);
     }
     {
         NetworkSessionFixture f;auto &r=f.f.runtime;f.connected();r.station.phase=GWT_IDLE;r.dp.authorized=0;

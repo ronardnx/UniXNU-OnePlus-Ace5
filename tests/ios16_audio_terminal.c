@@ -34,8 +34,8 @@ static int audio_test_printf(const char *format, ...)
 #include "audio-generated.h"
 #else
 static int giulia_audio_runtime_command(const char *cmd) {(void)cmd;return 0;}
-#include "../ios16/giulia_audio_mapping.h"
-#include "../ios16/giulia_audio_terminal.inc"
+#include "../ios16/audio/giulia_audio_mapping.h"
+#include "../ios16/audio/giulia_audio_terminal.inc"
 #endif
 #undef printf
 

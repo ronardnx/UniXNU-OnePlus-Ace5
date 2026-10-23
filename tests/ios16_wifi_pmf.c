@@ -11,8 +11,8 @@ static int aes_encrypt_cbc(const uint8_t *in,const uint8_t iv[16],unsigned block
         EVP_EncryptUpdate(evp,out,&n,in,(int)blocks*16)&&EVP_EncryptFinal_ex(evp,out+n,&last);EVP_CIPHER_CTX_free(evp);return ok?0:-1;
 }
 #define GPM_CRYPTO_HOST 1
-#include "../ios16/giulia_wifi_pmf_crypto.h"
-#include "../ios16/giulia_wifi_pmf.h"
+#include "../ios16/wifi/giulia_wifi_pmf_crypto.h"
+#include "../ios16/wifi/giulia_wifi_pmf.h"
 static uint64_t clock_ms;
 static uint64_t now(void *ctx){(void)ctx;return clock_ms;}
 static int random_bytes(void *ctx,uint8_t *out,size_t n){(void)ctx;for(size_t i=0;i<n;i++)out[i]=(uint8_t)(0x31+i);return 0;}

@@ -1,0 +1,203 @@
+--- a/pexpert/arm/pe_fiq.c
++++ b/pexpert/arm/pe_fiq.c
+@@ -11,6 +11,12 @@
+ #include <machine/machine_routines.h>
+ #include <pexpert/device_tree.h>
+ #include <pexpert/arm64/board_config.h>
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++#include <arm/cpu_data_internal.h>
++#include "../../iokit/Kernel/arm/giulia_gpu_gunyah_irq.h"
++static unsigned giulia_gunyah_gic_initialized;
++static uint64_t giulia_gunyah_gic_bytes;
++#endif
+ 
+ 
+ #if HAS_GIC_V3
+@@ -76,6 +82,9 @@
+ void
+ pe_init_fiq()
+ {
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++	giulia_gpu_gunyah_irq_controller_changed();
++#endif
+ 	int error;
+ 	DTEntry entry;
+ 
+@@ -141,6 +150,9 @@
+ 		}
+ 
+ 		gicr_size = gicr_size_prop;
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++		giulia_gunyah_gic_bytes = gicd_size_prop;
++#endif
+ 	}
+ 
+ 	// Find the redistributor for this processor
+@@ -213,6 +225,7 @@
+ 	}
+ 	__builtin_arm_wsr64("ICC_IGRPEN1_EL1", 1);
+ 	__builtin_arm_isb(ISB_SY);
++	giulia_gunyah_gic_initialized = 1;
+ #else
+ 	// Enable the forwarding of the vtimer interrupt
+ 	uint32_t gicd_ctlr = gicd_read32(GICD_CTLR);
+@@ -228,3 +241,113 @@
+ {
+ }
+ #endif
++
++
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++/* Source baseline: XNU 1b191cb58250d0705d8a51287127505aa4bc0789,
++ * post-Sweet 0004/0008/0017 from reference-vermeer
++ * d68e05df683f863f054b0f9c063c54d2b1342b2a, prepared for giulia.
++ */
++/* Actual platform owner for the current single-CPU giulia profile. Static
++ * storage, reservations and quarantined state remain pinned until reboot.
++ * Existing generic interrupt handlers prevent claiming. Later handler
++ * registration revokes this lease before publishing the new handler.
++ */
++static struct ggirq_state giulia_gunyah_irq_state;
++static uint32_t giulia_gunyah_gic_read(void *cookie, unsigned offset)
++{ (void)cookie; return gicd_read32(offset); }
++static void giulia_gunyah_gic_write(void *cookie, unsigned offset, uint32_t value)
++{ (void)cookie; gicd_write32(offset, value); }
++static void giulia_gunyah_gic_barrier(void *cookie)
++{ (void)cookie; __asm__ volatile("dsb sy" ::: "memory"); }
++static uint64_t giulia_gunyah_gic_now(void *cookie)
++{
++	uint64_t ns;
++	(void)cookie; absolutetime_to_nanoseconds(mach_absolute_time(), &ns);
++	return ns / 1000;
++}
++static int giulia_gunyah_gic_uncontended(void *cookie)
++{
++	const ml_topology_info_t *topology = ml_get_topology_info();
++	(void)cookie;
++	return giulia_gunyah_gic_initialized && gicd_base &&
++	    giulia_gunyah_gic_bytes >= GGIRQ_REG_BYTES && topology &&
++	    topology->num_cpus == 1 && getCpuDatap() == &BootCpuData &&
++	    !ml_at_interrupt_context() && !getCpuDatap()->interrupt_handler;
++}
++static struct ggirq_io giulia_gunyah_gic_io(void)
++{
++	struct ggirq_io io = { NULL, (size_t)giulia_gunyah_gic_bytes,
++	    giulia_gunyah_gic_read, giulia_gunyah_gic_write,
++	    giulia_gunyah_gic_barrier, giulia_gunyah_gic_now,
++	    giulia_gunyah_gic_uncontended };
++	return io;
++}
++int giulia_gpu_gunyah_irq_claim(const void *owner, uint64_t epoch, uint32_t tx, uint32_t rx)
++{
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	int valid = ggirq_claim(&io, &giulia_gunyah_irq_state, owner, epoch, tx, rx) == GGIRQ_OK;
++	(void)ml_set_interrupts_enabled(previous);
++	return valid;
++}
++int giulia_gpu_gunyah_irq_owns(const void *owner, uint64_t epoch, uint32_t tx, uint32_t rx)
++{
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	int valid = ggirq_owns(&io, &giulia_gunyah_irq_state, owner, epoch, tx, rx);
++	(void)ml_set_interrupts_enabled(previous);
++	return valid;
++}
++void giulia_gpu_gunyah_irq_invalidate(const void *owner, uint64_t epoch)
++{
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	if (owner && giulia_gunyah_irq_state.owner == owner && giulia_gunyah_irq_state.epoch == epoch)
++		ggirq_invalidate(&io, &giulia_gunyah_irq_state);
++	(void)ml_set_interrupts_enabled(previous);
++}
++int giulia_gpu_gunyah_irq_guard_begin(const void *owner, uint64_t epoch,
++    uint32_t tx, uint32_t rx, unsigned *saved)
++{
++	if (!saved) return 0;
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	if (!ggirq_owns(&io, &giulia_gunyah_irq_state, owner, epoch, tx, rx)) {
++		(void)ml_set_interrupts_enabled(previous); return 0;
++	}
++	*saved = !!previous;
++	return 1; /* Keep interrupts disabled across one non-sleeping actual HVC. */
++}
++int giulia_gpu_gunyah_irq_guard_end(const void *owner, uint64_t epoch,
++    uint32_t tx, uint32_t rx, unsigned saved)
++{
++	boolean_t unexpected = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	int valid = !unexpected && saved <= 1 &&
++	    ggirq_owns(&io, &giulia_gunyah_irq_state, owner, epoch, tx, rx);
++	if (!valid && giulia_gunyah_irq_state.owner == owner)
++		ggirq_invalidate(&io, &giulia_gunyah_irq_state);
++	(void)ml_set_interrupts_enabled(saved == 1);
++	return valid;
++}
++int giulia_gpu_gunyah_irq_dispatch(uint32_t intid)
++{
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	return ggirq_dispatch(&io, &giulia_gunyah_irq_state, intid);
++}
++void giulia_gpu_gunyah_irq_handler_registered(void)
++{
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	struct ggirq_io io = giulia_gunyah_gic_io();
++	ggirq_invalidate(&io, &giulia_gunyah_irq_state);
++	(void)ml_set_interrupts_enabled(previous);
++}
++void giulia_gpu_gunyah_irq_controller_changed(void)
++{
++	boolean_t previous = ml_set_interrupts_enabled(FALSE);
++	giulia_gunyah_gic_initialized = 0;
++	giulia_gpu_gunyah_irq_handler_registered();
++	(void)ml_set_interrupts_enabled(previous);
++}
++#endif
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -55,6 +55,9 @@
+ #include <pexpert/arm/protos.h>
+ #include <pexpert/arm64/apple_arm64_regs.h>
+ #include <pexpert/arm64/board_config.h>
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++#include "../../iokit/Kernel/arm/giulia_gpu_gunyah_irq.h"
++#endif
+ 
+ #include <vm/vm_page.h>
+ #include <vm/pmap.h>
+@@ -1882,7 +1885,7 @@
+ 		cpu_signal_handler();
+ 	} else {
+ 		sleh_interrupt_handler_prologue(state, DBG_INTR_TYPE_OTHER);
+-		if (cdp->interrupt_handler) {
++		if (!giulia_gpu_gunyah_irq_dispatch(intid) && cdp->interrupt_handler) {
+ 			cdp->interrupt_handler(cdp->interrupt_target,
+ 			    cdp->interrupt_refCon,
+ 			    cdp->interrupt_nub,
+--- a/osfmk/arm64/machine_routines.c
++++ b/osfmk/arm64/machine_routines.c
+@@ -33,6 +33,10 @@
+ #include <arm/cpuid.h>
+ #include <arm/cpu_data.h>
+ #include <arm/cpu_data_internal.h>
++#include <pexpert/arm64/board_config.h>
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++#include "../../iokit/Kernel/arm/giulia_gpu_gunyah_irq.h"
++#endif
+ #include <arm/caches_internal.h>
+ #include <arm/misc_protos.h>
+ #include <arm/machdep_call.h>
+@@ -810,6 +814,11 @@
+ 
+ 	current_state = ml_set_interrupts_enabled(FALSE);
+ 	cpu_data_ptr = getCpuDatap();
++#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
++	/* Revoke a polling lease before publishing any new generic controller
++	 * handler. Preserve the existing registration semantics for other IRQs. */
++	giulia_gpu_gunyah_irq_handler_registered();
++#endif
+ 
+ 	cpu_data_ptr->interrupt_nub = nub;
+ 	cpu_data_ptr->interrupt_source = source;

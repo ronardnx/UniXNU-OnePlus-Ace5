@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_audio_boot.h"
+#include "../ios16/audio/giulia_audio_boot.h"
 
 enum { PACK_BYTES=5*4096 };
 static unsigned char fixture[PACK_BYTES];

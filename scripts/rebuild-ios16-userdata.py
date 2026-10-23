@@ -49,14 +49,24 @@ def volume_header(path):
 
 
 def prepare_root(root, build, *, startup_compat=False, migration_baseline=False,
-                 full_boot_log=False, skip_setup=False):
+                 full_boot_log=False, skip_setup=False, cellular_policy=None,
+                 modem_runtime=None, modem_adt=None):
     if full_boot_log and not migration_baseline:
         raise ValueError('--full-boot-log requires --migration-baseline')
+    if cellular_policy == 'managed':
+        from ios16_modem_apple import require_managed_contract
+        if modem_runtime is None or modem_adt is None:
+            raise ValueError('Managed cellular requires runtime contract and actual ADT bytes')
+        require_managed_contract(modem_runtime, modem_adt)
     result = prepare_layout(root, build)
     if startup_compat:
         from ios16_startup_compat import prepare_startup
-        result.update(prepare_startup(root))
+        result.update(prepare_startup(root, cellular_policy or 'disabled',
+                                     runtime=modem_runtime, adt=modem_adt))
         result['scope'] = 'normal first-boot migration with explicit hardware startup compatibility'
+    elif cellular_policy is not None:
+        from ios16_startup_compat import prepare_cellular
+        result.update(prepare_cellular(root, cellular_policy, runtime=modem_runtime, adt=modem_adt))
     if migration_baseline:
         from ios16_boot_baseline import prepare_baseline
         result.update(prepare_baseline(root, full_boot_log))
@@ -74,6 +84,10 @@ def main():
     parser.add_argument('--report', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--startup-compat', action='store_true', help='Apply evidenced no-baseband/audio/GPU startup configuration')
+    parser.add_argument('--cellular-policy', choices=('disabled', 'managed'),
+                        help='Independent cellular launch policy (startup compatibility defaults to disabled)')
+    parser.add_argument('--modem-runtime', type=Path, help='Linked modem runtime contract for managed cellular')
+    parser.add_argument('--modem-adt', type=Path, help='Actual packaged ADT for managed cellular')
     parser.add_argument('--migration-baseline', action='store_true', help='User-selected upstream clean-root 20H392 migration baseline')
     parser.add_argument('--full-boot-log', action='store_true', help='Enable normal and failure logs for every launch daemon; requires baseline')
     parser.add_argument('--skip-setup', action=argparse.BooleanOptionalAction, default=False,
@@ -81,6 +95,15 @@ def main():
     parser.add_argument('--native-python', type=Path,
                         help='Optional Windows Python executable for fast WSL-mounted-file hashing')
     args = parser.parse_args()
+    if args.cellular_policy == 'managed' and (args.modem_runtime is None or args.modem_adt is None):
+        parser.error('--cellular-policy managed requires --modem-runtime and --modem-adt')
+    if args.cellular_policy != 'managed' and (args.modem_runtime or args.modem_adt):
+        parser.error('--modem-runtime and --modem-adt require --cellular-policy managed')
+    modem_runtime = json.loads(args.modem_runtime.read_text()) if args.modem_runtime else None
+    modem_adt = args.modem_adt.read_bytes() if args.modem_adt else None
+    if modem_runtime is not None:
+        from ios16_modem_apple import require_managed_contract
+        require_managed_contract(modem_runtime, modem_adt)
     if args.full_boot_log and not args.migration_baseline:parser.error('--full-boot-log requires --migration-baseline')
     source = args.source.resolve(strict=True)
     baseline = json.loads(args.report.read_text())
@@ -111,7 +134,9 @@ def main():
         guest.mount_vfs('force,rw', 'hfsplus', '/dev/sda', '/')
         result = prepare_root(GuestRoot(guest), baseline['build'], startup_compat=args.startup_compat,
                               migration_baseline=args.migration_baseline,
-                              full_boot_log=args.full_boot_log, skip_setup=args.skip_setup)
+                              full_boot_log=args.full_boot_log, skip_setup=args.skip_setup,
+                              cellular_policy=args.cellular_policy, modem_runtime=modem_runtime,
+                              modem_adt=modem_adt)
         for name, uid in DIRECTORIES:
             st = guest.statns(name)
             if (st['st_uid'], st['st_gid'], st['st_mode'] & 0o777) != (uid, uid, 0o755):

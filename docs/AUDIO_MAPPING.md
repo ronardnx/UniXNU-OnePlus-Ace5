@@ -30,7 +30,7 @@ WCD939x 的麦克风／耳机路由不能替代这两条功放路径。
 
 - [`hardware/sm8650-audio.json`](../hardware/sm8650-audio.json)：资源、原始 DT 属性、
   中断与总线路由、49 个源码文件哈希、56 个原厂固件文件哈希和剩余工作。
-- [`ios16/giulia_audio_mapping.h`](../ios16/giulia_audio_mapping.h)：从清单生成的 C/C++
+- [`ios16/audio/giulia_audio_mapping.h`](../ios16/audio/giulia_audio_mapping.h)：从清单生成的 C/C++
   静态映射和边界函数。`gamap_resolve` 只返回有效资源内的物理地址；
   `gamap_page_window` 计算 4K／16K 页覆盖范围，不扩大寄存器访问权限。
 - [`scripts/check-audio-mapping.py`](../scripts/check-audio-mapping.py)：检查生成文件及本地输入。

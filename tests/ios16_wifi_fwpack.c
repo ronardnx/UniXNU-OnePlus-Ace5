@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_firmware.h"
-#include "../ios16/giulia_wifi_firmware_pin.h"
+#include "../ios16/wifi/giulia_wifi_firmware.h"
+#include "../ios16/wifi/giulia_wifi_firmware_pin.h"
 static void digest_matches(const void *p,size_t n,const char *hex) {
     unsigned char digest[32];gwh_sha256(p,n,digest);
     for(unsigned i=0;i<32;i++) {unsigned v;assert(sscanf(hex+i*2,"%2x",&v)==1);assert(digest[i]==v);}

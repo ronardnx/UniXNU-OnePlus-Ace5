@@ -8,7 +8,7 @@
 #define main speaker_fixture_main
 #include "ios16_audio_speaker.c"
 #undef main
-#include "../ios16/giulia_audio_runtime.h"
+#include "../ios16/audio/giulia_audio_runtime.h"
 
 struct app {
     struct fake boot;

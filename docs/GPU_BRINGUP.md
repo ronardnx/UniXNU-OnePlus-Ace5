@@ -2,6 +2,8 @@
 
 当前开发映射的地址、GPU/GMU 权限、固件封存、HFI 全部 kind 处理与
 尚缺的专用资源提供者见 [GPU 映射层](GPU_MAPPING.md)。下文包含历史阶段记录。
+各层之间的启动顺序、进入门槛、失败回滚与里程碑见
+[GPU 接入框架](GPU_STACK_FRAMEWORK.md)；框架只做门控，不代替任何硬件后端。
 
 目标为 Darwin 22 / iOS 16 的原生 GPU 加速，最终由 Metal、IOSurface 和
 系统 render server 合成界面。已接入 Darwin 22 的 `GiuliaGPU` 准备服务、
@@ -38,7 +40,7 @@ Git blob 与 SHA256、四份原厂固件的 SHA256，以及参考 UniXNU 子模�
 - `scripts/fetch-ios16-gpu-sources.py`：获取固定版本源码并验证 Git blob 和 SHA256。
 - `scripts/extract-ios16-gpu-firmware.py`：从本地 EROFS 提取四份固件，全部通过
   摘要校验后才写出；不同版本的已有输出会被拒绝。
-- `ios16/giulia_gpu_firmware.h`：独立 C/C++ 固件解析器，保留预分配、持久
+- `ios16/gpu/giulia_gpu_firmware.h`：独立 C/C++ 固件解析器，保留预分配、持久
   预分配和版本元数据；校验长度、对齐、GMU 虚拟地址范围、数据段重叠和顺序。
   出错不写入输出条目，返回条目数清零。SQE/AQE 按原厂规则跳过首个文件 dword。
 
@@ -266,10 +268,22 @@ Wi-Fi 终端等待和全量日志。配套 `host-tools/` 使用同次 CI 的终�
 
 准备顺序为：解析固定 ClockDxe ABI 和全部资源名；开启配置访问；核对 CX
 最初关闭；在确认无原生 GLink 提供者且 APSS 通道关闭后，通过 AOP/QMP
-发送原厂支持的 `acd=0`，等待消费并关闭通道；请求 CX；确认 GMU 核心
-分支尚未启用；准备 hub 200 MHz 和总线基础时钟；确认 CM3 复位保持后，
-请求 GMU 625 MHz、核对配置读回并启用核心分支。全程不释放 CM3 复位、
-不写 TCM、不激活 GPU SMMU，也不发布加速设备。
+发送原厂支持的 `acd=0`，等待消费并关闭通道；请求 CX；读取 GMU 核心
+分支；准备 hub 200 MHz 和总线基础时钟；按分支语义使能 CXO、AXI、memnoc、
+DVM、AHB、hub 与 SMMU 时钟；确认 CM3 复位保持后，请求 GMU 625 MHz、
+核对配置读回并启用核心分支。全程不释放 CM3 复位、不写 TCM、不激活
+GPU SMMU，也不发布加速设备。
+
+ABL 会为启动画面保留 `gpu_cc_cx_gmu_clk`（实机读 `0x3d9913c=0x2001`），
+因此继承开启的核心分支是合法起点：此时只改成 625 MHz 并读回、复核 vote
+位，不 disable、不重新 enable；冷路径（bit0=0）才执行“复位保持 → 设频 →
+使能”的原顺序。固定 `gpucc-pineapple` 定义中只有 `gpu_cc_cxo_clk` 是普通
+`BRANCH_HALT`；GMU、hub、SMMU vote、memnoc 与 DVM 是
+`BRANCH_HALT_VOTED`，AHB 是 `BRANCH_HALT_DELAY`、AXI 是
+`BRANCH_HALT_SKIP`。因此 UEFI 策略和 XNU handoff 只对这些分支要求
+vote/使能位，AHB 与 AXI 的原始 CBCR 仅记录（本板 AHB 在成功使能后仍读 0），
+由 ClockDxe 的成功返回作为依据。CM3 复位在交接时必须为 1，否则报告
+`phase=10 code=9`（`GPP_ERR_RESET`）且不改变 GMU 频率。
 
 复位寄存器在 GMU 核心时钟开启前的访问依据是独立 CX AHB／hub 通路；
 这一顺序尚未实机验证，不能视为总线访问或 DMA 静止的实测证明。

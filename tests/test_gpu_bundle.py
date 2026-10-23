@@ -1,4 +1,8 @@
 """Exercise unified packaging with synthetic firmware and a fake UEFI builder."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import source_path
 import hashlib
 import json
 import os
@@ -21,10 +25,11 @@ class UnifiedGpuBundle(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.repo = self.root / 'repo'
-        for name in ('scripts', 'tests', 'ios16', 'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe'):
+        for name in ('scripts', 'tests', 'ios16', 'ios16/wifi', 'ios16/gpu', 'ios16/display', 'ios16/common', 'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe'):
             (self.repo / name).mkdir(parents=True)
         for name in ('build-ios16-wifi-bringup.sh', 'embed-wifi-firmware.py', 'embed-gpu-firmware.py',
-                     'prepare-ios16-gpu-power.py', 'ios16_gpu_power.py', 'ios16_platform.py'):
+                     'prepare-ios16-gpu-power.py', 'ios16_gpu_power.py', 'ios16_platform.py',
+                     'prepare-ios16-gpu-gunyah.py','ios16_gpu_gunyah.py'):
             shutil.copyfile(ROOT / 'scripts' / name, self.repo / 'scripts' / name)
         self.packs = {}
         self.digests = {}
@@ -36,7 +41,7 @@ class UnifiedGpuBundle(unittest.TestCase):
             path.write_bytes(pack)
             self.packs[name] = path
             self.digests[name] = hashlib.sha256(pack).digest()
-            (self.repo / f'ios16/giulia_{name}_firmware_pin.h').write_text(
+            (self.repo / f'ios16/{name}/giulia_{name}_firmware_pin.h').write_text(
                 ','.join(f'0x{x:02x}' for x in self.digests[name]))
         self.uefi = self.root / 'uefi'
         self.driver = self.uefi / 'UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver'
@@ -63,9 +68,9 @@ class UnifiedGpuBundle(unittest.TestCase):
         Path(self.inputs[0]).write_bytes(node('device-tree',[('physical-model',b'OnePlus Ace 5\0')],[node('chosen')]))
         overlay = self.repo / 'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe'
         (overlay / 'Driver.c').write_text('fixture')
-        for name in ('GiuliaWiFi.cpp', 'GiuliaGPU.cpp', 'giulia_display.h', 'giulia_wifi_sha256.h',
+        for name in ('GiuliaWiFi.cpp', 'GiuliaGPU.cpp', 'giulia_display.h', 'giulia_sha256.h',
                      'giulia_gpu_control.c', 'giulia_gpu_control.h'):
-            (self.repo / 'ios16' / name).write_text(name)
+            (source_path(self.repo, name)).write_text(name)
         vendor = self.repo / 'ios16/vendor/ArmSmmu4K'
         vendor.mkdir(parents=True)
         (vendor / 'ArmSmmu4K.c').write_text('vendor-source')
@@ -74,7 +79,8 @@ class UnifiedGpuBundle(unittest.TestCase):
             (self.repo / 'scripts' / name).write_text('# source fixture\n')
         for name in ('fix-ios16-high-physical-cache.py', 'enable-touch-diagnostics.py',
                      'enable-wifi-diagnostics.py', 'verify-payload.py', 'verify-wifi-native-abi.py',
-                     'enable-gpu-power-diagnostics.py', 'verify-gpu-power-native-abi.py'):
+                     'enable-gpu-power-diagnostics.py', 'verify-gpu-power-native-abi.py',
+                     'enable-gpu-gunyah-handoff.py'):
             (self.repo / 'scripts' / name).write_text('')
         for name in ('ios16_dram_handoff.py', 'ios16_gpu_patch.py', 'ios16_gpu_embed.py'):
             (self.repo / 'tests' / name).write_text('')
@@ -93,6 +99,9 @@ metadata=json.loads(Path(args[args.index('--kernel')+1]).with_suffix('.json').re
 report={'wifi_runtime':{'firmware':metadata['wifi_firmware']}}
 if metadata.get('gpu_firmware'):report['gpu_runtime']={'firmware':metadata['gpu_firmware'],'acceleration':False}
 if '--gpu-mode' in args:report['gpu_mode']=int(args[args.index('--gpu-mode')+1])
+if report.get('gpu_mode'):
+ from ios16_gpu_gunyah import check_request
+ report['gpu_gunyah_handoff']=check_request(Path(args[args.index('--adt')+1]).read_bytes(),report['gpu_mode'])
 if report.get('gpu_mode')==3:
  from ios16_gpu_power import check_request
  report['gpu_power_handoff']=check_request(Path(args[args.index('--adt')+1]).read_bytes(),3)
@@ -120,7 +129,8 @@ if report.get('gpu_mode')==3:
         if gpu:
             markers += (self.digests['gpu'] + b'GIULIA GPU: host preparation complete;\0'
                         b'GIULIA GPU: firmware pack mapped read-only and digest verified\0'
-                        b'GIULIA GPU: UEFI power handoff\0')
+                        b'GIULIA GPU: UEFI power handoff\0'
+                        b'GIULIA GPU: boot Gunyah resources\0')
         kernel[0x1000:0x1000+len(markers)] = markers
         self.kernel.write_bytes(kernel)
         self.original_digest = hashlib.sha256(kernel).hexdigest()
@@ -158,6 +168,14 @@ if report.get('gpu_mode')==3:
         self.write_kernel(gpu=False)
         self.rejected('kernel compiled with --gpu')
 
+    def test_missing_boot_resource_consumer_fails_before_build(self):
+        binary=self.kernel.read_bytes().replace(b'GIULIA GPU: boot Gunyah resources',b'X'*32)
+        self.kernel.write_bytes(binary)
+        metadata=json.loads(self.kernel.with_suffix('.json').read_text())
+        metadata['output_sha256']=hashlib.sha256(binary).hexdigest()
+        self.kernel.with_suffix('.json').write_text(json.dumps(metadata))
+        self.rejected('requires the Gunyah boot-resource consumer')
+
     def test_corrupt_pack_and_metadata_fail_before_build(self):
         data = bytearray(self.packs['gpu'].read_bytes());data[-1] ^= 1
         self.packs['gpu'].write_bytes(data)
@@ -182,9 +200,14 @@ if report.get('gpu_mode')==3:
             self.assertEqual(firmware['sha256'], self.digests[name].hex())
         report = json.loads((self.output / 'source-manifest.json').read_text())
         self.assertEqual(report['gpu_mode'], mode or 1)
+        from ios16_gpu_gunyah import check_request as check_gunyah
+        handoff=check_gunyah((self.output/'giulia-ios16.adt').read_bytes(),mode or 1,binary)
+        self.assertEqual(report['gpu_gunyah_handoff'],handoff)
+        self.assertFalse(handoff['irq_lease'])
+        self.assertNotIn(b'giulia-gpu-gunyah',Path(self.inputs[0]).read_bytes())
         self.assertEqual(report['firmware_digests'], {k: v.hex() for k, v in self.digests.items()})
         self.assertFalse(report['acceleration'])
-        for name in ('ios16/giulia_gpu_control.c', 'ios16/giulia_gpu_control.h',
+        for name in ('ios16/gpu/giulia_gpu_control.c', 'ios16/gpu/giulia_gpu_control.h',
                      'ios16/vendor/ArmSmmu4K/ArmSmmu4K.c', 'ios16/vendor/ArmSmmu4K/SOURCE.json'):
             source = self.repo / name
             snapshot = self.output / 'runtime-source' / name
@@ -216,6 +239,7 @@ if report.get('gpu_mode')==3:
         report = json.loads((self.output / 'source-manifest.json').read_text())
         self.assertIsNone(report['gpu_mode'])
         self.assertIsNone(report['gpu_runtime'])
+        self.assertIsNone(report['gpu_gunyah_handoff'])
         self.assertFalse((self.output / 'gpu-offline-checks.json').exists())
 
 

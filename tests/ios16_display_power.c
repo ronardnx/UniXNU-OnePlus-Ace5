@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_display_power.h"
+#include "../ios16/display/giulia_display_power.h"
 static struct {
     uint32_t registers[0x1000],fifo[2],irq_original;
     unsigned writes,commands,fifo_words,reset_after_start,started,polls,complete_after;

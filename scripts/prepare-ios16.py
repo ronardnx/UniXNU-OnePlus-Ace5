@@ -1,4 +1,5 @@
 """Generate Ace 5 patches from the pinned Vermeer integration, not Redmi binaries."""
+from ios16_sources import source_path
 import argparse
 import shutil
 import subprocess
@@ -27,12 +28,14 @@ def main():
     p.add_argument('--wifi', action='store_true', help='Include WCN7850 PCIe/MHI/QMI/WMI scan, single-station open/WPA2-CCMP transport and iOS16 IO80211 service')
     p.add_argument('--gpu', action='store_true', help='Include opt-in A750 firmware/host-memory preparation and gated power observation; not acceleration')
     p.add_argument('--audio', action='store_true', help='Include ADSP/GLINK/SIPA coordinator; native platform/PCM provider still required')
+    p.add_argument('--modem', action='store_true', help='Include unified modem lifecycle and shared resource broker (GUI profile)')
     p.add_argument('--debug-userland', type=Path, help='Exact signed debug daemon/shell manifest from offline staging')
     a = p.parse_args()
     if a.touch and not a.gui:p.error('--touch requires --gui')
     if a.wifi and not a.gui:p.error('--wifi requires --gui')
     if a.gpu and not a.gui:p.error('--gpu requires --gui')
     if a.audio and not a.gui:p.error('--audio requires --gui')
+    if a.modem and not a.gui:p.error('--modem requires --gui')
     if a.debug_userland and not a.gui:p.error('--debug-userland requires --gui')
     debug_trust=debug_trust_source(a.debug_userland) if a.debug_userland else None
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
@@ -71,7 +74,7 @@ def main():
     edit(probe, '0x45fbee46U', '0xc319db94U')
     # Embed a C-compatible guarded context handoff; the generated source patch
     # then carries the entire implementation with correct hunk lengths.
-    guard = (Path(__file__).resolve().parents[1]/'ios16/giulia_smmu.h').read_text()
+    guard = (Path(__file__).resolve().parents[1]/'ios16/storage/giulia_smmu.h').read_text()
     guard = guard.replace('#include <stdint.h>', '')
     edit(probe, 'static int identity_candidate(void)', guard + '\nstatic uint32_t gs_r(unsigned o) { return rd(SMMU+o); }\n'
          'static void gs_w(unsigned o,uint32_t v) { *(volatile uint32_t *)(SMMU+o)=v; __asm__ volatile("dsb sy" ::: "memory"); }\n'
@@ -108,7 +111,7 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
-    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu, audio=a.audio)
+    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu, audio=a.audio, modem=a.modem)
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -135,20 +138,6 @@ def main():
     shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/cache_patch,a.out/cache_patch)
     reboot_patch='0082-giulia-fastboot-reboot.patch'
     shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/reboot_patch,a.out/reboot_patch)
-    if a.touch:
-        patch=('--- a/bsd/conf/files\n+++ b/bsd/conf/files\n@@ -109,4 +109,5 @@\n'
-               ' bsd/dev/vermeer_usb_debug.c\t\tstandard\n'
-               ' bsd/dev/sweet_sample.c\t\t\tstandard\n+bsd/dev/giulia_touch.c\t\t\tstandard\n'
-               ' bsd/dev/memdev.c\t\t\tstandard\n bsd/dev/mem.c\t\t\t\tstandard\n'
-               '--- a/bsd/kern/bsd_init.c\n+++ b/bsd/kern/bsd_init.c\n@@ -1106,5 +1106,7 @@\n'
-               ' \tvermeer_usb_debug_start();\n \textern void sweet_sample_start(void);\n'
-               ' \tsweet_sample_start();\n+\textern void giulia_touch_start(void);\n+\tgiulia_touch_start();\n'
-               ' #endif\n \n')
-        for name in ('giulia_touch.c','giulia_touch_report.h','giulia_touch_wire.h','giulia_touch_gpio.h'):
-            data=(Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
-            data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
-            patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',tofile='b/bsd/dev/'+name))
-        (a.out/'0069-giulia-touch.patch').write_text(patch)
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     if a.gui:
         # Complete GUI logging consumes the service-image sampler even when
@@ -174,7 +163,7 @@ def main():
                  '+    "   },"\n'
                  '     "   {"\n')
         for name in ('GiuliaAMFI.cpp', 'giulia_trust_catalog.h'):
-            data = (Path(__file__).resolve().parents[1]/'ios16'/name).read_text()
+            data = (source_path(Path(__file__).resolve().parents[1], name)).read_text()
             if name=='GiuliaAMFI.cpp' and debug_trust:
                 anchor='class AppleMobileFileIntegrity : public IOService {'
                 expression='return gtc_contains(&view, hash, length) != 0;'
@@ -189,51 +178,19 @@ def main():
         for name in ('0073-giulia-complete-boot-log.patch','0074-giulia-ios-pid-hibernate.patch'):
             shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/name,a.out/name)
         native_display_patch(a.out, Path(__file__).resolve().parents[1])
-        from ios16_keys import keys_patch
-        keys_patch(a.out, Path(__file__).resolve().parents[1])
-        from ios16_slider import slider_patch
-        slider_patch(a.out, Path(__file__).resolve().parents[1])
         from ios16_display_power import display_power_patch
         display_power_patch(a.out, Path(__file__).resolve().parents[1])
-        if a.wifi:
-            patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
-                     '@@ -15,2 +15,3 @@\n'
-                     ' iokit/Kernel/arm/GiuliaAMFI.cpp                                  optional iokitcpp\n'
-                     '+iokit/Kernel/arm/GiuliaWiFi.cpp                                  optional iokitcpp\n'
-                     ' iokit/Kernel/arm/SweetWatchdog.cpp                               optional iokitcpp\n'
-                     '--- a/iokit/KernelConfigTables.cpp\n+++ b/iokit/KernelConfigTables.cpp\n'
-                     '@@ -55,3 +55,9 @@\n'
-                     '     "     \'IOMatchCategory\' = AppleMobileFileIntegrity;"\n'
-                     '     "   },"\n'
-                     '+    "   {"\n'
-                     '+    "     \'IOClass\'         = IO80211Controller;"\n'
-                     '+    "     \'IOProviderClass\' = IOResources;"\n'
-                     '+    "     \'IOResourceMatch\' = IOBSD;"\n'
-                     '+    "     \'IOMatchCategory\' = IO80211Controller;"\n'
-                     '+    "   },"\n'
-                     '     "   {"\n')
-            source = Path(__file__).resolve().parents[1] / 'ios16'
-            names = ['GiuliaWiFi.cpp', *[p.name for p in sorted(source.glob('giulia_wifi_*.h'))]]
-            for name in names:
-                data = (source / name).read_text()
-                data = data.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
-                patch += ''.join(difflib.unified_diff([], data.splitlines(True),
-                                 fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
-            from ios16_wifi_sae import wifi_sae_patch
-            patch += wifi_sae_patch(a.out, Path(__file__).resolve().parents[1])
-            (a.out/'0076-giulia-wifi-runtime.patch').write_text(patch)
-        if a.gpu:
-            from ios16_gpu_patch import gpu_patch
-            gpu_patch(a.out, Path(__file__).resolve().parents[1])
-        if a.audio:
-            from ios16_audio_patch import audio_patch
-            audio_patch(a.out, Path(__file__).resolve().parents[1])
+        from ios16_modules import emit_input_modules
+        emit_input_modules(a.out, Path(__file__).resolve().parents[1], touch=a.touch)
+        from ios16_modules import emit_optional_modules
+        selected = [name for name in ("wifi", "gpu", "audio", "modem") if getattr(a, name)]
+        emit_optional_modules(a.out, Path(__file__).resolve().parents[1], selected)
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
     for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'ios16_screen_viewer.html', 'terminal-requirements.txt'):
         shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
     shutil.copytree(Path(__file__).resolve().parents[1]/'ios16/userland',a.out/'userland')
-    shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
+    shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/common/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
     if a.debug_userland:
         shutil.copyfile(a.debug_userland,a.out/'debug-userland.json')
     checker=(a.reference/'tools/check_ios_kernel.py').read_text().replace('K70DBG004','ACE5DBG001').replace('VERMEER USB:','GIULIA USB:')
@@ -242,6 +199,13 @@ def main():
         checker=checker.replace('logical canvas 1125x2436 centered in 1264x2780',
                                 'native panel 1264x2780 full coverage; UIKit canvas 1125x2436')
     (a.out/'check-kernel.py').write_text(checker)
+    # A Windows working copy can contain CRLF even when Git stores LF. Copied
+    # profile patches/scripts must match the Linux/macOS source they apply to.
+    # Preserve every other byte, including upstream non-UTF8 source comments.
+    for generated in a.out.iterdir():
+        if generated.suffix in ('.patch', '.sh'):
+            raw=generated.read_bytes()
+            if b'\r\n' in raw:generated.write_bytes(raw.replace(b'\r\n',b'\n'))
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'usb_terminal_protocol':2,
         'high_physical_cache_sync_fix':True,
@@ -259,6 +223,12 @@ def main():
         'gpu_terminal_included':a.gpu,
         'audio_runtime_included':a.audio,
         'audio_platform_provider_included':False,
+        'modem_runtime_included':a.modem,
+        'modem_runtime_abi':1 if a.modem else None,
+        'modem_platform_broker_included':a.modem,
+        'platform_broker_included':bool(a.wifi or a.gpu or a.audio or a.modem),
+        'modem_native_provider_included':False,
+        'modem_scope':'unified lifecycle, subscription/bearer/media/storage state and platform arbitration; native provider capability is explicit' if a.modem else None,
         'audio_scope':'pinned ADSP pack, boot/IPC/SIPA coordinator; native power/ICC and PCM provider missing' if a.audio else None,
         'gpu_scope':'pinned firmware, GMU host-memory preparation, optional gated read-only power/SMMU observation; no GPU submission' if a.gpu else None,
         'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211 single-station open/WPA2-CCMP and TCL/REO Ethernet; hardware networking unverified' if a.wifi else None,

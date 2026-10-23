@@ -5,6 +5,10 @@ extracted verbatim from GiuliaWiFi.cpp on every run; no device is accessed.
 This proves host-visible ownership and ABI behavior, not physical DMA/cache
 coherence, firmware compatibility, or successful radio bring-up.
 """
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import os
 import subprocess
@@ -25,7 +29,7 @@ bear_sources += ["int/" + name + ".c" for name in (
     "i31_add", "i31_sub", "i31_bitlen", "i31_decmod", "i31_decode", "i31_decred",
     "i31_encode", "i31_ninv31", "i31_montmul", "i31_muladd", "i31_tmont",
     "i31_modpow", "i31_rshift", "i32_div32")]
-source = (ROOT / "ios16/GiuliaWiFi.cpp").read_text()
+source = (ROOT / "ios16/wifi/GiuliaWiFi.cpp").read_text()
 
 
 def function(signature):
@@ -54,6 +58,7 @@ mapping = "".join(function(signature) for signature in [
     "static void gw_unpublish(", "void IO80211Controller::stop(",
     "static void gn_detached(",
     "static errno_t gn_output(",
+    "static errno_t gn_ioctl(",
     "static void gw_notice(",
 ])
 # Host RAM-only barrier substitution; address validation and loads/stores stay
@@ -66,11 +71,11 @@ with tempfile.TemporaryDirectory(prefix="wifi-runtime-") as folder:
     (path / "wifi_runtime_types.inc").write_text(source[runtime_start:runtime_end])
     (path / "wifi_runtime_under_test.inc").write_text(methods)
     (path / "wifi_mapping_under_test.inc").write_text(mapping)
-    network = (ROOT / "ios16/giulia_wifi_network_impl.h").read_text()
+    network = (ROOT / "ios16/wifi/giulia_wifi_network_impl.h").read_text()
     network = network.replace('__asm__ volatile("dsb sy" ::: "memory")', '__sync_synchronize()')
     (path / "wifi_network_under_test.inc").write_text(network)
     objects = []
-    crypto_sources = [ROOT / "ios16/giulia_wifi_sae_crypto.c", *[BEAR / "src" / name for name in bear_sources]]
+    crypto_sources = [ROOT / "ios16/wifi/giulia_wifi_sae_crypto.c", *[BEAR / "src" / name for name in bear_sources]]
     for index, crypto_source in enumerate(crypto_sources):
         obj = path / f"sae-{index}.o"
         subprocess.run([
@@ -82,7 +87,7 @@ with tempfile.TemporaryDirectory(prefix="wifi-runtime-") as folder:
     subprocess.run([
         os.environ.get("CXX", "clang++"), "-std=c++17", "-Wall", "-Wextra", "-Werror",
         "-Wno-misleading-indentation", "-Wno-unused-function", "-Wno-deprecated-declarations", "-fsanitize=address,undefined",
-        "-fno-sanitize-recover=all", "-pthread", "-I", str(ROOT / "ios16"), "-I", str(path),
+        "-fno-sanitize-recover=all", "-pthread", *include_flags(ROOT), "-I", str(path),
         str(ROOT / "tests/ios16_wifi_runtime.cpp"), *objects, "-lcrypto", "-o", str(path / "runtime"),
     ], check=True)
     subprocess.run([str(path / "runtime")], check=True)

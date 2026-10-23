@@ -3,13 +3,17 @@
 This verifies CPU lifetime/order only. The observation stub cannot validate
 register accessibility, cache behavior, bus errors or device power timing.
 """
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import os
 import subprocess
 import tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
-source=(ROOT/'ios16/GiuliaGPU.cpp').read_text()
+source=(ROOT/'ios16/gpu/GiuliaGPU.cpp').read_text()
 
 
 def method(signature):
@@ -34,10 +38,19 @@ static void PE_parse_boot_argn(const char *,int *v,size_t){*v=1;}
 #include <vector>
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power.h"
-#include "giulia_gpu_power_handoff.h"
+#include "giulia_platform_power.h"
 #include "giulia_gpu_hfi.h"
+#include "giulia_gpu_hfi_alloc_pool.h"
+#include "giulia_gpu_hfi_pump.h"
+#include "giulia_gpu_stack.h"
+#include "giulia_gpu_share_runtime.h"
+#include "giulia_scm.h"
+#include "giulia_gpu_mapping.h"
+#include "giulia_gpu_cache.h"
+#include <strings.h>
 static void gpuHfiBarrier(void *){__sync_synchronize();}
-static int giulia_gpu_qmp_available(){return 1;}
+int giulia_platform_qmp_available(void){return 1;}
+extern "C" int giulia_gpu_cache_publish(const void *,size_t){return 1;}
 static std::mutex logsLock;
 static std::vector<std::string> logs;
 static std::atomic<unsigned> statuses{0};
@@ -62,6 +75,43 @@ static void *current_thread(){return nullptr;}
 static void thread_terminate(void *){}
 struct IOService {void stop(IOService *){}};
 static struct gg_terminal_mailbox gpuTerminal;
+/* Share fixtures: an aligned control page, a live owner snapshot (5/9) and a
+ * channel that reports itself as this epoch's exclusive owner. */
+static uint8_t sharePage[16384] __attribute__((aligned(16384)));
+struct ggown_state { uint64_t epoch; };
+static struct ggrm_state shareChannelState;
+static uint16_t shareSelf=5,sharePeer=9;
+static int share_rm_valid(void *,uint64_t){return 1;}
+static int share_rm_send(void *,const void *,size_t,unsigned){return 0;}
+static int share_rm_receive(void *,void *,size_t,size_t *){return 1;}
+static uint64_t share_rm_now(void *){return 0;}
+static int share_rm_delay(void *,unsigned){return 0;}
+static int share_rm_notify(void *,uint32_t,const void *,size_t){return 1;}
+extern "C" int ggown_get_channel(struct ggown_state *owner,struct ggrm_io *io,
+    struct ggrm_state **channel)
+{
+    if(!owner || !io || !channel) return 1;
+    io->cookie=owner;
+    io->valid=share_rm_valid;
+    io->send=share_rm_send;
+    io->receive=share_rm_receive;
+    io->now_us=share_rm_now;
+    io->delay_us=share_rm_delay;
+    io->notification=share_rm_notify;
+    shareChannelState.epoch=owner->epoch;
+    shareChannelState.next_sequence=7;
+    *channel=&shareChannelState;
+    return 0;
+}
+extern "C" int ggown_copy_snapshot(struct ggown_state *owner,struct gg_rq_snapshot *out)
+{
+    if(!owner || !out) return 1;
+    memset(out,0,sizeof(*out));
+    out->epoch=owner->epoch;
+    out->self_vmid=shareSelf;
+    out->peer_vmid=sharePeer;
+    return 0;
+}
 class GiuliaGPU:public IOService {
 public:
     IOLock lock;
@@ -69,9 +119,71 @@ public:
     bool workerRunning=true,stopping=false,terminalOwner=true;
     unsigned mode=1,reservationCount=5,tablePages=6,leafPages=104,observations=0;
     bool firmwareVerified=true,hostPrepared=true;
+    bool bootGunyahCaptured=false;
     bool manualMemoryPinned=false,platformPoisoned=false,fenceMapped=false;
+    void *gunyahWorker=nullptr;
     int auditFenceMappings(){platformPoisoned=true;return 8;}
     unsigned hfiIndex=0,hfiSequence=0,hfiLastHeader=0;
+    /* HFI allocation glue: the real implementation header is compiled against
+     * this stub, so the pool adapter, the pump and the report are type-checked
+     * here. Only the empty/uninitialised cases run: the fixture owns no device
+     * mappings. */
+    struct gga_pool hfiAllocPool{};
+    struct gga_ops hfiAllocOps{};
+    struct ggpp_state hfiPump{};
+    uint32_t hfiPumpScratch[64]={};
+    bool hfiAllocReady=false;
+    struct ggd_pool devPool{};
+    bool devUcode[GGD_MAX]={};
+    bool devMappingsManaged=true;
+    bool gmuFaulted=false;
+    int mapDevAllocation(unsigned){return 8;}
+    uint8_t *devPointer(uint32_t){return nullptr;}
+    void hfiAllocInit();
+    int hfiPumpOnce(unsigned);
+    void hfiAllocReport();
+    struct ggsk stackState{};
+    struct ggsk_ops stackOps[GGSK_STAGES]{};
+    bool stackReady=false;
+    void stackInit();
+    int stackPlan();
+    void stackReport();
+    static int stackProbeBoot(void *,uint64_t *);
+    static int stackProbeFirmware(void *,uint64_t *);
+    static int stackProbeMemory(void *,uint64_t *);
+    static int stackEnterNoop(void *);
+    static int stackLeaveNoop(void *);
+    /* Share transaction glue: the fixture provides a live owner and channel, so
+     * the gate runs up to the authority refusal. */
+    struct ggsr_state shareRuntime{};
+    struct ggsh_owner shareOwner{};
+    struct ggsr_gate shareGate{};
+    uint8_t *shareControlCPU=nullptr;
+    uint64_t shareControlPA=0;
+    bool shareControlReady=false;
+    struct ggown_state *gunyahOwner=nullptr;
+    bool gunyahPinned=false;
+    bool shareControlAllocate()
+    {
+        shareControlCPU=(uint8_t *)sharePage;
+        shareControlPA=0x10000000u;
+        shareControlReady=true;
+        return true;
+    }
+    int shareCommand();
+    void shareReport();
+    static int shareLive(void *,uint64_t);
+    static int shareIdentity(void *,uint64_t,uint16_t *,uint16_t *);
+    static int shareAuthorize(void *,uint64_t,uint16_t,uint16_t,uint64_t,uint32_t);
+    static int sharePublish(void *,const void *,size_t);
+    static int platformScmCall(void *,struct ggs_regs *){return 1;}
+    static int platformScmDelay(void *,unsigned){return 0;}
+    static int platformScmPrerequisites(void *,unsigned){return 0;}
+    static uint64_t hfiPoolAddress(void *,unsigned,unsigned);
+    static int hfiPoolMap(void *,unsigned,unsigned);
+    static int hfiPoolUnmap(void *,unsigned,unsigned);
+    static int hfiPoolPublish(void *,unsigned);
+    static int hfiPoolBarrier(void *);
     struct Memory {uint32_t words[GGH_BYTES/4]={};void *getBytesNoCopy(){return words;}} memory,logMemory;
     Memory *allocations[3]={&memory,&logMemory,&logMemory};
     ggp_report powerObservation={};
@@ -88,10 +200,16 @@ public:
     }
     void releaseResources(){assert(!inObservation);if(!manualMemoryPinned)++released;}
     void devCommand(const uint32_t *){}
+    void gunyahPeriodic(){}
+    void stopGunyah(){}
     void hfiCommand(unsigned);
+    int gmuCommand(unsigned){return 1;} /* IOKit + SID5 prerequisites absent */
     void reportStatus();void closeTerminal(unsigned);void stop(IOService *);
     static void worker(void *,wait_result_t);
 };
+#include "giulia_gpu_hfi_alloc_impl.h"
+#include "giulia_gpu_stack_impl.h"
+#include "giulia_gpu_share_impl.h"
 template<class F> static void until(F condition) {
     auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(3);
     while(!condition()) {
@@ -194,6 +312,66 @@ int main() {
         if(line.find("query_ack=1")!=std::string::npos && line.find("accepted=0")!=std::string::npos)++rejectedAcks;
     }
     assert(sawStatus && sawUnavailable && sawInactive && sawAck && rejectedAcks==2);
+    GiuliaGPU fourth;
+    fourth.hfiAllocInit();
+    /* The adapter owns the bump cursors: init must leave an empty, valid pool. */
+    assert(fourth.hfiAllocReady && fourth.devPool.count==0 && fourth.devPool.next==GGD_CACHE_BYTES);
+    assert(fourth.hfiPumpOnce(2)==GGPP_ARGUMENT); /* nothing is pinned yet */
+    fourth.manualMemoryPinned=true;
+    /* The fixture queue table is all zeroes: the pump must quarantine on the
+     * corrupt table instead of reading it as an empty queue. */
+    assert(fourth.hfiPumpOnce(2)==GGPP_RECEIVE && fourth.hfiPump.quarantined==1);
+    fourth.hfiAllocReport();
+    /* Stage machine: only the three observable stages are registered, so the
+     * plan must stop at power-lease without entering any device stage. */
+    GiuliaGPU fifth;
+    fifth.mode=3;
+    fifth.bootGunyahCaptured=true;
+    fifth.firmwareVerified=true;
+    fifth.hostPrepared=true;
+    fifth.firmwarePowerState=GGPH_PREPARED;
+    fifth.stackInit();
+    assert(fifth.stackReady);
+    assert(fifth.stackPlan()==GGSK_NO_PROVIDER);
+    assert(fifth.stackState.blocked==GGSK_POWER);
+    assert(fifth.stackState.writes==0 && fifth.stackState.quarantined==0);
+    assert(fifth.stackState.entered_mask==
+        (GGSK_BIT(GGSK_BOOT)|GGSK_BIT(GGSK_FIRMWARE)|GGSK_BIT(GGSK_HOST_MEMORY)));
+    fifth.stackReport();
+    /* Mode 1 has no host-mutation grant: even the page-table stage stays out. */
+    GiuliaGPU sixth;
+    sixth.bootGunyahCaptured=true;
+    sixth.firmwareVerified=true;
+    sixth.hostPrepared=true;
+    sixth.stackInit();
+    assert(sixth.stackPlan()==GGSK_POLICY);
+    assert(sixth.stackState.blocked==GGSK_HOST_MEMORY);
+    assert(sixth.stackState.entered_mask==(GGSK_BIT(GGSK_BOOT)|GGSK_BIT(GGSK_FIRMWARE)));
+    /* Share gate: with a live owner and channel the transaction stops at the
+     * missing authority proof, and the share state stays zero. */
+    GiuliaGPU seventh;
+    seventh.mode=3;
+    seventh.manualMemoryPinned=true;
+    seventh.gunyahPinned=true;
+    static ggown_state ownerState{};
+    ownerState.epoch=0x1000;
+    seventh.gunyahOwner=&ownerState;
+    assert(seventh.shareCommand()==GGSR_AUTHORITY);
+    assert(seventh.shareRuntime.prepared==0 && seventh.shareRuntime.share.initialized==0);
+    assert(seventh.shareRuntime.authority_checks==1 && seventh.shareRuntime.refused==1);
+    assert(seventh.shareRuntime.snapshot.taken==0);
+    seventh.shareReport();
+    bool sawAuthority=false,sawPrepare=false;
+    for(const auto &line:logs) {
+        if(line.find("GIULIA GPU SHARE: authority=unavailable")!=std::string::npos)sawAuthority=true;
+        if(line.find("GIULIA GPU SHARE: prepare code=no-authority")!=std::string::npos)sawPrepare=true;
+    }
+    assert(sawAuthority && sawPrepare);
+    /* Without the pin the command refuses before touching the channel at all. */
+    GiuliaGPU eighth;
+    eighth.mode=3;
+    assert(eighth.shareCommand()==GGSR_ARGUMENT);
+    assert(eighth.shareRuntime.live_checks==0 && eighth.shareRuntime.authority_checks==0);
     puts("Production GPU worker/status/stop: mode gating, queued requests, observation-stop ordering and retained lifetime passed");
 }
 '''
@@ -202,6 +380,9 @@ with tempfile.TemporaryDirectory() as folder:
     test=directory/'service.cpp';test.write_text(fixture)
     binary=directory/'service'
     subprocess.run([os.environ.get('CXX','c++'),'-std=c++17','-Wall','-Wextra','-Werror',
-                    '-fsanitize=address,undefined','-pthread','-I',str(ROOT/'ios16'),
-                    str(test),'-o',str(binary)],check=True)
+                    '-fsanitize=address,undefined','-pthread','-DGG_HOST_TEST',
+                    '-DGG_GUNYAH_SHARE_STANDALONE',*include_flags(ROOT),
+                    str(test),str(ROOT / 'ios16/gpu/giulia_gpu_stack.c'),
+                    str(ROOT / 'ios16/gpu/giulia_gpu_gunyah_share.c'),
+                    '-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)

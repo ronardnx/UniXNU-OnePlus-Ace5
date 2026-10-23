@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "../ios16/giulia_wifi_ce.h"
+#include "../ios16/wifi/giulia_wifi_ce.h"
 struct fixture {struct gwc_state s;struct gwc_io io;uint32_t regs[0xa000/4];uint8_t ram[GWC_BYTES];unsigned reads,writes,received,deny,lose;};
 static uint32_t readreg(void *v,uint32_t a){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b8a000&&!(a&3));f->reads++;return f->regs[(a-0x1b80000)/4];}
 static void writereg(void *v,uint32_t a,uint32_t n){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b8a000&&!(a&3));f->writes++;if(a!=f->lose)f->regs[(a-0x1b80000)/4]=n;}

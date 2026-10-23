@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <string.h>
-#include "../ios16/giulia_smmu.h"
+#include "../ios16/storage/giulia_smmu.h"
 static uint32_t regs[0x100000/4];
 static unsigned writes;
 static uint32_t read_reg(unsigned at) { assert(at<sizeof(regs) && !(at&3)); return regs[at/4]; }

@@ -17,14 +17,14 @@ static int aes_decrypt_cbc(const unsigned char *in,const unsigned char *iv,unsig
     unsigned char copy[16];memcpy(copy,iv,16);AES_cbc_encrypt(in,out,16*blocks,s,copy,AES_DECRYPT);return 0;
 }
 #define GWR_CRYPTO_HOST 1
-#include "../ios16/giulia_wifi_rsn_crypto.h"
-#include "../ios16/giulia_wifi_rsn.h"
+#include "../ios16/wifi/giulia_wifi_rsn_crypto.h"
+#include "../ios16/wifi/giulia_wifi_rsn.h"
 typedef AES_KEY aes_encrypt_ctx;
 static int aes_encrypt_key(const uint8_t *p,int n,aes_encrypt_ctx *s){return AES_set_encrypt_key(p,8*n,s);}
 static int aes_encrypt_cbc(const uint8_t *in,const uint8_t *iv,unsigned blocks,uint8_t *out,aes_encrypt_ctx *s){uint8_t copy[16];memcpy(copy,iv,16);AES_cbc_encrypt(in,out,16*blocks,s,copy,AES_ENCRYPT);return 0;}
 #define GPM_CRYPTO_HOST 1
-#include "../ios16/giulia_wifi_pmf_crypto.h"
-#include "../ios16/giulia_wifi_pmf.h"
+#include "../ios16/wifi/giulia_wifi_pmf_crypto.h"
+#include "../ios16/wifi/giulia_wifi_pmf.h"
 static const uint8_t station_rsn[22]={48,20,1,0,0,15,172,4,1,0,0,15,172,4,1,0,0,15,172,2,0,0};
 static const uint8_t access_rsn[22]={48,20,1,0,0,15,172,4,1,0,0,15,172,4,1,0,0,15,172,2,0x80,0};
 static const uint8_t local[6]={2,0,0,0,0,1},ap[6]={2,0,0,0,0,2};

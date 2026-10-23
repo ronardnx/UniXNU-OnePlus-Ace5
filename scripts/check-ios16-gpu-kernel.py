@@ -10,6 +10,8 @@ MARKERS = (
     b'GIULIA GPU: firmware pack mapped read-only and digest verified',
     b'GIULIA FB: native panel 1264x2780 full coverage;',
     b'GiuliaGPU',
+    b'GIULIA GPU: boot Gunyah resources',
+    b'GIULIA GPU DEV: gunyah_owner_abi=1 current_boot_resources=1 guarded_hvc=1 fence_completion=0',
     b'cpu_cache=normal-copyback',
     b'GIULIA GPU: host RAM cache publication complete;',
     b'GIULIA GPU HFI: table_iova=',
@@ -35,7 +37,17 @@ SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available', 'cache_publish',
     'ipcc_claim', 'ipcc_owns', 'ipcc_release',
     'fence_register', 'fence_ipcc_claim', 'fence_ipcc_owns',
-))
+)) + ('_ggh_hvc_probe_compatibility','_ggh_hvc_valid','_ggh_hvc_send','_ggh_hvc_recv',
+      '_ggh_hvc_doorbell_valid','_ggh_hvc_doorbell_read_clean',
+      '_ggrs_init','_ggrs_init_hvc','_ggrs_probe','_ggrs_notification',
+      '_ggrs_invalidate','_ggrs_copy_snapshot','_ggrs_poll',
+      '_ggsh_init','_ggsh_run','_ggsh_invalidate',
+      '_giulia_gpu_gunyah_irq_claim','_giulia_gpu_gunyah_irq_owns',
+      '_giulia_gpu_gunyah_irq_guard_begin','_giulia_gpu_gunyah_irq_guard_end',
+      '_giulia_gpu_gunyah_irq_invalidate','_giulia_gpu_gunyah_irq_dispatch',
+      '_giulia_gpu_gunyah_irq_handler_registered','_giulia_gpu_gunyah_irq_controller_changed',
+      '_ggown_init','_ggown_bootstrap','_ggown_probe','_ggown_poll',
+      '_ggown_copy_snapshot','_ggown_get_status','_ggown_get_channel','_ggown_invalidate')
 
 
 def linked_functions(kernel):

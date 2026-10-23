@@ -48,7 +48,7 @@ def main():
     header = pin_header(pack)
     if a.pin_header:
         a.pin_header.write_text(header, encoding='utf-8', newline='\n')
-    elif (ROOT/'ios16/giulia_gpu_firmware_pin.h').read_text() != header:
+    elif (ROOT/'ios16/gpu/giulia_gpu_firmware_pin.h').read_text() != header:
         raise ValueError('Pack differs from compiled kernel pin')
     if a.out.exists() and a.out.read_bytes() != pack:
         raise ValueError('Refusing to replace a different firmware pack')

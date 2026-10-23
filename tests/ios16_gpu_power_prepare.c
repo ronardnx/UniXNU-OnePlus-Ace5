@@ -14,6 +14,7 @@ struct model {
     unsigned cx_after_delay,lose_cx_at_final,cx_reads;
     unsigned cfg_reads,lose_cfg_at_final,drop_final_reg;
     unsigned reset_reads,release_reset_read,reset_proven,inherit_gmu_after_bus;
+    unsigned inherited_gmu,gmu_enable_calls,keep_halt,ahb_stays_zero;
     unsigned enabled_reads[GPP_REGISTER_COUNT];
     unsigned reg_reads[GPP_REGISTER_COUNT];
     unsigned resources[64],operations[64];
@@ -57,9 +58,16 @@ static uint64_t resource(void *cookie,unsigned id,unsigned op,uint32_t requested
         assert(m->regs[GPP_REG_CX_HW]&0x80000000u);
     }
     if(id==GPP_GMU_RATE || id==GPP_GMU_CLK) {
-        assert(m->reset_proven && (m->regs[GPP_REG_SYSRESET]&1));
-        if(op!=GPP_GET_RATE)assert(!(m->regs[GPP_REG_GMU]&1));
+        if(m->inherited_gmu) {
+            /* An inherited running branch only changes its configured rate. */
+            assert(m->regs[GPP_REG_SYSRESET]&1);
+            if(op!=GPP_GET_RATE)assert(m->regs[GPP_REG_GMU]&1);
+        } else {
+            assert(m->reset_proven && (m->regs[GPP_REG_SYSRESET]&1));
+            if(op!=GPP_GET_RATE)assert(!(m->regs[GPP_REG_GMU]&1));
+        }
     }
+    if(id==GPP_GMU_CLK && op==GPP_ENABLE)m->gmu_enable_calls++;
     if(m->fail_resource==call+1)return FW_FAILURE;
     if(m->dropped_resource==id+1)return 0;
     if(op==GPP_ENABLE) {
@@ -68,6 +76,8 @@ static uint64_t resource(void *cookie,unsigned id,unsigned op,uint32_t requested
             m->regs[reg]&=~1u;
             if(!m->cx_after_delay)m->regs[GPP_REG_CX_HW]|=0x80000000u;
         } else if(id==GPP_AXI_CLK)m->regs[reg]|=1u; /* HALT_SKIP need not toggle */
+        else if(id==GPP_AHB_CLK && m->ahb_stays_zero) { /* provider-return proof */ }
+        else if(m->keep_halt && id!=GPP_CXO_CLK)m->regs[reg]|=1u; /* VOTED */
         else m->regs[reg]=(m->regs[reg]&~0x80000000u)|1u;
     } else {
         unsigned index=id==GPP_GMU_RATE?0:1;
@@ -93,8 +103,10 @@ static uint64_t read_reg(void *cookie,unsigned reg,uint32_t *value)
     }
     if(reg==GPP_REG_SYSRESET) {
         unsigned i;assert(m->rates[1]==200000000u);
-        for(i=GPP_REG_CXO;i<=GPP_REG_SMMU;i++)assert(m->regs[i]&1);
-        if(!m->reset_reads)assert(!m->rates[0] && !(m->regs[GPP_REG_GMU]&1));
+        for(i=GPP_REG_CXO;i<=GPP_REG_SMMU;i++)
+            if(!(i==GPP_REG_AHB && m->ahb_stays_zero))assert(m->regs[i]&1);
+        if(!m->inherited_gmu && !m->reset_reads)
+            assert(!m->rates[0] && !(m->regs[GPP_REG_GMU]&1));
     }
     m->read_calls++;m->events++;
     m->reg_reads[reg]++;
@@ -194,6 +206,7 @@ int main(void)
     }
     for(i=GPP_CFG;i<=GPP_SMMU_CLK;i++) {
         if(i==GPP_GMU_RATE || i==GPP_HUB_RATE)continue;
+        if(i==GPP_AHB_CLK || i==GPP_AXI_CLK)continue; /* provider-return proof */
         reset_model(&m);m.dropped_resource=i+1;assert(run(&m,&r)==GPP_ERR_TIMEOUT);
         assert(r.attempted&(1u<<i));assert(!(r.confirmed&(1u<<i)));
         assert(m.delay_calls==GPP_POLL_LIMIT-1 && r.polls==GPP_POLL_LIMIT);
@@ -217,11 +230,24 @@ int main(void)
     reset_model(&m);m.regs[GPP_REG_SYSRESET]=0;
     assert(run(&m,&r)==GPP_ERR_RESET);assert(!(r.flags&GPP_READY) && r.retained);
     no_gmu_mutation(&m);
-    reset_model(&m);m.regs[GPP_REG_GMU]=1;
-    assert(run(&m,&r)==GPP_ERR_INITIAL);no_gmu_mutation(&m);
-    assert(!m.rates[1]);
+    /* ABL leaves gpu_cc_cx_gmu_clk running for the boot splash. That inherited
+     * branch is never disabled or re-enabled: the rate is set and read back,
+     * the vote is re-checked, and reset is still verified for the handoff. */
+    reset_model(&m);m.regs[GPP_REG_GMU]=0x2001u;m.inherited_gmu=1;
+    assert(run(&m,&r)==GPP_OK);
+    assert(!m.gmu_enable_calls && m.rates[0]==625000000u);
+    assert(r.values[GPP_VALUE_GMU_RATE]==625000000u);
+    assert(r.confirmed&(1u<<GPP_GMU_CLK) && (r.flags&GPP_READY));
+    /* Inherited branch without a verified rate still fails closed. */
+    reset_model(&m);m.regs[GPP_REG_GMU]=0x2001u;m.inherited_gmu=1;m.bad_get=GPP_GMU_RATE+1;
+    assert(run(&m,&r)==GPP_ERR_RATE && !(r.flags&GPP_READY));
     reset_model(&m);m.inherit_gmu_after_bus=1;
     assert(run(&m,&r)==GPP_ERR_INITIAL);no_gmu_mutation(&m);
+    /* VOTED branches keep their hardware halt bit; AHB reads CBCR=0 on this
+     * board after a successful enable. Neither may block the preparation. */
+    reset_model(&m);m.keep_halt=1;assert(run(&m,&r)==GPP_OK);
+    reset_model(&m);m.ahb_stays_zero=1;m.regs[GPP_REG_AHB]=0;assert(run(&m,&r)==GPP_OK);
+    assert(r.values[GPP_REG_AHB]==0);
     reset_model(&m);m.all_ones=GPP_REG_SYSRESET;
     assert(run(&m,&r)==GPP_ERR_READ);no_gmu_mutation(&m);
     reset_model(&m);m.release_reset_read=2;
@@ -234,6 +260,7 @@ int main(void)
     reset_model(&m);m.lose_cfg_at_final=1;assert(run(&m,&r)==GPP_ERR_INITIAL);
     assert(m.reset_reads==2);
     for(i=GPP_REG_GMU;i<=GPP_REG_SMMU;i++) {
+        if(i==GPP_REG_AHB || i==GPP_REG_AXI)continue; /* no raw-ready proof */
         reset_model(&m);m.drop_final_reg=i;assert(run(&m,&r)==GPP_ERR_TIMEOUT);
         assert(r.failure_phase==GPP_PHASE_READY && !(r.flags&GPP_READY));
         assert(m.reset_reads==2);

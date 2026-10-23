@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_gunyah_queries.h"
+#include "../ios16/gpu/giulia_gpu_gunyah_queries.h"
 
 static const uint8_t self_reply[]={0x45,0,0,0};
 static const uint8_t peer_reply[]={1,0,0,0,0x73,0,0,0};

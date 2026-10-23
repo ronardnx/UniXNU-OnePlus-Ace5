@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_log_bytes.h"
+#include "../ios16/common/giulia_log_bytes.h"
 int main(void) {
     unsigned char bytes[65]; char text[129];
     for (unsigned page=0;page<4;page++) {

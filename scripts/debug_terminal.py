@@ -22,6 +22,7 @@ DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'keys.status',
                    'slider.status','slider.stop',
                    'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
+                   'modem.status','modem.start','modem.stop','modem.suspend','modem.resume',
                    'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
                    'screen.start','screen.stop','screen.snapshot',
                    'input.status','input.release','input.keepalive')
@@ -29,6 +30,7 @@ TOPICS = {
     'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|QMP|PMU|WMI|IO80211',
     'gpu': r'GPU|GMU|ADRENO|SMMU',
     'audio': r'GIULIA AUDIO:|LPASS|ADSP|SoundWire|WCD93|SIA91|WSA88',
+    'modem': r'GIULIA MODEM:|GIULIA PLATFORM:|MPSS|CommCenter|RMTFS|RMNET|\bIPA\b',
     'touch': r'TOUCH|HID|TouchCom',
     'display': r'FB:|framebuffer|display|scanout|backboard',
     'ufs': r'UFS|BLOCK:|ROOT:|HFS|I/O error',
@@ -54,6 +56,9 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   audio.preflight        opted-in runtime firmware/provider status
   audio.start / audio.stop   require native platform lease (not yet supplied)
   audio.test             bounded speaker test; also requires calibrated PCM provider
+  modem.status           one lifecycle/subscription/bearer snapshot with epoch
+  modem.start / modem.stop   submit through the unified resource/lifecycle controller
+  modem.suspend / modem.resume   coordinated storage/DMA and remote state transition
   reboot.fastboot         sync disks and restart into Fastboot (debug kernel)
   reboot.status           inspect a pending reboot request
   screen.start            live screen with mouse/keyboard controls in browser
@@ -70,7 +75,7 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
 Host commands:
   :help                  this help
   logs TOPIC             retained session logs, NOT fresh hardware queries
-                         wifi gpu audio touch display ufs usb process panic power all
+                         wifi gpu audio modem touch display ufs usb process panic power all
   all                    queue all bounded device queries
   collect                all queries + retained RAM replay + GUI sample;
                          saves a diagnostic bundle after 15 seconds
@@ -347,7 +352,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test','slider.stop') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test','slider.stop','modem.start','modem.stop','modem.suspend','modem.resume') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:
@@ -359,7 +364,7 @@ class Commands:
             if self.queue or self.save_at is not None:
                 raise ValueError('A collection is already pending.')
             self.watch = None
-            self.queue.extend(('features','info','uptime','memory','ps','bootargs','display','usb','ufs','gpu.status','status'))
+            self.queue.extend(('features','info','uptime','memory','ps','bootargs','display','usb','ufs','gpu.status','modem.status','status'))
             if cmd == 'collect':
                 self.queue.extend(('replay','sample'))
                 self.save_at = time.monotonic() + 15

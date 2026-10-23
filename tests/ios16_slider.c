@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_slider.h"
-#include "../ios16/giulia_slider_pins.h"
+#include "../ios16/slider/giulia_slider.h"
+#include "../ios16/slider/giulia_slider_pins.h"
 
 static struct {
     unsigned low[2], queue[256], n, cursor, starts, stops, drive_count, waits;

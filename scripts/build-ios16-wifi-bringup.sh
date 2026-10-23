@@ -47,6 +47,8 @@ if gpu_pack:
         raise SystemExit('Unified GPU packaging requires the ninth argument LOCAL_FIRMWARE_PACK for Wi-Fi runtime')
     if not compiled:
         raise SystemExit('GIULIA_GPU_PACK requires a kernel compiled with --gpu')
+    if b'GIULIA GPU: boot Gunyah resources' not in kernel:
+        raise SystemExit('GPU kernel requires the Gunyah boot-resource consumer')
     if __import__('os').environ.get('GIULIA_GPU_MODE')=='3' and b'GIULIA GPU: UEFI power handoff' not in kernel:
         raise SystemExit('GPU mode 3 requires the compiled UEFI power handoff consumer')
     if metadata.get('output_sha256')!=hashlib.sha256(kernel).hexdigest() or metadata.get('boot_args_bytes')!=736:
@@ -54,7 +56,7 @@ if gpu_pack:
     # Validate the exact insertion order, both pinned packs and header capacity
     # before tests, loader edits or the expensive UEFI build.
     for name,path in (('wifi',wifi_pack),('gpu',gpu_pack)):
-        pin=(root/f'ios16/giulia_{name}_firmware_pin.h').read_text()
+        pin=(root/f'ios16/{name}/giulia_{name}_firmware_pin.h').read_text()
         digest=bytes(int(x,16) for x in re.findall(r'0x([0-9a-f]{2})\b',pin))
         append=runpy.run_path(str(root/f'scripts/embed-{name}-firmware.py'))['append_pack']
         kernel,_=append(kernel,Path(path).read_bytes(),digest)
@@ -122,8 +124,13 @@ else
   cp "$kernel_input" "$output_dir/kernel.macho"
   cp "${kernel_input%.*}.json" "$output_dir/kernel.json"
 fi
-if [ -n "$gpu_pack" ] && [ "$gpu_mode" = 3 ]; then
-  python3 scripts/prepare-ios16-gpu-power.py --adt "$adt_input" --out "$output_dir/giulia-ios16.adt"
+if [ -n "$gpu_pack" ]; then
+  python3 scripts/prepare-ios16-gpu-gunyah.py --adt "$adt_input" --out "$output_dir/gunyah-request.adt"
+  if [ "$gpu_mode" = 3 ]; then
+    python3 scripts/prepare-ios16-gpu-power.py --adt "$output_dir/gunyah-request.adt" --out "$output_dir/giulia-ios16.adt"
+  else
+    cp "$output_dir/gunyah-request.adt" "$output_dir/giulia-ios16.adt"
+  fi
 else
   cp "$adt_input" "$output_dir/giulia-ios16.adt"
 fi
@@ -132,6 +139,9 @@ cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/. "$board
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe "$output_dir/driver-source"
 python3 scripts/enable-touch-diagnostics.py "$driver_dir"
 python3 scripts/enable-wifi-diagnostics.py "$driver_dir"
+if [ -n "$gpu_pack" ]; then
+  python3 scripts/enable-gpu-gunyah-handoff.py "$driver_dir"
+fi
 if [ -n "$gpu_pack" ] && [ "$gpu_mode" = 3 ]; then
   python3 scripts/enable-gpu-power-diagnostics.py "$driver_dir"
 fi
@@ -144,13 +154,21 @@ python3 - "$output_dir" <<'PY'
 from pathlib import Path
 import shutil,sys
 out=Path(sys.argv[1]);snapshot=out/'runtime-source'
-files=[*Path('ios16').glob('giulia_wifi_*.h'),Path('ios16/GiuliaWiFi.cpp'),
-       Path('ios16/giulia_display.h'),Path('scripts/ios16_display.py')]
+files=[*Path('ios16/wifi').glob('giulia_wifi_*.h'),*Path('ios16/wifi').glob('giulia_wifi_*.c'),Path('ios16/wifi/GiuliaWiFi.cpp'),
+       Path('ios16/display/giulia_display.h'),Path('scripts/ios16_display.py')]
+files += [*Path('ios16/common').glob('*.h'), *Path('ios16/platform').glob('*'),
+          Path('scripts/ios16_sources.py'), Path('scripts/ios16_platform_patch.py'),
+          Path('scripts/ios16_modules.py'), Path('scripts/ios16_module_registry.py')]
 if (out/'gpu-offline-checks.json').exists():
-    files += [Path('ios16/GiuliaGPU.cpp'),*Path('ios16').glob('giulia_gpu_*.c'),
-              *Path('ios16').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
+    files += [Path('ios16/gpu/GiuliaGPU.cpp'),*Path('ios16/gpu').glob('giulia_gpu_*.c'),
+              *Path('ios16/gpu').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
               Path('scripts/ios16_gpu_patch.py'),Path('scripts/ios16_gpu_runtime.py'),
               Path('scripts/embed-gpu-firmware.py'),Path('scripts/ios16_gpu_power.py'),
+              Path('scripts/ios16_gpu_gunyah.py'),Path('scripts/enable-gpu-gunyah-handoff.py'),
+              Path('scripts/prepare-ios16-gpu-gunyah.py'),
+              Path('scripts/check-gpu-gunyah-uefi.py'),Path('scripts/ios16_gpu_gunyah_irq_patch.py'),
+              Path('ios16/0085-giulia-gunyah-irq.patch'),
+              Path('scripts/ios16_gpu_pmap_patch.py'),Path('ios16/0086-giulia-gpu-pmap.patch'),
               Path('scripts/enable-gpu-power-diagnostics.py'),Path('scripts/prepare-ios16-gpu-power.py')]
 for source in sorted(set(files)):
     if not source.is_file():continue
@@ -197,8 +215,8 @@ from pathlib import Path
 import hashlib,json,os,subprocess,sys
 out,driver=map(Path,sys.argv[1:])
 files=[*sorted((out/'driver-source').glob('*')),
-       *sorted(Path('ios16').glob('giulia_wifi_*.h')),Path('ios16/GiuliaWiFi.cpp'),
-       Path('ios16/giulia_display.h'),Path('scripts/ios16_display.py'),
+       *sorted(Path('ios16/wifi').glob('giulia_wifi_*.h')),Path('ios16/wifi/GiuliaWiFi.cpp'),
+       Path('ios16/display/giulia_display.h'),Path('scripts/ios16_display.py'),
        Path('scripts/embed-wifi-firmware.py'),Path('scripts/ios16_wifi_runtime.py'),
        Path('ios16/0081-giulia-pmap-high-physical-cache-sync.patch'),
        Path('scripts/fix-ios16-high-physical-cache.py'),
@@ -209,6 +227,8 @@ files=[*sorted((out/'driver-source').glob('*')),
        Path('scripts/ios16_pcie_diagnostic.py'),Path('scripts/decode-ios16-pcie-snapshot.py')]
 if (out/'giulia-ios16.gpu-power.json').is_file():
     files += [out/'giulia-ios16.gpu-power.json',Path('scripts/verify-gpu-power-native-abi.py')]
+if (out/'gunyah-request.gpu-gunyah.json').is_file():
+    files += [out/'gunyah-request.gpu-gunyah.json']
 payload=json.loads((out/'payload/payload.json').read_text())
 runtime=payload.get('wifi_runtime')
 gpu_runtime=payload.get('gpu_runtime')
@@ -221,6 +241,7 @@ report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],tex
         'hardware_verified':False,'scan_implemented':bool(runtime),'scan_hardware_verified':False,
         'runtime':runtime,'gpu_runtime':gpu_runtime,'gpu_mode':payload.get('gpu_mode'),
         'gpu_power_handoff':payload.get('gpu_power_handoff'),
+        'gpu_gunyah_handoff':payload.get('gpu_gunyah_handoff'),
         'gpu_hardware_verified':False,'acceleration':False,
         'firmware_digests':{'wifi':runtime['firmware']['sha256'] if runtime else None,
                             'gpu':gpu_runtime['firmware']['sha256'] if gpu_runtime else None},

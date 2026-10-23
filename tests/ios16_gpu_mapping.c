@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_mapping.h"
+#include "../ios16/gpu/giulia_gpu_mapping.h"
 #include "../ios16/vendor/ArmSmmu4K/ArmSmmu4K.h"
 static uint64_t gt[128*512],mt[128*512],before[128*512],before_mt[128*512];
 static struct ggm_tables gpu={gt,sizeof(gt),UINT64_C(0x880000000)};

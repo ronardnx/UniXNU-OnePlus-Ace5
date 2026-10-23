@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_touch_gpio.h"
+#include "../ios16/touch/giulia_touch_gpio.h"
 static unsigned pin[4]={0,0,0,1},edges,samples,pauses,cs_changes;
 static uint8_t sent[519],receive[519];
 static void set(unsigned p,unsigned v)

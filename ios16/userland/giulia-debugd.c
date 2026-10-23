@@ -12,7 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <util.h>
-#include "../giulia_debug_abi.h"
+#include "giulia_debug_abi.h"
 
 static volatile sig_atomic_t stopping;
 static void stop(int sig) { (void)sig;stopping=1; }

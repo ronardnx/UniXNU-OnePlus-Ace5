@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_control.h"
-#include "../ios16/giulia_gpu_memory.h"
+#include "../ios16/gpu/giulia_gpu_control.h"
+#include "../ios16/gpu/giulia_gpu_memory.h"
 
 static unsigned cases;
 static void trace(void *cookie,const struct gg_event *event) {(void)cookie;assert(event->sequence && event->subsystem && event->operation);}

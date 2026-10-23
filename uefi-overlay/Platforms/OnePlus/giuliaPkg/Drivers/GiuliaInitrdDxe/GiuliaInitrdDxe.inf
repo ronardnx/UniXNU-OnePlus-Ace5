@@ -15,6 +15,7 @@
   HallPreparePolicy.h
   WifiPcie.c
   GpuPower.c
+  GpuGunyah.c
 [Packages]
   MdePkg/MdePkg.dec
   SiliciumPkg/SiliciumPkg.dec
@@ -38,5 +39,6 @@
   gEfiBlockIoProtocolGuid
   gEfiDevicePathProtocolGuid
   gEfiClockProtocolGuid
+  gEfiMonotonicCounterArchProtocolGuid
 [Depex]
-  TRUE
+  gEfiMonotonicCounterArchProtocolGuid

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stddef.h>
 #include "fixtures/ath12k_wifi_station_layout.h"
-#include "../ios16/giulia_wifi_wmi.h"
+#include "../ios16/wifi/giulia_wifi_wmi.h"
 struct fixture {struct gww_state s;struct gww_io io;unsigned stage,sent,done,status,drop,fail,country_pending,country_invalid,country_timeout,encap_params,fail_param;uint64_t time;};
 static size_t hardware(uint8_t *b) {
     memset(b,0,344);gwq_w32(b,0x4009);gww_tlv(b+4,428,76);gww_tlv(b+84,530,8);gwq_w32(b+88,1);

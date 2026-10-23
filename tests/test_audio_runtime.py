@@ -1,4 +1,8 @@
 """Production audio orchestration and whole-service strict C++ host checks."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 import os
 from pathlib import Path
 import re
@@ -30,6 +34,7 @@ SERVICE_SHIM = r'''
 #include <thread>
 #include <atomic>
 #define ARM64_BOARD_CONFIG_SWEET 1
+#define GIULIA_PLATFORM_BROKER_ENABLED 0
 #define OSDeclareDefaultStructors(x)
 #define OSDefineMetaClassAndStructors(x,y)
 #define OSSafeReleaseNULL(p) do {if(p){p->release();p=nullptr;}}while(0)
@@ -180,8 +185,8 @@ class AudioRuntime(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
             (folder/'giulia_audio_firmware_pin.h').write_text(pack_fixtures.packer.pin_header(pack))
-            (folder/'giulia_audio_sha256.h').write_text((ROOT/'ios16/giulia_wifi_sha256.h').read_text())
-            source = (ROOT/'ios16/GiuliaAudio.cpp').read_text()
+            (folder/'giulia_audio_sha256.h').write_text((ROOT/'ios16/common/giulia_sha256.h').read_text())
+            source = (ROOT/'ios16/audio/GiuliaAudio.cpp').read_text()
             source = re.sub(r'^#include <[^>]+>\n', '', source, flags=re.MULTILINE)
             source = source.replace('extern const struct mach_header_64 _mh_execute_header;', '')
             source = source.replace('class GiuliaAudio : public IOService {', 'class GiuliaAudio : public IOService {\npublic:')
@@ -191,7 +196,7 @@ class AudioRuntime(unittest.TestCase):
             binary = folder/'service'
             result = subprocess.run([cxx, '-std=c++14', '-Wall', '-Wextra', '-Werror',
                                      '-fsanitize=address,undefined', '-fno-sanitize-recover=all', '-pthread',
-                                     '-I', str(folder), '-I', str(ROOT/'ios16'), str(unit), '-o', str(binary)],
+                                     '-I', str(folder), *include_flags(ROOT), str(unit), '-o', str(binary)],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
             result = subprocess.run([str(binary), str(folder/'pack.bin')], capture_output=True, text=True)

@@ -26,6 +26,10 @@ on:
         description: Include experimental audio coordinator (requires GUI; native platform provider incomplete)
         type: boolean
         default: false
+      modem:
+        description: Include the unified modem framework and shared platform resource broker (requires GUI)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -50,9 +54,10 @@ jobs:
           WIFI: ${{ inputs.wifi }}
           GPU: ${{ inputs.gpu }}
           AUDIO: ${{ inputs.audio }}
+          MODEM: ${{ inputs.modem }}
         run: |
-          if [ "$PROFILE" != gui ] && { [ "$TOUCH" = true ] || [ "$WIFI" = true ] || [ "$GPU" = true ] || [ "$AUDIO" = true ]; }; then
-            echo 'Touch, Wi-Fi, GPU and audio require the GUI profile' >&2
+          if [ "$PROFILE" != gui ] && { [ "$TOUCH" = true ] || [ "$WIFI" = true ] || [ "$GPU" = true ] || [ "$AUDIO" = true ] || [ "$MODEM" = true ]; }; then
+            echo 'Touch, Wi-Fi, GPU, audio and modem require the GUI profile' >&2
             exit 2
           fi
       - uses: actions/checkout@v4
@@ -60,18 +65,58 @@ jobs:
           repository: xyyyds0106/ios-vermeer-lab
           ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
           path: reference
-      - name: Prepare host crypto test dependencies
-        if: ${{ inputs.wifi }}
+      - name: Prepare pinned Wi-Fi host test dependencies
+        env:
+          BEARSSL_PIN: 7bea48e5e850ab4cafbe68d3765cdaba13a86d6f
         run: |
+          set -euo pipefail
           brew install openssl@3
           openssl_prefix=$(brew --prefix openssl@3)
-          printf 'CPATH=%s/include\nLIBRARY_PATH=%s/lib\n' "$openssl_prefix" "$openssl_prefix" >> "$GITHUB_ENV"
+          test -f "$openssl_prefix/include/openssl/evp.h"
+          test -f "$openssl_prefix/lib/libcrypto.dylib"
+          echo "WIFI_HOST_OPENSSL_PREFIX=$openssl_prefix" >> "$GITHUB_ENV"
+          mkdir -p .cache/wifi-sae-bearssl
           git init -q .cache/wifi-sae-bearssl
-          git -C .cache/wifi-sae-bearssl fetch -q --depth 1 https://www.bearssl.org/git/BearSSL 7bea48e5e850ab4cafbe68d3765cdaba13a86d6f
+          git -C .cache/wifi-sae-bearssl fetch -q --depth 1 https://www.bearssl.org/git/BearSSL "$BEARSSL_PIN"
           git -C .cache/wifi-sae-bearssl checkout -q --detach FETCH_HEAD
-          test "$(git -C .cache/wifi-sae-bearssl rev-parse HEAD)" = 7bea48e5e850ab4cafbe68d3765cdaba13a86d6f
+          test "$(git -C .cache/wifi-sae-bearssl rev-parse HEAD)" = "$BEARSSL_PIN"
+          echo "BEARSSL_SOURCE=$GITHUB_WORKSPACE/.cache/wifi-sae-bearssl" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        if: ${{ inputs.modem }}
+        with:
+          repository: apple-oss-distributions/xnu
+          ref: 1b191cb58250d0705d8a51287127505aa4bc0789
+          path: .cache/modem-xnu-base
+      - uses: actions/checkout@v4
+        if: ${{ inputs.modem }}
+        with:
+          repository: apple-oss-distributions/hfs
+          ref: 31d5ec238dfab485e78a9a30b8b92d13e8914f03
+          path: .cache/modem-hfs-source
+      - uses: actions/checkout@v4
+        if: ${{ inputs.modem }}
+        with:
+          repository: apple-oss-distributions/libpthread
+          ref: a6c70ca0e544347a0377babf748f831577ec24f9
+          path: .cache/modem-libpthread-source
+      - uses: actions/checkout@v4
+        if: ${{ inputs.modem }}
+        with:
+          repository: Project-Silicium/Mu-Silicium
+          ref: 6c6755012728c9f7de748228758bad94d1e9a660
+          path: .cache/modem-uefi-base
+      - name: Prepare the unified modem validation environment
+        if: ${{ inputs.modem }}
+        run: |
+          python3 -m venv .cache/modem-verify-env
+          .cache/modem-verify-env/bin/python -m pip install -r scripts/terminal-requirements.txt
       - name: Validate SM8650 context isolation
         run: |
+          python3 scripts/check-driver-modules.py
+          python3 -m unittest discover -s tests -p test_driver_modules.py -v
+          # Native host tests use Homebrew OpenSSL; keep these paths out of the kernel build.
+          export CPATH="$WIFI_HOST_OPENSSL_PREFIX/include${CPATH:+:$CPATH}"
+          export LIBRARY_PATH="$WIFI_HOST_OPENSSL_PREFIX/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_smmu.c -o /tmp/smmu-test
           /tmp/smmu-test
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_touch_reports.c -o /tmp/touch-report-test
@@ -132,7 +177,7 @@ jobs:
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }} ${{ inputs.audio && '--audio' || '' }}
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }} ${{ inputs.audio && '--audio' || '' }} ${{ inputs.modem && '--modem' || '' }}
           python3 tests/ios16_terminal_profile.py profile
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test
@@ -172,7 +217,7 @@ jobs:
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA SCREEN: panel capture lock unavailable' in b and b'GIULIA SCREEN: queued live=' in b"
           fi
           if [ '${{ inputs.wifi }}' = true ]; then
-            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in b; assert b'IO80211Controller' in b and b'GiuliaWiFiUserClient' in b"
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;' in b; assert b'IO80211Controller' in b and b'GiuliaWiFiUserClient' in b; assert b'GIULIA WIFI PROFILE: 20H392; station=1; legacy20=1; security=open,wpa2,sae-pmf; data=htt-tcl-reo' in b"
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert all(m in b for m in (b'GIULIA WIFI: XNU PCIe link worker',b'giulia_wifip',b'sw-ctrl-pdc-route',b'GWL_LINK_TIMEOUT'))"
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA PCI: enumerate result=' in b and b'cap_reason=' in b"
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA WIFI: awaiting wifi.start before DMA setup' in b and b'GIULIA SMMU: write-request' in b"
@@ -180,6 +225,15 @@ jobs:
           if [ '${{ inputs.gpu }}' = true ]; then
             python3 scripts/check-ios16-gpu-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
           fi
+          if [ '${{ inputs.modem }}' = true ]; then
+            python3 -c "import sys; sys.path.insert(0,'scripts'); from pathlib import Path; from ios16_modem import kernel_declaration; d=kernel_declaration(Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()); assert d['modem_runtime_included'] and d['modem_platform_broker_included']"
+          fi
+      - name: Run unified modem acceptance against the compiled kernel
+        if: ${{ inputs.modem }}
+        run: |
+          export CPATH="$WIFI_HOST_OPENSSL_PREFIX/include${CPATH:+:$CPATH}"
+          export LIBRARY_PATH="$WIFI_HOST_OPENSSL_PREFIX/lib${LIBRARY_PATH:+:$LIBRARY_PATH}"
+          bash scripts/test-ios16-modem.sh --reference reference --recorded-evidence --linked-kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4
@@ -190,6 +244,8 @@ jobs:
             dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
             xnu-build.log
             profile/
+            reports/modem-system*.json
+            reports/modem-system*.log
           retention-days: 14
   boot-image:
     if: ${{ github.repository_owner == 'tycykp' && (inputs.profile != 'gui') }}

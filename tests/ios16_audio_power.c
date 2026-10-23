@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_audio_power.h"
+#include "../ios16/audio/giulia_audio_power.h"
 
 struct fake { unsigned calls,fail_at,alias,slave; unsigned char aux[32]; size_t bytes; };
 static void level(struct fake *f,unsigned i,unsigned n)

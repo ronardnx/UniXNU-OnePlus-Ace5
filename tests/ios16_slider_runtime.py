@@ -1,11 +1,15 @@
 """Compile actual runtime with host kernel stubs; verify opt-in and mailbox gates."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import re
 import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root/'ios16/giulia_slider.c').read_text()
+source = (root/'ios16/slider/giulia_slider.c').read_text()
 source = re.sub(r'^#include <[^>]+>\n', '', source, flags=re.M)
 source = source.replace('__asm__ volatile("dsb sy" ::: "memory");', '')
 stubs = r'''
@@ -82,5 +86,5 @@ with tempfile.TemporaryDirectory() as folder:
     test.write_text(stubs+source+checks)
     subprocess.run(['clang','-std=c11','-Wall','-Wextra','-Werror',
                     '-fsanitize=address,undefined','-fno-sanitize-recover=all',
-                    '-I'+str(root/'ios16'),str(test),'-o',str(binary)],check=True)
+                    *include_flags(root),str(test),'-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)

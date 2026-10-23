@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_display.h"
+#include "../ios16/display/giulia_display.h"
 int main(void) {
     size_t bytes=(size_t)GD_STRIDE*GD_HEIGHT,srcbytes=(size_t)GD_CANVAS_W*GD_CANVAS_H*4;
     uint32_t *allocation=malloc(bytes+128),*input=malloc(srcbytes+128);assert(allocation&&input);

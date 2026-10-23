@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <sched.h>
 #include <stdio.h>
-#include "../ios16/giulia_gpu_ipcc_owner.h"
+#include "../ios16/gpu/giulia_gpu_ipcc_owner.h"
 static struct ggi_owner state;
 static unsigned tokens[4],using_host[2],using_gpu,ready,start;
 static void *client(void *cookie)

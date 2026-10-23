@@ -4,6 +4,10 @@ The fixture enforces Normal RAM and explicit publication, but cannot emulate
 ARM page attributes or prove device DMA/cache coherence. Optional pinned pack
 tests the exact five reservations used on the phone, without uploading firmware.
 """
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import os
 import subprocess
@@ -11,7 +15,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / 'ios16/GiuliaGPU.cpp').read_text()
+source = (ROOT / 'ios16/gpu/GiuliaGPU.cpp').read_text()
 begin = source.index('static IOBufferMemoryDescriptor *gpuAllocateHostMemory(')
 end = source.index('\nint GiuliaGPU::readRegister(', begin)
 fixture = r'''
@@ -95,6 +99,8 @@ public:
     struct ggd_pool devPool={};bool manualMemoryPinned=true;
     bool devMappingsManaged=false,devUcode[GGD_MAX]={},platformPoisoned=false,fenceMapped=false;
     int auditFenceMappings(){return 6;}
+    // This allocation fixture never authorizes or invokes a Gunyah operation.
+    int gunyahCommand(uint32_t,uint32_t,uint32_t,uint32_t){assert(false);return 6;}
     uint32_t devPacket[255]={};bool devWritten[255]={};
     IOBufferMemoryDescriptor *firmwareMemory=nullptr;
     struct Map {uintptr_t getVirtualAddress(){return 0;}} *firmwareMap=nullptr;
@@ -119,9 +125,9 @@ public:
 };
 '''
 fixture += source[begin:end]
-impl=(ROOT/'ios16/giulia_gpu_dev_impl.h').read_text()
+impl=(ROOT/'ios16/gpu/giulia_gpu_dev_impl.h').read_text()
 fixture += impl.replace('__asm__ volatile("dsb sy" ::: "memory")','__sync_synchronize()')
-mapping=(ROOT/'ios16/giulia_gpu_mapping_impl.h').read_text()
+mapping=(ROOT/'ios16/gpu/giulia_gpu_mapping_impl.h').read_text()
 fixture += mapping[:mapping.index('int GiuliaGPU::auditMemstoreMappings()')]
 fixture += r'''
 static void reset() {
@@ -272,6 +278,6 @@ with tempfile.TemporaryDirectory() as folder:
                     '-o', str(path / 'tables.o')], check=True)
     subprocess.run([os.environ.get('CXX', 'c++'), '-std=c++17', '-Wall', '-Wextra', '-Werror',
                     '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
-                    '-I', str(ROOT / 'ios16'), str(path / 'memory.cpp'),
+                    *include_flags(ROOT), str(path / 'memory.cpp'),
                     str(path / 'tables.o'), '-o', str(path / 'memory')], check=True)
     subprocess.run([str(path / 'memory'), *sys.argv[1:]], check=True)

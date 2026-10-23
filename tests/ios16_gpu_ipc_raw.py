@@ -4,7 +4,7 @@ import os
 import subprocess
 import tempfile
 ROOT=Path(__file__).resolve().parents[1]
-source=(ROOT/'ios16/giulia_mmio.inc').read_text().replace(
+source=(ROOT/'ios16/terminal/giulia_mmio.inc').read_text().replace(
     '__asm__ volatile("dsb sy" ::: "memory")','__sync_synchronize()')
 prelude=r'''
 #include <stdint.h>

@@ -81,6 +81,16 @@ python3 scripts/pack-payload.py --firmware "$output_dir/firmware.img" \
 cp "$0" "$output_dir/build-script.sh"
 cp -a "$board_driver" "$output_dir/uefi-driver-source"
 mkdir "$output_dir/runtime-source"
-cp ios16/GiuliaGPU.cpp ios16/giulia_gpu_*.h ios16/giulia_wifi_sha256.h "$output_dir/runtime-source/"
+python3 - "$output_dir/runtime-source" <<'PY'
+from pathlib import Path
+import shutil,sys
+target=Path(sys.argv[1])
+for module in ('gpu','common','platform','vendor'):
+    shutil.copytree(Path('ios16')/module,target/'ios16'/module)
+for name in ('ios16_sources.py','ios16_gpu_patch.py','ios16_platform_patch.py',
+             'ios16_modules.py','ios16_module_registry.py'):
+    (target/'scripts').mkdir(exist_ok=True)
+    shutil.copyfile(Path('scripts')/name,target/'scripts'/name)
+PY
 cp "$board_driver/GpuPowerReport.h" "$output_dir/runtime-source/giulia_gpu_power_report.h"
 echo 'GPU preparation candidate built and checked; hardware and acceleration remain unverified.'

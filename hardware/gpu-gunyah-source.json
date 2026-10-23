@@ -516,6 +516,86 @@
           "supports": "Fence callback invokes legacy gh_dbl_read_and_clean and registers the board label; it does not call the canonical SMCCC bell wrappers."
         }
       ]
+    },
+    {
+      "file": "gh_rm_drv.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah/gh_rm_drv.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah/gh_rm_drv.h",
+      "bytes": 20299,
+      "sha256": "72032e4105708e1ffe29f0529c91213f9e2d53c3cf234b6c34e82368872140d2",
+      "git_blob": "3db05ba6cc5a5f95ec8c87a33a0f261086ae1fed",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            30,
+            122
+          ],
+          "supports": "Memory ACL permissions, flags and exact notification prefixes; variable MEM_SHARED tail is not defined."
+        }
+      ]
+    },
+    {
+      "file": "primary-qcom_scm.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/firmware/qcom_scm.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/firmware/qcom_scm.c",
+      "bytes": 84986,
+      "sha256": "6854c1aacb81a5d58fe15b4613f92deec848811b5e52803be3db0d9aa6ad29f8",
+      "git_blob": "5aa4592e1235257ea9d4d3d733f6f576345930b0",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            1472,
+            1579
+          ],
+          "supports": "Memory assignment service, argument types and coherent little-endian source/region/destination encoding."
+        }
+      ]
+    },
+    {
+      "file": "primary-qcom_scm-public.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/qcom_scm.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/qcom_scm.h",
+      "bytes": 12174,
+      "sha256": "8f195be1e282625f562537d613890932fefe6b2ae97502c95042a3aa997a3dcf",
+      "git_blob": "dab6722647d58a72439fa5ce86fa700c7f85c71f",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            61,
+            77
+          ],
+          "supports": "Exact destination permission and memory-region descriptors."
+        }
+      ]
+    },
+    {
+      "file": "primary-uuid.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/uuid.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/uuid.h",
+      "bytes": 2400,
+      "sha256": "4202de9a2b533efabef7f74a2f17540e0f32d50d5df71d167bf339f45c178f5c",
+      "git_blob": "8cdc0d3567cddc4ec33c7ef3dd468ddd11421f4e",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            17,
+            26
+          ],
+          "supports": "UUID_INIT byte order for the canonical Gunyah UUID; combine with pinned gunyah_hypercall.c low32 LE register copy."
+        }
+      ]
     }
   ],
   "rm_wire": {
@@ -693,5 +773,21 @@
     "Only pinned source text and Git provenance were inspected.",
     "No HVC/SMC, device reads or writes, RM request, memory reassignment or hardware-fence operation was executed.",
     "No valid runtime capabilities, peer identity, Gunyah ownership, firmware compatibility or hardware completion is proven by this file."
-  ]
+  ],
+  "implemented_boundary": {
+    "date": "2026-10-23",
+    "documentation": "docs/GPU_GUNYAH_TRANSPORT.md",
+    "scope": "Kernel-only canonical MSGQ and separately leased legacy doorbell; bounded RM/query session with idle notifications; exact primary SCM assignment + MEM_SHARE/lookup/READY transaction under a real exclusive owner.",
+    "session": "ios16/gpu/giulia_gpu_gunyah_session.c",
+    "ownership": "The real channel/IRQ owner must supply boot capabilities and a live compatibility/epoch callback; no terminal registration or default boot-capability producer is installed.",
+    "query_results": "Completed transcript only. Never converted to fence proof bits or provider registration.",
+    "build": "Actual generated GPU patch sources cross-compile as Darwin arm64 C++ and AArch64 C with platform-header stubs; this is not a complete XNU build.",
+    "hardware_tested": false,
+    "fence_completion_implemented": false,
+    "primary_share": "ios16/gpu/giulia_gpu_gunyah_share.c: dynamic identity, exact carveout, independent pinned 16KiB NC control allocation, SCM assignment then MEM_SHARE, lookup handle equality and READY recheck; no automatic provider, rollback, acceptance, reclaim or device run.",
+    "idle_notifications": "ggrs_poll: bounded notification-only receive, explicit EMPTY vs budget exhaustion, incomplete/unknown/late-response quarantine; EMPTY is not remote readiness proof.",
+    "boot_resources": "Current-boot entry-HOB FDT -> frozen BootServices protocol -> pristine fixed ADT slot -> XNU structural decoder. No captured default caps, HVC or IRQ lease is granted by this data report.",
+    "compatibility_probe": "ggh_hvc_probe_compatibility: separately authorized boot probe, exact canonical UID and IDENTIFY/API1/LE/64bit ABI, preserved raw registers, at most two HVCs, no automatic channel activation.",
+    "gic_polling_lease": "Static 0085 platform patch installs real pe_fiq GICD SPI mask/readback/RWP/active checks, epoch reservations, single-CPU generic-handler exclusion, registration/controller/dispatch invalidation and cross-HVC IRQ guards. Native owner integration remains outstanding."
+  }
 }

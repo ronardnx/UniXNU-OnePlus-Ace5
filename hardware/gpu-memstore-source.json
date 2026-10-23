@@ -186,9 +186,9 @@
   ],
   "provider_policy": {
     "implementation": [
-      "ios16/giulia_gpu_memstore.h",
-      "ios16/giulia_gpu_memstore_mapping.h",
-      "ios16/giulia_gpu_mapping_impl.h"
+      "ios16/gpu/giulia_gpu_memstore.h",
+      "ios16/gpu/giulia_gpu_memstore_mapping.h",
+      "ios16/gpu/giulia_gpu_mapping_impl.h"
     ],
     "bytes": 32768,
     "page_bytes": 4096,
@@ -211,19 +211,10 @@
     "observation": "Two ordered SOP/EOP observations. stable means equal samples only; completion_verified remains 0."
   },
   "unimplemented_resource_evidence": {
-    "other_mmio": {
-      "kinds": [
-        11,
-        12,
-        13,
-        20
-      ],
-      "status": "Not mapped: the fixed source path does not establish a board resource binding for these kinds. RAM is not a substitute for MMIO."
-    },
     "hardware_fence": {
       "kind": 23,
       "source": "adreno_gen7_hwsched_hfi.c:1648-1655",
-      "status": "Not mapped: requires a dedicated controller and preallocated Tx/Rx queues plus completion semantics; timestamp observation is not a hardware fence."
+      "status": "Kernel-only kind23 provider import and GMU mapping are implemented, with no default live provider. Bounded Gunyah HVC/RM/query support does not establish shared ownership or controller readiness; the real lifecycle and completion backend remain required. Timestamp observation is not a hardware fence."
     }
   },
   "validation_limits": [
@@ -246,11 +237,21 @@
       "bytes": "0x1000",
       "owner": "WiFi / AOP QMP doorbell",
       "local_evidence": [
-        "ios16/giulia_wifi_qmp.h:4-6",
-        "ios16/giulia_wifi_mapping.h:41",
+        "ios16/platform/giulia_platform_qmp.h:4-6",
+        "ios16/wifi/giulia_wifi_mapping.h:41",
         "docs/WIFI_MAPPING.md:29"
       ]
     },
     "status": "Implemented as the fixed GMU-only IPC_CORE provider, gated by kernel host-client arbitration and a clean QMP handoff; retained until reboot. No CPU resource access or zeroing."
+  },
+  "implemented_sysram_evidence": {
+    "kinds": [
+      11,
+      12,
+      13,
+      20
+    ],
+    "source_manifest": "hardware/gpu-hfi-allocation-source.json",
+    "status": "Corrected the earlier enum-name exclusion. The pinned gen7 implementation allocates SYSRAM for these kinds. Non-GFX HFI requests force effective GMU privileged RW flags with 0x38 and return actual GMU VA even when the original GMU_ACC bit was absent; original reply flags and request signature are preserved. No same-name peripheral MMIO is mapped."
   }
 }

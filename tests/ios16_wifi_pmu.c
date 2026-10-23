@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_pmu.h"
+#include "../ios16/wifi/giulia_wifi_pmu.h"
 static const struct qpp_entry observed[]={
     {"VDD_PMU_AON_I",1,850,0,0},
     {"VDD095_PMU",1,930,1,420},

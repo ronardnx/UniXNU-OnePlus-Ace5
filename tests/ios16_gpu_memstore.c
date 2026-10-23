@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_memstore.h"
+#include "../ios16/gpu/giulia_gpu_memstore.h"
 
 static uint32_t backing[32768/4];
 struct changes { unsigned calls; uint32_t context; unsigned mode; };

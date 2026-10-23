@@ -2,6 +2,10 @@
 
 Host hooks test address coverage/order only, never cache coherence on hardware.
 """
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import os
 import re
@@ -9,7 +13,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = ROOT / 'ios16/giulia_gpu_cache.c'
+source = ROOT / 'ios16/gpu/giulia_gpu_cache.c'
 with tempfile.TemporaryDirectory() as directory:
     folder = Path(directory)
     assembly = folder / 'cache.s'
@@ -68,6 +72,6 @@ int main(void) {
     (folder / 'cache.c').write_text(fixture)
     subprocess.run([os.environ.get('CC', 'cc'), '-std=c11', '-Wall', '-Wextra', '-Werror',
                     '-DGG_CACHE_STANDALONE', '-fsanitize=address,undefined',
-                    '-fno-sanitize-recover=all', '-I', str(ROOT / 'ios16'),
+                    '-fno-sanitize-recover=all', *include_flags(ROOT),
                     str(folder / 'cache.c'), '-o', str(folder / 'cache')], check=True)
     subprocess.run([str(folder / 'cache')], check=True)

@@ -13,8 +13,8 @@
 亮屏后标记重新刷新。调用与屏幕复制串行化，检查命令完成和 ACK，并恢复借用的
 控制寄存器；超时或状态不确定时报告错误，不虚报成功。
 
-代码入口为 [`giulia_display_power.inc`](../ios16/giulia_display_power.inc)，
-底层事务为 [`giulia_display_power.h`](../ios16/giulia_display_power.h)，
+代码入口为 [`giulia_display_power.inc`](../ios16/display/giulia_display_power.inc)，
+底层事务为 [`giulia_display_power.h`](../ios16/display/giulia_display_power.h)，
 GUI 补丁由 [`ios16_display_power.py`](../scripts/ios16_display_power.py) 生成。
 
 ## 实机配置与证据

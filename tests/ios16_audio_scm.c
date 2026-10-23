@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include "../ios16/giulia_audio_scm.h"
+#include "../ios16/audio/giulia_audio_scm.h"
 struct fixture { unsigned calls,allow,fail,secure;struct ggs_regs last; };
 static int authorize(void *v,unsigned c,unsigned id,uint64_t a,uint64_t b)
 {(void)c;(void)id;(void)a;(void)b;return ((struct fixture *)v)->allow;}

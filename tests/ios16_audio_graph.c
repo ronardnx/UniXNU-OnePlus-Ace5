@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "../ios16/giulia_audio_graph.h"
-#include "../ios16/giulia_wifi_sha256.h"
+#include "../ios16/audio/giulia_audio_graph.h"
+#include "../ios16/common/giulia_sha256.h"
 struct mock {
     uint8_t packet[4096];size_t bytes;
     uint64_t now;unsigned sends,auth_calls,real_auth,fail_auth;

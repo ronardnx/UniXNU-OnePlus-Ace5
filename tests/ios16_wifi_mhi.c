@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_mhi.h"
+#include "../ios16/wifi/giulia_wifi_mhi.h"
 static struct {
     uint32_t reg[4096/4];
     unsigned ready,master,verified,writes,enable_fail,disable_fail,bhi_fail,bhie_fail;

@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_platform.h"
-#include "../ios16/giulia_gpu_secure_mapping.h"
+#include "../ios16/gpu/giulia_gpu_platform.h"
+#include "../ios16/gpu/giulia_gpu_secure_mapping.h"
 
 static void secure_mapping(void)
 {

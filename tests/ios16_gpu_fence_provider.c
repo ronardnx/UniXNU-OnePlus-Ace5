@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "../ios16/giulia_gpu_fence_provider.h"
+#include "../ios16/gpu/giulia_gpu_fence_provider.h"
 static unsigned observations;
 static struct ggf_proof live_proof;
 static void barrier(void *cookie){(void)cookie;assert(!"Registration must not inspect queues");}

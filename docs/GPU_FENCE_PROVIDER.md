@@ -1,9 +1,15 @@
 # GPU hardware-fence 导入接口
 
-当前已实现内核提供者注册、专用 GMU 映射及只读队列校验。仓库没有真实的
-Gunyah RM / doorbell / shared-memory ownership 提供者，也没有创建、发送或
-完成 fence 的驱动后端。默认没有注册对象，kind23 返回不可用；不以普通
+当前已实现内核提供者注册、专用 GMU 映射及只读队列校验；原生 Gunyah
+通道 owner 已接入 GPU worker，但共享 backing、CPU mapper 和本地 CTX0
+工厂尚未合并成真实提供者，也没有 fence 完成后端。默认没有注册对象，kind23 返回不可用；不以普通
 RAM、memstore、虚构句柄、固定 READY 位或合成 ACK 替代。
+
+已补齐独立的 [Gunyah 传输与查询会话](GPU_GUNYAH_TRANSPORT.md)：内核
+HVC adapter、RM 分片、动态 VM 查询和失败隔离已连接。它依赖真实通道
+所有者提供租约，不自动注册 fence，也不把 parcel lookup 当作共享授权。
+该层现包含空闲通知 pump 与 primary 精确 carveout 的 assign/share 事务；
+事务结果仍不能直接生成 provider 的全部 proof bits。
 
 ## 固定输入
 
@@ -37,6 +43,11 @@ ABI。4 KiB 下 GPU CTX0 区域为 `0xd4f6d000 / 0x1a000`，来自完整 carveou
 重启。有界只读 `observe` 回调必须依据真实平台状态验证：resources READY、
 VM READY、精确共享 carveout、队列 PA/大小、host 页/控制器 ABI、peer 3、
 memory label 5、doorbell label 6、真实 CTX0 client 1、CPU 一致性及 IPCC。
+ABI1 的 `peer=3` 是板级 peer-name enum，不能填写动态 VMID，也不能用它
+替代当前 epoch 的动态 self/peer 校验。`GGFP_CLIENT` 是本地独占 CTX0
+登记和原厂等价队列初始化；固定源码的 controller registration 是 no-op，
+没有可等待的远端 ACK。`page_bytes` 是 vendor 队列布局粒度，并非 XNU
+CPU 页大小；源一致几何应由已支持的 ABI 和真实 header 验证。
 这些证明不能实现为常量返回。epoch 失效必须上报，已映射 backing 不得在
 设备复位前撤销、清零或重用。
 
@@ -72,12 +83,41 @@ descriptor；HFI 回复保留逻辑大小。
 只读状态的 `stable` 仅表示两次索引相同，始终 `completion_verified=0`。
 本实现不消费 payload，不修改队列索引，不启用 HFI feature25。
 
+`giulia_gpu_fence_cpu.h` 计算 CPU 16 KiB 的完整队列 envelope，导入前后
+核对同一动态 VM/parcel/epoch 和真实 mapper 审计。4 KiB 队列对应
+`0xd4f6c000 / 0x1c000` CPU 范围，队列前后各有额外 4 KiB，必须一起获得
+共享和缓存属性授权。仅 IOMemoryMap registry、传入 WriteCombine 选项或
+unmanaged `pmap_cache_attributes` 都不能证明无 WB alias；该缺口现由
+[CPU pmap 门控](GPU_CPU_PMAP.md) 的原生守卫关闭：`pmap_enter_options_addr`
+只允许 attr index 1（Normal NC）别名固定 carveout，其他属性在提交前返回
+`KERN_PROTECTION_FAILURE`，因此“无 WB 别名”成为执行点而不是观察结论。
+
+`giulia_gpu_fence_pmap.h` 的离线描述符校验覆盖完整 CPU envelope 的每个
+叶页，要求精确页数、连续 PA、Normal NC、AF、内核 RO/RW 与 PXN/UXN；
+拒绝低地址 VA、48 位以外的 PA、DBM 可变权限和范围溢出。测试覆盖
+4/16/64 KiB 粒度，包括中间页及边界填充页损坏。64 KiB 仅是解码器测试，
+不扩大 `ggfc_import` 的 4/16 KiB 支持范围。`giulia_gpu_pmap.h` 与
+`0086-giulia-gpu-pmap.patch` 现已实现真实的 boot 锁存、MAIR/TCR/T1SZ/TTBR1
+核对、逐叶 `pmap_pte` 审计、直接映射/管理 RAM 别名窗口拒绝和 boot 期拒绝
+锁存；`giulia_gpu_fence_native.c` 提供最小内核入口 `ggfn_import()`，冻结
+provider 并用真实 `IOMemoryDescriptor` Normal NC 映射 + pmap 审计完成
+`GGFC_AUDIT_REQUIRED`。仍未完成的是 share 事务运行时接入与控制器相邻页
+授权，因此服务不会自动发起 CPU 导入，也不能据此注册 fence 提供者。
+
+2026-10-23 已撤销此前合入 `sources/UniXNU` 的 QEMU EL2 工具修改，
+四个文件逐一核对合并前 SHA-256，配套合并工具和测试移出活动目录。
+撤销记录及原配套文件备份在 `reports/gpu-virtualization-revert-20261023/`。
+这次撤销不改变 GPU 的 Gunyah 通道代码。
+
 ## 验证边界
 
 纯 C 测试覆盖布局、索引、冻结注册、并发唯一注册者、全零预留拓扑、
 PA 别名与失败原子性。实际生产方法测试使用明确标注的合成提供者，覆盖
 缺失/失效证明、epoch 变化、重复导入、发布/TLBI 故障及后续变更隔离；
 合成回调没有进入目标驱动。主机测试不证明物理控制器参与。
+CPU pmap 门控的 RAM 页表模型另覆盖 boot 锁存、TTBR1/TCR/MAIR 策略、
+逐叶审计、别名窗口、boot 期拒绝和只放行 Normal NC 的守卫，见
+`reports/gpu-native-pmap-20261023/`；它同样不执行真实翻译。
 
 真实后端仍需 Gunyah RM peer/READY、共享所有权、doorbell 分发、跨 VM 锁、
 fence 表句柄和 Tx/Rx/错误/复位生命周期。本轮未执行 HVC、SMC、设备 MMIO、

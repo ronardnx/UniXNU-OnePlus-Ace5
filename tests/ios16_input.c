@@ -11,7 +11,7 @@ static int giulia_remote_touch(unsigned down,unsigned x,unsigned y)
 {assert(count<1024);events[count++]=(struct event){0,10,down,x,y};return (ready&1)!=0;}
 static int giulia_remote_hid(unsigned page,unsigned usage,unsigned down)
 {assert(count<1024);events[count++]=(struct event){page,usage,down,0,0};return (ready&6)!=0 && count!=fail_at;}
-#include "../ios16/giulia_input.inc"
+#include "../ios16/terminal/giulia_input.inc"
 int main(void)
 {
     assert(!ginput_command("ping",0));

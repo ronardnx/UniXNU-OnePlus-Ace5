@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_smmu.h"
+#include "../ios16/wifi/giulia_wifi_smmu.h"
 static uint32_t registers[0x100000/4],original[0x100000/4];
 static uint64_t tables[0x4000/8];
 static unsigned writes,drop,quiet,owned,tlb_timeout,delay_us,readback_quirks;

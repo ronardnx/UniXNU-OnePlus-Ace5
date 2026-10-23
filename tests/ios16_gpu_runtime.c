@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_pack.h"
-#include "../ios16/giulia_gpu_memory.h"
-#include "../ios16/giulia_gpu_power.h"
+#include "../ios16/gpu/giulia_gpu_pack.h"
+#include "../ios16/gpu/giulia_gpu_memory.h"
+#include "../ios16/gpu/giulia_gpu_power.h"
 
 struct fake { unsigned calls, last_window, fail; uint32_t cfg,cx,clock; unsigned ahb_zero; };
 static int read_reg(void *cookie,unsigned window,uint32_t offset,uint32_t *value)

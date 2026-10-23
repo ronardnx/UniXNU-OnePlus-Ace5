@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_ipc.h"
+#include "../ios16/gpu/giulia_gpu_ipc.h"
 #include "../ios16/vendor/ArmSmmu4K/ArmSmmu4K.h"
 
 static uint64_t words[128*512],before[128*512];

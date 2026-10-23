@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "../ios16/giulia_audio_mapping.h"
+#include "../ios16/audio/giulia_audio_mapping.h"
 
 int main(void)
 {

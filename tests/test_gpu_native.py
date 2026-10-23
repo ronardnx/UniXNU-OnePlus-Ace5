@@ -127,11 +127,98 @@ class NativeProtocol(unittest.TestCase):
   request=[0xf00b14,1,0,0,0x1007,5,0,5,0,4096,0]
   n.request(request);n.request(request)
   self.assertEqual(len(calls),1);self.assertFalse(n.writes);self.assertEqual(len(n.sent),2)
- def test_all_special_resources_refuse_ram_substitution(self):
-  for kind in (11,12,13,20,22,23):
+ def test_reserved_local_resources_refuse_ram_substitution(self):
+  for kind in (19,22,23):
    n=self.fixture();n.allocate=lambda *args:self.fail('Allocated substitute RAM')
    with self.assertRaises(RuntimeError):n.request([0x700b14,1,0,0,0x338,kind,0,2,0,4096,0])
    self.assertFalse(n.sent);self.assertFalse(n.writes)
+ def sysram_fixture(self):
+  # Route real HFI parsing through the real allocation-record verifier. The
+  # kernel transport below models its owned pool/normal and cache VA regions;
+  # it has no MMIO resource, register access or special-resource fallback.
+  n=self.fixture();n.report['per_allocation_mapping_enabled']=True
+  n.l=type('Live',(),{'io_stopped':False})()
+  n.ram_next=0x400000;n.ram_cached=0;n.ram_count=0
+  def dev(op,*args):
+   n.writes.append((op,*args))
+   if op==4:return ''
+   if op!=1:self.fail('Unexpected non-SYSRAM operation '+str(op))
+   size,align,flags,kind=args
+   cached=bool(flags&0x80);cursor=n.ram_cached if cached else n.ram_next
+   offset=(cursor+align-1)&~(align-1);size=(size+4095)&~4095
+   self.assertLessEqual(offset+size,0x400000 if cached else 0x4000000)
+   gpu=0x61000000+offset if flags&1 else 0
+   gmu=(0x800000 if cached else 0x61000000)+offset if flags&8 else 0
+   index=n.ram_count;n.ram_count+=1
+   if cached:n.ram_cached=offset+size
+   else:n.ram_next=offset+size
+   return f'GIULIA GPU DEV: allocation={index} offset={hex(offset)} bytes={hex(size)} flags={hex(flags)} kind={kind} gpu={hex(gpu) if gpu else "0"} gmu={hex(gmu) if gmu else "0"}\n'
+  n.dev=dev;n.allocate=NativeHfi.allocate.__get__(n)
+  return n
+ def test_gen7_named_mmio_kinds_follow_actual_sysram_branch(self):
+  for kind in (11,12,13,20):
+   for flags in (0,8,0x10,0x20,0x80,0x88,0xb8,1,7,9,0x11,0x3f,0x81,0x89,0x3bf):
+    with self.subTest(kind=kind,flags=hex(flags)):
+     n=self.sysram_fixture();words=[0x700b14,1,0,0,flags,kind,0,7,0,24,0xd0c]
+     n.request(words)
+     effective=flags if flags&1 else flags|0x38
+     allocation=n.allocations[(kind,7)]
+     gpu=allocation['gpu'] if flags&1 else 0
+     gmu=allocation['gmu'] if not flags&1 or flags&8 else 0
+     self.assertEqual(n.writes,[(1,8192,4096,effective,kind),(4,allocation['offset'],8192)])
+     self.assertEqual(n.sent,[(20,[words[0],gpu,0,flags,kind,7,7,gmu,24,0xd0c],1)])
+     self.assertEqual(allocation['request_flags'],flags)
+     self.assertEqual(allocation['flags'],effective)
+     self.assertEqual(allocation['effective_flags'],effective)
+     self.assertEqual(allocation['gmu_only_sysram'],not bool(flags&1))
+     self.assertEqual(n.report['memory_requests'][-1]['effective_flags'],hex(effective))
+     self.assertEqual(n.report['memory_allocations'],[dict(allocation,gmu_handle=7)])
+     if not flags&1:
+      self.assertEqual(effective&0x38,0x38)
+      self.assertEqual(gmu,0x800000 if flags&0x80 else 0x61400000)
+      self.assertEqual(gpu,0)
+     self.assertFalse(n.l.io_stopped)
+ def test_gen7_gmu_only_sysram_normalization_applies_to_other_pool_kinds(self):
+  for kind in (0,2,3,9,16,21,24,25):
+   n=self.sysram_fixture();words=[0x700b14,1,0,0,0,kind,0,7,0,24,0]
+   n.request(words)
+   self.assertEqual(n.writes[0],(1,24,4096,0x38,kind))
+   self.assertEqual(n.sent[0][1],[words[0],0,0,0,kind,7,7,0x61400000,24,0])
+ def test_gen7_sysram_repeat_preserves_effective_addresses_without_rezero(self):
+  for kind in (11,12,13,20):
+   for flags in (0,0x80,1,0x81,0x3f):
+    n=self.sysram_fixture();words=[0x700b14,1,0,0,flags,kind,0,7,0,24,0]
+    n.request(words);first=n.sent[0][1][1:];writes=list(n.writes)
+    again=words.copy();again[0]=0x800b14;n.request(again)
+    self.assertEqual(n.writes,writes)
+    self.assertEqual(n.sent[-1][1],[again[0],*first])
+    self.assertTrue(n.report['memory_requests'][-1]['reused'])
+    self.assertEqual(n.report['memory_requests'][-1]['effective_flags'],hex(flags if flags&1 else flags|0x38))
+ def test_gen7_original_signature_cannot_alias_same_effective_permissions(self):
+  for kind in (11,12,13,20):
+   n=self.sysram_fixture();words=[0x700b14,1,0,0,0,kind,0,7,0,24,0]
+   n.request(words);writes=list(n.writes)
+   # Original flags 0 and 8 both map to effective flags 0x38, but are
+   # conflicting requests when their kind/handle identity is already live.
+   changed=words.copy();changed[4]=8
+   with self.assertRaisesRegex(RuntimeError,'Conflicting repeated'):n.request(changed)
+   self.assertEqual(n.writes,writes);self.assertEqual(len(n.sent),1)
+ def test_gen7_effective_mapping_must_be_confirmed_before_hfi_reply(self):
+  for kind in (11,12,13,20):
+   for before,after in (('flags=0x38','flags=0x0'),
+                        ('gpu=0','gpu=0x61400000'),('gmu=0x61400000','gmu=0')):
+    n=self.sysram_fixture();dev=n.dev
+    n.dev=lambda *args:dev(*args).replace(before,after)
+    with self.assertRaisesRegex(RuntimeError,'owned mapping'):
+     n.request([0x700b14,1,0,0,0,kind,0,7,0,24,0])
+    self.assertFalse(n.sent);self.assertFalse(n.allocations)
+    self.assertTrue(n.l.io_stopped)
+    self.assertTrue(n.report['mapping_completion_unconfirmed'])
+ def test_explicit_debug_allocation_flags_are_not_hfi_normalized(self):
+  n=self.sysram_fixture();allocation=n.allocate(24,4096,0,11)
+  self.assertEqual(allocation['flags'],0)
+  self.assertEqual((allocation['gpu'],allocation['gmu']),(0,0))
+  self.assertEqual(n.writes,[(1,24,4096,0,11)])
  def ipc_fixture(self):
   n=self.fixture()
   n.info='GIULIA GPU DEV: ipc_core=1 ipc_host_arbitration=1 ipc_retained_until_reboot=1\n'

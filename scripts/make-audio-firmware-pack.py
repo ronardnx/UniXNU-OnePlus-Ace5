@@ -25,7 +25,7 @@ def main():
     if args.pin_header:
         args.pin_header.parent.mkdir(parents=True, exist_ok=True)
         args.pin_header.write_text(header, encoding='utf-8', newline='\n')
-    elif (ROOT / 'ios16/giulia_audio_firmware_pin.h').read_text(encoding='utf-8') != header:
+    elif (ROOT / 'ios16/audio/giulia_audio_firmware_pin.h').read_text(encoding='utf-8') != header:
         raise ValueError('Audio pack differs from compiled kernel pin')
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(pack)

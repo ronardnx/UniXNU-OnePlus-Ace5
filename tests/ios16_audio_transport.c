@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_audio_transport.h"
+#include "../ios16/audio/giulia_audio_transport.h"
 
 struct fixture {
     uint32_t desc[8];uint8_t tx[16384],rx[16384];

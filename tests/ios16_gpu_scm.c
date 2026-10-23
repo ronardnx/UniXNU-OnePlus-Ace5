@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_scm.h"
+#include "../ios16/platform/giulia_scm.h"
 
 struct fixture {
     struct ggs_regs input[160],output[160];

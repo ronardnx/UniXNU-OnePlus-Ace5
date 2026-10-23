@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 
 root=Path(__file__).resolve().parents[1]
-source=(root/'ios16/giulia_display_power.inc').read_text()
+source=(root/'ios16/display/giulia_display_power.inc').read_text()
 callback=source.replace('__asm__ volatile("dsb sy" ::: "memory");','')
 stubs=r'''
 #include <cassert>
@@ -68,5 +68,5 @@ with tempfile.TemporaryDirectory() as folder:
     test.write_text(stubs+callback+checks)
     subprocess.run(['clang++','-std=c++14','-Wall','-Wextra','-Werror',
                     '-fsanitize=address,undefined','-fno-sanitize-recover=all',
-                    '-I'+str(root/'ios16'),str(test),'-o',str(binary)],check=True)
+                    '-I'+str(root/'ios16/display'),str(test),'-o',str(binary)],check=True)
     subprocess.run([str(binary)],check=True)

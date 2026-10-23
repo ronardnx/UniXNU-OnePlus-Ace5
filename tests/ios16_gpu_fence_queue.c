@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "../ios16/giulia_gpu_fence_queue.h"
+#include "../ios16/gpu/giulia_gpu_fence_queue.h"
 
 struct fixture {
     struct ggf_registration registration;

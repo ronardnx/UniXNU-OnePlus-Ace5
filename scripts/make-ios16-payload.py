@@ -15,7 +15,9 @@ from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
 from ios16_gpu_runtime import check_runtime as check_gpu_runtime
 from ios16_audio_runtime import check_runtime as check_audio_runtime
+from ios16_modem import check_contract as check_modem_contract
 from ios16_gpu_power import check_request as check_gpu_power_request
+from ios16_gpu_gunyah import check_request as check_gpu_gunyah_request
 from ios16_trust_catalog import modules
 
 def sha(p):
@@ -41,6 +43,7 @@ def main():
     p.add_argument('--wifi-pcie',action='store_true',help='Opt-in WCN7850 power/PCIe enumeration in the matching UEFI; a runtime kernel also requires locally embedded firmware')
     p.add_argument('--gpu-mode',type=int,choices=(1,2,3),help='1: host preparation; 2: gated observation; 3: explicit UEFI CX/clock preparation with a fixed ADT report')
     p.add_argument('--audio-prepare',action='store_true',help='Validate local audio pack and start coordinator; does not establish native platform ownership')
+    p.add_argument('--modem-mode',choices=('diagnostic','managed'),help='Enable the unified modem service; managed requires native provider and matching cellular root policy')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
     if a.trace_all:a.trace_services=True
@@ -58,9 +61,14 @@ def main():
         raise ValueError('Slider requires a GUI root and the compiled guarded AK09970 worker')
     gpu_runtime=check_gpu_runtime(a.kernel.read_bytes(),report)
     audio_runtime=check_audio_runtime(a.kernel.read_bytes(),report)
+    modem_root=json.loads(a.root_report.read_text()) if a.root_report else None
+    modem_contract=check_modem_contract(a.kernel.read_bytes(),report,a.adt.read_bytes(),modem_root,a.modem_mode)
+    if a.modem_mode and (not a.root_report or not platform_match.get('gui')):
+        raise ValueError('Modem service requires the matching GUI root entry')
     if a.audio_prepare and (not audio_runtime or not a.root_report or not platform_match.get('gui')):
         raise ValueError('Audio preparation requires a GUI root and matching embedded audio firmware')
     gpu_power=check_gpu_power_request(a.adt.read_bytes(),a.gpu_mode,a.kernel.read_bytes())
+    gpu_gunyah=check_gpu_gunyah_request(a.adt.read_bytes(),a.gpu_mode,a.kernel.read_bytes())
     if a.gpu_mode and (not gpu_runtime or not a.root_report or not platform_match.get('gui')):
         raise ValueError('GPU mode requires a GUI root entry and matching embedded GPU firmware')
     wifi=check_wifi_platform(read_nodes(a.adt.read_bytes()))
@@ -145,6 +153,7 @@ def main():
         if a.gpu_mode:root_args+=' giulia_gpu='+str(a.gpu_mode)
         if a.audio_prepare:root_args+=' giulia_audio=1'
         if a.enable_slider:root_args+=' giulia_slider=1'
+        if a.modem_mode:root_args+=' giulia_modem='+str(1 if a.modem_mode=='diagnostic' else 2)
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -194,9 +203,14 @@ def main():
     if wifi_runtime:result['wifi_runtime']=wifi_runtime
     if gpu_runtime:result['gpu_runtime']=gpu_runtime
     if audio_runtime:result['audio_runtime']=audio_runtime
+    if modem_contract:
+        result['modem_contract']=modem_contract
+        result['modem_root_policy']=(modem_root or {}).get('cellular_policy',{})
+    if a.modem_mode:result['modem_mode']=a.modem_mode
     if a.audio_prepare:result['audio_prepare']=True
     if a.gpu_mode:result['gpu_mode']=a.gpu_mode
     if gpu_power:result['gpu_power_handoff']=gpu_power
+    if gpu_gunyah:result['gpu_gunyah_handoff']=gpu_gunyah
     if a.wifi_pcie:
         result['wifi_pcie_handoff']=True
         result['wifi_pcie_report_version']=5

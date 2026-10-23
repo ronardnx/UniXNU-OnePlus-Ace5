@@ -11,21 +11,24 @@ check_kernel = MODULE['check_kernel']
 
 class LinkedGPU(unittest.TestCase):
     def setUp(self):
-        self.kernel = bytearray(0x1000)
+        self.kernel = bytearray(0x2000)
         struct.pack_into('<8I', self.kernel, 0, 0xfeedfacf, 0x100000c, 0, 2, 2, 176, 0, 0)
         self.base = 0xfffffe0007004000
         struct.pack_into('<II16sQQQQiiII', self.kernel, 32, 0x19, 152, b'__TEXT_EXEC',
-                         self.base, 0x1000, 0, 0x1000, 5, 5, 1, 0)
+                         self.base, len(self.kernel), 0, len(self.kernel), 5, 5, 1, 0)
         struct.pack_into('<16s16sQQIIIIIIII', self.kernel, 104, b'__text', b'__TEXT_EXEC',
                          self.base + 0x200, 0x100, 0x200, 2, 0, 0, 0x80000400, 0, 0, 0)
         strings = b'\0' + b'\0'.join(s.encode() for s in MODULE['SYMBOLS']) + b'\0'
-        struct.pack_into('<6I', self.kernel, 184, 2, 24, 0x400, len(MODULE['SYMBOLS']), 0x500, len(strings))
-        self.kernel[0x500:0x500 + len(strings)] = strings
+        self.strings_at = (0x400 + 16 * len(MODULE['SYMBOLS']) + 255) & ~255
+        struct.pack_into('<6I', self.kernel, 184, 2, 24, 0x400, len(MODULE['SYMBOLS']), self.strings_at, len(strings))
+        self.kernel[self.strings_at:self.strings_at + len(strings)] = strings
         for i, symbol in enumerate(MODULE['SYMBOLS']):
             struct.pack_into('<IBBHQ', self.kernel, 0x400 + 16 * i,
                              strings.index(symbol.encode()), 0x0f, 1, 0, self.base + 0x200 + 4 * i)
         markers = b'\0'.join(MODULE['MARKERS'])
-        self.kernel[0x800:0x800 + len(markers)] = markers
+        markers_at = (self.strings_at + len(strings) + 255) & ~255
+        assert markers_at + len(markers) <= len(self.kernel)
+        self.kernel[markers_at:markers_at + len(markers)] = markers
 
     def test_linked_preparation_is_not_acceleration(self):
         result = check_kernel(self.kernel)

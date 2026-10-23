@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_fence.h"
+#include "../ios16/gpu/giulia_gpu_fence.h"
 
 static uint32_t backing[0x20000/4],before_memory[0x20000/4];
 struct fixture { uint32_t page,bytes;uint64_t physical; };

@@ -1,9 +1,13 @@
 """Exercise actual platform methods with owned-memory/SCM doubles; no device."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import subprocess
 import tempfile
 ROOT=Path(__file__).resolve().parents[1]
-source=(ROOT/'ios16/GiuliaGPU.cpp').read_text()
+source=(ROOT/'ios16/gpu/GiuliaGPU.cpp').read_text()
 members=source[source.index('    IOBufferMemoryDescriptor *secureData'):source.index('    bool prepareDevMemory')]
 fixture=r'''
 #define GG_HOST_TEST 1
@@ -108,7 +112,7 @@ public:
         return 0;
     }
 };
-'''+(ROOT/'ios16/giulia_gpu_platform_impl.h').read_text()+r'''
+'''+(ROOT/'ios16/gpu/giulia_gpu_platform_impl.h').read_text()+r'''
 int GiuliaGPU::configureDevMappings(){return 8;} // Separate actual mapping-method suite.
 static void idle(GiuliaGPU &s) {
     s.platformWrite(0x3d7e000,1);
@@ -309,5 +313,5 @@ int main() {
 with tempfile.TemporaryDirectory(prefix='gpu-platform-runtime-') as temporary:
     p=Path(temporary);(p/'test.cpp').write_text(fixture)
     subprocess.run(['cc','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined','-g','-c',str(ROOT/'ios16/vendor/ArmSmmu4K/ArmSmmu4K.c'),'-o',str(p/'tables.o')],check=True)
-    subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-g','-I',str(ROOT/'ios16'),str(p/'test.cpp'),str(p/'tables.o'),'-o',str(p/'test')],check=True)
+    subprocess.run(['c++','-std=c++17','-Wall','-Wextra','-Werror','-Wno-misleading-indentation','-fsanitize=address,undefined','-g',*include_flags(ROOT),str(p/'test.cpp'),str(p/'tables.o'),'-o',str(p/'test')],check=True)
     subprocess.run([str(p/'test')],check=True)

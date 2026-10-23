@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_gpu_power_handoff.h"
+#include "../ios16/platform/giulia_platform_power.h"
 
 static struct gpp_report prepared(void)
 {
@@ -43,7 +43,10 @@ int main(void)
         else if(i==17)bad.protocol_status=UINT64_C(0x8000000000000007);
         else if(i==18)bad.flags|=GPP_QMP_UNCERTAIN;
         else if(i==19)bad.confirmed&=~(1u<<12);
-        else if(i==20)bad.values[3]|=0x80000000u;
+        /* Only the CXO branch has a plain BRANCH_HALT; a halted voted branch
+         * (GMU, memnoc, DVM, hub, SMMU) is accepted, and AHB/AXI raw CBCR is
+         * not part of the handoff proof. */
+        else if(i==20)bad.values[4]|=0x80000000u;
         else bad.retained=0;
         gpp_report_seal(&bad);
         assert(!ggph_decode(&bad,sizeof(bad),&out));

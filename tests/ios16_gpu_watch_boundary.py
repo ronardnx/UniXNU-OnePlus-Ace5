@@ -1,10 +1,14 @@
 """Run the real snapshot/watch methods against MMIO/HFI doubles; no device."""
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / "ios16/giulia_gpu_platform_impl.h").read_text()
+source = (ROOT / "ios16/gpu/giulia_gpu_platform_impl.h").read_text()
 methods = source[source.index("int GiuliaGPU::platformSnapshot("):
                  source.index("int GiuliaGPU::platformZap(")]
 fixture = r'''
@@ -158,6 +162,6 @@ with tempfile.TemporaryDirectory(prefix="gpu-watch-boundary-") as temporary:
     (directory / "test.cpp").write_text(fixture)
     subprocess.run(["c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
                     "-fsanitize=address,undefined", "-fno-sanitize-recover=all", "-g",
-                    "-I", str(ROOT / "ios16"), str(directory / "test.cpp"),
+                    *include_flags(ROOT), str(directory / "test.cpp"),
                     "-o", str(directory / "test")], check=True)
     subprocess.run([str(directory / "test")], check=True)

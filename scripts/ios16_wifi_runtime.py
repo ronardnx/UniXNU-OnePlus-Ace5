@@ -42,11 +42,23 @@ def check_runtime(kernel, report):
         at += size
     if at != end or found != report['wifi_firmware']:
         raise ValueError('Firmware segment metadata mismatch')
-    pin = (Path(__file__).resolve().parents[1]/'ios16/giulia_wifi_firmware_pin.h').read_text()
+    pin = (Path(__file__).resolve().parents[1]/'ios16/wifi/giulia_wifi_firmware_pin.h').read_text()
     digest = bytes(int(x, 16) for x in re.findall(r'0x([0-9a-f]{2})\b', pin))
     if len(digest) != 32 or found['sha256'] != digest.hex() or digest not in kernel[:found['file_offset']]:
         raise ValueError('Compiled firmware pin mismatch')
-    return {'firmware': found, 'scan_transport': 'WCN7850 PCIe/MHI/QRTR/QMI/CE/HTC/WMI',
+    result = {'firmware': found, 'scan_transport': 'WCN7850 PCIe/MHI/QRTR/QMI/CE/HTC/WMI',
             'interface': 'iOS16 IO80211 en0', 'scan_mode': 'passive 2.4/5 GHz',
             'association_data_path': False, 'hardware_verified': False,
             'display': {'native': [1264, 2780], 'canvas': [1125, 2436], 'presentation': 'full-panel'}}
+    # This versioned declaration belongs to gn_start. Classify the compiled
+    # implementation only; a firmware payload cannot supply the declaration.
+    # Retain the exact old report for existing scan-only kernels and bundles.
+    station = b'GIULIA WIFI PROFILE: 20H392; station=1; legacy20=1; security=open,wpa2,sae-pmf; data=htt-tcl-reo'
+    if station in kernel[:found['file_offset']]:
+        result.update(association_data_path=True,
+                      scan_mode='regulatory passive/directed/background 2.4/5 GHz',
+                      compiled_station={'abi': '20H392',
+                                        'data_transport': 'HTT/TCL/WBM/RXDMA/REO',
+                                        'security': ['open', 'WPA2-PSK/CCMP', 'WPA3-SAE/CCMP/PMF'],
+                                        'channel_width_mhz': 20})
+    return result

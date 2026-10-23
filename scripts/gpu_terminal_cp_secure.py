@@ -42,10 +42,6 @@ def prepare(live, transport, report):
     return config,record
 
 
-def run(live, transport, report):
-    raise RuntimeError('Disabled after OP13 entered 900E; queue/doorbell execution was not confirmed')
-
-
 def run_mapped(live, transport, report):
     if getattr(transport,'platform_abi',0)!=3 or not report.get('per_allocation_mapping_enabled'):
         raise RuntimeError('Mapped CP trial requires verified ABI3 mapping policy and RAM-only watcher')

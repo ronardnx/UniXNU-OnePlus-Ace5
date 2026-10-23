@@ -6,7 +6,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'hardware/sm8650-audio.json'
-HEADER = ROOT / 'ios16/giulia_audio_mapping.h'
+HEADER = ROOT / 'ios16/audio/giulia_audio_mapping.h'
 
 
 def sha256(data):

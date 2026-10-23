@@ -258,7 +258,7 @@ reg.maps
 reg.unmap 0
 ```
 
-按实际寄存器文档选定地址、宽度、掩码后使用 `reg.read` / `reg.write` / `reg.rmw`。可查本仓库 `ios16/giulia_wifi_link.h`、`ios16/giulia_gpu_power.h`、`ios16/giulia_touch.c` 及板级 DTS 的地址和电源时序。每条命令上限仍为 63 个 ASCII 字节；64 位地址和数值建议用十六进制缩短。
+按实际寄存器文档选定地址、宽度、掩码后使用 `reg.read` / `reg.write` / `reg.rmw`。可查本仓库 `ios16/wifi/giulia_wifi_link.h`、`ios16/gpu/giulia_gpu_power.h`、`ios16/touch/giulia_touch.c` 及板级 DTS 的地址和电源时序。每条命令上限仍为 63 个 ASCII 字节；64 位地址和数值建议用十六进制缩短。
 
 这里没有通用的时钟/电源自动接管或驱动锁协调：未上电、secure-only 或不支持该访问宽度的寄存器可能导致同步异常/总线挂死，不能保证能返回错误码；`reg.rmw` 不相对现有驱动原子化，也不能用于 W1C、读清零、FIFO 或 write-only 寄存器。修改 USB、自身存储或 SMMU 控制寄存器可能立即中断当前会话/系统。`write-issued` 只表示 store 与屏障已执行，不宣称硬件状态验证成功。
 

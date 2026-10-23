@@ -36,7 +36,7 @@ CDC 枚举。随后的主机检查也未发现目标 USB、Fastboot 或 900E，�
 不自动恢复或重放。** 主机在断连、未确认的命令超时或 SCM 待完成状态时
 也停止本次会话的后续 I/O，保留原始捕获与未确认的清理状态。
 
-证据：`hardware/ios16-gpu-platform-progress.json`；首次启动与失败在
+构建与镜像证据：`hardware/ios16-gpu-platform-r2-integration.json`；首次启动与失败在
 `out/ios16/gpu-platform-device-20261023-r1/` 和
 `out/ios16/gpu-native-hwsched-terminal/20261023-090455-480047/`；独立清理在
 `out/ios16/gpu-platform-preassign-cleanup/20261023-091159-929023/`。
@@ -91,7 +91,7 @@ GMU_ACC 返回地址；底层分配仍按页扩展。安全分配在主机层明
 同时还需 secure-CX、SMMU aperture、主机 GPU/GMU 故障处理以及后续 ZAP/PAS。
 这些必须一起核对后再统一编译；本轮没有因只有部分接口就再编译内核。
 
-`ios16/giulia_gpu_scm.h` 已作为未接入设备的候选实现加入：固定 SCM64 探测、
+`ios16/platform/giulia_scm.h` 已作为未接入设备的候选实现加入：固定 SCM64 探测、
 固定 `0xB` secure-CX 请求、原始返回值保存、有界返回重试及 WAITQ 隔离。
 它仅通过宿主和目标代码生成检查，**没有在手机执行 SMC，也未完成运行时
 前置条件或安全分配实现**。详见 [安全启动核对](GPU_SECURE_START_AUDIT.md)。
@@ -136,8 +136,7 @@ bank 错配报告成已证明的唯一根因。**
 通过放开没有处理器的 IRQ 或直接重放 NOP 来碰运气。未执行 SMC/ZAP
 认证，不把寄存器配置阶段称为完整 GPU 启动。
 
-失败 `cp`、`cpv2`、`nop` 阶段现在都在 CLI 入口拒绝，相关模块也单独拒绝
-直接运行。可继续使用 `start`、`gx`、`configure` 收集对应阶段证据。
+失败的 `cp`、`cpv2`、`nop` 及旧 `cp-secure` 阶段已从 CLI 移除，相应的不可达实验代码也已清理。可继续使用 `start`、`gx`、`configure` 收集对应阶段证据。
 实测摘要：`hardware/ios16-gpu-cp-audit.json`。两个 NOP 失败的原始日志保留；
 两次均经用户恢复 Fastboot 后临时启动同一镜像，未刷写分区。最后恢复记录
 在 `out/ios16/gpu-dev-device-20261023-recovery3/`：准备检查全部通过，熄屏命令完成。
@@ -431,7 +430,18 @@ copyback 加显式 cache publication。固定固件现在对应 8 段预留、
 时钟 `0x3d9913c=0x2001` 后按策略退出，尚未请求后续时钟和频率。
 运行时只读观察在 `0x3d97000=0x80000000` 停止，GPU SMMU
 时钟未开启。没有绕过这一状态解除 CM3 复位，也没有激活 DMA stream。
-后续必须处理继承时钟的频率/复位验证及电源所有权，再启动原厂固件。
+
+2026-10-23 17:50 的复现证明这是继承状态而不是偶发：每次启动都在同一点
+退出，`attempted=confirmed=0x1002` 仅含 CX 与 ACD，说明 GMU 时钟来自
+ABL 的启动画面初始化。策略已改为接受继承开启的核心分支（只改
+625 MHz 并读回，不 disable/重新使能），并按固定 `gpucc-pineapple` 的
+`BRANCH_HALT`/`VOTED`/`DELAY`/`SKIP` 语义区分各分支：只有 CXO 要求
+halt 清零，其余 voted 分支只要求 vote 位，AHB/AXI 的原始 CBCR 仅记录。
+XNU 的 handoff 校验与只读观察使用同一组掩码，`gmu_clock` 的 vote 位也
+成为运行时前置条件。CM3 复位仍必须在交接时为 1；若 ABL 已释放复位，
+报告会变成 `phase=10 code=9`（`GPP_ERR_RESET`），而不再卡在 CLOCKS。
+内核侧仍没有 GMU 加载/启动实现，所以即使电源准备成功，`gmu_started`
+也会保持 0，直到接入 `gg_gmu_load`/`gg_gmu_start`。
 
 终端增加 `gpu.hfi.status`、`gpu.hfi.pin`、`gpu.hfi.query`、
 `gpu.hfi.poll`、`gpu.hfi.log`。`pin` 将诊断内存保留至重启；没有

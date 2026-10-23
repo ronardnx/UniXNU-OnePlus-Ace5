@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_trust_catalog.h"
+#include "../ios16/trust/giulia_trust_catalog.h"
 
 static void u32(uint8_t *p, uint32_t v) {
     for (unsigned i=0;i<4;i++) p[i]=(uint8_t)(v>>(8*i));

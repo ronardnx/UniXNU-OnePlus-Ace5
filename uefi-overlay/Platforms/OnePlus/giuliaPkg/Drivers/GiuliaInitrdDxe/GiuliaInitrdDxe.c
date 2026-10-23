@@ -26,6 +26,7 @@ VOID GiuliaHallPowerSchedule (VOID);
 VOID GiuliaHallClockSchedule (VOID);
 VOID GiuliaWifiInstall (VOID);
 VOID GiuliaGpuPowerInstall (VOID);
+VOID GiuliaGpuGunyahInstall (CONST VOID *Fdt);
 
 #define RAM_BLOCK_SIZE  512
 
@@ -276,6 +277,7 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
     Report (4, Dtb, 0, EFI_COMPROMISED_DATA);
     return EFI_COMPROMISED_DATA;
   }
+  GiuliaGpuGunyahInstall (Fdt);
   Chosen = FdtPathOffset (Fdt, "/chosen");
   if (Chosen < 0) {
     Report (5, Dtb, 0, EFI_NOT_FOUND);

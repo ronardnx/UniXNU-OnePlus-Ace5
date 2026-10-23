@@ -4,7 +4,7 @@
 #include <openssl/ec.h>
 #include <openssl/obj_mac.h>
 #include <openssl/hmac.h>
-#include "../ios16/giulia_wifi_sae.h"
+#include "../ios16/wifi/giulia_wifi_sae.h"
 #include "sae_vectors.inc"
 static void oracle_hmac(const uint8_t *key,size_t kn,const uint8_t *data,size_t n,uint8_t out[32]){unsigned len=32;assert(HMAC(EVP_sha256(),key,(int)kn,data,n,out,&len)&&len==32);}
 static void oracle_kdf(const uint8_t key[32],const char *label,const uint8_t *context,size_t cn,uint8_t *out,size_t n){uint8_t p[256],digest[32];size_t ln=strlen(label);memcpy(p+2,label,ln);memcpy(p+2+ln,context,cn);p[2+ln+cn]=(uint8_t)(8*n);p[3+ln+cn]=(uint8_t)(n>>5);for(unsigned i=0;i<(n+31)/32;i++){p[0]=(uint8_t)(i+1);p[1]=0;oracle_hmac(key,32,p,ln+cn+4,digest);size_t z=n-i*32;if(z>32)z=32;memcpy(out+i*32,digest,z);}}

@@ -5,6 +5,10 @@ translation unit. Production firmware authentication and device MMIO are not
 replaced in target sources. ARM barriers become host barriers; no hardware DMA
 or cache-coherence claim follows from this fixture.
 """
+from pathlib import Path as _ModulePath
+import sys as _module_sys
+_module_sys.path.insert(0, str(_ModulePath(__file__).resolve().parents[1] / "scripts"))
+from ios16_sources import include_flags
 from pathlib import Path
 import hashlib
 import os
@@ -13,7 +17,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / "ios16/GiuliaGPU.cpp").read_text()
+source = (ROOT / "ios16/gpu/GiuliaGPU.cpp").read_text()
 begin = source.index("static IOBufferMemoryDescriptor *gpuAllocateHostMemory(")
 end = source.index("\nint GiuliaGPU::readRegister(", begin)
 
@@ -56,6 +60,7 @@ fixture += r'''
 #include "giulia_gpu_ipcc_owner.h"
 #include "giulia_gpu_fence_provider.h"
 #include "giulia_gpu_fence_mapping.h"
+#include "giulia_gpu_gmu_boot.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 using IOByteCount=uint64_t;
 // Enough disjoint simulated RAM for all scenarios, still below the 36-bit PA limit.
@@ -63,7 +68,7 @@ static unsigned long gPhysBase=0x880000000ULL,gPhysSize=0x700000000ULL;
 static void *kernel_task=nullptr;
 static struct ggi_owner gpuIpcOwner;
 static bool qmpAvailable=true;
-static int giulia_gpu_qmp_available(){return qmpAvailable;}
+static int giulia_platform_qmp_available(){return qmpAvailable;}
 enum { kIODirectionInOut=3,kIOMemoryHostPhysicallyContiguous=0x80,
     kIOMemoryMapperNone=0x800,kIOMapCopybackCache=0x400,kIOMapWriteCombineCache=0x500 };
 static unsigned calls,allocated,freed,cleanCalls,cleanFail,changedAt,pollCalls,pollFail;
@@ -107,6 +112,9 @@ public:
     unsigned reservationCount=0,tablePages=0,leafPages=0,hfiIndex=0;
     bool hostPrepared=false,manualMemoryPinned=true;
     uint64_t gmuRoot=0,gpuRoot=0;
+    struct ggb_config gmuConfig;
+    struct gg_reservation gmuReservations[GG_FW_MAX_BLOCKS];
+    ArmSmmu4KResult gmuSmmuBuild;
     IOBufferMemoryDescriptor *memstoreMemory=nullptr;uint32_t memstoreFlags=0;bool memstoreMapped=false;
     bool ipcMapped=false;uint32_t ipcFlags=0;
     bool fenceMapped=false;uint32_t fenceFlags=0;const struct ggf_provider *fenceProvider=nullptr;
@@ -140,6 +148,8 @@ public:
     void platformWrite(uint64_t a,uint32_t v){registers[a]=v;}
     bool platformPoll(uint64_t,uint32_t,uint32_t){return ++pollCalls!=pollFail;}
     int platformCommand(unsigned){return 6;}
+    int gunyahCommand(uint32_t,uint32_t,uint32_t,uint32_t){return 6;}
+    int gmuCommand(unsigned){return 1;} /* production adapter needs IOKit + SID5 */
     int secureAllocate(uint32_t,uint32_t,uint32_t,uint32_t){return 6;}
     int platformWatch(unsigned,unsigned){return 6;}
     int platformSnapshot(unsigned){return 6;}
@@ -153,11 +163,13 @@ public:
 };
 '''
 fixture += source[begin:end]
-fixture += (ROOT / "ios16/giulia_gpu_dev_impl.h").read_text()
-fixture += (ROOT / "ios16/giulia_gpu_mapping_impl.h").read_text()
-fixture += (ROOT / "ios16/giulia_gpu_fence_impl.h").read_text()
+fixture += (ROOT / "ios16/gpu/giulia_gpu_dev_impl.h").read_text()
+fixture += (ROOT / "ios16/gpu/giulia_gpu_mapping_impl.h").read_text()
+fixture += (ROOT / "ios16/gpu/giulia_gpu_fence_impl.h").read_text()
 provider_start=source.index('static struct ggf_registration gpuFenceProvider;')
-provider_end=source.index('extern "C" int giulia_gpu_ipcc_claim(',provider_start)
+# The platform broker owns IPC arbitration now, so the old
+# giulia_gpu_ipcc_* wrappers are gone; the region ends at the next extern block.
+provider_end=source.index('extern "C" int giulia_gpu_terminal(',provider_start)
 fixture=fixture.replace('class GiuliaGPU {',source[provider_start:provider_end]+'class GiuliaGPU {',1)
 fixture += r'''
 static std::vector<uint8_t> fixturePack;
@@ -532,6 +544,6 @@ with tempfile.TemporaryDirectory(prefix="gpu-dev-runtime-") as folder:
                     "-o", str(path / "tables.o")], check=True)
     subprocess.run([os.environ.get("CXX", "c++"), "-std=c++17", "-Wall", "-Wextra", "-Werror",
                     "-Wno-misleading-indentation", "-fsanitize=address,undefined", "-fno-sanitize-recover=all",
-                    "-I", str(ROOT / "ios16"), str(path / "commands.cpp"), str(path / "tables.o"),
+                    *include_flags(ROOT), str(path / "commands.cpp"), str(path / "tables.o"),
                     "-o", str(path / "commands")], check=True)
     subprocess.run([str(path / "commands"), str(path / "fixture.pack")], check=True)

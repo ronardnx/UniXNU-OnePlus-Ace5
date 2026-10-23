@@ -87,7 +87,7 @@ def main():
     metadata = json.loads(a.kernel.with_suffix('.json').read_text())
     if metadata.get('output_sha256') != hashlib.sha256(kernel).hexdigest() or metadata.get('boot_args_bytes') != 736:
         p.error('Kernel handoff metadata mismatch')
-    pin = (Path(__file__).resolve().parents[1] / 'ios16/giulia_wifi_firmware_pin.h').read_text()
+    pin = (Path(__file__).resolve().parents[1] / 'ios16/wifi/giulia_wifi_firmware_pin.h').read_text()
     digest = bytes(int(x, 16) for x in re.findall(r'0x([0-9a-f]{2})\b', pin))
     output, firmware = append_pack(kernel, pack, digest)
     a.out.parent.mkdir(parents=True, exist_ok=True)

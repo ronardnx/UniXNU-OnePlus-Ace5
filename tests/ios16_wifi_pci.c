@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ios16/giulia_wifi_pci.h"
+#include "../ios16/wifi/giulia_wifi_pci.h"
 static struct {
     uint32_t ep[1024],root[1024],atu[1024],parf[0x3000/4],masklo,maskhi;
     unsigned probe0,probe1,writes,drop,timeout,delay,allow_master;
