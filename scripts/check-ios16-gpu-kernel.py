@@ -37,6 +37,7 @@ SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available', 'cache_publish',
     'ipcc_claim', 'ipcc_owns', 'ipcc_release',
     'fence_register', 'fence_ipcc_claim', 'fence_ipcc_owns',
+    'stack_log', 'fence_native_map', 'fence_native_audit',
 )) + ('_ggh_hvc_probe_compatibility','_ggh_hvc_valid','_ggh_hvc_send','_ggh_hvc_recv',
       '_ggh_hvc_doorbell_valid','_ggh_hvc_doorbell_read_clean',
       '_ggrs_init','_ggrs_init_hvc','_ggrs_probe','_ggrs_notification',
