@@ -3,6 +3,10 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from gpu_terminal_native import NativeHfi,start_hwsched
 class NativeProtocol(unittest.TestCase):
+ def test_minimal_cp_init_removes_restore_bit_and_ordinals(self):
+  from gpu_terminal_cp_secure import init_commands
+  self.assertEqual(init_commands(0x61400000),[0x70970001,0x08000000,0x70c80007,0x94b,3,0x20000000,2,0x61400000,0,0x80000000])
+  self.assertEqual(init_commands(0x61400000,True),[0x70970001,0x08000000,0x70c80004,0x84b,3,0x20000000,2])
  def test_host_raw_dispatch_records_queue_and_doorbell_separately(self):
   import tempfile
   from types import SimpleNamespace

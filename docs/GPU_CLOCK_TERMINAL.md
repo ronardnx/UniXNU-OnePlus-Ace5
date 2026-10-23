@@ -38,6 +38,36 @@ digest are in [gpu-uefi-auto-20261023.json](../hardware/gpu-uefi-auto-20261023.j
 The remaining sections describe the earlier terminal bring-up, before this
 automatic integration.
 
+## Follow-up: host publication and cache visibility
+
+After recovery, explicit host dispatch replaced OP13 with OP6 publication
+and a separate host doorbell write. Run `20261023-191308-294266` confirmed
+both operations returned before USB disappeared while waiting for CP init.
+Thus OP13's wait loop is not a sufficient explanation. A fresh-boot minimal
+CP init (`20261023-192357-152735`) removed the optional restore-list bit and
+its three ordinals; acknowledged IFPC/preemption disable preceded it. It
+also disconnected after confirmed publication and doorbell.
+
+Commit `f491520` adds explicit PoC cache publication to development writes,
+zeroing and firmware copies, before executable page-table publication. Shared
+allocations request write-combine caching; that allocation option and CPU
+readback alone do not establish hardware visibility. This change has passed
+the actual-method host tests, including publication failure before executable
+mapping, but its effect on the device failure remains unverified.
+
+Kernel build 39945599757 and image `out/uefi-auto-r5/giulia-gui-touch-keys-gpu.img`
+contain the cache-publication change. This image has been built and checked;
+at packaging completion the phone remained in 900E, so r5 was not booted.
+The next baseline is r5 with `--stage cp-mapped --host-raw-dispatch`, without
+the minimal-init or dual-stream options, to change only cache publication.
+`--mirror-gpu-sid1` is an untested diagnostic routing the LPAC SID to the owned
+GPU context, motivated by upstream's dual-stream setup. It is not a completed
+LPAC implementation and should be tested separately.
+
+See [gpu-cp-host-dispatch-20261023.json](../hardware/gpu-cp-host-dispatch-20261023.json)
+for the two submission-boundary captures. No GPU writeback or Metal rendering
+success follows from these results.
+
 ## Upstream comparison
 
 [UniXNU-sheng at 251b291](https://github.com/UniXNU/UniXNU-sheng/tree/251b291adf941b9953fe3ae66a808b9b626e164d)

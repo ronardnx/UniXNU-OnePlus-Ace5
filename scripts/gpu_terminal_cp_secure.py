@@ -11,6 +11,13 @@ def packet(opcode, count):
     return 0x70000000|count|((1^(count.bit_count()&1))<<15)|(opcode<<16)|((1^(opcode.bit_count()&1))<<23)
 
 
+def init_commands(powerup_gpu, minimal=False):
+    # gen7_cp_init_cmds: bit 8 enables the three restore-list ordinals.
+    # The diagnostic omits that optional list and its ordinals together.
+    tail=[0x84b,3,0x20000000,2] if minimal else [0x94b,3,0x20000000,2,powerup_gpu,0,1<<31]
+    return [packet(0x17,1),1<<27,packet(0x48,len(tail)),*tail]
+
+
 def prepare(live, transport, report):
     """Configure and verify firmware without staging or publishing any RAW."""
     if not (transport.platform_enabled and report.get('aqe_feature_enabled') and
@@ -67,7 +74,14 @@ def run_mapped(live, transport, report):
         report[label+'_accepted']=True
 
     # The first RAW follows gen7_cp_init_cmds, never a pre-init NOP.
-    submit('cp_init',[packet(0x17,1),1<<27,packet(0x48,7),0x94b,3,0x20000000,2,record['gpu'],0,1<<31])
+    minimal=getattr(transport,'minimal_cp_init',False)
+    if minimal:
+        for feature,name in ((9,'ifpc'),(2,'preemption')):
+            reply=transport.send(11,[feature,0,0])
+            report[name+'_disable_before_cp']=reply
+            if reply['value'] or reply['status'] not in (None,0):raise RuntimeError(name+' disable failed')
+    report['cp_init_restore_list_enabled']=not minimal
+    submit('cp_init',init_commands(record['gpu'],minimal))
     report['zap_reply']=transport.platform(7)
     submit('switch_unsecure',[packet(0x66,1),0])
     report['secvid_trust_control']=config.rd('GEN7_RBBM_SECVID_TRUST_CNTL')

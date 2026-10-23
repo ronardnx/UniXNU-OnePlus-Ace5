@@ -1,0 +1,60 @@
+{
+  "date_local": "2026-10-23",
+  "status": "CP failure persists with OP13 bypassed; queue publication and host doorbell both confirmed",
+  "tests": [
+    {
+      "capture": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\ios16\\gpu-native-hwsched-terminal\\20261023-191308-294266",
+      "pending_cp_operation": "cp_init",
+      "raw_submission_attempts": [
+        {
+          "header": "0x91600b83",
+          "status": "doorbell_returned",
+          "queue_publication_confirmed": true,
+          "transport": "separate-op6-host-doorbell",
+          "doorbell_confirmed": true
+        }
+      ],
+      "restore_list_enabled": true,
+      "ifpc_disable_ack": null,
+      "preemption_disable_ack": null,
+      "cp_init_completion_verified": false
+    },
+    {
+      "capture": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\ios16\\gpu-native-hwsched-terminal\\20261023-192357-152735",
+      "pending_cp_operation": "cp_init",
+      "raw_submission_attempts": [
+        {
+          "header": "0x91800883",
+          "status": "doorbell_returned",
+          "queue_publication_confirmed": true,
+          "transport": "separate-op6-host-doorbell",
+          "doorbell_confirmed": true
+        }
+      ],
+      "restore_list_enabled": false,
+      "ifpc_disable_ack": {
+        "id": 11,
+        "value": 0,
+        "status": 0,
+        "header": "0x9160040b"
+      },
+      "preemption_disable_ack": {
+        "id": 11,
+        "value": 0,
+        "status": 0,
+        "header": "0x9170040b"
+      },
+      "cp_init_completion_verified": false
+    }
+  ],
+  "conclusion": "OP13 waiting logic is not a sufficient explanation; minimal CP init without restore list and with acknowledged IFPC/preemption disable also disconnected",
+  "cache_publication_fix_commit": "f491520",
+  "cache_publication_build_run": 39945599757,
+  "cache_fix_hardware_verified": false,
+  "metal_verified": false,
+  "cache_publication_build_conclusion": "success",
+  "cache_fix_image": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\uefi-auto-r5\\giulia-gui-touch-keys-gpu.img",
+  "cache_fix_image_sha256": "21abf20f49997df05ea72f5edf51c0ea40132995fd9e7a8c0fe8a460f61094c6",
+  "device_state_at_packaging": "Qualcomm HS-USB Diagnostics 900E (COM15)",
+  "next_baseline": "r5 cp-mapped --host-raw-dispatch without optional minimal or dual-stream changes"
+}

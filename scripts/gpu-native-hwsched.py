@@ -20,10 +20,13 @@ parser.add_argument('--watch-read-audit',action='store_true',help='Checkpoint in
 parser.add_argument('--kernel-snapshot-audit',action='store_true',help='After successful host read audit, invoke snapshot-only OP14 (no HFI submission)')
 parser.add_argument('--prepare-cp-only',action='store_true',help='Configure and verify SQE/AQE, then request fault-gated OP14; never submit RAW')
 parser.add_argument('--host-raw-dispatch',action='store_true',help='Explicit CP-mapped trial through separate OP6 publication and host doorbell')
+parser.add_argument('--minimal-cp-init',action='store_true',help='CP diagnostic omitting optional register-restore list (IFPC/preemption must remain off)')
+parser.add_argument('--mirror-gpu-sid1',action='store_true',help='Diagnostic: route the unused LPAC SID1 to the owned GPU context, as in upstream dual-stream bring-up')
 args=parser.parse_args()
 if not args.platform:parser.error('Native HWSCHED requires --platform and ABI3 allocation mapping policy')
 if args.stage in ('cp','cpv2','nop','cp-secure') or (args.stage=='cp-mapped' and not args.host_raw_dispatch):parser.error('OP13 replay remains disabled; cp-mapped requires explicit --host-raw-dispatch')
 if args.host_raw_dispatch and args.stage!='cp-mapped':parser.error('Host RAW dispatch requires cp-mapped')
+if args.minimal_cp_init and not args.host_raw_dispatch:parser.error('Minimal CP init requires explicit host RAW dispatch')
 if args.stage=='cp-secure' and (not args.platform or args.without_aqe):parser.error('cp-secure requires --platform and AQE')
 if args.stage=='cp-mapped' and (not args.platform or args.without_aqe):parser.error('cp-mapped requires --platform and AQE')
 if args.watch_read_audit and (args.stage!='configure' or not args.platform or args.without_aqe):parser.error('Watch audit requires configure --platform with AQE')
@@ -57,6 +60,7 @@ with Live('gpu-native-hwsched-terminal') as live:
             raise RuntimeError('Incomplete diagnostic snapshot: '+phase)
     transport=NativeHfi(live,report)
     transport.host_raw_dispatch=args.host_raw_dispatch
+    transport.minimal_cp_init=args.minimal_cp_init
     if not re.search(r'^GIULIA GPU DEV: resources_abi=1 memstore=1 secure_allocation_mappings=1$',transport.info,re.M):
         raise RuntimeError('Current kernel lacks dedicated memstore and per-allocation secure mappings')
     root_pa=transport.gmu_root
@@ -159,6 +163,11 @@ with Live('gpu-native-hwsched-terminal') as live:
         assert live.read(0x3dc07f4)==0
         rw(0x3dc0000,0x1027,verify=False);assert live.read(0x3dc0000)==0x27
         rw(0x3da0804,0x80000000);rw(0x3da0c04,0)
+        if args.mirror_gpu_sid1:
+            assert live.read(0x3da080c)==0 and live.read(0x3da0c0c)==0x20000
+            report['sid1_route_attempted']=True
+            rw(0x3da080c,0x80000001);rw(0x3da0c0c,0)
+            report['sid1_route_active']=True
         report['gpu_stream_active']=True
         if args.platform:
             report['smmu_aperture_reply']=transport.platform(3)
@@ -284,6 +293,9 @@ with Live('gpu-native-hwsched-terminal') as live:
                         if report['gx_off']:capture_phase('gx_slumbered')
                     except Exception as e:report['slumber_error']=str(e)
                 rw(0x3d7e000,1)
+                if report.get('sid1_route_attempted'):
+                    rw(0x3da0c0c,0x20000);rw(0x3da080c,0)
+                    report['sid1_route_active']=False
                 if report.get('secure_context_attempted'):
                     report['secure_cleanup_reply']=transport.platform(6)
                 rw(0x3da0c04,0x20000);rw(0x3dc0000,0)
