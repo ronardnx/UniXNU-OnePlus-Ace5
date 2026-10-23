@@ -21,6 +21,14 @@ int main(int argc,char **argv)
     assert(((uint64_t *)control)[0]==4 && ((uint64_t *)control)[1]==0x8a0000100ull && ((uint64_t *)control)[2]==24);
     assert(ggs_assign_descriptor(control,0x8a0000000ull,0x8b0000000ull,0x20000,1,args));
     assert(v[0].vmid==3 && v[0].perm==6 && v[1].vmid==10 && v[1].perm==4 && args[5]==48);
+    uint64_t physical[32];
+    for(unsigned i=0;i<32;i++)physical[i]=0x8b0000000ull+(uint64_t)i*0x20000;
+    assert(ggs_assign_batch(control,0x8a0000000ull,physical,32,args));
+    assert(args[0]==0x8a0000200ull && args[1]==512 && args[5]==24);
+    struct ggs_mem_region *regions=(struct ggs_mem_region *)(control+512);
+    assert(regions[31].address==physical[31] && regions[31].bytes==65536);
+    assert(!ggs_assign_batch(control,0x8a0000000ull,physical,33,args));
+    physical[31]++;assert(!ggs_assign_batch(control,0x8a0000000ull,physical,32,args));
     assert(!ggs_assign_descriptor(control,0x8a0000000ull,0x8b0000001ull,0x20000,1,args));
     assert(!ggs_assign_descriptor(control,0x8a0000000ull,0xfffffc000ull,0x20000,1,args));
     assert(!ggs_build_frame(1,11,args,0x8a0000000ull,(uint64_t *)control,&frame));

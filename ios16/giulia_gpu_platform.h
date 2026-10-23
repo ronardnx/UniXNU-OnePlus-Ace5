@@ -6,6 +6,7 @@
 #include "giulia_gpu_scm.h"
 
 enum { GGS_SEC_CHUNKS=8, GGS_SEC_CHUNK=0x400000, GGS_SEC_BASE=0xf0000000u,
+       GGS_SEC_GRANULE=0x10000, GGS_SEC_SEGMENTS=GGS_SEC_CHUNKS*GGS_SEC_CHUNK/GGS_SEC_GRANULE,
        GGS_SEC_TABLE_BYTES=0x20000, GGS_CONTROL_BYTES=0x4000,
        GGS_CP_PIXEL=10, GGS_HLOS=3 };
 struct ggs_mem_region { uint64_t address,bytes; };
@@ -48,6 +49,20 @@ static inline int ggs_secure_request(uint32_t bytes,uint32_t alignment,uint32_t 
 {
     return bytes && bytes<=GGS_SEC_CHUNK && alignment<=16384 &&
         (!alignment || !(alignment&(alignment-1))) && flags==0x1007 && kind==5;
+}
+
+static inline int ggs_assign_batch(void *control,uint64_t control_pa,
+    const uint64_t *physical,unsigned count,uint64_t args[10])
+{
+    if(!physical || !count || count>32 || !ggs_assign_descriptor(control,control_pa,
+        physical[0],GGS_SEC_GRANULE,0,args))return 0;
+    struct ggs_mem_region *regions=(struct ggs_mem_region *)((uint8_t *)control+512);
+    for(unsigned i=0;i<count;i++) {
+        if((physical[i]&16383) || physical[i]>=(UINT64_C(1)<<36) ||
+            GGS_SEC_GRANULE>(UINT64_C(1)<<36)-physical[i])return 0;
+        regions[i].address=physical[i];regions[i].bytes=GGS_SEC_GRANULE;
+    }
+    args[0]=control_pa+512;args[1]=count*sizeof(*regions);return 1;
 }
 
 /* Validate the signed, embedded ELF32 ZAP before any PAS call or carveout write. */

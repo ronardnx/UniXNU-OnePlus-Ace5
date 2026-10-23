@@ -20,10 +20,12 @@ SID 2; 6 removes that stream, disables its context and synchronizes TLB after he
 reset; 7 loads/authenticates the fixed ZAP using PAS 13; 8 resets the SCM epoch only
 before any ownership call and with all streams/banks inactive.
 
-The secure pool is eight separately allocated 4 MiB chunks, outside the ordinary
-64 MiB GPU/GMU pool. GPU secure VA begins at 0xf0000000. A 128 KiB independent
-page-table allocation is shared HLOS RW + CP_PIXEL R. Each data chunk is transferred
-in two 2 MiB regions from HLOS to CP_PIXEL RW. Data is zeroed before assignment and
+The secure pool has eight 4 MiB virtual slots backed by 512 separately allocated
+64 KiB physical segments, outside the ordinary 64 MiB GPU/GMU pool. GPU secure VA
+begins at 0xf0000000. This avoids demanding 4 MiB contiguous RAM after userspace
+has fragmented the allocator. A 128 KiB independent
+page-table allocation is shared HLOS RW + CP_PIXEL R. Data is transferred in batches
+of 32 regions (2 MiB total) from HLOS to CP_PIXEL RW. Data is zeroed before assignment and
 never CPU-read, CPU-written or exposed through development offsets afterward. No GMU
 or ordinary GPU mapping is created. Table/data ownership calls use separate coherent
 control memory and exact little-endian 16-byte region / 24-byte permission records.

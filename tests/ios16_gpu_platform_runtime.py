@@ -24,6 +24,8 @@ enum { kIOMemoryMapperNone=0x800,kIODirectionInOut=3,kIOMapInhibitCache=0x100,kI
 static void IOLog(const char *,...){}
 static void IOSleep(unsigned){}
 static void gpuHfiBarrier(void *){__sync_synchronize();}
+static void *IOMalloc(size_t n){return malloc(n);}
+static void IOFree(void *p,size_t){free(p);}
 struct IOMemoryMap {uintptr_t address;uintptr_t getVirtualAddress(){return address;}};
 struct IOMemoryDescriptor {
     uint64_t pa;size_t bytes;unsigned char *cpu;bool cp_only=false;
@@ -47,7 +49,7 @@ IOMemoryDescriptor *IOMemoryDescriptor::withPhysicalAddress(uint64_t pa,size_t n
 }
 static uint64_t nextPA=0x880000000ull;
 static IOBufferMemoryDescriptor *gpuAllocateHostMemory(size_t n,bool=true) {
-    auto *p=new IOBufferMemoryDescriptor(nextPA,n);nextPA+=(n+0xffff)&~0xffffull;memories.emplace_back(p);return p;
+    auto *p=new IOBufferMemoryDescriptor(nextPA,n);nextPA+=((n+0xffff)&~0xffffull)+0x4000;memories.emplace_back(p);return p;
 }
 static bool gpuHostRangeValid(void *p,uint64_t pa,uint64_t span,size_t n)
 {return p && !(pa&16383) && span>=n && pa+n<(1ull<<36);}
@@ -60,14 +62,16 @@ static int ggs_aarch64_call(void *,struct ggs_regs *r) {
     uint64_t fn=r->x[0];
     if(fn==0xc2000601 || fn==0x42000601){r->x[0]=0;r->x[1]=1;return 0;}
     if(fn==0x42000c16) {
-        assert(r->x[1]==0x1117 && r->x[3]==16);
-        auto region=*(ggs_mem_region *)pointer(r->x[2]);
+        assert(r->x[1]==0x1117 && (r->x[3]==16 || r->x[3]==512));
+        auto *regions=(ggs_mem_region *)pointer(r->x[2]);
         assert(*(uint32_t *)pointer(r->x[4])==3);
         auto *ext=(uint64_t *)pointer(r->x[5]);assert(ext[0]==4 && !ext[3]);
         auto *dest=(ggs_vmperm *)pointer(ext[1]);
-        auto *memory=find(region.address);assert(region.bytes<=memory->bytes-(region.address-memory->pa));
         if(ext[2]==48){assert(dest[0].vmid==3 && dest[0].perm==6 && dest[1].vmid==10 && dest[1].perm==4);}
-        else {assert(ext[2]==24 && dest[0].vmid==10 && dest[0].perm==6);memory->cp_only=true;}
+        for(unsigned i=0;i<r->x[3]/16;i++) {
+            auto region=regions[i];auto *memory=find(region.address);assert(region.bytes<=memory->bytes-(region.address-memory->pa));
+            if(ext[2]==24) {assert(dest[0].vmid==10 && dest[0].perm==6);memory->cp_only=true;}
+        }
         ++assignments;r->x[0]=0;r->x[1]=assignments==failAssignment?1:0;return 0;
     }
     assert(fn==0x42002801 || fn==0x42000c1b);r->x[0]=r->x[1]=0;return 0;
@@ -98,14 +102,15 @@ static void pagewalk(GiuliaGPU &s) {
         uint64_t va=GGS_SEC_BASE+(uint64_t)slot*GGS_SEC_CHUNK+(edge?GGS_SEC_CHUNK-4096:0);size_t at=0;
         for(unsigned level=1;level<3;level++) {uint64_t e=tables[at*512+((va>>(39-9*level))&511)];assert((e&3)==3);at=((e&0x0000fffffffff000ull)-s.secureRoot)/4096;assert(at<GGS_SEC_TABLE_BYTES/4096);}
         uint64_t leaf=tables[at*512+((va>>12)&511)];
-        assert((leaf&0x0000fffffffff000ull)==s.securePA[slot]+(edge?GGS_SEC_CHUNK-4096:0));
+        uint64_t relative=va-GGS_SEC_BASE;
+        assert((leaf&0x0000fffffffff000ull)==s.securePA[relative/GGS_SEC_GRANULE]+relative%GGS_SEC_GRANULE);
     }
 }
 int main() {
     GiuliaGPU good={};assert(good.platformPrepare());idle(good);pagewalk(good);
     assert(good.platformCommand(1)==0 && good.platformCommand(2)==0);
     assert(good.platformCommand(4)==0 && good.secureOwnershipReady && assignments==17);
-    for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)assert(good.secureData[i]->cp_only);
+    for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++)assert(good.secureData[i]->cp_only);
     assert(!good.secureTables->cp_only && !good.scmMemory->cp_only);
     assert(good.secureAllocate(4096,4096,0x1007,5)==8); /* No mapping success yet. */
     good.secureContextActive=true;good.platformWrite(0x3da0c08,3);

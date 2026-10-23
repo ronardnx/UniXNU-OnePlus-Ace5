@@ -70,10 +70,10 @@ class GiuliaGPU : public IOService {
     struct ggd_pool devPool;
     uint32_t devPacket[255];bool devWritten[255];
     uint64_t gmuRoot,gpuRoot;
-    IOBufferMemoryDescriptor *secureData[GGS_SEC_CHUNKS],*secureTables,*scmMemory,*zapMetadata;
+    IOBufferMemoryDescriptor *secureData[GGS_SEC_SEGMENTS],*secureTables,*scmMemory,*zapMetadata;
     IOMemoryDescriptor *platformMemory[4],*zapMemory;
     IOMemoryMap *platformMaps[4],*zapMap;
-    uint64_t securePA[GGS_SEC_CHUNKS],secureRoot,scmPA,zapMetadataPA;
+    uint64_t securePA[GGS_SEC_SEGMENTS],secureRoot,scmPA,zapMetadataPA;
     struct ggs_secure_slot secureSlots[GGS_SEC_CHUNKS];
     struct ggs_state scmState;
     bool platformPrepared,platformOwned,platformPoisoned,secureContextActive,zapAuthenticated;
@@ -88,6 +88,7 @@ class GiuliaGPU : public IOService {
     int platformCall(uint32_t,uint32_t,const uint64_t *,bool);
     int platformAvailable(uint32_t);
     int platformAssign(uint64_t,uint64_t,bool);
+    int platformAssignBatch(unsigned,unsigned);
     int platformCommand(unsigned);
     int secureAllocate(uint32_t,uint32_t,uint32_t,uint32_t);
     int platformWatch(unsigned,unsigned);
@@ -615,7 +616,7 @@ void GiuliaGPU::releaseResources()
     for(unsigned i=0;i<GGD_CHUNKS;i++)OSSafeReleaseNULL(devMemory[i]);
     /* manualMemoryPinned retains every resource before an ownership/PAS call.
      * No ambiguous secure page is ever returned to the ordinary allocator. */
-    for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)OSSafeReleaseNULL(secureData[i]);
+    for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++)OSSafeReleaseNULL(secureData[i]);
     OSSafeReleaseNULL(secureTables);OSSafeReleaseNULL(scmMemory);OSSafeReleaseNULL(zapMetadata);
     OSSafeReleaseNULL(zapMap);OSSafeReleaseNULL(zapMemory);
     for(unsigned i=0;i<4;i++){OSSafeReleaseNULL(platformMaps[i]);OSSafeReleaseNULL(platformMemory[i]);}

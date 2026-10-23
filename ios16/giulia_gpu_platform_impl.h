@@ -19,18 +19,24 @@ bool GiuliaGPU::platformPrepare()
     zapMetadataPA=zapMetadata?zapMetadata->getPhysicalSegment(0,&span,kIOMemoryMapperNone):0;
     if(!zapMetadata || !gpuHostRangeValid(zapMetadata->getBytesNoCopy(),zapMetadataPA,span,16384))return false;
     bzero(scmMemory->getBytesNoCopy(),GGS_CONTROL_BYTES);bzero(zapMetadata->getBytesNoCopy(),16384);
-    ArmSmmu4KRange ranges[GGS_SEC_CHUNKS];
-    for(unsigned i=0;i<GGS_SEC_CHUNKS;i++) {
-        secureData[i]=gpuAllocateHostMemory(GGS_SEC_CHUNK,true);
+    for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++) {
+        secureData[i]=gpuAllocateHostMemory(GGS_SEC_GRANULE,true);
         securePA[i]=secureData[i]?secureData[i]->getPhysicalSegment(0,&span,kIOMemoryMapperNone):0;
         void *cpu=secureData[i]?secureData[i]->getBytesNoCopy():NULL;
-        if(!gpuHostRangeValid(cpu,securePA[i],span,GGS_SEC_CHUNK))return false;
-        bzero(cpu,GGS_SEC_CHUNK);
-        ranges[i]={GGS_SEC_BASE+(uint64_t)i*GGS_SEC_CHUNK,securePA[i],GGS_SEC_CHUNK,15,0,2};
+        if(!gpuHostRangeValid(cpu,securePA[i],span,GGS_SEC_GRANULE)) {
+            IOLog("GIULIA GPU SECURE: allocation_failed segment=%u bytes=%#x ownership_attempted=0\n",i,GGS_SEC_GRANULE);return false;
+        }
+        bzero(cpu,GGS_SEC_GRANULE);
     }
+    ArmSmmu4KRange *ranges=(ArmSmmu4KRange *)IOMalloc(sizeof(*ranges)*GGS_SEC_SEGMENTS);
+    if(!ranges)return false;
+    for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++)
+        ranges[i]={GGS_SEC_BASE+(uint64_t)i*GGS_SEC_GRANULE,securePA[i],GGS_SEC_GRANULE,15,0,2};
     ArmSmmu4KConfig config={32,36,secureRoot,GGS_SEC_CHUNKS*GGS_SEC_CHUNK/4096};ArmSmmu4KResult built;
     bzero(secureTables->getBytesNoCopy(),GGS_SEC_TABLE_BYTES);
-    if(ArmSmmu4KBuild(&config,ranges,GGS_SEC_CHUNKS,(uint64_t *)secureTables->getBytesNoCopy(),GGS_SEC_TABLE_BYTES/4096,&built)!=ArmSmmu4KSuccess)return false;
+    int build=ArmSmmu4KBuild(&config,ranges,GGS_SEC_SEGMENTS,(uint64_t *)secureTables->getBytesNoCopy(),GGS_SEC_TABLE_BYTES/4096,&built);
+    IOFree(ranges,sizeof(*ranges)*GGS_SEC_SEGMENTS);
+    if(build!=ArmSmmu4KSuccess)return false;
     const uint64_t bases[4]={0x3d00000,0x3d6c000,0x3d8c000,0x3da0000};
     const size_t sizes[4]={0x40000,0x18000,0x4000,0x40000};
     for(unsigned i=0;i<4;i++) {
@@ -114,6 +120,16 @@ int GiuliaGPU::platformAssign(uint64_t pa,uint64_t bytes,bool table)
     if(code){platformPoisoned=true;IOLog("GIULIA GPU SECURE: ownership_unknown=1 retained_until_reboot=1\n");}
     return code;
 }
+int GiuliaGPU::platformAssignBatch(unsigned first,unsigned count)
+{
+    uint64_t args[10];
+    if(first>=GGS_SEC_SEGMENTS || count>GGS_SEC_SEGMENTS-first ||
+       !ggs_assign_batch(scmMemory->getBytesNoCopy(),scmPA,securePA+first,count,args))return 4;
+    platformOwned=true;
+    int code=platformCall(0x42000c16,0x1117,args,true);
+    if(code){platformPoisoned=true;IOLog("GIULIA GPU SECURE: ownership_unknown=1 first_segment=%u retained_until_reboot=1\n",first);}
+    return code;
+}
 int GiuliaGPU::platformCommand(unsigned action)
 {
     if(action==0) {
@@ -121,6 +137,7 @@ int GiuliaGPU::platformCommand(unsigned action)
             platformPrepared,platformOwned,secureOwnershipReady,secureContextActive,platformPoisoned,scmState.quarantined,scmState.init_succeeded,zapAuthenticated,(unsigned long long)secureRoot,GGS_SEC_CHUNKS);
         unsigned used=0;for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)used+=secureSlots[i].used!=0;IOLog("%u\n",used);return 0;
     }
+    if(action==6 && !secureContextActive)return 0;
     if(!platformPrepare() || !platformPower())return 8;
     if(action==6) {
         if(!secureContextActive)return 0;
@@ -153,8 +170,8 @@ int GiuliaGPU::platformCommand(unsigned action)
         if(secureOwnershipReady)return 0;
         int code=platformAvailable(0x02000c16);if(code)return code;
         code=platformAssign(secureRoot,GGS_SEC_TABLE_BYTES,true);if(code)return code;
-        for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)for(unsigned at=0;at<GGS_SEC_CHUNK;at+=0x200000) {
-            code=platformAssign(securePA[i]+at,0x200000,false);if(code)return code;
+        for(unsigned i=0;i<GGS_SEC_SEGMENTS;i+=32) {
+            code=platformAssignBatch(i,32);if(code)return code;
         }
         secureOwnershipReady=true;IOLog("GIULIA GPU SECURE: pool_owned=1 bytes=%#x tables_shared_hlos_rw_cp_r=1 cpu_data_access=0\n",GGS_SEC_CHUNKS*GGS_SEC_CHUNK);return 0;
     }
