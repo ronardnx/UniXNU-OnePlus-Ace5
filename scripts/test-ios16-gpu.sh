@@ -68,6 +68,16 @@ fi
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
     tests/ios16_gpu_hfi.c -o "$tmp/hfi"
 "$tmp/hfi"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_hwsched.c -o "$tmp/hwsched"
+"$tmp/hwsched"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_ring.c -o "$tmp/ring"
+"$tmp/ring"
+python3 scripts/derive-a750-native.py --check
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_a750_native.c -o "$tmp/a750-native"
+"$tmp/a750-native"
 for name in prepare consumer; do
     cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
         "tests/ios16_gpu_power_$name.c" -o "$tmp/power-$name"

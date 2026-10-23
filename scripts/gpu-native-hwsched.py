@@ -13,7 +13,7 @@ import argparse
 from gpu_terminal_boot import LEASE
 parser=argparse.ArgumentParser(description='Native HWSCHED experiment using current kernel roots; answers owned RAM allocation requests and stops on unsupported resources.')
 parser.add_argument('--execute',action='store_true',help='Perform temporary device writes and reset/cleanup')
-parser.add_argument('--stage',choices=('tables','start','gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'),default='tables')
+parser.add_argument('--stage',choices=('tables','start','gx','configure','cp-stock','ring','cp-mapped','cp-secure','nop','cpv2','cp'),default='tables')
 parser.add_argument('--platform',action='store_true',help='Required: use ABI3 allocation mappings, secure-CX and owned secure context')
 parser.add_argument('--without-aqe',action='store_true',help='Register-only baseline without AQE; incomplete vendor startup, never for CP submission')
 parser.add_argument('--watch-read-audit',action='store_true',help='Checkpoint individual watch preflight MMIO reads; never submits RAW')
@@ -21,14 +21,17 @@ parser.add_argument('--kernel-snapshot-audit',action='store_true',help='After su
 parser.add_argument('--prepare-cp-only',action='store_true',help='Configure and verify SQE/AQE, then request fault-gated OP14; never submit RAW')
 parser.add_argument('--host-raw-dispatch',action='store_true',help='Explicit CP-mapped trial through separate OP6 publication and host doorbell')
 parser.add_argument('--minimal-cp-init',action='store_true',help='CP diagnostic omitting optional register-restore list (IFPC/preemption must remain off)')
+parser.add_argument('--lpac',action='store_true',help='Enable the HFI LPAC feature; requires the LPAC soft fuse to be verified set')
+parser.add_argument('--hw-fence',action='store_true',help='Enable the HFI HW_FENCE feature; requires a kernel-registered fence provider queue')
 parser.add_argument('--mirror-gpu-sid1',action='store_true',help='Diagnostic: route the unused LPAC SID1 to the owned GPU context, as in upstream dual-stream bring-up')
 args=parser.parse_args()
 if not args.platform:parser.error('Native HWSCHED requires --platform and ABI3 allocation mapping policy')
 if args.stage in ('cp','cpv2','nop','cp-secure') or (args.stage=='cp-mapped' and not args.host_raw_dispatch):parser.error('OP13 replay remains disabled; cp-mapped requires explicit --host-raw-dispatch')
-if args.host_raw_dispatch and args.stage!='cp-mapped':parser.error('Host RAW dispatch requires cp-mapped')
+if args.host_raw_dispatch and args.stage not in ('cp-mapped','cp-stock','ring'):parser.error('Host RAW dispatch requires cp-mapped')
 if args.minimal_cp_init and not args.host_raw_dispatch:parser.error('Minimal CP init requires explicit host RAW dispatch')
 if args.stage=='cp-secure' and (not args.platform or args.without_aqe):parser.error('cp-secure requires --platform and AQE')
 if args.stage=='cp-mapped' and (not args.platform or args.without_aqe):parser.error('cp-mapped requires --platform and AQE')
+if args.stage in ('cp-stock','ring') and (not args.platform or args.without_aqe or not args.host_raw_dispatch):parser.error('cp-stock/ring require --platform, AQE and --host-raw-dispatch')
 if args.watch_read_audit and (args.stage!='configure' or not args.platform or args.without_aqe):parser.error('Watch audit requires configure --platform with AQE')
 if args.kernel_snapshot_audit and not args.watch_read_audit:parser.error('Kernel snapshot audit requires --watch-read-audit')
 if args.prepare_cp_only and (args.stage!='configure' or args.watch_read_audit):parser.error('CP preparation requires configure without the legacy read audit')
@@ -194,19 +197,27 @@ with Live('gpu-native-hwsched-terminal') as live:
                 reply=transport.send(12,[125,0])
                 assert reply['value']==1 and reply['status']==0
                 report['query_ack']=True
-                for msg,payload in ((15,perf),(3,bw),(11,[1,1,0]),(11,[16,1,0])):
+                # cp-stock negotiates HWSCHED/KPROF inside the vendor-order block.
+                early=((15,perf),(3,bw)) if args.stage=='cp-stock' else ((15,perf),(3,bw),(11,[1,1,0]),(11,[16,1,0]))
+                for msg,payload in early:
                     reply=transport.send(msg,payload)
                     print('INIT ACK id='+str(reply['id'])+' value='+str(reply['value'])+' status='+str(reply['status']),flush=True)
                     assert reply['value']==0 and reply['status'] in (0,None)
                 report['performance_and_bandwidth_tables_accepted']=True
                 report['hwsched_feature_enabled']=True
-                if args.stage in ('start','gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'):
-                    start_hwsched(transport,report,aqe=not args.without_aqe)
+                if args.stage in ('start','gx','configure','cp-stock','ring','cp-mapped','cp-secure','nop','cpv2','cp'):
+                    if args.stage in ('cp-stock','ring'):
+                        report['lpac_enabled']=args.lpac
+                        report['hw_fence_provider_registered']=args.hw_fence
+                        from gpu_terminal_cp_stock import start as start_stock
+                        start_stock(transport,report)
+                    else:
+                        start_hwsched(transport,report,aqe=not args.without_aqe)
                     if args.platform:
                         report['start_mapping_audit']=transport.dev(16)
                         if 'audit_complete=1' not in report['start_mapping_audit']:raise RuntimeError('Mapping audit incomplete after START')
                     capture_phase('hwsched_started')
-                    if args.stage in ('gx','configure','cp-mapped','cp-secure','nop','cpv2','cp'):
+                    if args.stage in ('gx','configure','cp-stock','ring','cp-mapped','cp-secure','nop','cpv2','cp'):
                         report['gx_before']=live.read(reg(0x1f8d0))
                         report['new_bandwidth_vote']=True
                         reply=transport.send(30,[1,1,1])
@@ -218,7 +229,7 @@ with Live('gpu-native-hwsched-terminal') as live:
                         rw(reg(0x1f991),1<<31,verify=False)
                         report['gx_after']=live.read(reg(0x1f8d0))
                         assert report['oob_ack'] and report['gx_after']&3==0, 'GX power/clock did not become ready'
-                        if args.stage in ('configure','cp-mapped','cp-secure','nop','cpv2'):
+                        if args.stage in ('configure','cp-stock','ring','cp-mapped','cp-secure','nop','cpv2'):
                             for base in (0x3d10000,0x3d20000,0x3d30000):maps.append(live.map(base,0x10000))
                         report['rbbm_status']=live.read(reg(0x210))
                         report['rbbm_status3']=live.read(reg(0x213))
@@ -252,6 +263,16 @@ with Live('gpu-native-hwsched-terminal') as live:
                         if args.stage=='cp-secure':
                             from gpu_terminal_cp_secure import run
                             run(live,transport,report)
+                        if args.stage in ('cp-stock','ring'):
+                            from gpu_terminal_cp_secure import prepare
+                            from gpu_terminal_cp_stock import boot
+                            config,record=prepare(live,transport,report)
+                            boot(live,transport,config,report,record['gpu'],dms=True,fence=True)
+                            print('STOCK CP READY '+str({k:report[k] for k in ('cp_init_complete','gpu_memory_write_verified') if k in report}),flush=True)
+                            if args.stage=='ring':
+                                from gpu_terminal_ring import run as ring_run
+                                ring_run(live,transport,report)
+                                print('RING READY '+str({k:report[k] for k in ('ring_verified','ring_fence_verified') if k in report}),flush=True)
                         if args.stage=='cp-mapped':
                             from gpu_terminal_cp_secure import run_mapped
                             run_mapped(live,transport,report)

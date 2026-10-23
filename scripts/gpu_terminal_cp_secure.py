@@ -11,11 +11,17 @@ def packet(opcode, count):
     return 0x70000000|count|((1^(count.bit_count()&1))<<15)|(opcode<<16)|((1^(opcode.bit_count()&1))<<23)
 
 
-def init_commands(powerup_gpu, minimal=False):
-    # gen7_cp_init_cmds: bit 8 enables the three restore-list ordinals.
-    # The diagnostic omits that optional list and its ordinals together.
-    tail=[0x84b,3,0x20000000,2] if minimal else [0x94b,3,0x20000000,2,powerup_gpu,0,1<<31]
-    return [packet(0x17,1),1<<27,packet(0x48,len(tail)),*tail]
+def init_commands(powerup_gpu, minimal=False, dms=True):
+    # gen7_cp_init_cmds: bit 0 multi-HW-context, bit 1 error detect, bit 3
+    # default reset state, bit 6 no perfcounter save, bit 8 register init list
+    # with spinlock, and bit 11 *only* when DMS is unsupported. gen7_9_1
+    # declares ADRENO_DMS, so the vendor mask for this GPU is 0x14b; 0x94b told
+    # the CP the opposite. The optional list form clears bit 8 alone.
+    mask = 0x14b if dms else 0x94b
+    if minimal:
+        mask &= ~(1 << 8)
+    tail = [mask, 3, 0x20000000, 2] if minimal else [mask, 3, 0x20000000, 2, powerup_gpu, 0, 1 << 31]
+    return [packet(0x17, 1), 1 << 27, packet(0x48, len(tail)), *tail]
 
 
 def prepare(live, transport, report):
@@ -64,10 +70,12 @@ def run_mapped(live, transport, report):
     def submit(label,commands):
         report['pending_cp_operation']=label
         (live.capture.root/'cp-pending.txt').write_text(label+'\n'+repr(commands)+'\n')
-        reply=transport.send(131,commands,seconds=2)
-        report[label+'_reply']=reply
-        if reply['value']!=0 or reply['status'] not in (None,0):raise RuntimeError(label+' rejected')
-        until=time.monotonic()+.2
+        # H2F_MSG_ISSUE_CMD_RAW has no reply in the firmware protocol:
+        # submit_raw_cmds() publishes it and polls the GPU busy bit. Waiting for
+        # an HFI ACK here can only time out and must not be read as progress.
+        header=transport.packet(131,commands)
+        report[label+'_header']=hex(header)
+        until=time.monotonic()+.002
         while time.monotonic()<until:
             if not config.rd('GEN7_GPU_GMU_AO_GPU_CX_BUSY_STATUS')&(1<<23):break
         else:raise RuntimeError(label+' did not idle')

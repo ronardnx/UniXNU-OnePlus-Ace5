@@ -5,8 +5,12 @@ from gpu_terminal_native import NativeHfi,start_hwsched
 class NativeProtocol(unittest.TestCase):
  def test_minimal_cp_init_removes_restore_bit_and_ordinals(self):
   from gpu_terminal_cp_secure import init_commands
-  self.assertEqual(init_commands(0x61400000),[0x70970001,0x08000000,0x70c80007,0x94b,3,0x20000000,2,0x61400000,0,0x80000000])
-  self.assertEqual(init_commands(0x61400000,True),[0x70970001,0x08000000,0x70c80004,0x84b,3,0x20000000,2])
+  # ADRENO_DMS is declared for gen7_9_1, so bit 11 stays clear (vendor 0x14b).
+  self.assertEqual(init_commands(0x61400000),[0x70970001,0x08000000,0x70c80007,0x14b,3,0x20000000,2,0x61400000,0,0x80000000])
+  self.assertEqual(init_commands(0x61400000,True),[0x70970001,0x08000000,0x70c80004,0x4b,3,0x20000000,2])
+  # Without DMS support the CP must be told to disable it.
+  self.assertEqual(init_commands(0x61400000,False,False)[3],0x94b)
+  self.assertEqual(init_commands(0x61400000,True,False)[3],0x84b)
  def test_host_raw_dispatch_records_queue_and_doorbell_separately(self):
   import tempfile
   from types import SimpleNamespace

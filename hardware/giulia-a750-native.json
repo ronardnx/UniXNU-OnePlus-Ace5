@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "generator": "scripts/derive-a750-native.py",
+  "inputs": {
+    ".cache\\gpu-source\\adreno-gpulist.h": "08293f60e0be8b3a16ec0b800588d700f54b34d2e9e32e64aac115f05548c8f3",
+    ".cache\\gpu-source\\adreno_gen7.c": "1d63fca08e1d45428b80342d3d35a8c4166ad93c74ade6d125d2b3f9f4267d5d",
+    ".cache\\gpu-source\\gen7_reg.h": "2e564d7eaeec26bc30e79b1d117b86efa79603345769626157c83610fc4c051c",
+    "hardware\\sm8650-gpu.json": "f531ba5423f8f07bd3b3acfaccb43e692af9f1dfef963c22430d4dbc1cb0366c"
+  },
+  "identity": {
+    "chip_id": "0x43051401",
+    "gpu_id": 750,
+    "model": "Adreno750v2"
+  },
+  "tables": {
+    "ao_hwcg": 3,
+    "gbif": 5,
+    "protect": 48,
+    "pwrup": 17
+  },
+  "gmem_bytes": 3145728,
+  "uche_gmem_alignment": 16777216,
+  "hardware_translation_verified": false,
+  "rendered_sha256": "11eb73c8de7e833b438b22192fcb848d8f045cbe74272e7f35e8944a5f2c905a"
+}
