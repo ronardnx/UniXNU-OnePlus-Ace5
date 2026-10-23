@@ -32,7 +32,6 @@ extern "C" {
 #include <net/if_types.h>
 #include <net/kpi_interface.h>
 #include <net/if_ether.h>
-#include <net/dlil.h>
 #include <sys/random.h>
 extern unsigned long gPhysBase,gPhysSize,gVirtBase;
 }

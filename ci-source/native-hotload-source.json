@@ -3,8 +3,8 @@
   "canonical_source": "UniXNU/kits/NativeHotload",
   "kernel_pin": "xnu-8796.141.3",
   "files": {
-    "native_hotload.c": "e5af585e75eb7cc87e5d253e99bde79b9bc2c9b293523eed146806eef867bf5c",
-    "native_hotload.h": "aefaac254989afad6060c7a7fb5d6fdfa1b771eedb72bbaa3254fcefcf90f524",
+    "native_hotload.c": "a6bbc60396927b85d410fe4988a20a28421f00173b7d9230a46a06e22beaf306",
+    "native_hotload.h": "a7a18245bfbb96eaa19ddc4ac8d0273d395be37a76bd641dfc92cf713304a7c5",
     "native_hotload_core.h": "425ea3388ac3b6b6eff7cb994efac61206fc70ac789463c58a8bc8045b91f488",
     "native_hotload_memory.inc": "f61c5db449d5722dffc1639dba4fbc4bd5ce642e590d7786749135bb1f365f98",
     "emit_patch.py": "1cb0bea73af792ddb1146433002498a59e7b7698861311bf832d495805d19ede",

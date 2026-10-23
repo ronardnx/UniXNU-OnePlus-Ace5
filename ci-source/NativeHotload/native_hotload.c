@@ -6,6 +6,7 @@
 #include <sys/errno.h>
 #include <kern/locks.h>
 #include <kern/thread.h>
+#include <mach/thread_act.h>
 #include <kern/clock.h>
 #include <kern/kalloc.h>
 #include <libkern/crypto/sha2.h>

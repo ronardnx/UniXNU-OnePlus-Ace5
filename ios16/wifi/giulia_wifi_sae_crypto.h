@@ -4,8 +4,14 @@
  * uncompressed (04 || x || y). No allocator or g_crypto_funcs dependency. */
 #ifndef GIULIA_WIFI_SAE_CRYPTO_H
 #define GIULIA_WIFI_SAE_CRYPTO_H
+#ifdef KERNEL
+/* Both the IOKit client and standalone libkern provider include this header.
+ * kernel_source removes host type includes when staging the two copies. */
+#include <libkern/libkern.h>
+#else
 #include <stddef.h>
 #include <stdint.h>
+#endif
 #ifdef __cplusplus
 extern "C" {
 #endif

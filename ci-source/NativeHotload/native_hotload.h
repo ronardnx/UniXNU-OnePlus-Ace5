@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent */
 #ifndef NATIVE_HOTLOAD_H
 #define NATIVE_HOTLOAD_H
-#ifdef KERNEL
-#include <sys/types.h>
-#else
 #include <stdint.h>
-#endif
 
 #define NLH_ABI 2u
 #define NLH_MAGIC 0x32484c4eu /* NLH2, little endian */
