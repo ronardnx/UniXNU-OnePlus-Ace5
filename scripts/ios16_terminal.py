@@ -107,7 +107,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
                 'static void gs_disconnect(void)\n{\n    nlh_disconnect();',
             '    } else if (!strcmp(cmd,"features")) {':
                 '    } else if (!strcmp(cmd,"features")) {\n'
-                '        printf("GIULIA TERM: hotload=NLH2 hl.status hl.list hl.core native-module-abi=2 requires=unixnu_hotload1\\n");',
+                '        printf("GIULIA TERM: hotload=NLH2 hl.status hl.list hl.core hl.memory native-module-abi=2 requires=unixnu_hotload1\\n");',
         }
         for old, new in hooks.items():
             if code.count(old) != 1:
@@ -137,7 +137,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
     edit(usb, 'commands help status ping replay',
          'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
          + ' keys.status slider.status slider.calibrate slider.hid slider.stop'
-         + (' hl.status hl.list hl.core' if hotload else '')
+         + (' hl.status hl.list hl.core hl.memory' if hotload else '')
          + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
     if modem:
         edit(usb, 'audio.status audio.map',

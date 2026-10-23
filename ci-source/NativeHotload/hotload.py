@@ -46,7 +46,7 @@ class Wire:
                     self.core.append(dict(re.findall(r'([a-z_]+)=([a-z0-9_,.-]+)', core[1])))
                 # Boot logs may prefix console timestamps. Match the protocol
                 # marker, never module-controlled "NLH module:" text.
-                match = re.search(r'(?<!\S)NLH (ack|done|status) ((?:[a-z_]+=-?[0-9]+ ?)+)$', line)
+                match = re.search(r'(?<!\S)NLH (ack|done|status|memory) ((?:[a-z_]+=-?[0-9]+ ?)+)$', line)
                 if 'NLH disabled ' in line:
                     raise RuntimeError('Hotload is disabled or not supported by this kernel')
                 if match and match[1] == kind:
@@ -76,7 +76,7 @@ def main():
     p.add_argument('--timeout', type=float, default=30)
     sub = p.add_subparsers(dest='command', required=True)
     load = sub.add_parser('load'); load.add_argument('image', type=Path)
-    sub.add_parser('status'); sub.add_parser('list'); sub.add_parser('core')
+    sub.add_parser('status'); sub.add_parser('list'); sub.add_parser('core'); sub.add_parser('memory')
     unload = sub.add_parser('unload'); unload.add_argument('name')
     call = sub.add_parser('call'); call.add_argument('name'); call.add_argument('value', type=int)
     abort = sub.add_parser('abort'); abort.add_argument('token', type=int)
@@ -99,6 +99,10 @@ def main():
         wire.modules.clear()  # Discard old console records preceding the nonce reply.
         wire.core.clear()
         if a.command == 'status': print(status); return
+        if a.command == 'memory':
+            wire.send(f'hl.memory {nonce}')
+            print(wire.receive('memory', nonce=nonce))
+            return
         if a.command == 'core':
             # Core counters are safe to read while a replacement is running.
             wire.ack('hl.core', status['token'])

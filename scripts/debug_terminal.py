@@ -43,7 +43,7 @@ TOPICS = {
     'all': r'.',
 }
 HELP = '''Device commands (new kernel needed except help/ping/status/replay/sample):
-  hl.status / hl.list / hl.core  native modules/core decisions; transfers use NativeHotload/hotload.py
+  hl.status / hl.list / hl.core / hl.memory  module, core and mapping status; transfers use NativeHotload/hotload.py
   info uptime memory ps bootargs display usb ufs features
   help / ping / status / replay / sample (GUI sampler)
   wifi.status / wifi.start   cached firmware boot status / release pre-DMA wait

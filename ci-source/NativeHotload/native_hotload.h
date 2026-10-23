@@ -75,6 +75,7 @@ int nlh_dispatch(const char *name, uint32_t interface_abi, uint64_t argument,
 int nlh_register_platform(uint32_t abi,
     int (*call)(const char *, uint32_t, uint64_t, uint64_t, uint64_t *));
 int nlh_memory_enabled(void);
+void nlh_memory_status(uint32_t nonce);
 extern const char nlh_memory_build[];
 int nlh_memory_create(unsigned slot, const void *code, unsigned length);
 void *nlh_memory_address(unsigned slot);

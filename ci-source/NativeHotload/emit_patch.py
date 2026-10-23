@@ -39,6 +39,8 @@ def emit(out):
                    (ROOT/'native_hotload.h').read_text(encoding='utf-8'))
     patch += added('osfmk/arm/pmap/native_hotload_memory.inc',
                    (ROOT/'native_hotload_memory.inc').read_text(encoding='utf-8'))
+    for name in ('native_hotload_vm.h', 'native_hotload_boot.inc'):
+        patch += added('osfmk/vm/' + name, (ROOT/name).read_text(encoding='utf-8'))
     registration = ('OPTIONS/config_macf\t\t\toptional config_macf\n'
                     'OPTIONS/mach_assert\t\t\toptional mach_assert\n'
                     'OPTIONS/mach_ldebug\t\t\toptional mach_ldebug\n'
@@ -49,16 +51,25 @@ def emit(out):
     anchor = ('void\npmap_protect(\n\tpmap_t pmap,\n')
     patch += changed('osfmk/arm/pmap/pmap.c', anchor,
                      '#include "native_hotload_memory.inc"\n\n' + anchor, 5141)
-    old = ('\t\t\t\t\t/* do NOT clear "PNX"! */\n'
+    old = ('\t\t\tif (set_NX) {\n'
+           '\t\t\t\ttmplate |= pt_attr_leaf_xn(pt_attr);\n'
+           '\t\t\t} else {\n'
+           '\t\t\t\tif (pmap == kernel_pmap) {\n'
+           '\t\t\t\t\t/* do NOT clear "PNX"! */\n'
            '\t\t\t\t\ttmplate |= ARM_PTE_NX;\n')
-    new = ('\t\t\t\t\t/* Only the opt-in loader may seal its owned code. */\n'
+    new = ('\t\t\tif (set_NX || nlh_revoke_allowed(pmap, start, end, prot, args)) {\n'
+           '\t\t\t\ttmplate |= pt_attr_leaf_xn(pt_attr);\n'
+           '\t\t\t} else {\n'
+           '\t\t\t\tif (pmap == kernel_pmap) {\n'
+           '\t\t\t\t\t/* Only the opt-in loader may seal its owned code. */\n'
            '\t\t\t\t\tif (nlh_execute_allowed(pmap, start, end, prot, args))\n'
            '\t\t\t\t\t\ttmplate &= ~ARM_PTE_PNX;\n'
            '\t\t\t\t\ttmplate |= ARM_PTE_NX;\n')
     # Separate file sections allow applying these exact anchors with offsets.
-    change = changed('osfmk/arm/pmap/pmap.c', old, new, 5323)
+    change = changed('osfmk/arm/pmap/pmap.c', old, new, 5319)
     patch += change
     patch += runpy.run_path(str(ROOT/'core/emit_core_patch.py'))['emit_core_patch']()
+    patch += runpy.run_path(str(ROOT/'core/emit_vm_patch.py'))['emit_vm_patch']()
     target = out / '0092-native-hotload.patch'
     if target.exists(): raise ValueError('Hotload patch already exists')
     target.write_text(patch, encoding='utf-8', newline='\n')

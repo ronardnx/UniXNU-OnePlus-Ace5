@@ -323,8 +323,12 @@ GitHub Actions 的 `ios16-xnu.yml` 提供 `hotload=true` 输入，从已审查�
 新 payload 必须更新 UEFI 中的大小／CRC 身份后重新链接；修改 DTB 属性本身
 不足以更新固件编译期校验值。固件重链接输入证据与独立二进制身份核验分别记录。
 
-`hl.status`、`hl.list`、`hl.core` 可在本终端查询；后者显示调度／VM／VFS 模块真实调用、回退和拒绝计数，切换期间也可读取。上传、按名称调用、更新、卸载使用公共 kit 的 `hotload.py`，操作前退出 shell／投屏并关闭其他串口进程。主机工具用 nonce 关联就绪查询、逐块确认偏移，完整摘要校验后才提交。断连丢弃未提交上传，已提交操作继续；结果不确定时查询状态，不重复提交。
+`hl.status`、`hl.list`、`hl.core` 可在本终端查询；后者显示调度／VM／VFS 模块真实调用、回退和拒绝计数，切换期间也可读取。新内存修复还提供 `hl.memory`／`hl.memory NONCE` 只读阶段快照；公共 kit 的对应命令为 `python hotload.py --port COM7 --log NEW_LOG memory`，须从 kit 目录执行并替换实际端口和新日志路径。上传、按名称调用、更新、卸载同样使用 `hotload.py`，操作前退出 shell／投屏并关闭其他串口进程。主机工具用 nonce 关联就绪查询、逐块确认偏移，完整摘要校验后才提交。断连丢弃未提交上传，已提交操作继续；结果不确定时查询状态，不重复提交。
+
+`hl.memory` 的数字阶段为：1 静态 arena 预检／准备、2 分配、3 RW/NX 核验、4 移除写权限并核验 RO/NX、5 缓存维护、6 授予执行权限、7 有效 RX 核验、8 撤销执行权限、9 VM 释放、10 内存操作完成。`error`、`kr`、`arena_kr`、`rollback_error` 区分本次操作、VM、启动准备和清理结果；`bytes` 为请求／分配大小，`arena_bytes` 为启动 arena 大小。报告还包含检查页数、失败序号和仅含权限位的 `leaf/effective/parent_flags`，不输出虚拟／物理地址。`snapshot=0` 的字段须忽略并重查；`arena=1` 或阶段 10 不等于原生模块执行成功。新诊断需新内核，更新电脑脚本不会使旧镜像支持该命令。
 
 NLH2 接受位置无关 C 模块，最多 16 个命名模块、每模块 8 项依赖，支持显式 EXPORT／IMPORT 状态迁移。已接入 `thread_quantum_init`、`vm_fault_is_sequential`、`cluster_max_io_size` 和 `cluster_max_prefetch` 的纯数值决策，对应 `xnu-sched`、`xnu-vm`、`xnu-vfs`。对象、锁、CPU ledger、VM CAS 和 I/O 资源保持常驻；更新期间立即回退原算法，模块私有计数迁移。公共 kit 的 `build-core.py` 生成三个域的 baseline／upgrade／失败场景，`hotload.py core` 读取计数，`call xnu-sched 0/1/2` 分别读取调用／改变／导入数（其他域使用对应名称）。
 
-完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核编译、真实链接入口／调用核验及 15 个策略模块构建，实机热替换尚未验证。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。
+完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核编译、真实链接入口／调用核验及 15 个策略模块构建。2026-10-24 首次实机测试已完成上传，但 commit 在 PROBE 前返回 `EACCES`（13），活动版本／generation／state 均为 0，原生模块没有执行；之后调度器记录到 617277 次常驻回退、0 次策略调用，终端仍可响应。本地证据位于 `reports/hotload-device-20261024.json`。源码审查定位普通堆上级 PXN 阻止执行映射，但旧镜像没有阶段诊断，不能由该错误码单独确定拒绝分支。
+
+修复已实现私有静态子映射：`kmem_init` 先保留原本空闲的静态地址区域，早期 VM map 重定位后于 `ZALLOC/LAST` 创建子映射，不放宽已有父表权限；逐阶段诊断由 `hl.memory` 提供。本轮修复仍待完整 Actions 编译、重新打包和临时启动，随后再验收原生执行、状态迁移、回滚及隔离。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。

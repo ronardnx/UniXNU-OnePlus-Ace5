@@ -14,9 +14,10 @@ from ios16_hotload import MARKERS
 
 SOURCE_FILES = (
     'native_hotload.c', 'native_hotload.h', 'native_hotload_core.h',
-    'native_hotload_memory.inc', 'emit_patch.py', 'hotload.py',
+    'native_hotload_memory.inc', 'native_hotload_vm.h', 'native_hotload_boot.inc',
+    'emit_patch.py', 'hotload.py',
     'build-module.py', 'build-core.py', 'module.ld', 'nlh_format.py',
-    'core/native_core_algorithms.h', 'core/policy.c', 'core/emit_core_patch.py',
+    'core/native_core_algorithms.h', 'core/policy.c', 'core/emit_core_patch.py', 'core/emit_vm_patch.py',
     'core/LICENSE', 'core/UPSTREAM.md', 'examples/counter.c', 'examples/client.c',
 )
 CORE_MODULES = {'xnu-sched': 1, 'xnu-vm': 2, 'xnu-vfs': 3}
@@ -25,9 +26,12 @@ SYMBOLS = (
     '_nlh_command', '_nlh_disconnect',
     '_nlh_core_select', '_nlh_core_status', '_nlh_memory_create',
     '_nlh_memory_address', '_nlh_memory_destroy', '_nlh_memory_enabled',
+    '_nlh_memory_status', '_nlh_memory_code_map',
     '_thread_quantum_init', '_cluster_max_io_size',
 )
 CORE_CALLERS = ('_thread_quantum_init', '_cluster_max_io_size')
+BOOT_SYMBOLS = ('_kmem_init', '_nlh_memory_boot_reserve',
+                '_nlh_memory_map_init', '_kmem_suballoc')
 
 
 def sha256(data):
@@ -45,6 +49,7 @@ def check_source(source, manifest_path):
         'core_policy_adapters': ['sched_quantum', 'vm_sequential',
                                  'vfs_max_io', 'vfs_prefetch'],
         'core_policies_converted': True, 'resident_core_objects': True,
+        'code_memory': 'private-static-submap', 'memory_diagnostics': True,
         'built_in_drivers_reloadable': False, 'xnu_core_converted': False,
     }
     for name, value in expected.items():
@@ -189,7 +194,7 @@ class MachO:
             if not 1 <= section <= len(self.sections):
                 raise ValueError('Mach-O N_SECT symbol has an invalid section index')
             text = self.sections[section - 1]
-            if (not text['executable'] or text['name'] != b'__text' or value & 3 or
+            if (not text['executable'] or text['name'] not in (b'__text', b'__initcode') or value & 3 or
                     not text['address'] <= value or value + 4 > text['address'] + text['size']):
                 continue
             name = self.data[strings + index:stop].decode('utf-8', errors='replace')
@@ -198,7 +203,7 @@ class MachO:
             # Retain every definition as a boundary, but require unique public
             # names only for the implementation whose identity we verify.
             self.code_symbols.append(row)
-            if name not in SYMBOLS:
+            if name not in SYMBOLS + BOOT_SYMBOLS:
                 continue
             if name in self.symbols and self.symbols[name] != row:
                 raise ValueError('Ambiguous Mach-O code definition: ' + name)
@@ -280,7 +285,11 @@ def check_kernel(kernel):
     macho = MachO(kernel)
     missing = [m.decode('utf-8') for m in MARKERS if m not in kernel]
     missing += [name for name in SYMBOLS if name not in macho.symbols or
-                not macho.symbols[name]['external']]
+                not macho.symbols[name]['external'] or
+                macho.sections[macho.symbols[name]['section']-1]['name'] != b'__text']
+    # Startup code is deliberately hidden and may live in a distinct RX
+    # instruction section. It is not a public, permanently callable gateway.
+    missing += [name for name in BOOT_SYMBOLS if name not in macho.symbols]
     if missing:
         raise ValueError('Hotload kernel lacks linked implementation: ' + ', '.join(missing))
     calls = macho.gateway_calls(macho.symbols['_nlh_core_select']['address'])
@@ -297,11 +306,22 @@ def check_kernel(kernel):
                              '; inspect the linked function and inlining/LTO before accepting it')
         callers[name] = {'start': start, 'end': end, 'range_evidence': evidence,
                          'gateway_calls': selected}
+    bootstrap = {}
+    for caller, callee in (('_kmem_init', '_nlh_memory_boot_reserve'),
+                           ('_nlh_memory_map_init', '_kmem_suballoc')):
+        start, end, evidence = macho.function_range(caller)
+        branches = macho.gateway_calls(macho.symbols[callee]['address'])
+        selected = [call for call in branches if start <= call['address'] < end]
+        if not selected:
+            raise ValueError('Missing linked VM bootstrap call: ' + caller + ' -> ' + callee)
+        bootstrap[caller] = {'callee': callee, 'range_evidence': evidence,
+                             'calls': selected}
     return {'kernel_sha256': sha256(kernel), 'kernel_format': 'ARM64 Mach-O executable',
             'linked_symbols': {name: macho.symbols[name]['address'] for name in SYMBOLS},
             'markers': [marker.decode('utf-8') for marker in MARKERS],
             'gateway': '_nlh_core_select', 'direct_gateway_calls': calls,
             'direct_gateway_call_count': len(calls), 'required_callers': callers,
+            'vm_bootstrap_calls': bootstrap,
             'scope': 'linked runtime and resident policy adapters; core objects remain resident'}
 
 

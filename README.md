@@ -107,6 +107,8 @@ For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal
 
 Opt-in NLH2 module loading uses the common `UniXNU/kits/NativeHotload` kit via `--hotload-source`. Resident adapters connect scheduler quantum, VM sequential-access and VFS cluster sizing/prefetch algorithms to replaceable policies with private-state migration, rollback and original-algorithm fallback. The full GUI kernel and 15 modules compiled successfully in [Actions run 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307), including checks of real linked gateways and core calls. The remaining core subsystems and hardware drivers still require conversion; on-device replacement remains unverified. See [module rules](docs/DRIVER_MODULES.md) and [terminal integration](docs/USB_TERMINAL.md#开发用原生模块热更新).
 
+On 2026-10-24, the first device upload completed, but execution-permission checks rejected commit with `EACCES` (13) before any native module executed. The resident scheduler continued through its fallback. A private static-VA submap correction and `hl.memory` diagnostics are implemented; a new full Actions build and fresh temporary boot are required before validating native execution and replacement.
+
 | Path | Purpose |
 | --- | --- |
 | `board.toml`, `configs/`, `targets/` | Board and target configuration |

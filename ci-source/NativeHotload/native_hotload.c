@@ -512,6 +512,16 @@ int nlh_command(const char *cmd)
         goto out;
     }
     if (!strcmp(cmd, "hl.core")) { nlh_core_status(); goto reply; }
+    if (!strcmp(cmd, "hl.memory") || !strncmp(cmd, "hl.memory ", 10)) {
+        if (cmd[9]) {
+            p = cmd + 10;
+            if (!nlh_number(&p, &number) || *p || !number || number > UINT32_MAX) {
+                error = EINVAL; goto reply;
+            }
+        }
+        nlh_memory_status((uint32_t)number);
+        goto out;
+    }
     /* Worker owns image/graph writes while busy. Global/core status remain usable. */
     if (nlh.busy) { error = EBUSY; goto reply; }
     if (!strcmp(cmd, "hl.list")) {

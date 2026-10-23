@@ -13,9 +13,11 @@ def emit_hotload_module(out, source):
     import runpy
     source = source.resolve()
     required = ('native_hotload.c', 'native_hotload.h', 'native_hotload_core.h',
-                'native_hotload_memory.inc', 'emit_patch.py', 'hotload.py',
+                'native_hotload_memory.inc', 'native_hotload_vm.h', 'native_hotload_boot.inc',
+                'emit_patch.py', 'hotload.py',
                 'build-module.py', 'build-core.py', 'module.ld', 'nlh_format.py',
                 'core/native_core_algorithms.h', 'core/policy.c', 'core/emit_core_patch.py',
+                'core/emit_vm_patch.py',
                 'core/LICENSE', 'core/UPSTREAM.md', 'examples/counter.c', 'examples/client.c')
     for name in required:
         if not (source / name).is_file():
@@ -30,6 +32,7 @@ def emit_hotload_module(out, source):
                 'built_in_drivers_reloadable': False, 'xnu_core_converted': False,
                 'core_policies_converted': True, 'core_interface_abi': 0x434f0001,
                 'core_state_abi': 1, 'resident_core_objects': True,
+                'code_memory': 'private-static-submap', 'memory_diagnostics': True,
                 'core_module_names': ['xnu-sched', 'xnu-vm', 'xnu-vfs'],
                 'core_policy_adapters': ['sched_quantum', 'vm_sequential',
                                          'vfs_max_io', 'vfs_prefetch'],
