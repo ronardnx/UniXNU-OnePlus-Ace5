@@ -57,21 +57,7 @@ cellular policy 从原 startup compatibility 独立出来；默认禁用，不�
 rebase、payload 生成、打包和反向验证使用同一 kernel/ABI/ADT/root-policy 契约。
 缺少已链接的原生 provider 时，managed 请求被拒绝；诊断框架不声明可用蜂窝接口。
 
-唯一验收入口：
-
-```sh
-bash scripts/test-ios16-modem.sh
-```
-
-该入口核验原始设备树、固定源码、原厂固件、20H392 dyld/kernel/root；运行相同生产核心、
-内核封装、平台账本、QMUX/QMAP 与连续业务/异常/恢复场景；验证八个 Wi-Fi/GPU/audio 组合的
-完整 XNU 补丁链和依赖准备、UEFI 保留区、产物契约及整个仓库回归。只有全部检查结束才输出关联报告。
-报告保存在 `reports/modem-system.json`，记录全部源码摘要和验证来源，运行中源码变化会拒绝验收。
-
-默认 reference 为 `d68e05df...`，XNU 为 `xnu-8796.141.3`；缓存目录和依赖 pin 由入口脚本声明。
-原始证据环境依赖见 `scripts/modem-test-requirements.txt`。CI `--recorded-evidence` 会明确标记
-只检查提交的原始证据身份，不能冒充重新读取私有镜像。主机内核封装编译、ARM64 核心编译、
-完整组合补丁应用与 CI 的真实 XNU 编译链接分别记录；补丁应用不是整个内核已编译的证明。
+构建和打包入口继续核验 kernel、ABI、ADT 与 root policy 的一致性；硬件结果通过终端采集并记录。历史主机验收报告不替代完整 XNU 编译链接和实机业务验证。
 
 单条 TLV、单个返回码、一个业务状态位或多个局部测试通过都不是最终蜂窝完成结论。
 机制清单明确记录 source-ABI、wire-codec、typed-runtime-contract、kernel broker 和原生执行层级，

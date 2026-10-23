@@ -3,6 +3,14 @@
 2026-10-23 从中断的 Wi-Fi 对话继续实现。本轮只修改代码和运行主机测试，没有
 构建内核、打包镜像、触发 CI 或重新运行设备。当前不能宣称手机已经能联网。
 
+2026-10-24 启动链续查补齐三项原厂初始化：MHI 前下发设备树的 10 条 PDC
+默认电压命令，CAP 后再应用校准覆盖；HOST_CAP 声明板上 WLAN_EN 支持，并通告
+实际 SMMU 映射的 64 MiB IOVA 区间。原先仅有 7 条 CAP 命令，遗漏了三个电源轨
+的默认休眠值。新增真实适配器失败注入、地址范围和固定原厂源码对照均通过，
+完整 Wi-Fi 回归通过；全仓 unittest 316 项、零失败、3 项跳过。尚未构建或实机验证，
+不能据此认定 `FW_INIT_DONE` 超时已解决；细节及下次采集节点见
+[固件启动链修复](WIFI_FIRMWARE_READY.md)。
+
 ## 启动与请求
 
 最新设备记录停在 QMP 通道打开阶段，早于固件就绪通知。已修复与捕获状态一致的
@@ -131,51 +139,6 @@ GET57 在当前实际协商的 legacy 模式下返回原厂包装的兼容默认
 - 主机测试不能验证射频、实际固件事件顺序、物理 DMA 一致性或 iOS 的完整联网流程。
   仍需设备确认固件就绪、扫描、关联、DHCP、DNS、双向流量与断线重连。
 
-## 离线验证
+## 验证边界
 
-```bash
-bash scripts/test-ios16-wifi-runtime.sh
-python3 tests/ios16_wifi_dp_oracle.py
-python3 tests/ios16_wifi_station_oracle.py
-python3 tests/ios16_wifi_apple_oracle.py
-python3 -m unittest discover -s tests -v
-git diff --check
-```
-
-主脚本包含原传输与映射测试、station、data-path、iOS association、扫描、WPA2、SAE 与 PMF 测试，
-并直接提取当前生产运行时函数在有界 IOKit/BSD 桩上执行，启用 ASan/UBSan。
-运行时覆盖实际 station→RSN→密钥 ACK→TCL 调用链，以及隐藏网络、连接中扫描、
-漫游、三次重试、失败切换保留原网络和取消重连。数据面覆盖 174 个初始化/失败用例、
-2,000 次 TX/RX 回收和 300 次 REO 失效/刷新/重连循环。全仓 unittest 本次运行
-281 项，无失败，3 项跳过。C++14 头文件和 AArch64 `-O2`/`-O3` DMA 字节访问检查通过。
-地址映射覆盖 100 项；另通过两个固定 Linux v6.12 布局校验。数据面 oracle 校验
-10 个源码哈希、30 个结构、82 个宏、3 个 HTT RX 订阅位、3 段 DP 语义片段及原厂速率表；密钥归属回归
-覆盖空口 RA 与 Ethernet DA 不同的两种情形。实际运行时还覆盖绑定时零 payload 的
-驱动版本查询、替换连接失败后的迟到 RUN、真实 GTK 更新不重复发关联通知、取消
-连接后的终态，以及实际 BSD ioctl 的 IP 配置、MTU 边界和接口 DOWN 回调。
-station oracle 校验 31 个结构和 71 个常量，覆盖五条 ACTIVE 命令及失败阻断，关联序列覆盖 CCK、混合、OFDM 与 5 GHz。
-`ios16_wifi_network_traffic.inc` 将真实 RSN 握手、固件密钥 ACK、BSD 地址启用、
-TCL/WBM 完成、RXDMA/REO 和 BSD 输入串成组合回归。ARP、DHCP / DNS 格式的
-IPv4 UDP 和 IPv6 帧均保持字节不变，重放帧被真实 PN 检查拦截，接口 DOWN 立即停发。
-固件 DMA 和 BSD 输入边界仍由主机模型提供，测试不运行完整 IP 栈或声称手机已经取得 IP。
-加密测试依赖主机 OpenSSL 开发库；SAE 和运行时测试还使用固定提交的 BearSSL
-缓存（默认 `.cache/wifi-sae-bearssl`，可用 `BEARSSL_SOURCE` 指定），不自动下载。
-两个可选 oracle 脚本要求已有的固定 Linux v6.12
-源码缓存；C 测试直接使用已保存的上游结构定义，不联网下载源文件。
-另一个可选 `ios16_wifi_apple_oracle.py` 使用已有 20H392 dyld cache，直接核对
-绑定、GET103、两种断开、关联结果、SAE、GET5 / 18 scalar ABI 和 GET371 消费者的原始指令字节；不依赖反汇编库，也不下载镜像。
-GET371 与 GET21 共用 Apple 关联结果表，已映射；GET5 已绑定显式 ACTIVE 策略。
-同版原内核的额外生产者对照已确认 GET8 整数 Mbps、GET57 legacy 兼容默认值，
-并直接证明 GET18 / SET18 在原驱动也返回 Unsupported，而非某个已知模式值。
-INT_MIT 保持原名，不再把它推断为 IRQ 中断缓解；没有用 CE polling 伪造响应。
-可选命令 `python tests/ios16_wifi_apple_oracle.py --stock-kernel out/iphone16-audit/kernel.raw`
-会另外验证固定 SHA-256 原内核的 dispatcher / vtable / getter / Family 包装链。
-
-`scripts/ios16_wifi_runtime.py` 现在识别新编译的 station profile，不再将其固定标成
-仅被动扫描。旧扫描内核保留原报告格式；固件段内的同名字符串不能升级能力声明，
-所有报告仍标记 `hardware_verified=False`。四项合成 Mach-O 元数据回归已加入主脚本，
-本轮没有执行内核构建或镜像打包。
-
-BSD 接口依据 Apple 的 [XNU Ethernet 声明](https://github.com/apple-oss-distributions/xnu/blob/xnu-8792.61.2/bsd/net/if_ether.h)
-和 [if_fake 接口实现](https://github.com/apple-oss-distributions/xnu/blob/xnu-8792.61.2/bsd/net/if_fake.c)，
-无线字段依据 [Linux v6.12 ath12k](https://github.com/torvalds/linux/tree/v6.12/drivers/net/wireless/ath/ath12k)。
+历史离线回归覆盖关联、安全协议、扫描、漫游和数据路径，但不证明真实无线连接。仍需完成完整镜像构建，并通过终端与实机确认固件就绪、关联、密钥安装、收发、地址配置及断线恢复。历史证据见 [Wi-Fi 映射](WIFI_MAPPING.md) 和 `hardware/` 记录。

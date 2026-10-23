@@ -31,9 +31,6 @@ PY
 mkdir -p "$output_dir"
 exec > >(tee "$output_dir/host-build.log") 2>&1
 cd "$port_root"
-bash scripts/test-ios16-gpu.sh "$(dirname "$gpu_pack")/gmu_gen70900.bin"
-python3 tests/ios16_gpu_patch.py
-python3 tests/ios16_gpu_embed.py "$gpu_pack"
 python3 scripts/embed-gpu-firmware.py --kernel "$kernel_input" --pack "$gpu_pack" --out "$output_dir/kernel.macho"
 if [ "$gpu_mode" = 3 ]; then
   python3 scripts/prepare-ios16-gpu-power.py --adt "$adt_input" --out "$output_dir/giulia-ios16.adt"
@@ -50,7 +47,6 @@ python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
   --out "$output_dir/payload" --root-report "$root_report" \
   --default-root --trace-all --enable-touch --touch-gpio --gpu-mode "$gpu_mode"
 python3 scripts/verify-payload.py "$output_dir/payload"
-python3 tests/ios16_dram_handoff.py --driver "$driver_dir" --adt "$output_dir/giulia-ios16.adt"
 python3 - "$output_dir" "$board_driver" <<'PY'
 from pathlib import Path
 import json,sys

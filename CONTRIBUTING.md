@@ -4,7 +4,7 @@
 
 - `configs/`、`board.toml`：设备配置；`sources.json`：上游版本锁定。
 - `ios16/`、`patches/`、`uefi-overlay/`：源码、补丁与平台覆盖文件。
-- `scripts/`：构建、打包及诊断工具；`tests/`：离线验证。
+- `scripts/`：构建、打包及诊断工具。
 - `hardware/`：脱敏后的机器可读实机记录；`docs/`：开发说明与历史。
 - `out/`、`.cache/`、`reports/`：本地产物，不提交到 Git。
 
@@ -18,7 +18,6 @@
 
 ```bash
 git diff --check
-python3 -m unittest discover -s tests -v
 ```
 
-修改工作流时检查 YAML 和 GitHub Actions 表达式。硬件功能改动还应运行对应离线测试，并分别记录编译、产物检查和实机结果。
+修改工作流时检查 YAML 和 GitHub Actions 表达式。硬件功能改动应分别记录编译、产物检查和实机结果。

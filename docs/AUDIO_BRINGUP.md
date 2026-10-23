@@ -2,7 +2,7 @@
 
 2026-10-23：在[板级映射](AUDIO_MAPPING.md)之上，已加入固定固件加载、PAS、
 SMEM／GLINK／GPR、APM 图事务和双 SIA9177 控制核心，以及可选 XNU 协调服务。
-这些组件已进入离线验证流程。**当前仓库尚未提供完整的平台资源所有者和 PCM 后端，
+这些组件已有历史离线验证记录。**当前仓库尚未提供完整的平台资源所有者和 PCM 后端，
 因此不能在手机上完成 ADSP 启动或扬声器播放。** 此轮没有连接设备，也没有刷写。
 
 ## 已实现的链路
@@ -106,8 +106,7 @@ python3 scripts/embed-audio-firmware.py \
 - 仍需完成 XNU 的 RSC／带宽资源接管、保留内存 lease、DSP 文件服务／AMDB、
   PCM DMA／SMMU 和完成回报、MI2S 媒体配置，以及实际 I2C／GPIO provider。
 
-运行 `bash scripts/test-ios16-audio.sh` 可执行离线验证；其中模拟对端只用于协议和
-故障路径测试，不作为 DSP 启动或发声证据。完整 XNU 目标编译、实机 ADSP 启动、
+历史离线验证不作为 DSP 启动或发声证据。完整 XNU 目标编译、实机 ADSP 启动、
 扬声器输出和 IOAudio2Family／系统音频应用接入均未验收。
 
 本轮音频 Python 测试66项通过；全仓库237项无失败，1项屏幕测试因缺少专用 C

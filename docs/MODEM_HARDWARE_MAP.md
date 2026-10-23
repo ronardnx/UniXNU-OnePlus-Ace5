@@ -13,11 +13,10 @@
 
 ```sh
 python scripts/ios16_modem_board.py --dts ../ace5-analysis/running-device.dts --source-root .cache/audio-source --local-evidence
-bash scripts/test-ios16-modem.sh
 ```
 
 板级部分包含 44 个节点、218 项属性、29 个关联；IPA 部分从固定源码重建 31 条生产端点和
-10 条测试别名。第二条命令是统一验收入口，板级断言只是其中一项。
+10 条测试别名。板级核验结果需与构建、产物及实机记录一并评估。
 原始 DT 中的设备标识和启动参数不进入公开清单。
 
 ## 固件、MMIO 与内存

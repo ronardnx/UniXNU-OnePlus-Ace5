@@ -128,7 +128,7 @@ x2–x5 保持原参数，仅 x6 使用上次返回的 Qualcomm cookie。返回�
 触发恢复或 WAITQ。原始 64 位结果始终保留。
 [原厂最终错误映射][smc-result]、[错误码定义][scm-errors]
 
-**离线候选的边界。** 头文件和 `tests/ios16_gpu_scm.c` 已进行 host
+**离线候选的边界。** 头文件及历史 SCM 主机用例曾进行 host
 ASan/UBSan 测试，检查固定函数号、权限前置条件、禁止重复初始化、结果保留、
 INTERRUPTED cookie、两种规范 BUSY 编码、重试上限与隔离。AArch64 和
 Darwin arm64 C++ 编译检查确认完整 x0–x7 装入/保存和 `smc #0` 发射。

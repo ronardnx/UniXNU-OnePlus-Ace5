@@ -21,9 +21,23 @@
  * no QDSS configuration file is supplied by this transport. This is a u64
  * FEATURE_LIST bit, separate from the PC-specific PERST policy (bit 4). */
 #define GWQ_HOST_FEATURE_QDSS_CFG_MISS (UINT64_C(1)<<3)
+/* cnss_get_pinctrl sets WLAN_EN_SUPPORT for this board's wlan-en-gpio=16. */
+#define GWQ_HOST_FEATURE_WLAN_EN (UINT64_C(1)<<2)
+#define GWQ_HOST_FEATURES (GWQ_HOST_FEATURE_WLAN_EN|GWQ_HOST_FEATURE_QDSS_CFG_MISS)
+#define GWQ_HOST_DDR_RANGES 3u
 enum gwq_error { GWQ_OK,GWQ_ARGUMENT,GWQ_WIRE,GWQ_TRANSPORT,GWQ_TIMEOUT_ERROR,
     GWQ_SERVER_LOST,GWQ_REMOTE_ERROR,GWQ_MEMORY,GWQ_IDENTITY,GWQ_ASSET,GWQ_STATE,
-    GWQ_PLATFORM_ERROR };
+    GWQ_PLATFORM_ERROR,GWQ_ALREADY_REGISTERED };
+enum gwq_boot_step { GWQ_BOOT_NONE,GWQ_BOOT_DISCOVERY,GWQ_BOOT_REGISTER,
+    GWQ_BOOT_HOST_CAP,GWQ_BOOT_MEMORY,GWQ_BOOT_CAP,GWQ_BOOT_PMU,
+    GWQ_BOOT_REGDB,GWQ_BOOT_BDF,GWQ_BOOT_M3,GWQ_BOOT_WAIT_INIT,
+    GWQ_BOOT_READY,GWQ_BOOT_CONFIG,GWQ_BOOT_MODE,GWQ_BOOT_CONFIGURED };
+static inline const char *gwq_boot_name(unsigned step) {
+    static const char *const names[]={"none","discovery","register","host-cap",
+        "memory","cap","pmu","regdb","bdf","m3","wait-fw-init-done",
+        "ready","wlan-config","wlan-mode","configured"};
+    return step<sizeof(names)/sizeof(names[0])?names[step]:"invalid";
+}
 enum gwq_timeout_phase { GWQ_TIMEOUT_NONE,GWQ_TIMEOUT_RPC,GWQ_TIMEOUT_SERVER,GWQ_TIMEOUT_MISSION };
 enum gwq_asset { GWQ_REGDB,GWQ_BOARD,GWQ_PHY };
 /* OnePlus WLANFW wlfw_mem_type_enum_v01. CNSS allocates every requested
@@ -43,6 +57,9 @@ struct gwq_io {
     uint64_t dma_base,dma_bytes;
     uint64_t (*now)(void *); /* Monotonic milliseconds, including time in pump. */
     int (*configure_pmu)(void *,const struct gwq_pmu_param *,unsigned);
+    /* Complete active SMMU aperture, distinct from the QMI allocation pool
+     * above: MHI/CE rings and later data-path buffers must also be covered. */
+    uint64_t host_iova_base,host_iova_bytes;
 };
 struct gwq_span { uint64_t address; uint32_t bytes,type; };
 struct gwq_device_memory {uint64_t start,bytes;};
@@ -51,6 +68,10 @@ struct gwq_pmu_param {
     uint32_t wake_valid,wake_mv,sleep_valid,sleep_mv;
 };
 struct gwq_state {
+    unsigned boot_step,registration_status_present;
+    uint64_t registration_status;
+    unsigned pin_indications,pin_valid;
+    uint32_t pin_result[3]; /* Power, PHY IO, RF; firmware bitmaps, not booleans. */
     unsigned error,major,hello,server,waiting,replied,registered,host_cap;
     unsigned mem_pending,mem_ready,fw_ready,provisioned,configured,mem_rounds;
     unsigned mem_response_sent,allocations;
@@ -200,6 +221,19 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
             if(!s->mem_response_sent || s->mem_pending)return gwq_fail(s,GWQ_STATE);s->mem_ready=1;
         } else if(msg==0x38) {
             if(!s->mem_ready)return gwq_fail(s,GWQ_STATE);s->fw_ready=1;
+        } else if(msg==0x2c) {
+            /* Vendor PIN_CONNECT_RESULT: optional u32 TLVs 0x10..0x12.
+             * Validate the entire indication before updating diagnostics.
+             * Pin results never substitute for FW_INIT_DONE. */
+            unsigned valid=0;uint32_t result[3]={0};
+            for(unsigned i=0;i<3;i++) {
+                size_t bytes;const uint8_t *value=gwq_field(p,z,0x10+i,&bytes);
+                if(!value)continue;
+                if(bytes!=4)return gwq_fail(s,GWQ_WIRE);
+                valid|=1u<<i;result[i]=gwq_u32(value);
+            }
+            for(unsigned i=0;i<3;i++)if(valid&(1u<<i))s->pin_result[i]=result[i];
+            s->pin_valid|=valid;s->pin_indications++;
         } else {
             /* In the vendor HST/HSP path only FW_INIT_DONE (0x38) starts the
              * WLAN driver. Legacy FW_READY (0x21) denotes calibration, so keep
@@ -233,7 +267,15 @@ static inline int gwq_request(struct gwq_state *s,const struct gwq_io *io,uint16
 static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
     if(!s || !io || !io->send || !io->pump || !io->asset || !io->allocate || !io->clean || !io->now ||
         (major!=1 && major!=2) || s->registered || s->host_cap)return GWQ_ARGUMENT;
-    s->major=major;uint32_t b[5]={2,0,0,0,0};
+    /* Never advertise host physical RAM or an unchecked/wrapping IOVA span.
+     * Validate before sending even discovery/registration traffic. */
+    if(!io->host_iova_base || !io->host_iova_bytes ||
+       ((io->host_iova_base|io->host_iova_bytes)&4095) ||
+       io->host_iova_bytes>UINT64_MAX-io->host_iova_base || !io->dma_bytes ||
+       io->dma_base<io->host_iova_base || io->dma_bytes>io->host_iova_bytes ||
+       io->dma_base-io->host_iova_base>io->host_iova_bytes-io->dma_bytes)
+        return gwq_fail(s,GWQ_MEMORY);
+    s->boot_step=GWQ_BOOT_DISCOVERY;s->major=major;uint32_t b[5]={2,0,0,0,0};
     uint64_t discovery_started=io->now(io->context);unsigned discover=!s->server;
     if(gwq_control(s,io,2,1,GWQ_CTRL,0xffffffffu,GWQ_CTRL,b))return (int)s->error;
     while(!s->server && !s->error) {
@@ -247,16 +289,36 @@ static inline int gwq_start(struct gwq_state *s,const struct gwq_io *io,unsigned
     if(discover && s->server_received_ms-discovery_started>=GWQ_TIMEOUT) {
         s->timeout_phase=GWQ_TIMEOUT_SERVER;return gwq_fail(s,GWQ_TIMEOUT_ERROR);
     }
-    size_t n=0;gwq_num(s->request,&n,0x10,1,1);gwq_num(s->request,&n,0x15,0x4b4e454c,4);
+    s->boot_step=GWQ_BOOT_REGISTER;
+    /* HST/HSP subscribes to FW_INIT_DONE, not legacy calibration FW_READY. */
+    size_t n=0;gwq_num(s->request,&n,0x14,1,1);gwq_num(s->request,&n,0x15,0x4b4e454c,4);
     gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);gwq_num(s->request,&n,0x18,1,1);
-    if(gwq_request(s,io,0x20,n))return (int)s->error;s->registered=1;
+    if(gwq_request(s,io,0x20,n))return (int)s->error;
+    size_t status_bytes;const uint8_t *status=gwq_field(s->response,s->response_bytes,0x10,&status_bytes);
+    s->registration_status_present=status!=NULL;
+    if(status) {
+        if(status_bytes!=8)return gwq_fail(s,GWQ_WIRE);
+        s->registration_status=gwq_u64(status);
+        /* CNSS server-arrive stops before HOST_CAP on -EALREADY. This
+         * cold-boot-only driver cannot adopt another client's DMA/session;
+         * report the condition rather than inventing readiness or waiting. */
+        if(s->registration_status&UINT64_C(1))return gwq_fail(s,GWQ_ALREADY_REGISTERED);
+    }
+    s->registered=1;s->boot_step=GWQ_BOOT_HOST_CAP;
     n=0;gwq_num(s->request,&n,0x10,1,4);gwq_num(s->request,&n,0x14,1,1);
     gwq_num(s->request,&n,0x16,1,1);gwq_num(s->request,&n,0x17,1,1);
     gwq_num(s->request,&n,0x1a,0,1);gwq_num(s->request,&n,0x1c,0,1);
     /* The phone uses CNSS/platform sleep clock policy, not the PC ath12k
      * NM_MODEM/NM_CLK policy. Do not change its PERST reset policy. */
     const char platform[]="OnePlus-Ace5-XNU";gwq_tlv(s->request,sizeof(s->request),&n,0x1e,platform,sizeof(platform)-1);
-    gwq_num(s->request,&n,0x27,GWQ_HOST_FEATURE_QDSS_CFG_MISS,8);
+    /* OnePlus SMMU-S1 HOST_CAP: TLV 0x1f is a STATIC_ARRAY of three
+     * {u64 start,u64 size}, with no count or validity byte on the wire.
+     * Unused ranges stay zero. Only our mapped arena is accessible, never
+     * the stock Android IOVA/IPA pool from the device tree. */
+    uint8_t ranges[16*GWQ_HOST_DDR_RANGES]={0};
+    gwq_w64(ranges,io->host_iova_base);gwq_w64(ranges+8,io->host_iova_bytes);
+    gwq_tlv(s->request,sizeof(s->request),&n,0x1f,ranges,sizeof(ranges));
+    gwq_num(s->request,&n,0x27,GWQ_HOST_FEATURES,8);
     s->host_cap=1;int error=gwq_request(s,io,0x34,n);
     if(!error)s->host_cap_ms=gwq_reply_ms(s);return error;
 }
@@ -271,6 +333,7 @@ static inline int gwq_alloc(struct gwq_state *s,const struct gwq_io *io,size_t n
     return 1;
 }
 static inline int gwq_memory(struct gwq_state *s,const struct gwq_io *io) {
+    s->boot_step=GWQ_BOOT_MEMORY;
     if(!s->mem_pending || ++s->mem_rounds>3 || s->mem_ready)return gwq_fail(s,GWQ_STATE);
     s->mem_request_count=0;s->mem_requested_bytes=0;
     s->mem_failure_index=s->mem_failure_type=UINT32_MAX;
@@ -377,6 +440,7 @@ static inline int gwq_device_mem_cap(struct gwq_state *s) {
 }
 static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     if(!s->mem_ready || s->provisioned)return gwq_fail(s,GWQ_STATE);
+    s->boot_step=GWQ_BOOT_CAP;
     if(gwq_request(s,io,0x24,0))return (int)s->error;
     s->cap_ms=gwq_reply_ms(s);
     size_t chip_bytes,board_bytes,z;
@@ -404,6 +468,7 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
      * provisioning. The platform owns AOP serialization, board constraints and
      * retained/uncertain writes; never send assets after a platform failure. */
     if(s->pmu_present) {
+        s->boot_step=GWQ_BOOT_PMU;
         if(gwq_mission_check(s,io))return (int)s->error;
         s->platform_error=io->configure_pmu?
             io->configure_pmu(io->context,s->pmu,s->pmu_count):-1;
@@ -412,7 +477,11 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
         s->pmu_configured=1;
         if(gwq_mission_check(s,io))return (int)s->error;
     }
-    if(gwq_download(s,io,GWQ_REGDB,4) || gwq_download(s,io,GWQ_BOARD,1))return (int)s->error;
+    s->boot_step=GWQ_BOOT_REGDB;
+    if(gwq_download(s,io,GWQ_REGDB,4))return (int)s->error;
+    s->boot_step=GWQ_BOOT_BDF;
+    if(gwq_download(s,io,GWQ_BOARD,1))return (int)s->error;
+    s->boot_step=GWQ_BOOT_M3;
     const void *phy=NULL;size_t size=0;uint64_t pa;void *va;
     if(io->asset(io->context,GWQ_PHY,s->major,s->chip,s->board,&phy,&size) || !phy || !size || size>1024*1024)
         return gwq_fail(s,GWQ_ASSET);
@@ -420,7 +489,7 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     gwq_copy(va,phy,size);io->clean(io->context,va,size);
     size_t n=0;gwq_num(s->request,&n,1,pa,8);gwq_num(s->request,&n,2,size,4);
     if(gwq_request(s,io,0x3c,n))return (int)s->error;
-    s->m3_ms=gwq_reply_ms(s);s->provisioned=1;return 0;
+    s->m3_ms=gwq_reply_ms(s);s->provisioned=1;s->boot_step=GWQ_BOOT_WAIT_INIT;return 0;
 }
 static inline int gwq_initialize(struct gwq_state *s,const struct gwq_io *io,unsigned major) {
     if(!s || !io || !io->now || s->initializing)return GWQ_ARGUMENT;
@@ -439,6 +508,7 @@ static inline int gwq_initialize(struct gwq_state *s,const struct gwq_io *io,uns
         if(io->pump(io->context,1000))gwq_fail(s,GWQ_TRANSPORT);
     }
     s->elapsed_ms=io->now(io->context)-s->mission_started_ms;s->initializing=0;
+    if(!s->error)s->boot_step=GWQ_BOOT_READY;
     return (int)s->error;
 }
 /* Caller must initialize the matching Copy Engine rings before WLAN_MODE.
@@ -447,6 +517,7 @@ static inline int gwq_configure(struct gwq_state *s,const struct gwq_io *io,
     const uint8_t *pipes,unsigned npipes,const uint8_t *services,unsigned nservices) {
     if(!s->provisioned || !s->fw_ready || s->configured || !pipes || !services || !npipes || npipes>12 || !nservices || nservices>24)
         return gwq_fail(s,GWQ_STATE);
+    s->boot_step=GWQ_BOOT_CONFIG;
     size_t n=0;const char version[]="Giulia-XNU-1";
     gwq_tlv(s->request,sizeof(s->request),&n,0x10,version,sizeof(version)-1);
     uint8_t table[1+24*20];table[0]=(uint8_t)npipes;gwq_copy(table+1,pipes,npipes*20);
@@ -454,8 +525,9 @@ static inline int gwq_configure(struct gwq_state *s,const struct gwq_io *io,
     table[0]=(uint8_t)nservices;gwq_copy(table+1,services,nservices*12);
     gwq_tlv(s->request,sizeof(s->request),&n,0x12,table,1+nservices*12);
     if(gwq_request(s,io,0x23,n))return (int)s->error;
+    s->boot_step=GWQ_BOOT_MODE;
     n=0;gwq_num(s->request,&n,1,0,4); /* QMI_WLANFW_MISSION = 0 */
     gwq_num(s->request,&n,0x10,0,1);
-    if(gwq_request(s,io,0x22,n))return (int)s->error;s->configured=1;return 0;
+    if(gwq_request(s,io,0x22,n))return (int)s->error;s->configured=1;s->boot_step=GWQ_BOOT_CONFIGURED;return 0;
 }
 #endif

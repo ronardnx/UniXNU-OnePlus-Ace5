@@ -79,6 +79,30 @@ static inline const struct qpp_command *qpp_get_command(const struct qpp_plan *p
     return p && p->valid && p->command_count<=QPP_MAX_COMMANDS && index<p->command_count?
         &p->commands[index]:NULL;
 }
+/* cnss_aop_interface_init applies qcom,pdc_init_table before the CAP voltage
+ * overrides. These are already board mV values: do NOT apply CAP rounding or
+ * +/- margins. CAP omits s3c/s1c/s6c retention; their defaults must survive.
+ * Order and values are from /soc/qcom,cnss-kiwi@b0000000 in the captured DTS. */
+static inline int qpp_defaults(struct qpp_plan *out)
+{
+    if(!out)return QPP_ARGUMENT;
+    out->valid=0;
+    static const unsigned order[]={QPP_S3C,QPP_S1C,QPP_S6C,QPP_S2C,QPP_S4I};
+    static const uint32_t values[][2]={{916,612},{1316,944},{1864,1820},{976,512},{940,420}};
+    struct qpp_plan plan;
+    unsigned char *zero=(unsigned char *)&plan;for(size_t i=0;i<sizeof(plan);i++)zero[i]=0;
+    plan.bad_entry=plan.bad_rail=UINT32_MAX;
+    for(unsigned i=0;i<QPP_RAILS;i++) {
+        unsigned rail=order[i];plan.order[plan.rail_count++]=rail;
+        plan.rail[rail]=(struct qpp_vote){1,values[i][0],1,values[i][1]};
+        for(unsigned sleep=0;sleep<2;sleep++) {
+            if(!qpp_format(&plan.commands[plan.command_count],rail,sleep,values[i][sleep]))
+                return qpp_fail(out,QPP_FORMAT,UINT32_MAX,rail);
+            plan.command_count++;
+        }
+    }
+    plan.valid=1;*out=plan;return QPP_OK;
+}
 static inline int qpp_make(const struct qpp_entry *entries,size_t count,struct qpp_plan *out)
 {
     if(out)out->valid=0; /* A rejected new CAP must not leave an old plan usable. */

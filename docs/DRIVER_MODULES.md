@@ -45,18 +45,13 @@ Wi-Fi 和音频通过平台资源 API 获取 IPCC/QMP 资源，不要求 GPU 或
 1. 在对应目录放置源码，在 `ios16_sources.py` 声明新命名或新模块的归属。
 2. 共享机制先定义 `common`／`platform` 接口；禁止向业务驱动添加跨设备协调职责。
 3. 由装配层连接注册和生命周期，不在驱动生成器中探测另一个驱动的补丁文件。
-4. 更新生成、源码快照、相关测试；新增依赖必须在边界检查中显式允许。
+4. 更新生成、源码快照及产物核验；新增依赖必须在边界检查中显式允许。
 
 仓库检查：
 
 ```bash
 python3 scripts/check-driver-modules.py
-python3 -m unittest discover -s tests -v
-bash scripts/test-ios16-gpu.sh
-bash scripts/test-ios16-wifi-runtime.sh
-bash scripts/test-ios16-keys.sh
-bash scripts/test-ios16-slider.sh
 git diff --check
 ```
 
-边界检查与 16 种组合测试已接入内核 CI。组合测试检查实际生成补丁的应用、注册唯一性、未选择模块缺席与头文件解析；平台测试覆盖无 GPU 服务时的交接检查及资源冲突。主机测试和补丁应用不等同于完整 XNU 链接或实机验证。
+边界检查保留在内核 CI 中，随后按选定模块完成内核构建与产物核验。各组合的硬件行为需以对应镜像的实机记录为准。

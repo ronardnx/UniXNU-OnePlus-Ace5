@@ -2,8 +2,7 @@
 
 本文对应 `scripts/ios16_gpu_pmap_patch.py`、生成的
 `ios16/0086-giulia-gpu-pmap.patch`、`ios16/gpu/giulia_gpu_pmap.h`、
-`ios16/gpu/giulia_gpu_fence_native.h`、`ios16/gpu/giulia_gpu_fence_native.c` 与
-`tests/ios16_gpu_pmap*.py`、`tests/ios16_gpu_fence_native*.py`。它补齐的是
+`ios16/gpu/giulia_gpu_fence_native.h`、`ios16/gpu/giulia_gpu_fence_native.c`。它补齐的是
 `docs/GPU_FENCE_PROVIDER.md` 里标注为“原生 pmap ABI 声明仍未实现”的那一层：
 真正的页表策略、审计、只读证据和 Normal NC 守卫。
 
@@ -85,20 +84,9 @@ provider 在导入时被复制冻结，之后修改调用者的结构体不改�
 ## 验证
 
 ```bash
-cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined \
-   tests/ios16_gpu_pmap.c -o /tmp/gpu-pmap && /tmp/gpu-pmap
-python3 tests/ios16_gpu_pmap_patch_static.py
-python3 tests/ios16_gpu_pmap_platform.py
-cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined \
-   -DGG_FENCE_NATIVE_STANDALONE \
-   tests/ios16_gpu_fence_native.c ios16/gpu/giulia_gpu_fence_native.c -o /tmp/fence-native
-python3 tests/ios16_gpu_fence_native_build.py
 # 需要真实 Sweet 补丁后的 XNU 树：
 python3 scripts/ios16_gpu_pmap_patch.py --source XNU --check-static \
    ios16/0086-giulia-gpu-pmap.patch
 ```
 
-`tests/ios16_gpu_pmap_platform.py` 直接使用生成器的 `_STATE` / `_GUARD` 文本，
-只把三条 `__builtin_arm_rsr64()` 换成主机取值、把 `wimg_to_pte()` 换成 RAM
-模型；原生编译则保留真实寄存器读取，并核对五个导出符号与 `mrs` 指令。
-主机页表模型不证明 ARM 总线、缓存一致性或真实翻译。
+历史主机页表模型不证明 ARM 总线、缓存一致性或真实翻译。

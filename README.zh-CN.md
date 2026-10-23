@@ -31,7 +31,11 @@
 
 详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)、[音频驱动进展](docs/AUDIO_BRINGUP.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
 
-基带的硬件资源、固件启动、SIM/数据协议与 iOS 接口依赖见[完整接入映射](docs/MODEM_BRINGUP.md)。统一生命周期、共享资源仲裁、QMI/QMUX/QMAP 与 20H392 ABI 映射已加入；通过一个全链路验收入口检查。原生硬件 provider 和 managed 系统接入仍按契约推进。
+2026-10-24 固件启动链审计：已补齐 MHI 前的板级 PDC 默认配置，以及 HOST_CAP 中的 WLAN_EN 能力与实际 SMMU IOVA 区间。主机回归通过；仍需新镜像和实机采集确认 `FW_INIT_DONE`。见[启动链修复记录](docs/WIFI_FIRMWARE_READY.md)。
+
+后续[上游调用链审计](docs/WIFI_UPSTREAM_CHAIN.md)已把供电、PCIe/MHI、QMI、就绪与释放流程对应到一加固定源码，补上注册状态处理、固件引脚结果和 `wifi.status` 启动快照。冷启动校准、RDDM／恢复和休眠恢复仍未完整实现；尚无新的实机验证。
+
+基带的硬件资源、固件启动、SIM/数据协议与 iOS 接口依赖见[完整接入映射](docs/MODEM_BRINGUP.md)。统一生命周期、共享资源仲裁、QMI/QMUX/QMAP 与 20H392 ABI 映射共用构建和打包契约。原生硬件 provider 和 managed 系统接入仍按契约推进。
 
 ## 环境要求
 
@@ -82,11 +86,9 @@ USB 交互调试：在 Windows CMD 运行 `scripts\debug-terminal.cmd`。协议 
 
 ```bash
 git diff --check
-python3 -m unittest discover -s tests -v
-bash scripts/test-ios16-wifi-runtime.sh
 ```
 
-运行时检查覆盖 PCI 配置、DMA 隔离、固件传输、扫描协议及显示边界。这些属于主机端测试，不能证明无线链路已工作。编译结果、镜像校验与实机结果应分别记录。
+构建和打包命令会核验输入与生成的产物。编译结果、镜像校验与实机结果应分别记录；硬件支持必须有实机证据。
 
 Wi-Fi 的 MMIO、CPU/物理地址/IOVA、资源释放及 iOS 请求映射范围见 [Wi-Fi 映射层](docs/WIFI_MAPPING.md)。
 
@@ -102,7 +104,7 @@ GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用�
 | `sources.json`、`patches/`、`uefi-overlay/` | 上游版本锁定与 UEFI 集成 |
 | `sources/uefi-giulia`、`sources/UniXNU` | 以 Git 子模块固定版本的开发源码快照 |
 | `ios16/` | Darwin 22 驱动及兼容性补丁 |
-| `scripts/`、`tests/` | 构建、打包、诊断及测试工具 |
+| `scripts/` | 构建、打包及诊断工具 |
 | `hardware/`、`docs/` | 验证记录与开发文档 |
 | `.github/workflows/` | 手动触发的 CI 工作流 |
 | `out/`、`.cache/`、`reports/` | 本地产物，不纳入版本控制 |

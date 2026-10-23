@@ -42,11 +42,3 @@ sudo python3 scripts/rebuild-ios16-userdata.py \
 这组值来自 `ios-sweet/tools/mkadt.py`。已对照本地原始 20H392 `mobileactivationd`：`DeviceType.init` 在四项 MobileGestalt 值为 `0,0,1,1` 时设置原生 `should_hactivate` 状态。当前 Ace 5 ADT 缺少这四项。下一轮先使用新 ADT 与现有 userdata 验证原始守护进程能否自行处理本机状态；不重建 userdata，不写 `data_ark.plist`，不修改系统二进制。
 
 该开发板路径尚未通过 Ace 5 实机验证。跳过向导或本机开发状态都不表示 Apple 账户、App Store、DRM 或其他在线服务可用；userdata 工具不写入激活记录，报告中的 `activation_state_seeded` 保持 `false`，`setup_skip.hardware_verified` 仍为 `false`。
-
-离线验证：
-
-```bash
-python3 -m unittest discover -s tests -p 'test_ios16_setup.py' -v
-python3 tests/ios16_startup_compat.py
-python3 tests/ios16_boot_baseline.py
-```

@@ -199,29 +199,11 @@ WMI 与 iOS 的 legacy 当前 PHY 通过同一 OFDM 速率判定区分 11a / 11b
 不再把全部 2.4 GHz 连接都报告成 11g。取消尚未完成的连接也会结束关联结果，
 并继续等待固件扫描归还。FW TX 通知中的非完成状态保留 DMA 所有权，避免过早复用。
 
-## 主机验证
+## 历史主机验证记录
 
-在具有 clang、clang++ 和 Python 3 的 Linux/WSL 环境中，从仓库根目录运行：
+历史主机检查覆盖 MMIO 所有权、映射失败、释放/重建、GET/SET 长度及客户端游标；这些结果不代表设备行为。
 
-```sh
-bash scripts/test-ios16-wifi-runtime.sh
-```
-
-该脚本运行现有传输协议测试、`ios16_wifi_mapping.c` 地址边界与分区测试、
-`ios16_wifi_apple.c` 请求映射测试、DMA 字节访问检查、显示测试和 C++14 头文件
-编译。C/C++ 执行测试启用 AddressSanitizer 与 UndefinedBehaviorSanitizer。
-
-`tests/ios16_wifi_runtime.py` 从当前 `GiuliaWiFi.cpp` 提取真实方法体，使用有界
-IOKit stub 检查 MMIO 所有权、部分映射失败、释放/保留、连续分配、GET/SET 长度、
-descriptor 读写失败和客户端游标。它不替换生产映射/query 实现，不访问设备。
-
-需要单独运行生产方法的主机测试时：
-
-```sh
-python3 tests/ios16_wifi_runtime.py
-```
-
-这些测试覆盖软件边界和资源生命周期。最终内核构建、固件运行、真实扫描、
+历史测试覆盖软件边界和资源生命周期。最终内核构建、固件运行、真实扫描、
 射频及联网结果需要各自独立验证，本说明不宣称已完成实机验证。
 
 2026-10-23 最初映射层检查：完整 Wi-Fi 运行时脚本通过，其中新增地址映射测试
@@ -245,7 +227,7 @@ C++14 头文件和 AArch64 `-O2` / `-O3` DMA 字节访问检查通过。
 主机组合回归从实际 WPA2 / 固件密钥确认开始，经 BSD 地址启用、TCL/WBM、RXDMA/REO
 到 BSD 输入，保持 ARP / IPv4 UDP / IPv6 帧字节不变，并检查 PN 重放和接口 DOWN。
 该模型不运行完整 IP 栈，不将 DHCP / DNS 格式帧的驱动回传等同于真实地址分配或解析成功。
-`tests/ios16_wifi_apple_oracle.py` 直接读取本地 20H392 dyld cache 验证这些核心
+历史 Apple ABI 审计直接读取本地 20H392 dyld cache 验证这些核心
 请求的跳表和指令字节；GET371 已按原始消费者映射到关联结果域。
 目标机器码校验也包含 SAE 能力位的 Bind 复制、两条认证入口及 PMF 默认选择依据，
 避免后端已实现却被框架能力检查提前拒绝。
@@ -259,8 +241,6 @@ C++14 头文件和 AArch64 `-O2` / `-O3` DMA 字节访问检查通过。
 后续已使用固定 20H392 原内核闭合 RATE / MCS / INT_MIT 生产链：GET8 原厂缓存值
 除以 1000 后由 Family 原样拷为 scalar；GET57 原厂在 legacy 分支成功而不填 index，
 Family 的零初始化字段因此原样可见为 0；GET18 / SET18 都直达 Unsupported。
-使用 `python tests/ios16_wifi_apple_oracle.py --stock-kernel out/iphone16-audit/kernel.raw`
-可对原始内核 SHA-256、正确请求号、跳表、vtable 和生产 / 包装指令逐项复验。
 扫描结果和当前网络 BSS 的 `+0x24` 速率数组也按目标消费者修正为整数 Mbps，
 先清空 basic-rate 位再把空口 500 kbps 编码除以 2；5.5 Mbps 以整数 5 表示。
 原始 IE、扫描缓存和关联用速率保持空口编码，不改变实际协商内容。

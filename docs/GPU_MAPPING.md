@@ -158,7 +158,7 @@ GPU 配置的原始 `reg.map` 同时拒绝任何与该物理窗口相交的范�
 [Gunyah 传输与查询会话](GPU_GUNYAH_TRANSPORT.md) 已连接 native HVC、
 RM 分片和动态 VM/parcel/doorbell 查询，整个尝试使用单一截止时间并在
 生命周期变化时撤销结果。查询记录仍须由真实启动通道所有者取得，不能
-自动授予共享内存或 fence 注册权限。相关离线测试现已加入 GPU runner。
+自动授予共享内存或 fence 注册权限。
 后续已增加空闲通知收包和 primary 的 SCM assign / MEM_SHARE / parcel
 lookup / READY 重查事务；失败保留并隔离。它仍依赖真实通道和 carveout
 所有者提供现场授权，事务成功也不代替控制器/CPU 映射证明。
@@ -173,12 +173,10 @@ lookup / READY 重查事务；失败保留并隔离。它仍依赖真实通道�
 完整 CPU 页或取得邻页所有权证明，不能直接扩大 carveout。
 
 ```bash
-bash scripts/test-ios16-gpu.sh
-python3 -m unittest discover -s tests -v
 git diff --check
 ```
 
-测试直接执行生产映射、分配、worker 和平台方法，并以独立页表遍历核对
+历史测试直接执行生产映射、分配、worker 和平台方法，并以独立页表遍历核对
 33,792 个普通池/别名叶页；覆盖 256 组权限组合、跨不连续物理段、零叶页
 别名、损坏的上下文、UCODE 装载顺序、失败隔离和固件请求重用。
 C/C++ 主机测试使用 ASan/UBSan。主机寄存器模型不证明 ARM 总线、缓存

@@ -6,7 +6,7 @@
 
 ## 通用事件
 
-`giulia_gpu_log_event()` 是内核和主机故障注入共用的格式化函数。
+`giulia_gpu_log_event()` 是 GPU 诊断日志的格式化函数。
 
 | 字段 | 含义 |
 | --- | --- |
@@ -58,7 +58,7 @@ code=7 code_name=readback-mismatch native_code=0 cleanup=0 cause=unconfirmed
 ```
 
 这表示 TCR 读操作本身成功，但读回数据与已写入的配置不同。它不能证明
-实际手机有这个问题。测试会检查地址、期望/实际值及首次失败保留行为。
+实际手机有这个问题。应核对地址、期望/实际值及首次失败保留行为。
 
 ```text
 subsystem=gmu phase=firmware-ready(4) op=poll
@@ -100,14 +100,4 @@ code=5 code_name=io native_code=89 cleanup=1 cause=unconfirmed
 
 ## 复现与边界
 
-```bash
-python3 scripts/make-gpu-smmu-oracle.py --fetch --out .cache/gpu-source-oracle.c
-bash scripts/test-ios16-gpu.sh out/ios16/gpu-stock-firmware/gmu_gen70900.bin
-```
-
-`--fetch` 只获取一次固定摘要的公开 Linux 测试输入；后续主机测试不需网络。
-`tests/ios16_gpu_log.py` 会校验共用格式化函数的真实输出，不只检查源码里
-有没有日志字符串。完整记录保存于 `out/ios16/gpu-offline-control/offline-tests.log`。
-
-本轮不启动手机。电源与写寄存器控制接口尚未绑定真实平台后端；
-`giulia_gpu=1/2` 不调用这些写入入口，不能把主机模型通过当成设备已启动。
+通过 [GPU 终端调试](GPU_TERMINAL_BRINGUP.md) 采集设备日志。上述历史故障注入示例仅说明日志格式和错误传播，不证明设备已启动。

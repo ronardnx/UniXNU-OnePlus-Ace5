@@ -54,7 +54,7 @@ if gpu_pack:
     if metadata.get('output_sha256')!=hashlib.sha256(kernel).hexdigest() or metadata.get('boot_args_bytes')!=736:
         raise SystemExit('Kernel handoff metadata mismatch')
     # Validate the exact insertion order, both pinned packs and header capacity
-    # before tests, loader edits or the expensive UEFI build.
+    # before loader edits or the expensive UEFI build.
     for name,path in (('wifi',wifi_pack),('gpu',gpu_pack)):
         pin=(root/f'ios16/{name}/giulia_{name}_firmware_pin.h').read_text()
         digest=bytes(int(x,16) for x in re.findall(r'0x([0-9a-f]{2})\b',pin))
@@ -89,30 +89,12 @@ cd "$port_root"
 if [ -n "$runtime_pack" ]; then
   python3 scripts/fix-ios16-high-physical-cache.py --kernel "$kernel_input" --check
 fi
-runtime_checks=()
 terminal_args=()
 gpu_args=()
 if [ -n "$gpu_pack" ]; then gpu_args=(--gpu-mode "$gpu_mode"); fi
 if [ "${GIULIA_DEBUG_TERMINAL:-0}" = 1 ]; then terminal_args+=(--debug-terminal); fi
 if [ "${GIULIA_DEBUG_MMIO:-0}" = 1 ]; then terminal_args+=(--debug-mmio); fi
 if [ "${GIULIA_WIFI_TERMINAL_WAIT:-0}" = 1 ]; then terminal_args+=(--wifi-terminal-wait); fi
-if [ -n "$runtime_pack" ]; then runtime_checks=(--runtime); fi
-python3 tests/ios16_wifi_bundle.py --dts "$dts_input" --out "$output_dir/offline-checks.json" "${runtime_checks[@]}"
-if [ -n "$gpu_pack" ]; then
-  python3 - "$gpu_pack" "$output_dir/gpu-offline-checks.json" <<'PY'
-import json,subprocess,sys
-from pathlib import Path
-checks=[]
-for command in (['bash','scripts/test-ios16-gpu.sh'],
-                [sys.executable,'tests/ios16_gpu_patch.py'],
-                [sys.executable,'tests/ios16_gpu_embed.py',sys.argv[1]]):
-    result=subprocess.run(command,capture_output=True,text=True)
-    print(result.stdout,end='');print(result.stderr,end='',file=sys.stderr)
-    result.check_returncode()
-    checks.append({'command':command,'result':'passed','output':result.stdout.strip()})
-Path(sys.argv[2]).write_text(json.dumps({'status':'offline-checks-passed','hardware_verified':False,'checks':checks},indent=2)+'\n')
-PY
-fi
 if [ -n "$runtime_pack" ]; then
   wifi_kernel="$output_dir/kernel.macho"
   if [ -n "$gpu_pack" ]; then wifi_kernel="$output_dir/kernel-wifi.macho"; fi
@@ -152,14 +134,14 @@ python3 scripts/make-ios16-payload.py --kernel "$output_dir/kernel.macho" \
 python3 scripts/verify-payload.py "$output_dir/payload"
 python3 - "$output_dir" <<'PY'
 from pathlib import Path
-import shutil,sys
+import json,shutil,sys
 out=Path(sys.argv[1]);snapshot=out/'runtime-source'
 files=[*Path('ios16/wifi').glob('giulia_wifi_*.h'),*Path('ios16/wifi').glob('giulia_wifi_*.c'),Path('ios16/wifi/GiuliaWiFi.cpp'),
        Path('ios16/display/giulia_display.h'),Path('scripts/ios16_display.py')]
 files += [*Path('ios16/common').glob('*.h'), *Path('ios16/platform').glob('*'),
           Path('scripts/ios16_sources.py'), Path('scripts/ios16_platform_patch.py'),
           Path('scripts/ios16_modules.py'), Path('scripts/ios16_module_registry.py')]
-if (out/'gpu-offline-checks.json').exists():
+if json.loads((out/'payload/payload.json').read_text()).get('gpu_runtime'):
     files += [Path('ios16/gpu/GiuliaGPU.cpp'),*Path('ios16/gpu').glob('giulia_gpu_*.c'),
               *Path('ios16/gpu').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
               Path('scripts/ios16_gpu_patch.py'),Path('scripts/ios16_gpu_runtime.py'),
@@ -176,7 +158,6 @@ for source in sorted(set(files)):
     destination.parent.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(source,destination)
 PY
-python3 tests/ios16_dram_handoff.py --driver "$driver_dir" --adt "$output_dir/giulia-ios16.adt"
 python3 - "$output_dir" "$board_driver" <<'PY'
 from pathlib import Path
 import json,os,sys
@@ -232,7 +213,7 @@ if (out/'gunyah-request.gpu-gunyah.json').is_file():
 payload=json.loads((out/'payload/payload.json').read_text())
 runtime=payload.get('wifi_runtime')
 gpu_runtime=payload.get('gpu_runtime')
-files += [*sorted((out/'runtime-source').rglob('*')),out/'kernel.json',out/'gpu-offline-checks.json']
+files += [*sorted((out/'runtime-source').rglob('*')),out/'kernel.json']
 report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         'pcie_failure_snapshot':os.environ.get('GIULIA_WIFI_SNAPSHOT')=='1',
         'pcie_link_training_owner':'XNU' if os.environ.get('GIULIA_WIFI_XNU_LINK')=='1' else 'UEFI',

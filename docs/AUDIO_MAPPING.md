@@ -53,8 +53,6 @@ logs audio
 
 ```bash
 python3 scripts/check-audio-mapping.py
-bash scripts/test-ios16-audio.sh
-python3 -m unittest discover -s tests -v
 ```
 
 本地有原始输入时可进一步核对；源码缓存布局为 `<repository-name>/<upstream-path>`：
@@ -89,7 +87,7 @@ PT_LOAD 加载。校验工具检查整个 `p_memsz` 是否位于对应保留区�
 测试，C ASan／UBSan 边界检查、C++ 编译以及剥离 libc 整数宏后的内核嵌入编译。
 全仓库运行 164 项 Python 测试，无失败，1 项屏幕测试因未提供专用 C 数据包夹具跳过；
 base 和 GUI（同时启用 Wi-Fi／GPU）补丁生成及完整 USB 补丁链应用检查通过。
-CI 已加入 `test-ios16-audio.sh`。完整 XNU 目标编译与实机音频验证尚未执行。
+完整 XNU 目标编译与实机音频验证尚未执行。
 
 后续需要完成 PAS／SCM 和保留内存所有权、SMEM／GLINK／GPR、音频时钟和电源、
 SPF graph 与 ACDB 校准、`sipa.bin` 校验及功放时序、PCM DMA 和 iOS 音频接口，

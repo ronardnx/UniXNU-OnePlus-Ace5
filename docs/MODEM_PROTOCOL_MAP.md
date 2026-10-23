@@ -273,8 +273,7 @@ RMTFS 中的物理偏移/地址只能解释为已核实、由 AP 管理的共享
 schema 已映射，不能将 schema 存在视为物理 provider 已执行。原生远端返回值是协议消费者的输入，
 不是停止静态映射的条件。具体端点来自固定 31 项生产表，协商值由当前会话产生并校验。
 
-唯一验收入口是 `bash scripts/test-ios16-modem.sh`。已有字段级断言作为连续系统场景和仓库回归的
-内部检查，不再单独作交付结论。报告同时关联原始证据、核心执行、完整组合补丁和产物一致性。
+协议验收需关联固定原始证据、完整构建、产物一致性及实机连续业务记录；局部字段检查不能单独给出系统完成结论。
 
 [enums]: https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-enums.h
 [message]: https://github.com/linux-mobile-broadband/libqmi/blob/d9e8af5cae7fdf9749baf87606568d3af4d03082/src/libqmi-glib/qmi-message.c

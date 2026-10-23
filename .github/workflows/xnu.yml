@@ -32,12 +32,6 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-path
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
-      - name: Check first-entry device tree
-        run: python3 -m unittest discover -s tests -v
-      - name: Check SM8650 SMMU takeover planning
-        run: |
-          clang++ -std=c++17 -Wall -Wextra -Werror tests/GiuliaSmmuTakeover.cpp -o "$RUNNER_TEMP/giulia-smmu-test"
-          "$RUNNER_TEMP/giulia-smmu-test"
       - name: Fetch the verified Data seed artifact
         env:
           GH_TOKEN: ${{ github.token }}

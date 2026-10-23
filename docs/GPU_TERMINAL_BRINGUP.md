@@ -277,9 +277,9 @@ SMMU bypass 请求首先被硬件拒绝，回读仍为 FAULT，未解除复位�
   退出，保存原始报文并恢复硬件。不是后台 GPU 驱动。
 - `scripts/panel-display-terminal.py off|on`：显式熄屏／亮屏命令，恢复 DSI
   FIFO 的配置，不重建镜像。
-- `tests/firmware/giulia_gmu_hfi_mailbox.S`：140 字节有界 NMI 邮箱程序；
+- `scripts/gpu-diagnostics/giulia_gmu_hfi_mailbox.S`：140 字节有界 NMI 邮箱程序；
   唯一允许的外部数据访问是现有 HFI 分配 `0x60010000..0x60021fff`。
-  `tests/ios16_gpu_mailbox.py` 在 Unicorn 中执行实机同一组字节，15 项检查
+  历史 Unicorn 检查曾执行实机同一组字节，15 项检查
   覆盖越界、溢出、非法操作、精确写入与寄存器／栈恢复。
 
 邮箱二进制只用于终端诊断，与内核镜像编译无关：
@@ -287,9 +287,8 @@ SMMU bypass 请求首先被硬件拒绝，回读仍为 FAULT，未解除复位�
 ```bash
 clang --target=armv7m-none-eabi -fuse-ld=lld -mcpu=cortex-m3 -mthumb \
   -nostdlib -Wl,--image-base=0,-Ttext=0x3a40,-e,mailbox_handler \
-  tests/firmware/giulia_gmu_hfi_mailbox.S -o .cache/gmu-hfi-mailbox.elf
+  scripts/gpu-diagnostics/giulia_gmu_hfi_mailbox.S -o .cache/gmu-hfi-mailbox.elf
 llvm-objcopy -O binary .cache/gmu-hfi-mailbox.elf .cache/gmu-hfi-mailbox.bin
-python tests/ios16_gpu_mailbox.py
 ```
 
 下一次统一内核改动需提供：有所有权与生命周期的 GPU/GMU 分配池、真实
@@ -365,8 +364,8 @@ TBI/ASIDPNE 位行为。本地诊断使用关闭 context fault IRQ 的 `SCTLR=0x
 
 ## 实际执行验证
 
-诊断源码保存在 `tests/firmware/giulia_gmu_read_probe.S` 和
-`tests/firmware/giulia_gmu_dma_probe.S`。程序只读取规定的 GMU 地址、
+诊断源码保存在 `scripts/gpu-diagnostics/giulia_gmu_read_probe.S` 和
+`scripts/gpu-diagnostics/giulia_gmu_dma_probe.S`。程序只读取规定的 GMU 地址、
 写 DTCM 结果邮箱，以及在读写测试中临时修改并恢复独占缓冲区的一个字。
 每次实验先核对复位、无 stream 占用、当前表根及无有效 fault，再逐字
 验证 ITCM，接通 SID 5，短暂解除复位并有界等待结果。
@@ -401,13 +400,6 @@ GMU/HFI，也没有遗留运行中的诊断程序或有效 DMA stream。
 已验证的流程接入有生命周期管理的运行时适配器，分配并映射真实的
 HFI 队列、日志和 VRB，完成原厂启动所需的 secure CX、PDC/RSC、IRQ、
 带宽及 HWSCHED 消息。诊断程序成功不能替代这些原厂固件前置条件。
-
-离线核对诊断程序的编译字节（不访问手机）：
-
-```bash
-python3 tests/ios16_gpu_probe.py
-bash scripts/test-ios16-gpu.sh out/ios16/gpu-stock-firmware/gmu_gen70900.bin
-```
 
 ## HFI 队列与终端准备（实机准备阶段已验收）
 

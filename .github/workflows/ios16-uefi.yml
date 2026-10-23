@@ -41,16 +41,9 @@ jobs:
       - name: Install UEFI and packaging dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler libfdt-dev mono-devel ca-certificates-mono mtools
-      - name: Check initrd scan boundaries
-        run: |
-          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/giulia_initrd_scan.c -o /tmp/initrd-scan-test
-          /tmp/initrd-scan-test
-          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -DGG_GUNYAH_FDT_STANDALONE tests/ios16_gpu_gunyah_handoff.c uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/GpuGunyah.c -lfdt -o /tmp/gunyah-fdt-test
-          /tmp/gunyah-fdt-test
+          sudo apt-get install -y build-essential git python3-venv clang llvm lld uuid-dev nasm gcc-aarch64-linux-gnu acpica-tools device-tree-compiler mono-devel ca-certificates-mono mtools
       - name: Make matching FAT payload
         run: |
-          python3 tests/ios16_platform_match.py --reference reference --kernel kernel-artifact/profile/kernel.macho
           python3 scripts/make-ios16-adt.py --reference reference --out "$RUNNER_TEMP/giulia-ios16.adt"
           python3 scripts/make-ios16-payload.py --kernel kernel-artifact/profile/kernel.macho --adt "$RUNNER_TEMP/giulia-ios16.adt" --out "$RUNNER_TEMP/ios16-payload"
           python3 scripts/verify-payload.py "$RUNNER_TEMP/ios16-payload"

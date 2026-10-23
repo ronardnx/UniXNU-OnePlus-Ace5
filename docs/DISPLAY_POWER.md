@@ -33,13 +33,6 @@ GUI 补丁由 [`ios16_display_power.py`](../scripts/ios16_display_power.py) 生�
 
 ## 验证方法
 
-本地主机测试覆盖 DCS 开关命令、重复请求、寄存器恢复、超时与 ACK 错误，
-以及实际 C++ 回调的串行化、重绘和错误返回：
-
-```bash
-bash scripts/test-ios16-display-power.sh
-```
-
 实机使用包含上述修复的 GUI 内核，采集 USB 串口后短按电源键、等待约 3 秒、
 再短按一次。确认屏幕完全熄灭并恢复亮屏，同时检查 `GIULIA DISPLAY POWER:`
 的请求值、`on`、`error`、`ack` 和 `frozen`。`keys.status` 只证明按键驱动状态，

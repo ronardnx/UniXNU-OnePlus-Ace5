@@ -171,32 +171,4 @@ MSGQ 可用不代表 doorbell 可用，不按编号推导 `0xc6008013`。read-an
 
 ## 验证
 
-`bash scripts/test-ios16-gpu.sh` 包含 query、RM、HVC、session 和 fence
-queue、memory 和 share 的 ASan/UBSan 测试；session 测试连接真实 HVC adapter、RM 和 query
-实现，仅将 HVC 指令替换为明确标记的主机 fixture。覆盖动态身份、冻结
-回调、故障/通知、回调内失效、总截止时间和时钟倒退。
-
-`python3 tests/ios16_gpu_gunyah_build.py` 从实际生成的内核补丁取源，交叉
-编译 Darwin arm64 C++ 和 AArch64 C，核对 HVC 指令、x18 保存及外部符号。
-平台头文件为测试 stub；这不等于完整 XNU 编译或内核链接。所有验证均为
-离线检查，没有执行目标 HVC、SMC、MMIO、RAW 或 fence 提交。
-
-2026-10-23 后续验证日志为 `reports/gpu-gunyah-share-20261023/`：完整 GPU
-runner（含 890 控制场景、新共享事务与 idle pump）通过，Python 271 项中
-268 项通过、3 项条件跳过，八种配置补丁应用及三单元交叉编译通过。
-22 份固定原厂源码长度、SHA-256、Git blob 已逐字节核验。
-
-启动资源接线的后续日志在 `reports/gpu-gunyah-boot-20261023/`：完整 GPU
-runner 通过；当前全仓 281 项中 278 项通过、3 项条件跳过；GPU/Wi-Fi/Audio
-八种配置及九项打包测试通过。真实 vendored libfdt 成功提取 898,526 字节
-完整板级 DTB；398 项 loader/decode 场景、native GIC glue RAM shim、
-真实源码静态补丁核验通过。UEFI provider/loader 使用实际 Mu 头文件生成
-ARM64 COFF，kernel transport/glue 也通过 AArch64 交叉编译。计数器合法
-首值 0 的修复另跑完整 FDT、loader 和 native 编译验证。
-这些证据仍不包括完整固件/内核链接、实机 GIC 租约或 fence 完成。
-
-下一步仍需共享内存事务的运行时接入、控制器相邻页授权，以及 fence 表句柄、
-跨 VM 锁、错误和复位处理；CPU Normal NC 映射与 pmap 审计本身已实现为
-[CPU pmap 门控](GPU_CPU_PMAP.md)，但没有真实 share 快照时不会发起导入。
-此前 HFI kind11–13/20 的排除已依据固定 gen7 的真实 SYSRAM
-分支纠正，详见 [映射记录](GPU_MAPPING.md)。
+历史离线检查仅覆盖协议、生命周期和交叉编译，不代表执行过目标 HVC、SMC、MMIO 或 fence 提交。当前验收应结合完整 XNU 构建与 [GPU 终端调试](GPU_TERMINAL_BRINGUP.md) 的设备记录。

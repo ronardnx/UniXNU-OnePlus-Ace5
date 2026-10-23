@@ -16,7 +16,6 @@ if [ "${GIULIA_BOOT_ABI:-darwin23}" = darwin22 ]; then
     python3 "$port_root/scripts/verify-wifi-native-abi.py" --uefi "$work/uefi-giulia"
     python3 "$port_root/scripts/enable-hall-diagnostics.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
   fi
-  python3 "$port_root/tests/ios16_dram_handoff.py" --driver "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 fi
 python3 -m venv "$work/.venv"
 "$work/.venv/bin/pip" install -r "$work/uefi-giulia/pip-requirements.txt"

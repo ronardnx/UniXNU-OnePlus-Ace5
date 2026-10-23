@@ -243,7 +243,7 @@ python scripts/ios16_modem_apple.py header
 
 `extract` 读取原 HFS 文件和 cache mapping，输出 402 个真实函数范围、指令与 SHA256，及网络调用点；避免生成数千万符号的全局 A2S 表。`extract-kernel` 从指定 IPSW 的 BuildManifest 核对 20H392，解压固定成员，解析 prelink XML 的 ID/IDREF，按所属 kext 代码范围唯一定位三张 dispatch 表。原文件不修改。
 
-唯一集成验收入口仍是 `scripts/test-ios16-modem.sh`。其可调用 `verify_sources()`、`verify_kernel_sources()`、`render_abi_header()` 和 `require_managed_contract()`，将来源、C 调用边界、provider、ADT、root 策略和统一运行场景关联到一份报告。单独提取成功或 selector 形状匹配不能作为蜂窝业务已通过的结论。
+构建与打包继续使用 `verify_sources()`、`verify_kernel_sources()`、`render_abi_header()` 和 `require_managed_contract()` 核对来源、C 调用边界、provider、ADT 与 root 策略。单独提取成功或 selector 形状匹配不能作为蜂窝业务已通过的结论。
 
 当前已恢复实际产品协议分支、全 61 个原内核 dispatch 项、54 个用户态 wrapper 契约、通道表、通知布局、provider 拓扑和 IP 配置调用链，并闭合了 D22 状态/属性适用性、ManagerState、三类 ABP 异步完成契约及物理双槽→核心双槽→D22 单订阅前端的能力边界。JSON 的语义记录为每段生产端和消费端代码保存源字节范围与 hash。
 

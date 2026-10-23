@@ -31,7 +31,11 @@ Display rotation, full system suspend/resume and application compatibility requi
 
 See [development status](docs/DEVELOPMENT_STATUS.md), [audio bring-up](docs/AUDIO_BRINGUP.md) and the [firmware transfer test record](hardware/sm8650-wifi-root-master.json) for evidence and remaining work.
 
-The [modem integration map](docs/MODEM_BRINGUP.md) covers hardware resources, firmware startup, SIM/data protocols and iOS interface dependencies. The unified lifecycle, shared resource broker, QMI/QMUX/QMAP codecs and recovered 20H392 ABI are checked through one integrated acceptance entry. Native MPSS/PDP providers are not yet connected; managed cellular remains gated.
+2026-10-24 firmware-startup audit: Wi-Fi now installs the board PDC defaults before MHI and advertises WLAN_EN support plus the mapped SMMU IOVA range in HOST_CAP. Host regression tests pass; a new image and device capture are still needed to establish `FW_INIT_DONE`. See [startup corrections](docs/WIFI_FIRMWARE_READY.md).
+
+The follow-up [upstream call-chain audit](docs/WIFI_UPSTREAM_CHAIN.md) maps platform power, PCIe/MHI, QMI, readiness and teardown to pinned OnePlus sources. It adds registration-status handling, firmware pin-result reporting and a cached `wifi.status` boot snapshot. Cold-boot calibration, RDDM/recovery and suspend/resume remain incomplete; no new device validation is claimed.
+
+The [modem integration map](docs/MODEM_BRINGUP.md) covers hardware resources, firmware startup, SIM/data protocols and iOS interface dependencies. The unified lifecycle, shared resource broker, QMI/QMUX/QMAP codecs and recovered 20H392 ABI share the build and packaging contracts. Native MPSS/PDP providers are not yet connected; managed cellular remains gated.
 
 ## Requirements
 
@@ -80,11 +84,9 @@ To skip the first-boot Setup UI in a new userdata image, pass `--skip-setup` to 
 
 ```bash
 git diff --check
-python3 -m unittest discover -s tests -v
-bash scripts/test-ios16-wifi-runtime.sh
 ```
 
-The runtime checks cover PCI configuration, DMA isolation, firmware transport, scan protocol handling and display bounds. These are host tests; they do not demonstrate a working radio link. Record build results, image validation and physical-device results separately.
+Build and packaging commands validate their inputs and generated artifacts. Record build results, image validation and physical-device results separately; hardware support requires device evidence.
 
 See [Wi-Fi mappings](docs/WIFI_MAPPING.md) for MMIO resources, CPU/physical/IOVA address translation, resource cleanup and the supported iOS requests.
 
@@ -102,7 +104,7 @@ For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal
 | `sources.json`, `patches/`, `uefi-overlay/` | Upstream pins and UEFI integration |
 | `sources/uefi-giulia`, `sources/UniXNU` | Development source snapshots pinned as Git submodules |
 | `ios16/` | Darwin 22 drivers and compatibility patches |
-| `scripts/`, `tests/` | Build, packaging, diagnostic and test tools |
+| `scripts/` | Build, packaging and diagnostic tools |
 | `hardware/`, `docs/` | Validation records and development documentation |
 | `.github/workflows/` | Manual CI workflows |
 | `out/`, `.cache/`, `reports/` | Local artifacts; excluded from version control |
