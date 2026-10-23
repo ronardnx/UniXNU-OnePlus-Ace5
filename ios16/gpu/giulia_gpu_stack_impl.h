@@ -375,11 +375,11 @@ int GiuliaGPU::stackProbeHfi(void *cookie,uint64_t *evidence)
     if(!self || !evidence)return 1;
     if(self->hfiAllocReady)bits|=1u;
     if(self->gmuState.hfi_ready)bits|=2u;
-    if(self->hfiPump.quarantined)bits|=4u;
+    if(self->hfiPump->quarantined)bits|=4u;
     if(self->hfiAllocPool.published)bits|=8u;
     *evidence=bits;
     if(!self->hfiAllocReady || !self->gmuState.hfi_ready)return 1;
-    if(self->hfiPump.quarantined || self->platformPoisoned)return 1;
+    if(self->hfiPump->quarantined || self->platformPoisoned)return 1;
     return 0;
 }
 

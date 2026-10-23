@@ -22,8 +22,8 @@ uint64_t GiuliaGPU::hfiPoolAddress(void *cookie,unsigned index,unsigned space)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     const struct ggd_allocation *allocation;
-    if(!self || !self->devMappingsManaged || space>1 || index>=self->devPool.count)return 0;
-    allocation=&self->devPool.allocations[index];
+    if(!self || !self->devMappingsManaged || space>1 || index>=self->devPool->count)return 0;
+    allocation=&self->devPool->allocations[index];
     if(!ggm_attributes(allocation->flags,space,self->devUcode[index]?1u:0u))return 0;
     return (space?((allocation->flags&0x80u)?(uint64_t)GGD_CACHE:(uint64_t)GGD_BASE)
         :(uint64_t)GGD_BASE)+allocation->offset;
@@ -33,7 +33,7 @@ int GiuliaGPU::hfiPoolMap(void *cookie,unsigned index,unsigned space)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     (void)space; /* mapDevAllocation installs the leaves for both masters */
-    if(!self || !self->devMappingsManaged || index>=self->devPool.count)return 1;
+    if(!self || !self->devMappingsManaged || index>=self->devPool->count)return 1;
     return self->mapDevAllocation(index)?1:0;
 }
 
@@ -52,8 +52,8 @@ int GiuliaGPU::hfiPoolPublish(void *cookie,unsigned index)
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     const struct ggd_allocation *allocation;
     uint8_t *cpu;
-    if(!self || index>=self->devPool.count)return 1;
-    allocation=&self->devPool.allocations[index];
+    if(!self || index>=self->devPool->count)return 1;
+    allocation=&self->devPool->allocations[index];
     if(!allocation->bytes || (allocation->bytes&3u) || allocation->bytes<GGA_MIN_ALIGN)return 1;
     cpu=self->devPointer(allocation->offset);
     if(!cpu)return 1;
@@ -85,10 +85,10 @@ void GiuliaGPU::hfiAllocInit()
     io.publish=hfiPoolPublish;
     io.barrier=hfiPoolBarrier;
     io.reserved=NULL; /* kinds 5/19/22/23 stay refused until they have owners */
-    hfiAllocReady=gga_pool_init(&hfiAllocPool,&devPool,GGD_BASE,GGD_CACHE,&io)==GGA_OK;
+    hfiAllocReady=gga_pool_init(&hfiAllocPool,devPool,GGD_BASE,GGD_CACHE,&io)==GGA_OK;
     hfiAllocOps=gga_pool_ops(&hfiAllocPool);
     IOLog("GIULIA GPU HFI ALLOC: pool_ready=%u base=%#x cache_base=%#x next=%#x cached=%#x reserved_kinds=refused\n",
-        hfiAllocReady,GGD_BASE,GGD_CACHE,devPool.next,devPool.cached);
+        hfiAllocReady,GGD_BASE,GGD_CACHE,devPool->next,devPool->cached);
 }
 
 int GiuliaGPU::hfiPumpOnce(unsigned budget)
@@ -103,11 +103,11 @@ int GiuliaGPU::hfiPumpOnce(unsigned budget)
     io.iova=GGH_IOVA;
     io.cookie=NULL;
     io.barrier=gpuHfiBarrier;
-    code=ggpp_pump(&io,&hfiAllocOps,&hfiPump,budget,hfiPumpScratch,64);
+    code=ggpp_pump(&io,&hfiAllocOps,hfiPump,budget,hfiPumpScratch,64);
     if(code!=GGPP_OK)
         IOLog("GIULIA GPU HFI ALLOC: pump=%s received=%u replied=%u dropped=%u refused=%u quarantine=%u stalled=%u header=%#x\n",
-            ggpp_code_name((unsigned)code),hfiPump.received,hfiPump.replied,hfiPump.dropped,
-            hfiPump.refused,hfiPump.quarantined,hfiPump.stalled,hfiPump.last_header);
+            ggpp_code_name((unsigned)code),hfiPump->received,hfiPump->replied,hfiPump->dropped,
+            hfiPump->refused,hfiPump->quarantined,hfiPump->stalled,hfiPump->last_header);
     return code;
 }
 
@@ -115,9 +115,9 @@ void GiuliaGPU::hfiAllocReport()
 {
     IOLog("GIULIA GPU HFI ALLOC: ready=%u allocations=%u published=%u packets=%u received=%u replied=%u dropped=%u refused=%u\n",
         hfiAllocReady,hfiAllocPool.pool?hfiAllocPool.pool->count:0,hfiAllocPool.published,
-        hfiPump.packets,hfiPump.received,hfiPump.replied,hfiPump.dropped,hfiPump.refused);
+        hfiPump->packets,hfiPump->received,hfiPump->replied,hfiPump->dropped,hfiPump->refused);
     IOLog("GIULIA GPU HFI ALLOC: quarantine=%u stalled=%u last_header=%#x failures=%u mapped_gpu=%u mapped_gmu=%u\n",
-        hfiPump.quarantined,hfiPump.stalled,hfiPump.last_header,hfiAllocPool.failures,
+        hfiPump->quarantined,hfiPump->stalled,hfiPump->last_header,hfiAllocPool.failures,
         hfiAllocPool.mapped_gpu,hfiAllocPool.mapped_gmu);
 }
 #endif

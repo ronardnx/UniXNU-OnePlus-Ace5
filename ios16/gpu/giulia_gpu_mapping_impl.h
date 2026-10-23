@@ -173,47 +173,47 @@ int GiuliaGPU::configureDevMappings()
 {
     if(devMappingsManaged) {
         int code=auditDevMappings();
-        if(!code)IOLog("GIULIA GPU MAPPING: managed=1 allocations=%u already_configured=1\n",devPool.count);
+        if(!code)IOLog("GIULIA GPU MAPPING: managed=1 allocations=%u already_configured=1\n",devPool->count);
         return code;
     }
-    if(!platformPrepared || platformPoisoned || !manualMemoryPinned || !platformIdle() || !ggd_pool_valid(&devPool))return 8;
+    if(!platformPrepared || platformPoisoned || !manualMemoryPinned || !platformIdle() || !ggd_pool_valid(devPool))return 8;
     struct ggm_tables gpu,gmu;struct ggm_owned owned;
     if(!gpuMappingTable(gpuTableMemory,gpuRoot,&gpu) || !gpuMappingTable(tableMemory,gmuRoot,&gmu) ||
        !gpuMappingOwned(devMemory,&owned) || !ggm_reset_pool(&gpu,&gmu,&owned,0))return 8;
-    for(unsigned i=0;i<devPool.count;i++) {
-        if(!ggm_allocation(&gpu,&gmu,&owned,&devPool.allocations[i],devUcode[i],GGM_CHECK))return 8;
+    for(unsigned i=0;i<devPool->count;i++) {
+        if(!ggm_allocation(&gpu,&gmu,&owned,&devPool->allocations[i],devUcode[i],GGM_CHECK))return 8;
         for(unsigned j=0;j<i;j++) {
-            const struct ggd_allocation &a=devPool.allocations[i],&b=devPool.allocations[j];
+            const struct ggd_allocation &a=devPool->allocations[i],&b=devPool->allocations[j];
             if(a.offset<b.offset+b.bytes && b.offset<a.offset+a.bytes)return 8;
         }
     }
     if(syncDevMappings())return 8;
     /* Initial configuration requires disabled contexts, so no live BBM needed. */
     if(!ggm_reset_pool(&gpu,&gmu,&owned,1)){platformPoisoned=true;return 8;}
-    for(unsigned i=0;i<devPool.count;i++)
-        if(!ggm_allocation(&gpu,&gmu,&owned,&devPool.allocations[i],devUcode[i],GGM_APPLY)) {
+    for(unsigned i=0;i<devPool->count;i++)
+        if(!ggm_allocation(&gpu,&gmu,&owned,&devPool->allocations[i],devUcode[i],GGM_APPLY)) {
             platformPoisoned=true;return 8;
         }
     if(syncDevMappings()){platformPoisoned=true;return 8;}
     devMappingsManaged=true;
-    IOLog("GIULIA GPU MAPPING: managed=1 allocations=%u unallocated_aliases=0 gpu_data_nx=1 separate_gpu_gmu_permissions=1\n",devPool.count);
+    IOLog("GIULIA GPU MAPPING: managed=1 allocations=%u unallocated_aliases=0 gpu_data_nx=1 separate_gpu_gmu_permissions=1\n",devPool->count);
     return 0;
 }
 
 int GiuliaGPU::mapDevAllocation(unsigned index,bool clearOnly)
 {
-    if(!devMappingsManaged || platformPoisoned || !ggd_pool_valid(&devPool) || index>=devPool.count)return 8;
+    if(!devMappingsManaged || platformPoisoned || !ggd_pool_valid(devPool) || index>=devPool->count)return 8;
     struct ggm_tables gpu,gmu;struct ggm_owned owned;
     if(!gpuMappingTable(gpuTableMemory,gpuRoot,&gpu) || !gpuMappingTable(tableMemory,gmuRoot,&gmu) ||
        !gpuMappingOwned(devMemory,&owned) ||
-       !ggm_allocation(&gpu,&gmu,&owned,&devPool.allocations[index],devUcode[index],GGM_CHECK))return 8;
+       !ggm_allocation(&gpu,&gmu,&owned,&devPool->allocations[index],devUcode[index],GGM_CHECK))return 8;
     if(syncDevMappings())return 8;
-    if(!ggm_allocation(&gpu,&gmu,&owned,&devPool.allocations[index],devUcode[index],GGM_CLEAR) ||
+    if(!ggm_allocation(&gpu,&gmu,&owned,&devPool->allocations[index],devUcode[index],GGM_CLEAR) ||
        syncDevMappings()) {platformPoisoned=true;return 8;}
     if(clearOnly)return 0; /* Revoke every alias before copying executable assets. */
-    if(!ggm_allocation(&gpu,&gmu,&owned,&devPool.allocations[index],devUcode[index],GGM_APPLY) ||
+    if(!ggm_allocation(&gpu,&gmu,&owned,&devPool->allocations[index],devUcode[index],GGM_APPLY) ||
        syncDevMappings()) {platformPoisoned=true;return 8;}
-    const struct ggd_allocation &a=devPool.allocations[index];
+    const struct ggd_allocation &a=devPool->allocations[index];
     IOLog("GIULIA GPU MAPPING: allocation=%u offset=%#x bytes=%#x flags=%#x ucode=%u gpu_attrs=%#llx gmu_attrs=%#llx synced=1\n",
         index,a.offset,a.bytes,a.flags,devUcode[index],(unsigned long long)ggm_attributes(a.flags,0,devUcode[index]),
         (unsigned long long)ggm_attributes(a.flags,1,devUcode[index]));
@@ -226,12 +226,12 @@ int GiuliaGPU::auditDevMappings()
     struct ggm_tables gpu,gmu;struct ggm_owned owned;unsigned char ucode[GGD_MAX];
     for(unsigned i=0;i<GGD_MAX;i++)ucode[i]=devUcode[i]?1:0;
     if(!gpuMappingTable(gpuTableMemory,gpuRoot,&gpu) || !gpuMappingTable(tableMemory,gmuRoot,&gmu) ||
-       !gpuMappingOwned(devMemory,&owned) || !ggm_audit_pool(&gpu,&gmu,&owned,&devPool,ucode)) {
+       !gpuMappingOwned(devMemory,&owned) || !ggm_audit_pool(&gpu,&gmu,&owned,devPool,ucode)) {
         platformPoisoned=true;return 8;
     }
     if(auditMemstoreMappings() || auditIpcMappings() || auditFenceMappings() || auditSecureMappings())return 8;
-    for(unsigned i=0;i<devPool.count;i++) {
-        const struct ggd_allocation &a=devPool.allocations[i];
+    for(unsigned i=0;i<devPool->count;i++) {
+        const struct ggd_allocation &a=devPool->allocations[i];
         uint64_t ga=ggm_attributes(a.flags,0,devUcode[i]),ma=ggm_attributes(a.flags,1,devUcode[i]);
         IOLog("GIULIA GPU MAPPING: audit allocation=%u gpu=%#x gmu=%#x gpu_attrs=%#llx gmu_attrs=%#llx bytes=%#x ucode=%u verified_pages=%u\n",
             i,ga?GGD_BASE+a.offset:0,ma?((a.flags&0x80u)?GGD_CACHE:GGD_BASE)+a.offset:0,

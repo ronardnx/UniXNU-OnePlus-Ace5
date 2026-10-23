@@ -56,12 +56,10 @@ static uint64_t giulia_gunyah_gic_now(void *cookie)
 }
 static int giulia_gunyah_gic_uncontended(void *cookie)
 {
-	const ml_topology_info_t *topology = ml_get_topology_info();
 	(void)cookie;
 	return giulia_gunyah_gic_initialized && gicd_base &&
-	    giulia_gunyah_gic_bytes >= GGIRQ_REG_BYTES && topology &&
-	    topology->num_cpus == 1 && getCpuDatap() == &BootCpuData &&
-	    !ml_at_interrupt_context() && !getCpuDatap()->interrupt_handler;
+	    giulia_gunyah_gic_bytes >= GGIRQ_REG_BYTES &&
+	    giulia_gpu_gunyah_irq_cpu_uncontended();
 }
 static struct ggirq_io giulia_gunyah_gic_io(void)
 {
@@ -154,7 +152,6 @@ def gunyah_irq_sources(source_texts: dict[str, str]) -> dict[str, str]:
     text = changed[name]
     anchor = '#include <pexpert/arm64/board_config.h>\n'
     text = _replace(text, anchor, anchor + '''#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
-#include <arm/cpu_data_internal.h>
 #include "../../iokit/Kernel/arm/giulia_gpu_gunyah_irq.h"
 static unsigned giulia_gunyah_gic_initialized;
 static uint64_t giulia_gunyah_gic_bytes;
@@ -202,6 +199,19 @@ static uint64_t giulia_gunyah_gic_bytes;
 	 * handler. Preserve the existing registration semantics for other IRQs. */
 	giulia_gpu_gunyah_irq_handler_registered();
 #endif''', name)
+    # CPU data is private to osfmk and is not exported to pexpert. Keep the
+    # complete ownership proof beside the generic-handler registration hook.
+    changed[name] += '''
+#if defined(ARM64_BOARD_CONFIG_SWEET) && HAS_GIC_V3
+int giulia_gpu_gunyah_irq_cpu_uncontended(void)
+{
+\tconst ml_topology_info_t *topology = ml_get_topology_info();
+\treturn topology && topology->num_cpus == 1 &&
+\t    getCpuDatap() == &BootCpuData && !ml_at_interrupt_context() &&
+\t    !getCpuDatap()->interrupt_handler;
+}
+#endif
+'''
     return changed
 
 

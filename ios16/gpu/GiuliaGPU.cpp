@@ -56,6 +56,7 @@ static unsigned devState;
 static uint32_t devArgs[6];
 static struct ggi_owner gpuIpcOwner;
 static struct ggf_registration gpuFenceProvider;
+static void gpuHfiBarrier(void *);
 extern "C" int giulia_gpu_fence_register(const struct ggf_provider *p)
 { return ggfp_register(&gpuFenceProvider,p); }
 extern "C" int giulia_gpu_fence_ipcc_claim(const void *identity,uint64_t epoch)
@@ -113,7 +114,7 @@ class GiuliaGPU : public IOService {
     IOMemoryMap *firmwareMap;
     IOBufferMemoryDescriptor *tableMemory;
     IOBufferMemoryDescriptor *devMemory[GGD_CHUNKS],*gpuTableMemory;
-    struct ggd_pool devPool;
+    struct ggd_pool *devPool;
     uint32_t devPacket[255];bool devWritten[255];
     uint64_t gmuRoot,gpuRoot;
     IOBufferMemoryDescriptor *memstoreMemory;
@@ -192,7 +193,7 @@ class GiuliaGPU : public IOService {
      * is healthy. Nothing here owns memory the pool did not allocate. */
     struct gga_pool hfiAllocPool;
     struct gga_ops hfiAllocOps;
-    struct ggpp_state hfiPump;
+    struct ggpp_state *hfiPump;
     uint32_t hfiPumpScratch[64];
     bool hfiAllocReady;
     void hfiAllocInit();
@@ -348,14 +349,14 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     secureRoot=scmPA=zapMetadataPA=0;platformEpoch=platformSnapshotSequence=0;
     platformPrepared=platformOwned=platformPoisoned=secureContextActive=zapAuthenticated=secureOwnershipReady=false;
     devMappingsManaged=false;bzero(devUcode,sizeof(devUcode));
-    bzero(devMemory,sizeof(devMemory));bzero(&devPool,sizeof(devPool));devPool.next=GGD_CACHE_BYTES;
+    bzero(devMemory,sizeof(devMemory));devPool=NULL;
     bzero(devPacket,sizeof(devPacket));bzero(devWritten,sizeof(devWritten));
     runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
     mode=reservationCount=tablePages=leafPages=observations=0;
     firmwareVerified=hostPrepared=false;bzero(&powerObservation,sizeof(powerObservation));
     manualMemoryPinned=false;hfiIndex=hfiSequence=hfiLastHeader=0;
     bzero(&hfiAllocPool,sizeof(hfiAllocPool));bzero(&hfiAllocOps,sizeof(hfiAllocOps));
-    bzero(&hfiPump,sizeof(hfiPump));bzero(hfiPumpScratch,sizeof(hfiPumpScratch));
+    hfiPump=NULL;bzero(hfiPumpScratch,sizeof(hfiPumpScratch));
     hfiAllocReady=false;
     bzero(&stackState,sizeof(stackState));bzero(stackOps,sizeof(stackOps));stackReady=false;
     powerLeaseHeld=false;
@@ -375,6 +376,12 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     bzero(allocations,sizeof(allocations));
     bzero(registerMemory,sizeof(registerMemory)); bzero(registerMaps,sizeof(registerMaps));
     if(!IOService::init(dictionary))return false;
+    /* Keep the IOService allocation below XNU's 16 KiB typed-zone limit.
+     * These CPU-only records live until free(), after both workers stop. */
+    devPool=(struct ggd_pool *)IOMallocZero(sizeof(*devPool));
+    hfiPump=(struct ggpp_state *)IOMallocZero(sizeof(*hfiPump));
+    if(!devPool || !hfiPump)return false;
+    devPool->next=GGD_CACHE_BYTES;
 #if GIULIA_PLATFORM_BROKER_ENABLED
     /* Process-context bootstrap; IRQ/fence ownership queries never allocate. */
     if(gpr_global_initialize()!=GPR_OK)return false;
@@ -992,7 +999,7 @@ void GiuliaGPU::stop(IOService *provider)
      * every mapped page table entry until reboot. Report, never "reclaim". */
     if(hfiAllocReady)
         IOLog("GIULIA GPU HFI ALLOC: stop quarantine=%u allocations=%u published=%u retained_until_reboot=1\n",
-            hfiPump.quarantined,hfiAllocPool.pool?hfiAllocPool.pool->count:0,hfiAllocPool.published);
+            hfiPump->quarantined,hfiAllocPool.pool?hfiAllocPool.pool->count:0,hfiAllocPool.published);
     /* Read-only stages only: unwinding them confirms nothing about hardware. */
     if(stackReady)(void)ggsk_retreat(&stackState);
     releaseResources();
@@ -1010,6 +1017,8 @@ void GiuliaGPU::free()
     releaseResources();
     if(terminalOwner){gg_terminal_finish(&gpuTerminal);terminalOwner=false;}
     if(runtimeLock){IOLockFree(runtimeLock);runtimeLock=NULL;}
+    if(hfiPump){IOFree(hfiPump,sizeof(*hfiPump));hfiPump=NULL;}
+    if(devPool){IOFree(devPool,sizeof(*devPool));devPool=NULL;}
     IOService::free();
 }
 #endif

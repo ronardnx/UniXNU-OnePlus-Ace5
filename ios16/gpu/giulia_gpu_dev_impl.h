@@ -68,7 +68,7 @@ static bool gpuDevWritable(const struct ggd_pool *pool,const bool *ucode,
 }
 void GiuliaGPU::devAllocation(unsigned n)
 {
-    const struct ggd_allocation &a=devPool.allocations[n];
+    const struct ggd_allocation &a=devPool->allocations[n];
     uint32_t gpu=GGD_BASE+a.offset,gmu=(a.flags&0x80?GGD_CACHE:GGD_BASE)+a.offset;
     if(devMappingsManaged) {
         if(!ggm_attributes(a.flags,0,devUcode[n]))gpu=0;
@@ -87,7 +87,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
     else if(platformPoisoned && op!=0 && op!=2 && op!=8 && op!=9 && op!=14 && op!=15 && op!=18 && !(op==22 && a==0))code=8;
     else if(fenceMapped && op!=0 && op!=2 && op!=8 && op!=9 && op!=14 && op!=15 && op!=18 && !(op==22 && a==0) &&
         auditFenceMappings())code=8;
-    else if(!ggd_pool_valid(&devPool))code=8;
+    else if(!ggd_pool_valid(devPool))code=8;
     else switch(op) {
     case 0:
         IOLog("GIULIA GPU DEV: abi=1 gmu_root=%#llx gpu_root=%#llx base=%#x bytes=%#x cache_base=%#x pinned=%u\n",
@@ -99,7 +99,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         IOLog("GIULIA GPU DEV: fence_import_abi=1 fence_completion=0\n");
         IOLog("GIULIA GPU DEV: gunyah_owner_abi=1 current_boot_resources=1 guarded_hvc=1 fence_completion=0\n");break;
     case 1: {
-        int n=ggd_alloc(&devPool,a,b,c,d);
+        int n=ggd_alloc(devPool,a,b,c,d);
         if(n<0){code=3;break;}
         if(devMappingsManaged) {
             code=mapDevAllocation((unsigned)n);
@@ -113,10 +113,10 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         for(unsigned i=0;i<b;i++)IOLog("GIULIA GPU DEV: word=%u value=%#x\n",i,*(volatile uint32_t *)devPointer(a+i*4));
         break;
     case 3:
-        if((a&3)||!gpuDevWritable(&devPool,devUcode,devMappingsManaged,a,4)){code=4;break;}
+        if((a&3)||!gpuDevWritable(devPool,devUcode,devMappingsManaged,a,4)){code=4;break;}
         *(volatile uint32_t *)devPointer(a)=b;__asm__ volatile("dsb sy" ::: "memory");break;
     case 4:
-        if(!gpuDevWritable(&devPool,devUcode,devMappingsManaged,a,b)){code=4;break;}
+        if(!gpuDevWritable(devPool,devUcode,devMappingsManaged,a,b)){code=4;break;}
         while(b) {uint32_t n=GGD_CHUNK-a%GGD_CHUNK;if(n>b)n=b;bzero(devPointer(a),n);a+=n;b-=n;}
         __asm__ volatile("dsb sy" ::: "memory");break;
     case 5:
@@ -135,10 +135,10 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         if(a>=GG_ASSETS || !firmwareMap || !firmwareMemory ||
            !gg_pack_open((const void *)firmwareMap->getVirtualAddress(),firmwareMemory->getLength(),&pack) ||
            pack.asset[a].size>UINT32_MAX ||
-           !gpuDevWritable(&devPool,devUcode,devMappingsManaged,b,(uint32_t)pack.asset[a].size)) {code=4;break;}
-        int owner=ggd_owner(&devPool,b,(uint32_t)pack.asset[a].size);
+           !gpuDevWritable(devPool,devUcode,devMappingsManaged,b,(uint32_t)pack.asset[a].size)) {code=4;break;}
+        int owner=ggd_owner(devPool,b,(uint32_t)pack.asset[a].size);
         bool ucode=a==GG_ASSET_SQE || a==GG_ASSET_AQE;
-        if(owner<0 || (ucode && (devPool.allocations[owner].kind!=0 || !(devPool.allocations[owner].flags&1)))) {
+        if(owner<0 || (ucode && (devPool->allocations[owner].kind!=0 || !(devPool->allocations[owner].flags&1)))) {
             code=4;break;
         }
         /* Revoke data access before modifying bytes that will become executable.
@@ -148,7 +148,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
             if(code){platformPoisoned=true;break;}
         }
         if(ucode) {
-            uint32_t at=devPool.allocations[owner].offset,left=devPool.allocations[owner].bytes;
+            uint32_t at=devPool->allocations[owner].offset,left=devPool->allocations[owner].bytes;
             while(left) {uint32_t n=GGD_CHUNK-at%GGD_CHUNK;if(n>left)n=left;bzero(devPointer(at),n);at+=n;left-=n;}
         }
         size_t left=pack.asset[a].size,offset=0;
@@ -163,7 +163,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         }
         IOLog("GIULIA GPU DEV: asset=%u bytes=%lu\n",a,(unsigned long)pack.asset[a].size);break;
     }
-    case 8:for(unsigned i=0;i<devPool.count;i++)devAllocation(i);break;
+    case 8:for(unsigned i=0;i<devPool->count;i++)devAllocation(i);break;
     case 9:
         if(!ggd_bounds(a,1)){code=4;break;}
         IOLog("GIULIA GPU DEV: offset=%#x pa=%#llx\n",a,(unsigned long long)
