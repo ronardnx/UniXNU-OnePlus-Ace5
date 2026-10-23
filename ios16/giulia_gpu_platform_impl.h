@@ -263,6 +263,21 @@ int GiuliaGPU::platformCommand(unsigned action)
             IOLog("GIULIA GPU SECURE: refused stage=idle init=%u reset=%#x global_fault=%#x\n",scmState.init_succeeded,platformRead(0x3d7e000),platformRead(0x3da0048));return 8;
         }
         if(secureOwnershipReady)return 0;
+        /* An unused SM8650 bank retains nonzero SCTLR bits with M=0.
+         * platformIdle already proved all contexts disabled and streams
+         * fault-routed. Establish the disabled configuration before table
+         * publication, rather than assuming a reset value of zero. */
+        uint32_t control=platformRead(0x3dc3000);
+        if(control) {
+            if((control&1) || platformRead(0x3da0808) ||
+               platformRead(0x3da0c08)!=0x20000 || (platformRead(0x3dc37f4)&1))return 8;
+            platformWrite(0x3dc3000,0);
+            if(!platformPoll(0x3dc3000,0xffffffffu,0)) {
+                platformPoisoned=true;
+                IOLog("GIULIA GPU SECURE: refused stage=disable-readback control=%#x\n",platformRead(0x3dc3000));return 8;
+            }
+            IOLog("GIULIA GPU SECURE: disabled-bank-normalized before=%#x after=0 stream_faulted=1\n",control);
+        }
         if(auditSecureMappings()) {
             IOLog("GIULIA GPU SECURE: refused stage=audit control=%#x smr=%#x s2cr=%#x tlb=%#x poisoned=%u\n",platformRead(0x3dc3000),platformRead(0x3da0808),platformRead(0x3da0c08),platformRead(0x3dc37f4),platformPoisoned);return 8;
         }

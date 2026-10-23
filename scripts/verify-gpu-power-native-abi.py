@@ -23,9 +23,12 @@ def verify(uefi):
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     if digest not in CLOCK_PINS:
         raise ValueError('Unverified GPU ClockDxe implementation: ' + digest)
+    adapter = uefi / 'Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/GpuPower.c'
+    direct = adapter.exists() and 'Delay,ColdClocks}' in adapter.read_text()
     return {'ClockDxe_sha256': digest, 'protocol_version': '0x1000a',
             'native_polling_patched': False, 'provider_waits_preemptible': False,
-            'configured_gmu_hz': 625000000, 'configured_hub_hz': 200000000,
+            'clock_policy': 'sm8650-cold-pll-rcg' if direct else 'native-clock-protocol',
+            'configured_gmu_hz': 260000000 if direct else 625000000, 'configured_hub_hz': 200000000,
             'frequency_is_measured': False, 'hardware_verified': False}
 
 

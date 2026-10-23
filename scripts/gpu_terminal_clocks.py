@@ -8,6 +8,29 @@ configuration is retained until reboot. Rates are configured, not measured.
 import json,time
 
 
+def verify_uefi(live, report):
+    """Verify automatic preparation without changing hardware state."""
+    slots=[]
+    values={}
+    try:
+        for base,size in ((0x170000,0x4000),(0x3d90000,0x10000),(0x3d7c000,0x4000)):
+            slots.append(live.map(base,size))
+        for address,mask,expected in (
+            (0x171004,0x80000001,1),(0x171010,0x80000001,1),
+            (0x3d99168,0x80000000,0x80000000),(0x3d97000,0x80000001,1),
+            (0x3d91000,0x80000005,0x80000005),(0x3d91010,0xffffffff,0x4444001b),
+            (0x3d91014,0xffffffff,0x1555),(0x3d9931c,0xffffffff,0x303),
+            (0x3d993f0,0xffffffff,0x505),(0x3d9913c,0x80000001,1),
+            (0x3d7e000,0xffffffff,1),(0x3d7e070,0xffffffff,0)):
+            value=live.read(address);values[hex(address)]=hex(value)
+            if value&mask!=expected:raise RuntimeError(f'UEFI clock mismatch {address:#x}: {value:#x}')
+        report['uefi_clocks_verified']=True
+        report['uefi_clock_registers']=values
+    finally:
+        if not live.disconnected and not getattr(live,'io_stopped',False):
+            for slot in reversed(slots):live.unmap(slot)
+
+
 def prepare(live, report):
     state={'writes':[], 'configured_gmu_hz':260000000,
            'configured_hub_hz':200000000,'frequency_measured':False,'complete':False}

@@ -277,7 +277,9 @@ static void inactive_refusals() {
 int main() {
     GiuliaGPU good={};assert(good.platformPrepare());idle(good);pagewalk(good);
     assert(good.platformCommand(1)==0 && good.platformCommand(2)==0);
+    good.platformWrite(0x3dc3000,0x35fd6114);
     assert(good.platformCommand(4)==0 && good.secureOwnershipReady && assignments==17);
+    assert(good.platformRead(0x3dc3000)==0);
     for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++)assert(good.secureData[i]->cp_only);
     assert(!good.secureTables->cp_only && !good.scmMemory->cp_only);
     assert(good.secureAllocate(4096,4096,0x1007,5)==8); /* No mapping success yet. */

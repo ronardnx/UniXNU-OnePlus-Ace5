@@ -13,6 +13,7 @@ import hashlib,json,struct,re,time
 import argparse
 parser=argparse.ArgumentParser(description='Cold SM8650 GMU clock, SMMU SID5 and stock HFI smoke test. No GPU submission.')
 parser.add_argument('--execute',action='store_true')
+parser.add_argument('--uefi-clocks',action='store_true',help='Verify the automatic UEFI clocks instead of programming them')
 args=parser.parse_args()
 if not args.execute:parser.error('Use --execute to perform the bounded hardware experiment')
 fw=(ROOT/'out/ios16/gpu-stock-firmware/gmu_gen70900.bin').read_bytes()
@@ -40,9 +41,11 @@ with Live('gpu-gmu-clock-smmu-smoke') as live:
             gx_held=include_gx and report.get('oob_ack',False))
         if entry['status']!='complete' or (include_gx and entry['gx']['status']!='complete'):
             raise RuntimeError('Incomplete diagnostic snapshot: '+phase)
-    from gpu_terminal_clocks import prepare as prepare_clocks
-    prepare_clocks(live,report)
-    report['clock_rates_changed']=True
+    from gpu_terminal_clocks import prepare as prepare_clocks,verify_uefi
+    if args.uefi_clocks:verify_uefi(live,report)
+    else:
+        prepare_clocks(live,report)
+        report['clock_rates_changed']=True
     transport=NativeHfi(live,report)
     if not re.search(r'^GIULIA GPU DEV: resources_abi=1 memstore=1 secure_allocation_mappings=1$',transport.info,re.M):
         raise RuntimeError('Current kernel lacks dedicated memstore and per-allocation secure mappings')

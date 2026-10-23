@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from gpu_terminal_clocks import prepare
+from gpu_terminal_clocks import prepare, verify_uefi
 
 
 class Peer:
@@ -51,6 +51,22 @@ class Peer:
 
 
 class ClockTests(unittest.TestCase):
+    def test_uefi_verification_is_read_only_and_rejects_bad_gate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            peer = Peer(folder)
+            report = {}
+            prepare(peer, report)
+            writes = list(peer.writes)
+            verify_uefi(peer, report)
+            self.assertTrue(report['uefi_clocks_verified'])
+            self.assertEqual(peer.writes, writes)
+            peer.regs[0x3d97000] = 0x80000000
+            peer.reads.clear()
+            with self.assertRaisesRegex(RuntimeError, 'UEFI clock mismatch'):
+                verify_uefi(peer, {})
+            self.assertNotIn(0x3d7e000, peer.reads)
+            self.assertEqual(peer.writes, writes)
+
     def test_real_initial_state_and_dynamic_pll_status(self):
         with tempfile.TemporaryDirectory() as folder:
             peer = Peer(folder)
