@@ -196,7 +196,10 @@ static inline int gwn_get(const struct gwn_view *s,const struct gwi_request *q,v
     unsigned peer_query=q->type==GWI_SSID || q->type==GWI_CHANNEL || q->type==GWI_BSSID ||
         q->type==GWI_RSSI || q->type==GWI_NOISE || q->type==GWN_AUTH_TYPE;
     if(peer_query && (!s->associated || !s->peer))return GWI_NOT_READY;
-    if(s->peer && (s->peer->ssid_len>32 || !gww_channel(s->peer->frequency)))return GWI_ARGUMENT;
+    /* The runtime supplies an empty station BSS before association. Validate
+     * it only for replies that actually consume the current peer. */
+    unsigned validate_peer=peer_query || (q->type==GWI_PHY_MODE && s->associated);
+    if(validate_peer && s->peer && (s->peer->ssid_len>32 || !gww_channel(s->peer->frequency)))return GWI_ARGUMENT;
     uint8_t *p=(uint8_t *)output;for(size_t i=0;i<n;i++)p[i]=0;
     switch(q->type) {
     case GWI_CAPABILITIES:p[0]=1u<<3;p[1]=1u<<6;break; /* CCMP + WPA2, no WPA1/SAE/TKIP */

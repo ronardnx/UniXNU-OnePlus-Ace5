@@ -19,6 +19,7 @@ DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe',
+                   'keys.status',
                    'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
                    'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
                    'screen.start','screen.stop','screen.snapshot',
@@ -59,6 +60,7 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   screen.snapshot         save a real framebuffer screenshot as PNG
   screen.configure N FPS  maximum edge 160..2780, target FPS 1..30 (USB limited)
   input.status            actual touch/keyboard/button service availability
+  keys.status             cached physical key readings, delivery counters and errors
   input.release           release remote touches and held keyboard/buttons
 Host commands:
   :help                  this help

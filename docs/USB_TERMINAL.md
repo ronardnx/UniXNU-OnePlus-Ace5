@@ -40,12 +40,27 @@ scripts\debug-terminal.cmd --port COM21
 | `display` | 启动 framebuffer 宽、高、步长、位深；不是当前显示健康检查 |
 | `usb` | CDC 状态、事件、setup、包大小、收发与日志计数 |
 | `ufs` | 驱动现有卷状态、可写标记、几何和设备号；锁忙时立即报告 busy，不额外访问磁盘 |
+| `keys.status` | 新 GUI 内核中查询物理按键工作线程缓存的寄存器、消抖／投递状态、计数及错误，并显示 HID 服务是否就绪；命令自身不访问硬件 |
 | `audio.status` | 音频映射阶段；当前明确报告 hardware_ready／playback／recording 为 0 |
 | `audio.map` | 固定的 ADSP／LPASS、中断、SIA9177／WCD939x 与 DMA 映射证据；不读取或写入寄存器 |
 | `gpu.status` | GPU 准备阶段、固件校验、RAM／未激活页表数量和最近一次观察；未编译或未启用服务时明确报告 unavailable |
 | `gpu.observe` | 向 GPU 工作线程提交一次有前置门控的只读电源／SMMU 观察，随后输出状态；不使能时钟、电源或 DMA |
 
 这些命令通过 `prepare-ios16.py` 纳入 base/GUI 补丁；CMD 工具及守护进程源码也随 profile 输出。
+
+`keys.status` 需要重新构建 GUI 内核；base 内核明确报告 `compiled=0`。
+`giulia_keys=0` 禁用物理按键线程，默认启用。状态码为 0 未启动、1 启动中、
+2 轮询中、3 已禁用、4 故障后释放按键、5 已停止、6 线程创建失败。
+`raw`、`stable`、`delivered` 的位 0／1／2 分别表示电源、音量加、音量减；
+`events` 仅统计 HID provider 接受的边沿，`retries` 是 provider 尚未就绪或分配失败的重试次数。
+字段分别以原子操作读取，属于近似快照；`buttons_service=1` 表示 provider 已发布，
+不能单独证明 iOS 已响应按键。可用 `watch keys.status 2` 查询；离线验证运行
+`bash scripts/test-ios16-keys.sh`。
+
+2026-10-23 已用临时启动的旧 r2 镜像记录用户确认的音量加两次、音量减两次、
+电源两次寄存器变化；实测映射见 [`sm8650-keys.json`](../hardware/sm8650-keys.json)。
+该镜像尚不能验证新驱动到 iOS 的 HID 行为。三段式开关使用 AK09970 三轴霍尔传感器，
+GPIO99 仅为中断脚，仍需完成传感器读取与位置校准。
 
 音频查询随本轮源码纳入所有 profile，需重新构建内核；不需要额外 `--audio` 开关。
 它们只显示静态映射，未进行实机音频验证，也不随 `all`／`collect` 自动执行。

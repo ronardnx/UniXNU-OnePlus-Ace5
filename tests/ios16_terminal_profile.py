@@ -13,6 +13,15 @@ with tempfile.TemporaryDirectory() as folder:
     assert 'if(gaudio_command(cmd))return 1;' in source
     assert 'static int gaudio_command(const char *cmd)' in source
     assert 'audio.status audio.map' in source
+    assert 'if(!strcmp(cmd,"keys.status")) {giulia_keys_debug();return 1;}' in source
+    if (profile/'0083-giulia-physical-keys.patch').is_file():
+        assert '#define GIULIA_KEYS_INCLUDED 1' in source
+        assert 'extern void giulia_keys_debug(void);' in source
+        keys=(profile/'0083-giulia-physical-keys.patch').read_text()
+        assert 'b/bsd/dev/giulia_keys_terminal.inc' in keys
+    else:
+        assert '#define GIULIA_KEYS_INCLUDED 0' in source
+        assert 'GIULIA KEYS: compiled=0 service=unavailable' in source
     assert 'speakers=SIA9177-left+right interface=secondary-MI2S' in source
     assert 'GIULIA SHELL: /dev/giulia-debug ready;' in source
     assert 'GIULIA REG: mapped slot=' in source

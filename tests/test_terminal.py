@@ -34,6 +34,19 @@ class Terminal(unittest.TestCase):
             with self.assertRaises(ValueError):
                 terminal.wire_command(command)
 
+    def test_keys_status_is_exact_read_only_query_and_can_be_watched(self):
+        self.assertEqual(terminal.wire_command('keys.status'), b'keys.status\n')
+        for command in ('keys.status now', 'keys.status;ping', 'keys.status\nping', 'keys.start'):
+            with self.assertRaises(ValueError): terminal.wire_command(command)
+        with tempfile.TemporaryDirectory() as directory:
+            capture = terminal.Capture(Path(directory))
+            try:
+                commands = terminal.Commands(capture, 'fake')
+                self.assertEqual(commands.accept('watch keys.status 2'), 'Polling enabled.')
+                self.assertEqual(commands.watch, ('keys.status', 2))
+            finally:
+                capture.close()
+
     def test_split_utf8_and_historical_topic_export(self):
         with tempfile.TemporaryDirectory() as directory:
             capture = terminal.Capture(Path(directory))
