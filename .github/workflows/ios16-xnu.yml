@@ -104,6 +104,7 @@ jobs:
       - name: Validate GPU integration
         if: ${{ inputs.gpu }}
         run: |
+          python3 scripts/fetch-ios16-gpu-sources.py --out .cache/gpu-source
           python3 scripts/make-gpu-smmu-oracle.py --fetch --out .cache/gpu-source-oracle.c
           bash scripts/test-ios16-gpu.sh
           python3 -m unittest discover -s tests -p 'test_gpu*.py' -v
