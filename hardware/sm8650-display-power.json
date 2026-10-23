@@ -1,0 +1,27 @@
+{
+  "device": "OnePlus Ace 5 (PKG110, SM8650)",
+  "date_local": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "kernel_commit": "3b6b4e1afa6bb371396a18b87e8a60d927740c41",
+  "ci_run": 39927732244,
+  "image_sha256": "0de1632447af42a7ab3a9f02490222f32a9a5ffc53414cf388d6af9d802b06aa",
+  "kernel_sha256": "c76d321481729336f8be38a5d4fffa407a7a38833b5ff366e102a6219efae0b1",
+  "temporary_boot": true,
+  "partitions_flashed": false,
+  "fix": "IOMobileFramebuffer selector 12 now dispatches DCS 0x28/0x29 through inherited DSI0; presentation pauses while panel is off and resumes with redraw.",
+  "physical_power_key_to_ios_verified": true,
+  "panel_display_off_verified": true,
+  "panel_display_on_verified": true,
+  "user_visual_confirmation": "能熄屏，也能恢复亮屏",
+  "confirmation_source": "Direct user reply after booting the repair image",
+  "capture_directory": "E:\\uniunx\\UniXNU-buttons-slider-build-20261023\\out\\ios16\\display-power-acceptance\\20261023-170753-592512",
+  "power_events": [
+    "GIULIA DISPLAY POWER: request=1 known=1 on=1 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=1 transitions=1",
+    "GIULIA DISPLAY POWER: request=0 known=1 on=0 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=2 transitions=2",
+    "GIULIA DISPLAY POWER: request=1 known=1 on=1 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=3 transitions=3",
+    "GIULIA DISPLAY POWER: request=0 known=1 on=0 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=4 transitions=4",
+    "GIULIA DISPLAY POWER: request=1 known=1 on=1 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=5 transitions=5",
+    "GIULIA DISPLAY POWER: request=0 known=1 on=0 error=0 frozen=0 irq=0x500 status=0 ack=0 requests=6 transitions=6"
+  ],
+  "scope": "Display off/on only; full SoC suspend, panel sleep rails and long-press behavior are not established by this test."
+}
