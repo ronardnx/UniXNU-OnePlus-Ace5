@@ -2,7 +2,9 @@
  * Darwin 22 A750 bring-up service. giulia_gpu=1 prepares pinned firmware and
  * host memory; =2 additionally observes gated power/SMMU registers; =3
  * consumes the explicit UEFI CX/clock preparation report.
- * No GPU transactions, SMMU writes, secure calls or accelerator publication.
+ * Automatic startup only prepares memory. Explicit debug ABI2 operations may
+ * assign isolated secure memory, configure its context, call SCM/PAS and watch
+ * bounded command submission. No accelerator is automatically published.
  */
 #include <pexpert/arm64/board_config.h>
 #if defined(ARM64_BOARD_CONFIG_SWEET)
@@ -20,6 +22,7 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_cache.h"
 #include "giulia_gpu_hfi.h"
 #include "giulia_gpu_dev.h"
+#include "giulia_gpu_platform.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power_handoff.h"
@@ -67,6 +70,32 @@ class GiuliaGPU : public IOService {
     struct ggd_pool devPool;
     uint32_t devPacket[255];bool devWritten[255];
     uint64_t gmuRoot,gpuRoot;
+    IOBufferMemoryDescriptor *secureData[GGS_SEC_CHUNKS],*secureTables,*scmMemory,*zapMetadata;
+    IOMemoryDescriptor *platformMemory[4],*zapMemory;
+    IOMemoryMap *platformMaps[4],*zapMap;
+    uint64_t securePA[GGS_SEC_CHUNKS],secureRoot,scmPA,zapMetadataPA;
+    struct ggs_secure_slot secureSlots[GGS_SEC_CHUNKS];
+    struct ggs_state scmState;
+    bool platformPrepared,platformOwned,platformPoisoned,secureContextActive,zapAuthenticated;
+    bool secureOwnershipReady;
+    unsigned platformEpoch,platformSnapshotSequence;
+    bool platformPrepare();
+    bool platformPower();
+    bool platformIdle();
+    uint32_t platformRead(uint64_t);
+    void platformWrite(uint64_t,uint32_t);
+    bool platformPoll(uint64_t,uint32_t,uint32_t);
+    int platformCall(uint32_t,uint32_t,const uint64_t *,bool);
+    int platformAvailable(uint32_t);
+    int platformAssign(uint64_t,uint64_t,bool);
+    int platformCommand(unsigned);
+    int secureAllocate(uint32_t,uint32_t,uint32_t,uint32_t);
+    int platformWatch(unsigned,unsigned);
+    int platformSnapshot(unsigned);
+    int platformZap();
+    static int platformScmCall(void *,struct ggs_regs *);
+    static int platformScmDelay(void *,unsigned);
+    static int platformScmPrerequisites(void *,unsigned);
     bool prepareDevMemory(ArmSmmu4KRange *,size_t *);
     void devCommand(const uint32_t *);
     uint8_t *devPointer(uint32_t);
@@ -105,6 +134,11 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
 {
     firmwareMemory=NULL; firmwareMap=NULL; tableMemory=NULL;
     gpuTableMemory=NULL;gmuRoot=gpuRoot=0;
+    bzero(secureData,sizeof(secureData));bzero(securePA,sizeof(securePA));bzero(secureSlots,sizeof(secureSlots));
+    bzero(platformMemory,sizeof(platformMemory));bzero(platformMaps,sizeof(platformMaps));bzero(&scmState,sizeof(scmState));
+    secureTables=scmMemory=zapMetadata=NULL;zapMemory=NULL;zapMap=NULL;
+    secureRoot=scmPA=zapMetadataPA=0;platformEpoch=platformSnapshotSequence=0;
+    platformPrepared=platformOwned=platformPoisoned=secureContextActive=zapAuthenticated=secureOwnershipReady=false;
     bzero(devMemory,sizeof(devMemory));bzero(&devPool,sizeof(devPool));devPool.next=GGD_CACHE_BYTES;
     bzero(devPacket,sizeof(devPacket));bzero(devWritten,sizeof(devWritten));
     runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
@@ -528,6 +562,7 @@ void GiuliaGPU::hfiCommand(unsigned requests)
 }
 
 #include "giulia_gpu_dev_impl.h"
+#include "giulia_gpu_platform_impl.h"
 void GiuliaGPU::worker(void *cookie,wait_result_t)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
@@ -578,6 +613,12 @@ void GiuliaGPU::releaseResources()
     }
     for (unsigned i=0;i<GG_FW_MAX_BLOCKS;++i) OSSafeReleaseNULL(allocations[i]);
     for(unsigned i=0;i<GGD_CHUNKS;i++)OSSafeReleaseNULL(devMemory[i]);
+    /* manualMemoryPinned retains every resource before an ownership/PAS call.
+     * No ambiguous secure page is ever returned to the ordinary allocator. */
+    for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)OSSafeReleaseNULL(secureData[i]);
+    OSSafeReleaseNULL(secureTables);OSSafeReleaseNULL(scmMemory);OSSafeReleaseNULL(zapMetadata);
+    OSSafeReleaseNULL(zapMap);OSSafeReleaseNULL(zapMemory);
+    for(unsigned i=0;i<4;i++){OSSafeReleaseNULL(platformMaps[i]);OSSafeReleaseNULL(platformMemory[i]);}
     OSSafeReleaseNULL(gpuTableMemory);
     OSSafeReleaseNULL(tableMemory);
     OSSafeReleaseNULL(firmwareMap); OSSafeReleaseNULL(firmwareMemory);

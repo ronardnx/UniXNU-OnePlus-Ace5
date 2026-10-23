@@ -88,6 +88,10 @@ public:
     IOBufferMemoryDescriptor *firmwareMemory=nullptr;
     struct Map {uintptr_t getVirtualAddress(){return 0;}} *firmwareMap=nullptr;
     uint8_t *devPointer(uint32_t);void devAllocation(unsigned);void devCommand(const uint32_t *);
+    int platformCommand(unsigned){return 6;}
+    int secureAllocate(uint32_t,uint32_t,uint32_t,uint32_t){return 6;}
+    int platformWatch(unsigned,unsigned){return 6;}
+    int platformSnapshot(unsigned){return 6;}
     bool prepareDevMemory(ArmSmmu4KRange *,size_t *);
     bool prepareMemory(const gg_pack *);
     void setProperty(const char *,unsigned long long,unsigned){}

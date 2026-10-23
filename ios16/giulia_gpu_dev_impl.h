@@ -96,6 +96,23 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         IOLog("GIULIA GPU DEV: offset=%#x pa=%#llx\n",a,(unsigned long long)
             devMemory[a/GGD_CHUNK]->getPhysicalSegment(a%GGD_CHUNK,NULL,kIOMemoryMapperNone));break;
     case 10:bzero(devWritten,sizeof(devWritten));break;
+    case 11:
+        if(b||c||d || a>8){code=4;break;}
+        code=platformCommand(a);break;
+    case 12:code=secureAllocate(a,b,c,d);break;
+    case 13:
+        if(c||d){code=4;break;}
+        code=platformWatch(a,b);break;
+    case 14:
+        if(a||b||c||d){code=4;break;}
+        code=platformSnapshot(0);break;
+    case 15: {
+        if(c||d||!b||b>64||a>GGH_LOG_BYTES/4-b){code=4;break;}
+        volatile uint32_t *words=(volatile uint32_t *)allocations[hfiIndex+1]->getBytesNoCopy();
+        gpuHfiBarrier(NULL);
+        for(unsigned i=0;i<b;i++)IOLog("GIULIA GPU DEV: log_word=%u value=%#x\n",a+i,words[a+i]);
+        break;
+    }
     default:code=6;break;
     }
     IOLog("GIULIA GPU DEV: done token=%u op=%u code=%d\n",token,op,code);

@@ -19,6 +19,7 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -pthread \
 "$tmp/terminal"
 python3 tests/ios16_gpu_terminal_profile.py
 python3 tests/ios16_gpu_service.py
+python3 tests/ios16_gpu_platform_runtime.py
 if [ "$#" = 1 ] && [ -f "$(dirname "$1")/firmware.pack" ]; then
     python3 tests/ios16_gpu_host_memory.py "$(dirname "$1")/firmware.pack"
 else
@@ -26,6 +27,16 @@ else
 fi
 python3 tests/ios16_gpu_cache.py
 python3 tests/ios16_gpu_probe.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_scm.c -o "$tmp/scm"
+"$tmp/scm"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_platform.c -o "$tmp/platform"
+if [ "$#" = 1 ]; then
+    "$tmp/platform" "$(dirname "$1")/gen70900_zap.mbn"
+else
+    "$tmp/platform"
+fi
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
     tests/ios16_gpu_hfi.c -o "$tmp/hfi"
 "$tmp/hfi"
