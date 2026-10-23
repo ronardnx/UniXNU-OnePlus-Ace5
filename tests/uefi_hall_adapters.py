@@ -117,7 +117,10 @@ static EFI_STATUS issue(void *client,UINT32 set,BOOLEAN completion,UINT32 addres
 static EFI_STATUS wait_request(void *client,UINT32 request)
 {assert(client==&rpmh && request==issue_count);wait_count++;return 0;}
 static EFI_STATUS get_id(EFI_CLOCK_PROTOCOL *this,const CHAR8 *name,UINTN *id)
-{assert(this==&clocks && id_count<3 && !strcmp(name,mHallClockNames[id_count]));*id=100+id_count++;return 0;}
+{
+ static const char *names[]={"gcc_qupv3_i2c_core_clk","gcc_qupv3_i2c_s_ahb_clk","gcc_qupv3_i2c_s8_clk"};
+ assert(this==&clocks && id_count<3 && !strcmp(name,names[id_count]));*id=100+id_count++;return 0;
+}
 static EFI_STATUS rate(EFI_CLOCK_PROTOCOL *this,UINTN id,UINT32 value,unsigned match,UINT32 *actual)
 {assert(this==&clocks && id==102 && value==19200000 && match==3 && id_count==3);rate_count++;*actual=value;return 0;}
 static EFI_STATUS get_rate(EFI_CLOCK_PROTOCOL *this,UINTN id,UINT32 *actual)
@@ -125,7 +128,7 @@ static EFI_STATUS get_rate(EFI_CLOCK_PROTOCOL *this,UINTN id,UINT32 *actual)
 static EFI_STATUS enable(EFI_CLOCK_PROTOCOL *this,UINTN id)
 {assert(this==&clocks && get_count==1 && id==100+enable_count);enable_count++;return 0;}
 static EFI_STATUS on(EFI_CLOCK_PROTOCOL *this,UINTN id,BOOLEAN *yes)
-{assert(this==&clocks && id==100+on_count && enable_count==on_count+1);on_count++;*yes=1;return 0;}
+{assert(this==&clocks && id==100+on_count && enable_count==3);on_count++;*yes=1;return 0;}
 static void reset(void)
 {
  memset(&rpmh,0,sizeof(rpmh));memset(&db,0,sizeof(db));memset(&clocks,0,sizeof(clocks));

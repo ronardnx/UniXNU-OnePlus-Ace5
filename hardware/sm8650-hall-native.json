@@ -92,18 +92,20 @@
   "clock": {
     "version": "0x1000a",
     "names": [
-      "gcc_qupv3_i2c_s_ahb_clk",
       "gcc_qupv3_i2c_core_clk",
+      "gcc_qupv3_i2c_s_ahb_clk",
       "gcc_qupv3_i2c_s8_clk"
     ],
     "binary_string_offsets": [
-      84185,
       84882,
+      84185,
       85073
     ],
     "rate_hz": 19200000,
     "rate_clock_index": 2,
-    "sequence": "Resolve all IDs, set exact SE8 rate, get rate, enable and query IsClockOn for S_AHB/core/SE8.",
+    "sequence": "Resolve all IDs, set exact SE8 rate, get rate, enable core then S_AHB then SE8, then query IsClockOn for all three in that order. Every clock must still report on.",
+    "diagnostic_stages": "1 resolve; 2 set rate; 3 get rate; 4/5/6 enable core/AHB/SE8; 7/8/9 observe core/AHB/SE8; 10 ready. Detail is clock index 0/1/2, including ID lookup failures.",
+    "ordering_evidence": "Stock i2c-msm-geni.c runtime resume enables core_clk before geni_se_resources_on. First live r1 clock preparation voted only S_AHB and stopped on its inactive HW-gated branch before requesting core or SE8.",
     "retention": "Retain native clock votes through kernel handoff, including partial/unknown results."
   },
   "pins": {

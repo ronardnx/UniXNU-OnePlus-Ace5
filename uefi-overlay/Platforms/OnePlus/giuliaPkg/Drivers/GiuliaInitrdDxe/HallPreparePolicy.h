@@ -81,6 +81,13 @@ static inline unsigned ghp_clock_prepare(const struct ghp_clock_io *io,struct gh
         r->stage=4+i;r->address=i;
         status=io->enable(io->context,i);
         if(status)return ghp_fail(r,GHP_ENABLE,status);
+    }
+    /* Native hub core first, then wrapper AHB and SE8, as stock runtime
+     * resume requests them. An AHB branch can be idle/HW gated before its
+     * dependencies exist: observe only after every enable request. Keep
+     * the on check strict; a completed vote alone is not ready. */
+    for(unsigned i=0;i<3;i++) {
+        r->stage=7+i;r->address=i;
         on=0;status=io->on(io->context,i,&on);
         if(status || on!=1)return ghp_fail(r,GHP_OFF,status);
     }

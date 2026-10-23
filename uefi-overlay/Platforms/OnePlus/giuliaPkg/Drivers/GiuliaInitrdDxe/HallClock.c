@@ -23,7 +23,7 @@ STATIC UINTN mHallClockId[3];
 STATIC BOOLEAN mHallClockAttempted, mHallClockScheduled;
 STATIC struct ghp_result mHallClockResult;
 STATIC CONST CHAR8 *mHallClockNames[3] = {
-  "gcc_qupv3_i2c_s_ahb_clk", "gcc_qupv3_i2c_core_clk", "gcc_qupv3_i2c_s8_clk"
+  "gcc_qupv3_i2c_core_clk", "gcc_qupv3_i2c_s_ahb_clk", "gcc_qupv3_i2c_s8_clk"
 };
 STATIC EFI_GUID mHallClockStatusGuid = {0x1c87b711,0xeaa6,0x42cb,{0xa3,0xd5,0x8c,0x21,0x19,0x65,0x21,0x31}};
 STATIC VOID HallClockReport (UINT32 Stage, UINT32 Index, EFI_STATUS Status)
@@ -40,6 +40,7 @@ STATIC GHP_U64 HallClockResolve (VOID *Context)
   if (mHallClock->Version!=0x1000a || !mHallClock->GetClockID || !mHallClock->SetClockFreqHz ||
       !mHallClock->GetClockFreqHz || !mHallClock->EnableClock || !mHallClock->IsClockOn) { return EFI_UNSUPPORTED; }
   for (Index=0;Index<3;Index++) {
+    mHallClockResult.address=(UINT32)Index;
     Status=mHallClock->GetClockID(mHallClock,mHallClockNames[Index],&mHallClockId[Index]);
     DEBUG ((DEBUG_ERROR,"GIULIA HALL CLOCK: lookup %a status=%r\n",mHallClockNames[Index],Status));
     if (EFI_ERROR(Status)) { return Status; }

@@ -26,6 +26,9 @@ class HallDiagnostics(unittest.TestCase):
             text = first.decode()
             self.assertEqual(text.count(module.CALL), 1)
             self.assertLess(text.index(module.CALL), text.index('  CopyMem (Args->CommandLine'))
+            source.write_text(text.replace(' gh=%u', ' gh-old=%u'))
+            module.install(driver)
+            self.assertEqual(first, source.read_bytes())
 
     def test_bad_anchor_preserves_sources(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -75,13 +78,14 @@ int main(void) {
     for(unsigned bits=0;bits<4;bits++) {
         good[0]=bits&1;good[1]=bits&2;
         strcpy(line,"-v");GiuliaAppendHallDiagnostic(line,sizeof(line));
-        char expect[32];snprintf(expect,sizeof(expect),"-v gh=%u",bits);
+        static const unsigned encoded[4]={612,617,678,3};
+        char expect[32];snprintf(expect,sizeof(expect),"-v gh=%u",encoded[bits]);
         assert(!strcmp(line,expect));
     }
     good[0]=good[1]=1;status[0]=1;
-    strcpy(line,"-v");GiuliaAppendHallDiagnostic(line,sizeof(line));assert(!strcmp(line,"-v gh=2"));
+    strcpy(line,"-v");GiuliaAppendHallDiagnostic(line,sizeof(line));assert(!strcmp(line,"-v gh=1706"));
     status[0]=0;wrong_size[1]=1;
-    strcpy(line,"-v");GiuliaAppendHallDiagnostic(line,sizeof(line));assert(!strcmp(line,"-v gh=1"));
+    strcpy(line,"-v");GiuliaAppendHallDiagnostic(line,sizeof(line));assert(!strcmp(line,"-v gh=262185"));
     wrong_size[1]=0;
     memset(line,0x7e,sizeof(line));strcpy(line,"-v");
     GiuliaAppendHallDiagnostic(line,7);assert(!strcmp(line,"-v") && line[7]==0x7e);

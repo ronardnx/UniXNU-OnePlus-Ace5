@@ -36,11 +36,11 @@ static GHP_U64 get_rate(void *p,GHP_U32 *actual)
 }
 static GHP_U64 enable(void *p,unsigned index)
 {
-    struct model *m=p;assert(index==m->enabled && m->calls==3+2*index);m->enabled++;return step(m);
+    struct model *m=p;assert(index==m->enabled && m->calls==3+index);m->enabled++;return step(m);
 }
 static GHP_U64 on(void *p,unsigned index,GHP_U32 *value)
 {
-    struct model *m=p;assert(index==m->observed && m->enabled==index+1);m->observed++;
+    struct model *m=p;assert(index==m->observed && m->enabled==3 && m->calls==6+index);m->observed++;
     *value=m->off==index+1 ? 0 : 1;return step(m);
 }
 int main(void)
@@ -70,7 +70,12 @@ int main(void)
         memset(&m,0,sizeof(m));m.fail=fail;
         unsigned result=ghp_clock_prepare(&clock,&r);
         if(!fail)assert(!result && r.ready && r.stage==10 && m.enabled==3 && m.observed==3);
-        else assert(result && !r.ready && r.status==FAILURE && m.calls==fail);
+        else {
+            assert(result && !r.ready && r.status==FAILURE && m.calls==fail);
+            if(fail<=3)assert(!m.enabled && !m.observed);
+            else if(fail<=6)assert(m.enabled==fail-3 && !m.observed && r.stage==fail);
+            else assert(m.enabled==3 && m.observed==fail-6 && r.stage==fail);
+        }
     }
     for(unsigned mismatch=0;mismatch<5;mismatch++) {
         memset(&m,0,sizeof(m));
@@ -79,7 +84,7 @@ int main(void)
         else m.off=mismatch-1;
         assert(ghp_clock_prepare(&clock,&r) && !r.ready);
         if(mismatch<2)assert(!m.enabled);
-        else assert(m.enabled==m.off && m.observed==m.off);
+        else assert(m.enabled==3 && m.observed==m.off && r.stage==6+m.off && r.address==m.off-1);
     }
     assert(ghp_power_prepare(NULL,&r)==GHP_ARGUMENT);
     assert(ghp_clock_prepare(NULL,&r)==GHP_ARGUMENT);
