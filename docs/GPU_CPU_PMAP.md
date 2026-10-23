@@ -2,7 +2,9 @@
 
 本文对应 `scripts/ios16_gpu_pmap_patch.py`、生成的
 `ios16/0086-giulia-gpu-pmap.patch`、`ios16/gpu/giulia_gpu_pmap.h`、
-`ios16/gpu/giulia_gpu_fence_native.h`、`ios16/gpu/giulia_gpu_fence_native.c`。它补齐的是
+`ios16/gpu/giulia_gpu_fence_native.h`、`ios16/gpu/giulia_gpu_fence_native.c`、
+`ios16/gpu/giulia_gpu_fence_iokit.cpp`。协议核心按 C 编译，IOKit 映射后端按 C++ 编译，
+通过同一组 C ABI 接口连接；`IOMemoryMap` 由 XNU 的 `IOMemoryDescriptor.h` 声明。它补齐的是
 `docs/GPU_FENCE_PROVIDER.md` 里标注为“原生 pmap ABI 声明仍未实现”的那一层：
 真正的页表策略、审计、只读证据和 Normal NC 守卫。
 

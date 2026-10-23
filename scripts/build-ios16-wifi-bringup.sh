@@ -142,7 +142,7 @@ files += [*Path('ios16/common').glob('*.h'), *Path('ios16/platform').glob('*'),
           Path('scripts/ios16_sources.py'), Path('scripts/ios16_platform_patch.py'),
           Path('scripts/ios16_modules.py'), Path('scripts/ios16_module_registry.py')]
 if json.loads((out/'payload/payload.json').read_text()).get('gpu_runtime'):
-    files += [Path('ios16/gpu/GiuliaGPU.cpp'),*Path('ios16/gpu').glob('giulia_gpu_*.c'),
+    files += [*Path('ios16/gpu').glob('*.cpp'),*Path('ios16/gpu').glob('giulia_gpu_*.c'),
               *Path('ios16/gpu').glob('giulia_gpu_*.h'),*Path('ios16/vendor').rglob('*'),
               Path('scripts/ios16_gpu_patch.py'),Path('scripts/ios16_gpu_runtime.py'),
               Path('scripts/embed-gpu-firmware.py'),Path('scripts/ios16_gpu_power.py'),
