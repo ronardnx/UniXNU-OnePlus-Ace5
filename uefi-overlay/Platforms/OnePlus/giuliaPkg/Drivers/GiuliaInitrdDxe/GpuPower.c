@@ -21,7 +21,7 @@ VOID GiuliaGpuPowerInstall (VOID);
 
 #if defined(GIULIA_GPU_POWER) && GIULIA_GPU_POWER
 #define GPP_FIRMWARE_TYPES 1
-#include "GpuPowerPolicy.h"
+#include "GpuColdClocks.h"
 #include "GpuQmpTransport.h"
 
 typedef struct {
@@ -73,7 +73,7 @@ STATIC GPP_U64 Resolve (VOID *Cookie)
   UINTN I,J;
   BOOLEAN Enabled=FALSE,On=FALSE;
   CONST UINT64 Maps[][2]={{0x171000,0x1000},{0x3d90000,0xa000},
-    {0x3d7e000,0x1000},{QPT_MSGRAM_PA,0x1000},{0x406000,0x1000}};
+    {0x3d7e000,0x1000},{0x152000,0x1000},{QPT_MSGRAM_PA,0x1000},{0x406000,0x1000}};
   (VOID)Cookie;
   Status=gBS->LocateProtocol(&gEfiClockProtocolGuid,NULL,(VOID **)&mClock);
   DEBUG((DEBUG_ERROR,"GIULIA GPU POWER: ClockDxe locate status=%lx\n",(UINT64)Status));
@@ -287,10 +287,26 @@ STATIC GPP_U64 Acd (VOID *Cookie)
   return EFI_SUCCESS;
 }
 
+STATIC GPP_U32 ColdRead (VOID *Cookie,GPP_U32 Address)
+{ (VOID)Cookie;return MmioRead32(Address); }
+STATIC VOID ColdWrite (VOID *Cookie,GPP_U32 Address,GPP_U32 Value)
+{ (VOID)Cookie;MmioWrite32(Address,Value);__asm__ volatile("dsb sy":::"memory"); }
+STATIC VOID ColdDelay (VOID *Cookie,unsigned Us)
+{ (VOID)Cookie;(VOID)gBS->Stall(Us); }
+STATIC unsigned ColdClocks (VOID *Cookie,struct gpp_report *Report)
+{
+  CONST struct gcc_io Io={Cookie,ColdRead,ColdWrite,ColdDelay};
+  unsigned Code=gcc_prepare(&Io,Report);
+  DEBUG((DEBUG_ERROR,"GIULIA GPU CLOCKS: cold result=%u gmu=%u hub=%u pll=%x gmu_cfg=%x hub_cfg=%x smmu=%x reset=%x\n",
+    Code,Report->values[12],Report->values[13],ColdRead(NULL,0x3d91000),
+    ColdRead(NULL,0x3d9931c),ColdRead(NULL,0x3d993f0),Report->values[10],Report->values[11]));
+  return Code;
+}
+
 STATIC EFI_STATUS EFIAPI Prepare (struct gpp_report *Result,UINTN Bytes)
 {
   unsigned Code;
-  CONST struct gpp_io Io={NULL,Resolve,Acd,Resource,Read,Delay};
+  CONST struct gpp_io Io={NULL,Resolve,Acd,Resource,Read,Delay,ColdClocks};
   if(Result==NULL || Bytes!=sizeof(*Result))return EFI_INVALID_PARAMETER;
   if(mAttempted) {
     CopyMem(Result,&mReport,sizeof(mReport));return EFI_ALREADY_STARTED;

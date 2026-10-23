@@ -29,7 +29,7 @@ enum gpp_operation { GPP_OP_NONE, GPP_OP_RESOLVE, GPP_OP_READ,
     GPP_OP_DELAY, GPP_OP_VALIDATE };
 enum gpp_flags { GPP_CFG_INHERITED=1, GPP_READY=2, GPP_ACD_CONSUMED=4,
     GPP_PROTOCOL_UNCERTAIN=8, GPP_QMP_UNCERTAIN=16, GPP_PROVIDER_UNBOUNDED=32,
-    GPP_EXPECTED_VALID=64, GPP_OBSERVED_VALID=128, GPP_MASK_VALID=256 };
+    GPP_EXPECTED_VALID=64, GPP_OBSERVED_VALID=128, GPP_MASK_VALID=256, GPP_DIRECT_CLOCKS=512 };
 
 /* Fixed-width handoff only: no live Boot Services handles or pointers. An
  * unset valid_reads bit means unknown, including when values[] contains zero.

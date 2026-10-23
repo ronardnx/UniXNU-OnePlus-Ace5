@@ -101,9 +101,16 @@ bool GiuliaGPU::platformPower()
 }
 bool GiuliaGPU::platformIdle()
 {
-    if(!platformPrepared || !platformPower() || platformRead(0x3da0048) || platformRead(0x3d7e000)!=1)return false;
-    for(unsigned i=0;i<22;i++)if(platformRead(0x3dc0000+4096*i)&1)return false;
-    for(unsigned i=0;i<24;i++)if(platformRead(0x3da0800+4*i)!=0 || platformRead(0x3da0c00+4*i)!=0x20000)return false;
+    if(!platformPrepared || !platformPower()) {IOLog("GIULIA GPU IDLE: prepared=%u power=unconfirmed\n",platformPrepared);return false;}
+    if(platformRead(0x3da0048) || platformRead(0x3d7e000)!=1) {
+        IOLog("GIULIA GPU IDLE: global=%#x reset=%#x\n",platformRead(0x3da0048),platformRead(0x3d7e000));return false;
+    }
+    for(unsigned i=0;i<22;i++)if(platformRead(0x3dc0000+4096*i)&1) {
+        IOLog("GIULIA GPU IDLE: active_bank=%u\n",i);return false;
+    }
+    for(unsigned i=0;i<24;i++)if(platformRead(0x3da0800+4*i)!=0 || platformRead(0x3da0c00+4*i)!=0x20000) {
+        IOLog("GIULIA GPU IDLE: slot=%u smr=%#x s2cr=%#x\n",i,platformRead(0x3da0800+4*i),platformRead(0x3da0c00+4*i));return false;
+    }
     return true;
 }
 bool GiuliaGPU::platformPoll(uint64_t address,uint32_t mask,uint32_t expected)
@@ -252,9 +259,13 @@ int GiuliaGPU::platformCommand(unsigned action)
         int code=platformAvailable(0x02000c1b);return code?code:platformCall(0x42000c1b,4,args,false);
     }
     if(action==4) {
-        if(!scmState.init_succeeded || !platformIdle())return 8;
+        if(!scmState.init_succeeded || !platformIdle()) {
+            IOLog("GIULIA GPU SECURE: refused stage=idle init=%u reset=%#x global_fault=%#x\n",scmState.init_succeeded,platformRead(0x3d7e000),platformRead(0x3da0048));return 8;
+        }
         if(secureOwnershipReady)return 0;
-        if(auditSecureMappings())return 8;
+        if(auditSecureMappings()) {
+            IOLog("GIULIA GPU SECURE: refused stage=audit control=%#x smr=%#x s2cr=%#x tlb=%#x poisoned=%u\n",platformRead(0x3dc3000),platformRead(0x3da0808),platformRead(0x3da0c08),platformRead(0x3dc37f4),platformPoisoned);return 8;
+        }
         int code=platformAvailable(0x02000c16);if(code)return code;
         code=platformAssign(secureRoot,GGS_SEC_TABLE_BYTES,true);if(code)return code;
         for(unsigned i=0;i<GGS_SEC_SEGMENTS;i+=32) {

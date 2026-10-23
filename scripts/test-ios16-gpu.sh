@@ -3,6 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/uefi_gpu_cold_clocks.c -o "$tmp/cold-clocks"
+"$tmp/cold-clocks"
 python3 tests/ios16_gpu_vendor.py
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -g \
     tests/ios16_gpu_firmware.c -o "$tmp/firmware"

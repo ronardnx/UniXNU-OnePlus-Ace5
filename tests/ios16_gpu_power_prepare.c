@@ -5,6 +5,8 @@
 #include <string.h>
 #include "../uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/GpuPowerPolicy.h"
 
+#include "../ios16/giulia_gpu_power_handoff.h"
+
 #define FW_FAILURE UINT64_C(0x8000000000000042)
 struct model {
     uint32_t regs[GPP_REGISTER_COUNT],rates[2];
@@ -14,6 +16,7 @@ struct model {
     unsigned cx_after_delay,lose_cx_at_final,cx_reads;
     unsigned cfg_reads,lose_cfg_at_final,drop_final_reg;
     unsigned reset_reads,release_reset_read,reset_proven,inherit_gmu_after_bus;
+    unsigned inherited_gmu,lose_gmu_after_bus;
     unsigned enabled_reads[GPP_REGISTER_COUNT];
     unsigned reg_reads[GPP_REGISTER_COUNT];
     unsigned resources[64],operations[64];
@@ -42,7 +45,7 @@ static uint64_t resolve(void *cookie)
 static uint64_t acd(void *cookie)
 {
     struct model *m=cookie;
-    assert(m->resolved && !m->acd && !m->rates[0] && !m->rates[1]);
+    assert(m->resolved && !m->acd && (!m->rates[0] || m->inherited_gmu) && !m->rates[1]);
     assert((m->regs[GPP_REG_CX]&1) && !(m->regs[GPP_REG_CX_HW]&0x80000000u));
     m->acd++;m->events++;return m->fail_acd?FW_FAILURE:0;
 }
@@ -58,7 +61,8 @@ static uint64_t resource(void *cookie,unsigned id,unsigned op,uint32_t requested
     }
     if(id==GPP_GMU_RATE || id==GPP_GMU_CLK) {
         assert(m->reset_proven && (m->regs[GPP_REG_SYSRESET]&1));
-        if(op!=GPP_GET_RATE)assert(!(m->regs[GPP_REG_GMU]&1));
+        if(m->inherited_gmu)assert(op!=GPP_SET_RATE);
+        else if(op!=GPP_GET_RATE)assert(!(m->regs[GPP_REG_GMU]&1));
     }
     if(m->fail_resource==call+1)return FW_FAILURE;
     if(m->dropped_resource==id+1)return 0;
@@ -94,7 +98,7 @@ static uint64_t read_reg(void *cookie,unsigned reg,uint32_t *value)
     if(reg==GPP_REG_SYSRESET) {
         unsigned i;assert(m->rates[1]==200000000u);
         for(i=GPP_REG_CXO;i<=GPP_REG_SMMU;i++)assert(m->regs[i]&1);
-        if(!m->reset_reads)assert(!m->rates[0] && !(m->regs[GPP_REG_GMU]&1));
+        if(!m->reset_reads && !m->inherited_gmu)assert(!m->rates[0] && !(m->regs[GPP_REG_GMU]&1));
     }
     m->read_calls++;m->events++;
     m->reg_reads[reg]++;
@@ -108,6 +112,8 @@ static uint64_t read_reg(void *cookie,unsigned reg,uint32_t *value)
         m->regs[GPP_REG_CX]|=1;
     if(reg==GPP_REG_GMU && m->inherit_gmu_after_bus && m->rates[1])
         m->regs[GPP_REG_GMU]|=1;
+    if(reg==GPP_REG_GMU && m->lose_gmu_after_bus && m->rates[1])
+        m->regs[GPP_REG_GMU]=0x80000000u;
     if(reg==GPP_REG_SYSRESET && ++m->reset_reads==m->release_reset_read)
         m->regs[GPP_REG_SYSRESET]=0;
     if(m->fail_read==m->read_calls)return FW_FAILURE;
@@ -124,7 +130,7 @@ static uint64_t delay_us(void *cookie,unsigned us)
     return 0;
 }
 static struct gpp_io ops(struct model *m)
-{struct gpp_io io={m,resolve,acd,resource,read_reg,delay_us};return io;}
+{struct gpp_io io={m,resolve,acd,resource,read_reg,delay_us,0};return io;}
 static unsigned run(struct model *m,struct gpp_report *r)
 {
     struct gpp_io io=ops(m);unsigned code;
@@ -137,7 +143,7 @@ static void no_late_resources(const struct model *m)
 {
     unsigned i;
     for(i=0;i<m->resource_calls;i++)assert(m->resources[i]==GPP_CFG || m->resources[i]==GPP_CX);
-    assert(!m->rates[0] && !m->rates[1]);
+    assert((!m->rates[0] || m->inherited_gmu) && !m->rates[1]);
 }
 static void no_gmu_mutation(const struct model *m)
 {
@@ -148,7 +154,7 @@ static void no_gmu_mutation(const struct model *m)
 }
 int main(void)
 {
-    struct model m;struct gpp_report r;unsigned i,calls,reads;
+    struct model m;struct gpp_report r,decoded;unsigned i,calls,reads;
     reset_model(&m);assert(run(&m,&r)==GPP_OK);
     assert(sizeof(r)==256 && offsetof(struct gpp_report,crc32)==252);
     assert((r.flags&(GPP_READY|GPP_ACD_CONSUMED))==(GPP_READY|GPP_ACD_CONSUMED));
@@ -217,7 +223,7 @@ int main(void)
     reset_model(&m);m.regs[GPP_REG_SYSRESET]=0;
     assert(run(&m,&r)==GPP_ERR_RESET);assert(!(r.flags&GPP_READY) && r.retained);
     no_gmu_mutation(&m);
-    reset_model(&m);m.regs[GPP_REG_GMU]=1;
+    reset_model(&m);m.regs[GPP_REG_GMU]=0x80000001u;
     assert(run(&m,&r)==GPP_ERR_INITIAL);no_gmu_mutation(&m);
     assert(!m.rates[1]);
     reset_model(&m);m.inherit_gmu_after_bus=1;
@@ -237,6 +243,27 @@ int main(void)
         reset_model(&m);m.drop_final_reg=i;assert(run(&m,&r)==GPP_ERR_TIMEOUT);
         assert(r.failure_phase==GPP_PHASE_READY && !(r.flags&GPP_READY));
         assert(m.reset_reads==2);
+    }
+
+    /* Real inherited branch 0x2001: preserve source, validate configured rate
+     * and held reset, and continue the SMMU clock path. */
+    reset_model(&m);m.inherited_gmu=1;m.regs[GPP_REG_GMU]=0x2001;m.rates[0]=625000000;
+    assert(run(&m,&r)==GPP_OK);
+    assert(r.confirmed&(1u<<GPP_SMMU_CLK));
+    assert(ggph_decode(&r,sizeof(r),&decoded)==GGPH_PREPARED);
+    for(i=0;i<m.resource_calls;i++)if(m.resources[i]==GPP_GMU_RATE)
+        assert(m.operations[i]==GPP_GET_RATE);
+    for(i=0;i<5;i++) {
+        reset_model(&m);m.inherited_gmu=1;m.regs[GPP_REG_GMU]=0x2001;m.rates[0]=625000000;
+        if(i==0)m.rates[0]=200000000;
+        if(i==1)m.unknown_get=GPP_GMU_RATE+1;
+        if(i==2)m.regs[GPP_REG_SYSRESET]=0;
+        if(i==3)m.release_reset_read=2;
+        if(i==4)m.lose_gmu_after_bus=1;
+        assert(run(&m,&r)==(i<2?GPP_ERR_RATE:i<4?GPP_ERR_RESET:GPP_ERR_INITIAL));
+        assert(!(r.flags&GPP_READY));
+        for(unsigned j=0;j<m.resource_calls;j++)if(m.resources[j]==GPP_GMU_RATE)
+            assert(m.operations[j]==GPP_GET_RATE);
     }
 
     /* Missing callbacks and reused requests never invoke firmware. CRC and

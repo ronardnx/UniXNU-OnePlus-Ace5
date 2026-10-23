@@ -31,6 +31,7 @@ struct gpp_io {
     GPP_U64 (*resource)(void *,unsigned,unsigned,GPP_U32,GPP_U32 *);
     GPP_U64 (*read)(void *,unsigned,GPP_U32 *);
     GPP_U64 (*delay)(void *,unsigned);
+    unsigned (*cold_clocks)(void *,struct gpp_report *);
 };
 
 static inline const char *gpp_resource_name(unsigned resource)
@@ -146,7 +147,7 @@ static inline int gpp_set_rate(const struct gpp_io *io,struct gpp_report *r,
 static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
 {
     GPP_U64 status;
-    unsigned i;
+    unsigned i,inherited_gmu;
     static const unsigned branches[]={GPP_CXO_CLK,GPP_AXI_CLK,
         GPP_MEMNOC_CLK,GPP_DVM_CLK,GPP_AHB_CLK,GPP_HUB_CLK,GPP_SMMU_CLK};
     static const unsigned registers[]={GPP_REG_CXO,GPP_REG_AXI,
@@ -188,13 +189,18 @@ static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
        !gpp_wait_register(io,r,GPP_REG_CX_HW,0x80000000u,0x80000000u))return r->code;
     r->confirmed|=1u<<GPP_CX;
 
-    /* Do not change a running/inherited GMU core clock. The CX config AHB
-     * path exposes its GPUCC branch independently of the GMU core source.
+    if(io->cold_clocks)return io->cold_clocks(io->cookie,r);
+
+    /* An inherited enabled GMU branch is valid on this board (0x2001).
+     * Preserve it: require a stable active branch, then reset and frequency
+     * proof below. Never retune or disable an inherited core clock.
      */
     gpp_action(r,GPP_PHASE_CLOCKS,GPP_OP_READ,GPP_GMU_CLK);
     if(!gpp_read_value(io,r,GPP_REG_GMU))return r->code;
-    r->expected=0;r->mask=1;r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
-    if(r->values[GPP_REG_GMU]&1) {
+    inherited_gmu=r->values[GPP_REG_GMU]&1u;
+    r->expected=inherited_gmu;r->mask=inherited_gmu?0x80000001u:1u;
+    r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+    if((r->values[GPP_REG_GMU]&r->mask)!=r->expected) {
         r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_INITIAL,0);
     }
     gpp_action(r,GPP_PHASE_HUB_RATE,GPP_OP_SET_RATE,GPP_HUB_RATE);
@@ -213,13 +219,15 @@ static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
     /* GEN7_GMU_CM3_SYSRESET is the CX AHB register at GPU+0x1f800*4.
      * GPUCC defines AHB/HUB and CXO separately from the GMU core branch.
      * Only after this bus path is ready may reset be observed while the core
-     * branch remains disabled. A bad read or released reset blocks both the
+     * branch remains in its observed inherited state. A bad read or released reset blocks both the
      * GMU rate request and core-clock enable; no reset writes are permitted.
      * This observation does not prove that outstanding GPU DMA was drained.
      */
     gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
     if(!gpp_read_value(io,r,GPP_REG_GMU))return r->code;
-    if(r->values[GPP_REG_GMU]&1) {
+    r->expected=inherited_gmu;r->mask=inherited_gmu?0x80000001u:1u;
+    r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+    if((r->values[GPP_REG_GMU]&r->mask)!=r->expected) {
         r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_INITIAL,0);
     }
     if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
@@ -228,7 +236,20 @@ static inline unsigned gpp_prepare(const struct gpp_io *io,struct gpp_report *r)
         r->operation=GPP_OP_VALIDATE;return gpp_fail(r,GPP_ERR_RESET,0);
     }
     gpp_action(r,GPP_PHASE_GMU_RATE,GPP_OP_SET_RATE,GPP_GMU_RATE);
-    if(!gpp_set_rate(io,r,GPP_GMU_RATE,625000000u,GPP_VALUE_GMU_RATE))return r->code;
+    if(inherited_gmu) {
+        GPP_U32 actual=0;
+        r->operation=GPP_OP_GET_RATE;r->attempted|=1u<<GPP_GMU_RATE;
+        r->expected=625000000u;r->mask=0xffffffffu;
+        r->flags|=GPP_EXPECTED_VALID|GPP_MASK_VALID;
+        status=io->resource(io->cookie,GPP_GMU_RATE,GPP_GET_RATE,0,&actual);
+        r->last_firmware_status=status;
+        if(status)return gpp_fail(r,GPP_ERR_RESOURCE,status);
+        r->observed=actual;r->flags|=GPP_OBSERVED_VALID;
+        r->values[GPP_VALUE_GMU_RATE]=actual;r->valid_reads|=1u<<GPP_VALUE_GMU_RATE;
+        if(actual!=625000000u)return gpp_fail(r,GPP_ERR_RATE,0);
+        /* Confirm configured frequency only; this is not a runtime lease. */
+        r->confirmed|=1u<<GPP_GMU_RATE;
+    } else if(!gpp_set_rate(io,r,GPP_GMU_RATE,625000000u,GPP_VALUE_GMU_RATE))return r->code;
     /* Keep the reset proof adjacent to the actual clock-enable transaction. */
     gpp_action(r,GPP_PHASE_RESET,GPP_OP_READ,GPP_GMU_CLK);
     if(!gpp_read_value(io,r,GPP_REG_SYSRESET))return r->code;
