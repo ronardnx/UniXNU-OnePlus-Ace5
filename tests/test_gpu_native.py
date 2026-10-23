@@ -19,6 +19,13 @@ class NativeProtocol(unittest.TestCase):
   n=self.fixture()
   with self.assertRaises(RuntimeError):n.request([0x700b14,1,0,0,0x338,19,0,2,0,0x1000,0])
   self.assertFalse(n.sent)
+ def test_ack_poll_does_not_touch_mmio(self):
+  import re
+  n=self.fixture();n.pending=[]
+  class L:
+   def command(self,*a,**k):return re.search('poll queue=2 code=1','GIULIA GPU HFI: poll queue=1 code=1\nGIULIA GPU HFI: poll queue=2 code=1')
+   def write(self,*a,**k):raise AssertionError('Unsolicited MMIO while waiting for GPU')
+  n.l=L();n.poll();self.assertFalse(n.pending)
  def test_alignment_refusal_and_counter(self):
   n=self.fixture()
   with self.assertRaises(RuntimeError):n.request([0x700b14,1,0,0,0x33f,2,0,2,0,0x1000,23])

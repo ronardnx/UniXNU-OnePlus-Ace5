@@ -47,7 +47,6 @@ class NativeHfi:
             assert len(words)==n
             self.report.setdefault('hfi_packets',[]).append({'queue':q,'words':[hex(v) for v in words]})
             if q==1:self.pending.append(words)
-        self.l.write(0x3d7e644,1,verify=False)
     def request(self,words):
         msg=words[0]&255
         if msg==20 and len(words)==11 and words[1]==1:
@@ -73,7 +72,6 @@ class NativeHfi:
     def send(self,msg_id,payload,seconds=10):
         header=self.packet(msg_id,payload);deadline=time.monotonic()+seconds
         while time.monotonic()<deadline:
-            if self.l.read(0x3d7e648)&0x8000:raise RuntimeError('CM3 fault')
             if not self.pending:self.poll()
             if not self.pending:continue
             words=self.pending.pop(0)

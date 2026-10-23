@@ -1,5 +1,43 @@
 # Ace 5 GPU 终端实测（2026-10-23）
 
+## 2026-10-23 07:45–08:02 CP 前置核对与 bank 修正
+
+本轮沿用 `gpu-dev-boot-20261023-r1`，没有编译新内核。
+
+配置阶段已实测：补入 A750 的 48 个 CP 保护区、UCHE/GMEM/UBWC 参数、
+AO CGC 参数及 P2S 装载完成握手；读取实际寄存器值，打包 58 个 IFPC
+register pairs、17 个 preemption pairs、0 个 dynamic triplets。
+`cpu_gpu_lock` 前三个字为零，计数字为 `0x113a`；共 154 个字。
+每个字上传后回读一致。性能计数掩码请求全 1 但只读回实现位，GMEM 上界
+低 12 位读为零；报告保留请求/读值，没有要求保留位可写。
+
+补齐这些寄存器后，首个 HFI raw NOP 仍触发 USB 900E，CP_INIT 和 MEM_WRITE
+尚未执行。ACK 等待现只读取宿主 HFI RAM，不在等待循环读写 GMU MMIO；
+这排除了“只有 CP_INIT 内容或等待时那一次 MMIO 读取才会触发失败”的解释，
+但不足以确定硬件根因。
+
+继续核对固定 Qualcomm SMMU 实现发现明确的布局约束：context bank 0、1
+保留给 GPU 的硬件页表切换，其余设备（含 GMU）从 bank 2 分配。此前
+诊断借用 GMU bank 0，不适合作为真实 GPU 命令路径。控制器现使用
+GPU SID 0 -> bank 0，GMU SID 5 -> bank 2；bank 1 保留未使用。
+原厂 DT 的 user SID=0/mask=0、GMU SID=5/mask=0、ACTLR=0x32b 已核对。
+修正后 HWSCHED、寄存器配置、GX 上电/休眠及清理都通过，两个 context
+FSR 仍为无有效故障的 0x400。**该修正后的 NOP 仍进入 900E，所以不能把
+bank 错配报告成已证明的唯一根因。**
+
+另查明固定 GMU core 是 0x40020014（4.2.20）。vendor 只有在 core >=5.1.6
+时才移除主机 RBBM IRQ；当前诊断路径没有原厂主机 GPU fault IRQ 处理。
+中断归属、可用的故障快照和完整安全/取指前置条件必须一起核对，不能
+通过放开没有处理器的 IRQ 或直接重放 NOP 来碰运气。未执行 SMC/ZAP
+认证，不把寄存器配置阶段称为完整 GPU 启动。
+
+失败 `cp`、`cpv2`、`nop` 阶段现在都在 CLI 入口拒绝，相关模块也单独拒绝
+直接运行。可继续使用 `start`、`gx`、`configure` 收集对应阶段证据。
+实测摘要：`hardware/ios16-gpu-cp-audit.json`。两个 NOP 失败的原始日志保留；
+两次均经用户恢复 Fastboot 后临时启动同一镜像，未刷写分区。最后恢复记录
+在 `out/ios16/gpu-dev-device-20261023-recovery3/`：准备检查全部通过，熄屏命令完成。
+
+
 ## 2026-10-23 07:34–07:40 实机结果
 
 整合内核 `03fb2a3fe78f5f6dede7f8f08152aa961ad8b24f` 已完成一次

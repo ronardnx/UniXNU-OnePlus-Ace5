@@ -14,9 +14,9 @@ import argparse
 from gpu_terminal_boot import LEASE
 parser=argparse.ArgumentParser(description='Native HWSCHED experiment using current kernel roots; answers owned RAM allocation requests and stops on unsupported resources.')
 parser.add_argument('--execute',action='store_true',help='Perform temporary device writes and reset/cleanup')
-parser.add_argument('--stage',choices=('tables','start','gx','cp'),default='tables')
+parser.add_argument('--stage',choices=('tables','start','gx','configure','nop','cpv2','cp'),default='tables')
 args=parser.parse_args()
-if args.stage=='cp':parser.error('CP experiment disabled after 900E; complete vendor initialization and diagnostics before any replay')
+if args.stage in ('cp','cpv2','nop'):parser.error('CP experiment disabled after 900E; complete vendor initialization and diagnostics before any replay')
 if not args.execute:parser.error('Use --execute after binding the current boot; no hardware accessed')
 root_pa=0  # Obtained freshly from the running service below.
 blocks=[];off=0
@@ -36,6 +36,7 @@ with Live('gpu-native-hwsched-terminal') as live:
     transport=NativeHfi(live,report)
     root_pa=transport.gmu_root
     report['root_pa']=hex(root_pa);report['gpu_root_pa']=hex(transport.gpu_root)
+    report['context_banks']={'gmu':2,'gpu':0,'gpu_reserved':[0,1]};
     report['native_transport']=True;report['temporary_nmi_vector_modified']=False
     def rw(a,v,width=32,verify=True):live.write(a,v,width,verify)
     def config(a,v,verify=True):
@@ -63,24 +64,24 @@ with Live('gpu-native-hwsched-terminal') as live:
         assert live.read(0x3da0020)==0x4c017e18 and live.read(0x3da0048)==0
         for base,size in ((0x3dc0000,0x10000),(0x3dd0000,0x8000),
             (0x3d6c000,0x4000),(0x3d70000,0x4000),(0x3d74000,0x4000),(0x3d50000,0x4000),
-            (0xb284000,0x4000),(0x3d0c000,0x4000),(0x3d8c000,0x4000)):
+            (0xb284000,0x4000),(0x3d00000,0x10000),(0x3d8c000,0x4000)):
             maps.append(live.map(base,size))
         for i in range(24):
             assert live.read(0x3da0800+4*i)==0 and live.read(0x3da0c00+4*i)==0x20000
         for i in range(22):assert not live.read(0x3dc0000+0x1000*i)&1
-        assert not live.read(0x3dc0058)&0xc00001fe
+        assert not live.read(0x3dc2058)&0xc00001fe
         report['hfi_status_before']=live.read(reg(0x1f980))
         live.command('gpu.hfi.pin',r'GIULIA GPU HFI: memory_pinned_until_reboot=1')
         modified=True
         # Use the same native4K format already validated by actual CM3 DMA.
-        rw(0x3da1800,1);rw(0x3da1000,0x1f300)
-        rw(0x3dc0010,0x38011,verify=False);assert live.read(0x3dc0010)==0x38071
-        rw(0x3dc0030,0x80802020)
-        rw(0x3dc0020,(0x750<<48)|root_pa,64);rw(0x3dc0028,0x750<<48,64)
-        rw(0x3dc0038,0xff44);rw(0x3dc003c,0)
-        rw(0x3dc0058,0xffffffff,verify=False)
-        rw(0x3dc0618,0,verify=False);rw(0x3dc07f0,0xffffffff,verify=False)
-        assert live.read(0x3dc07f4)==0
+        rw(0x3da1808,1);rw(0x3da1008,0x1f300)
+        rw(0x3dc2010,0x38011,verify=False);assert live.read(0x3dc2010)==0x38071
+        rw(0x3dc2030,0x80802020)
+        rw(0x3dc2020,(0x750<<48)|root_pa,64);rw(0x3dc2028,0x750<<48,64)
+        rw(0x3dc2038,0xff44);rw(0x3dc203c,0)
+        rw(0x3dc2058,0xffffffff,verify=False)
+        rw(0x3dc2618,0,verify=False);rw(0x3dc27f0,0xffffffff,verify=False)
+        assert live.read(0x3dc27f4)==0
         for pa,data in blocks:
             assert live.read(0x3d7e000)==1
             for i in range(0,len(data),4):rw(pa+i,struct.unpack_from('<I',data,i)[0])
@@ -107,19 +108,19 @@ with Live('gpu-native-hwsched-terminal') as live:
         report['counter_before']=live.read(reg(0x1f880))
         report['counter_after']=live.read(reg(0x1f880))
         assert report['counter_before']!=report['counter_after']
+        rw(0x3dc2000,0x1027,verify=False);assert live.read(0x3dc2000)==0x27
+        attached=True;rw(0x3da0800,0x80000005);rw(0x3da0c00,2)
+        rw(0x3da1800,1);rw(0x3da1000,0x1f300)
+        rw(0x3dc0010,0x38011,verify=False);assert live.read(0x3dc0010)==0x38071
+        rw(0x3dc0030,0x80802020)
+        rw(0x3dc0020,(0x752<<48)|transport.gpu_root,64);rw(0x3dc0028,0x752<<48,64)
+        rw(0x3dc0038,0xff44);rw(0x3dc003c,0)
+        config(0x3dc0004,0x32b)
+        rw(0x3dc0058,0xffffffff,verify=False)
+        rw(0x3dc0618,0,verify=False);rw(0x3dc07f0,0xffffffff,verify=False)
+        assert live.read(0x3dc07f4)==0
         rw(0x3dc0000,0x1027,verify=False);assert live.read(0x3dc0000)==0x27
-        attached=True;rw(0x3da0800,0x80000005);rw(0x3da0c00,0)
-        rw(0x3da1804,1);rw(0x3da1004,0x1f300)
-        rw(0x3dc1010,0x38011,verify=False);assert live.read(0x3dc1010)==0x38071
-        rw(0x3dc1030,0x80802020)
-        rw(0x3dc1020,(0x752<<48)|transport.gpu_root,64);rw(0x3dc1028,0x752<<48,64)
-        rw(0x3dc1038,0xff44);rw(0x3dc103c,0)
-        config(0x3dc1004,0x32b)
-        rw(0x3dc1058,0xffffffff,verify=False)
-        rw(0x3dc1618,0,verify=False);rw(0x3dc17f0,0xffffffff,verify=False)
-        assert live.read(0x3dc17f4)==0
-        rw(0x3dc1000,0x1027,verify=False);assert live.read(0x3dc1000)==0x27
-        rw(0x3da0804,0x80000000);rw(0x3da0c04,1)
+        rw(0x3da0804,0x80000000);rw(0x3da0c04,0)
         report['gpu_stream_active']=True
         print('Stock TCM/config verified; starting bounded GMU polling experiment',flush=True)
         rw(0x3d7e000,0)
@@ -142,7 +143,7 @@ with Live('gpu-native-hwsched-terminal') as live:
                     assert reply['value']==0 and reply['status'] in (0,None)
                 report['performance_and_bandwidth_tables_accepted']=True
                 report['hwsched_feature_enabled']=True
-                if args.stage in ('start','gx','cp'):
+                if args.stage in ('start','gx','configure','nop','cpv2','cp'):
                     reply=transport.send(14,[0])
                     print('CORE FW START '+str(reply),flush=True)
                     assert reply['value']==0 and reply['status'] in (0,None)
@@ -154,7 +155,7 @@ with Live('gpu-native-hwsched-terminal') as live:
                     report['start_reply']=reply
                     assert reply['value']==0 and reply['status'] in (0,None)
                     report['hwsched_start_accepted']=True
-                    if args.stage in ('gx','cp'):
+                    if args.stage in ('gx','configure','nop','cpv2','cp'):
                         report['gx_before']=live.read(reg(0x1f8d0))
                         report['new_bandwidth_vote']=True
                         reply=transport.send(30,[1,1,1])
@@ -166,24 +167,36 @@ with Live('gpu-native-hwsched-terminal') as live:
                         rw(reg(0x1f991),1<<31,verify=False)
                         report['gx_after']=live.read(reg(0x1f8d0))
                         assert report['oob_ack'] and report['gx_after']&3==0, 'GX power/clock did not become ready'
-                        maps.append(live.map(0x3d00000,0x4000))
+                        if args.stage in ('configure','nop','cpv2'):
+                            for base in (0x3d10000,0x3d20000,0x3d30000):maps.append(live.map(base,0x10000))
                         report['rbbm_status']=live.read(reg(0x210))
                         report['rbbm_status3']=live.read(reg(0x213))
                         report['cp_sqe_control']=live.read(reg(0x808))
                         print('GX READY '+str({k:report[k] for k in ('gx_after','rbbm_status','cp_sqe_control')}),flush=True)
+                        if args.stage=='configure':
+                            from gpu_terminal_gen7_config import Gen7Config
+                            Gen7Config(live,transport,report).configure()
+                        if args.stage=='nop':
+                            from gpu_terminal_cpv3 import run
+                            run(live,transport,report)
+                        if args.stage=='cpv2':
+                            from gpu_terminal_cpv2 import run
+                            run(live,transport,report)
                         if args.stage=='cp':
                             from gpu_terminal_cp import run
                             run(live,transport,report)
-        report.update(smmu_fsr=live.read(0x3dc0058),smmu_far=live.read(0x3dc0060,64),
+        report.update(smmu_fsr=live.read(0x3dc2058),smmu_far=live.read(0x3dc2060,64),
             global_fault=live.read(0x3da0048),gmu_irq=live.read(reg(0x1f992)),ao_irq=live.read(reg(0x23b05)))
         live.command('gpu.hfi.log',r'GIULIA GPU HFI: log_word=63 value=')
         print(json.dumps(report,indent=2),flush=True)
     except Exception as error:
         import traceback
         report['error']=traceback.format_exc();print(report['error'],flush=True)
-        report['smmu_fsr']=live.read(0x3dc0058)
-        report['global_fault']=live.read(0x3da0048)
-        report['gmu_irq']=live.read(reg(0x1f992))
+        try:
+            report['smmu_fsr']=live.read(0x3dc2058)
+            report['global_fault']=live.read(0x3da0048)
+            report['gmu_irq']=live.read(reg(0x1f992))
+        except Exception as diagnostic_error:report['diagnostic_error']=str(diagnostic_error)
     finally:
         try:
             if modified:
@@ -196,21 +209,21 @@ with Live('gpu-native-hwsched-terminal') as live:
                         report['gx_off'],report['gx_shutdown_states']=poll(reg(0x1f8d0),3,3,seconds=1)
                     except Exception as e:report['slumber_error']=str(e)
                 rw(0x3d7e000,1)
-                rw(0x3da0c04,0x20000);rw(0x3dc1000,0)
-                report['gpu_smmu_fsr']=live.read(0x3dc1058)
-                rw(0x3dc1618,0,verify=False);rw(0x3dc17f0,0xffffffff,verify=False)
-                assert poll(0x3dc17f4,1,0)[0]
-                rw(0x3da0804,0);rw(0x3dc1020,0,64);rw(0x3dc1028,0,64)
-                rw(0x3dc1058,0xffffffff,verify=False)
-                report['gpu_stream_active']=False
-                rw(0x3da0c00,0x20000);rw(0x3dc0000,0)
+                rw(0x3da0c04,0x20000);rw(0x3dc0000,0)
+                report['gpu_smmu_fsr']=live.read(0x3dc0058)
                 rw(0x3dc0618,0,verify=False);rw(0x3dc07f0,0xffffffff,verify=False)
                 assert poll(0x3dc07f4,1,0)[0]
-                rw(0x3da0800,0);rw(0x3dc0020,0,64);rw(0x3dc0028,0,64)
+                rw(0x3da0804,0);rw(0x3dc0020,0,64);rw(0x3dc0028,0,64)
                 rw(0x3dc0058,0xffffffff,verify=False)
+                report['gpu_stream_active']=False
+                rw(0x3da0c00,0x20000);rw(0x3dc2000,0)
+                rw(0x3dc2618,0,verify=False);rw(0x3dc27f0,0xffffffff,verify=False)
+                assert poll(0x3dc27f4,1,0)[0]
+                rw(0x3da0800,0);rw(0x3dc2020,0,64);rw(0x3dc2028,0,64)
+                rw(0x3dc2058,0xffffffff,verify=False)
                 report["native_transport_stopped"]=True
                 for a,v in reversed(saved):rw(a,v,verify=False)
-                assert live.read(0x3d7e000)==1 and live.read(0x3dc0000)==0
+                assert live.read(0x3d7e000)==1 and live.read(0x3dc2000)==0
                 assert live.read(0x3da0800)==0 and live.read(0x3da0c00)==0x20000
                 report['cleanup']={'reset_held':True,'stream_faulted':True,'context_disabled':True,
                     'tlb_synced':True,'stock_tcm_retained':True,'owned_ram_pinned_until_reboot':True}
