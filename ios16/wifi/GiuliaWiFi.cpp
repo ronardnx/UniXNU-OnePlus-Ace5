@@ -13,7 +13,7 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <libkern/c++/OSData.h>
-#include <mach-o/loader.h>
+#include <libkern/kernel_mach_header.h>
 #include <arm/machine_routines.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
@@ -602,7 +602,7 @@ static int gw_handoff(void) {
     return prepared?(int)gwl_handoff(pending,1):normal?(int)gwl_handoff(text,0):0;
 }
 static bool gw_firmware(giulia_wifi_runtime *r) {
-    const struct mach_header_64 *h=&_mh_execute_header;
+    const kernel_mach_header_t *h=&_mh_execute_header;
     if(h->magic!=MH_MAGIC_64 || h->ncmds>128 || h->sizeofcmds>0x10000)return false;
     const uint8_t *p=(const uint8_t *)(h+1);size_t left=h->sizeofcmds;struct segment_command_64 firmware;bzero(&firmware,sizeof(firmware));bool found=false;
     for(unsigned i=0;i<h->ncmds;i++) {

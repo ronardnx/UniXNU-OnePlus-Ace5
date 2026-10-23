@@ -138,7 +138,8 @@ from pathlib import Path
 import json,shutil,sys
 out=Path(sys.argv[1]);snapshot=out/'runtime-source'
 files=[*Path('ios16/wifi').glob('giulia_wifi_*.h'),*Path('ios16/wifi').glob('giulia_wifi_*.c'),Path('ios16/wifi/GiuliaWiFi.cpp'),
-       Path('ios16/display/giulia_display.h'),Path('scripts/ios16_display.py')]
+       Path('ios16/display/giulia_display.h'),Path('scripts/ios16_display.py'),
+       Path('scripts/ios16_payload_budget.py')]
 files += [*Path('ios16/common').glob('*.h'), *Path('ios16/platform').glob('*'),
           Path('scripts/ios16_sources.py'), Path('scripts/ios16_platform_patch.py'),
           Path('scripts/ios16_modules.py'), Path('scripts/ios16_module_registry.py')]
@@ -204,7 +205,8 @@ files=[*sorted((out/'driver-source').glob('*')),
        Path('scripts/fix-ios16-high-physical-cache.py'),
        out/'kernel.macho',out/'giulia-ios16.adt',out/'captured-board.dts',
        driver/'DarwinBoot.c',Path('scripts/enable-wifi-diagnostics.py'),
-       Path('scripts/make-ios16-payload.py'),Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),
+       Path('scripts/make-ios16-payload.py'),Path('scripts/ios16_payload_budget.py'),
+       Path('scripts/verify-image.py'),Path('scripts/verify-wifi-native-abi.py'),
        Path('scripts/pack-payload.py'),Path('scripts/ios16_wifi_pcie.py'),
        Path('scripts/ios16_pcie_diagnostic.py'),Path('scripts/decode-ios16-pcie-snapshot.py')]
 if (out/'giulia-ios16.gpu-power.json').is_file():

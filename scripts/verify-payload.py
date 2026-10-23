@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import zlib
 from ios16_platform import check_platform, read_nodes
 from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
@@ -16,6 +17,7 @@ from ios16_modem import check_contract as check_modem_contract, metadata_from_ru
 from ios16_gpu_power import check_request as check_gpu_power_request
 from ios16_gpu_gunyah import check_request as check_gpu_gunyah_request
 from ios16_trust_catalog import modules
+from ios16_payload_budget import MIB, fat_geometry, file_budget, loader_budget
 
 folder=Path(sys.argv[1]).resolve()
 report=json.loads((folder/'payload.json').read_text())
@@ -25,8 +27,26 @@ def digest(path):
         return hashlib.file_digest(f,'sha256').hexdigest()
 if image.stat().st_size!=report['payload_bytes'] or digest(image)!=report['payload_sha256']:
     raise SystemExit('FAT payload digest/size mismatch')
+payload=image.read_bytes()
+geometry=fat_geometry(payload)
+crc=f'{zlib.crc32(payload):08x}'
+if report.get('payload_crc32',crc)!=crc:
+    raise SystemExit('FAT payload CRC32 differs from build report')
+if 'payload_mib' in report and (report['payload_mib'] not in range(64,225,16) or
+                                report['payload_mib']*MIB!=len(payload)):
+    raise SystemExit('Requested FAT capacity differs from actual image length')
+if 'payload_geometry' in report and report['payload_geometry']!=geometry:
+    raise SystemExit('FAT allocation geometry differs from build report')
+identity_path=folder/'identity.json'
+if identity_path.is_file():
+    identity=json.loads(identity_path.read_text())
+    if any(identity.get(key)!=report.get(key) for key in
+           ('payload_bytes','payload_sha256','payload_crc32')):
+        raise SystemExit('UEFI payload identity differs from the payload report')
 with tempfile.TemporaryDirectory() as directory:
     temporary=Path(directory)
+    trust_path=None
+    ramdisk_path=None
     for name in ['kernel.macho','kernel.macho.adt']:
         subprocess.run(['mcopy','-i',str(image),f'::/EFI/UniXNU/Payloads/{name}',str(temporary/name)],check=True)
     subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/unixnu.toml',str(temporary/'unixnu.toml')],check=True)
@@ -221,6 +241,7 @@ with tempfile.TemporaryDirectory() as directory:
         if report.get('trust_catalog'):
             if placeholder!=bytes(16):raise SystemExit('TrustCache handoff must start at zero')
             cache=temporary/'kernel.macho.trustcache'
+            trust_path=cache
             subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/Payloads/kernel.macho.trustcache',str(cache)],check=True)
             trust=report['trust_catalog']; parsed=modules(cache.read_bytes())
             if digest(cache)!=trust['sha256'] or cache.stat().st_size!=trust['bytes']:
@@ -234,6 +255,7 @@ with tempfile.TemporaryDirectory() as directory:
         if entry.get('initrd')!='Payloads/scratch-data.img':
             raise SystemExit('Missing Data initrd configuration')
         data=temporary/'scratch-data.img'
+        ramdisk_path=data
         subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/Payloads/scratch-data.img',str(data)],check=True)
         if digest(data)!=report['data_ramdisk_sha256']:
             raise SystemExit('Embedded Data digest mismatch')
@@ -255,4 +277,27 @@ with tempfile.TemporaryDirectory() as directory:
         if nodes['/device-tree/chosen'].get('ephemeral-storage')!=struct.pack('<I',1):
             raise SystemExit('Missing volatile Data declaration')
         print('Data seed, initrd configuration and RAMDisk ADT handoff verified')
+    if trust_path is None and report.get('trust_cache_sha256'):
+        trust_path=temporary/'kernel.macho.trustcache'
+        subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/Payloads/kernel.macho.trustcache',str(trust_path)],check=True)
+        if digest(trust_path)!=report['trust_cache_sha256']:
+            raise SystemExit('Legacy trust cache digest differs from build report')
+    files={'EFI/UniXNU/Payloads/kernel.macho':(temporary/'kernel.macho').stat().st_size,
+           'EFI/UniXNU/Payloads/kernel.macho.adt':(temporary/'kernel.macho.adt').stat().st_size,
+           'EFI/UniXNU/unixnu.toml':(temporary/'unixnu.toml').stat().st_size}
+    if trust_path:files['EFI/UniXNU/Payloads/kernel.macho.trustcache']=trust_path.stat().st_size
+    if ramdisk_path:files['EFI/UniXNU/Payloads/scratch-data.img']=ramdisk_path.stat().st_size
+    allocation=file_budget(files,len(payload),geometry)
+    if 'payload_file_budget' in report and report['payload_file_budget']!=allocation:
+        raise SystemExit('FAT file allocation budget differs from the extracted payload')
+    if report.get('dram_handoff')=='darwinboot-allocated-window' or 'loader_budget' in report:
+        loader=loader_budget((temporary/'kernel.macho').read_bytes(),
+                             (temporary/'kernel.macho.adt').read_bytes(),
+                             trust_path.stat().st_size if trust_path else 0,
+                             ramdisk_path.read_bytes() if ramdisk_path else b'')
+        if 'loader_budget' in report and report['loader_budget']!=loader:
+            raise SystemExit('DarwinBoot loader budget differs from the extracted kernel/ADT/trust/ramdisk')
+        print('FAT capacity and Darwin22 file/span/16 KiB handoff bounds verified; contiguous allocation requires device validation')
+    else:
+        print('FAT file capacity verified for the legacy payload contract')
 print('Payload digest, embedded ARM64 kernel, ADT, and boot configuration verified')

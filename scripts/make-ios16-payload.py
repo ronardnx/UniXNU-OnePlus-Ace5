@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import struct
 import subprocess
 import tempfile
 import tomllib
@@ -19,6 +18,7 @@ from ios16_modem import check_contract as check_modem_contract
 from ios16_gpu_power import check_request as check_gpu_power_request
 from ios16_gpu_gunyah import check_request as check_gpu_gunyah_request
 from ios16_trust_catalog import modules
+from ios16_payload_budget import MIB, fat_geometry, file_budget, loader_budget
 
 def sha(p):
     with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -29,6 +29,8 @@ def main():
     p.add_argument('--adt',type=Path,required=True)
     p.add_argument('--trust-catalog',type=Path,help='Verified official firmware trust catalogue')
     p.add_argument('--out',type=Path,required=True)
+    p.add_argument('--payload-mib',type=int,choices=range(64,225,16),default=64,
+                   help='FAT payload capacity in MiB; 64..224 in 16 MiB steps (default: 64)')
     p.add_argument('--root-report',type=Path,help='Include HFSX boot entry for an already prepared root')
     p.add_argument('--default-root',action='store_true')
     p.add_argument('--debug-terminal',action='store_true',help='Enable root USB PTY device; requires separately staged debug daemon/shell')
@@ -165,6 +167,14 @@ def main():
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
     for e in tomllib.loads(config)['entry']:
         if len(e['args'].encode('ascii'))>=608:raise ValueError('Boot line too long')
+    loader=loader_budget(a.kernel.read_bytes(),a.adt.read_bytes(),
+                         a.trust_catalog.stat().st_size if a.trust_catalog else 0)
+    files={'EFI/UniXNU/Payloads/kernel.macho':a.kernel.stat().st_size,
+           'EFI/UniXNU/Payloads/kernel.macho.adt':a.adt.stat().st_size,
+           'EFI/UniXNU/unixnu.toml':len(config.encode('utf-8'))}
+    if a.trust_catalog:files['EFI/UniXNU/Payloads/kernel.macho.trustcache']=a.trust_catalog.stat().st_size
+    capacity=a.payload_mib*MIB
+    file_budget(files,capacity)
     a.out.mkdir(parents=True)
     image=a.out/'payload.img'
     env=dict(os.environ,MTOOLS_SKIP_CHECK='1',TZ='UTC')
@@ -173,13 +183,17 @@ def main():
         shutil.copyfile(a.kernel,payload/'kernel.macho')
         shutil.copyfile(a.adt,payload/'kernel.macho.adt')
         if a.trust_catalog:shutil.copyfile(a.trust_catalog,payload/'kernel.macho.trustcache')
-        (payload.parent/'unixnu.toml').write_text(config)
+        (payload.parent/'unixnu.toml').write_text(config,encoding='utf-8',newline='\n')
         for path in [stage,*stage.rglob('*')]:os.utime(path,(315532800,315532800))
-        subprocess.run(['mformat','-C','-F','-T','131072','-v','GIULIAESP','-N','47495531','-i',str(image),'::'],env=env,check=True)
+        subprocess.run(['mformat','-C','-F','-T',str(capacity//512),'-v','GIULIAESP','-N','47495531','-i',str(image),'::'],env=env,check=True)
+        geometry=fat_geometry(image.read_bytes())
+        allocation=file_budget(files,capacity,geometry)
         subprocess.run(['mcopy','-i',str(image),'-s','-Q','-m',str(stage/'EFI'),'::/'],env=env,check=True)
     data=image.read_bytes()
-    if data[82:90]!=b'FAT32   ' or struct.unpack_from('<I',data,32)[0]*512!=len(data):raise ValueError('FAT geometry')
+    if fat_geometry(data)!=geometry:raise ValueError('FAT geometry changed while copying payload files')
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
+            'payload_mib':a.payload_mib,'payload_geometry':geometry,
+            'payload_file_budget':allocation,'loader_budget':loader,
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
             'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window','platform_match':platform_match,
             'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes',

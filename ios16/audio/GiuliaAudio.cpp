@@ -8,7 +8,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMemoryDescriptor.h>
-#include <mach-o/loader.h>
+#include <libkern/kernel_mach_header.h>
 #include <pexpert/pexpert.h>
 #include <kern/thread.h>
 #ifndef UINT64_C
@@ -35,7 +35,6 @@
 #endif
 
 extern "C" { extern unsigned long gPhysBase,gPhysSize,gVirtBase; }
-extern const struct mach_header_64 _mh_execute_header;
 static const struct ga_platform *audioPlatform;
 static unsigned audioRequest,audioOnline,audioClosing;
 static unsigned audioOwner,audioRegistering;
@@ -113,7 +112,7 @@ bool GiuliaAudio::init(OSDictionary *d)
 }
 bool GiuliaAudio::loadFirmware()
 {
-    const struct mach_header_64 *h=&_mh_execute_header;
+    const kernel_mach_header_t *h=&_mh_execute_header;
     if(h->magic!=MH_MAGIC_64 || !h->ncmds || h->ncmds>128 || h->sizeofcmds>0x10000)return false;
     const uint8_t *p=(const uint8_t *)(h+1);size_t left=h->sizeofcmds;
     struct segment_command_64 found={};bool have=false;

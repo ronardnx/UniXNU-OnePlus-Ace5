@@ -11,6 +11,7 @@ import gzip
 import subprocess
 import tempfile
 import zlib
+from ios16_payload_budget import fat_geometry
 
 def require(value, message):
     if not value:
@@ -18,6 +19,15 @@ def require(value, message):
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+def positive_bytes(value):
+    try:
+        amount = int(value, 0)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError('Expected a positive byte count') from error
+    if amount <= 0:
+        raise argparse.ArgumentTypeError('Expected a positive byte count')
+    return amount
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -28,6 +38,8 @@ def main():
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--header-version', type=int, choices=[3,4], default=4,
                    help='3 is an explicit temporary-boot compatibility experiment')
+    p.add_argument('--max-image-bytes', type=positive_bytes,
+                   help='Reject a complete Android image larger than this independently verified partition capacity')
     args = p.parse_args()
     require(args.output.resolve() not in (args.firmware.resolve(), args.payload.resolve()), 'Output must be a new path')
     firmware = args.firmware.read_bytes()
@@ -79,11 +91,20 @@ def main():
         require(pr.get('wifi_pcie_report_version',1)==fw_report.get('wifi_pcie_report_version',1),
                 'PCIe firmware/loader report ABI does not match the payload profile')
     require(len(payload) == pr['payload_bytes'] and sha(payload) == pr['payload_sha256'], 'Payload SHA256/size mismatch')
-    require(512 <= len(payload) <= 224*1024*1024, 'Payload exceeds first-entry memory budget')
-    require(payload[510:512] == b'\x55\xaa' and payload[82:90] == b'FAT32   ', 'Not a FAT32 payload')
-    require(payload[71:82] == b'GIULIAESP  ', 'Unexpected FAT label')
-    require(struct.unpack_from('<H',payload,11)[0] == 512, 'Unexpected FAT sector size')
-    require(struct.unpack_from('<I',payload,32)[0]*512 == len(payload), 'FAT size mismatch')
+    geometry = fat_geometry(payload)
+    require(pr.get('payload_geometry', geometry) == geometry, 'FAT geometry differs from payload report')
+    crc = zlib.crc32(payload)
+    require(pr.get('payload_crc32', f'{crc:08x}') == f'{crc:08x}', 'Payload CRC32 mismatch')
+    # The current firmware has no independently exported payload-identity
+    # marker. A relink input manifest can bind the header and resulting image,
+    # but must not be described as verification of constants in the binary.
+    firmware_identity = fw_report.get('payload_identity')
+    if firmware_identity is not None:
+        require(isinstance(firmware_identity, dict) and
+                firmware_identity.get('firmware_sha256') == sha(firmware) and
+                firmware_identity.get('payload_bytes') == len(payload) and
+                firmware_identity.get('payload_crc32') == f'{crc:08x}',
+                'Firmware relink input identity differs from the actual firmware/payload')
     header = bytearray(firmware[:4096])
     if args.header_version == 3:
         # Boot v3 carries its generic ramdisk in boot.img. Some v4 loaders
@@ -99,7 +120,6 @@ def main():
     require(decoder.eof and decoder.unused_data[:4]==b'\xd0\x0d\xfe\xed', 'Missing gzip/FDT kernel layout')
     # The firmware receives a DT whose Android initrd range can be stale.
     # Pin the exact payload size/CRC for a bounded, read-only reserved-RAM scan.
-    crc = zlib.crc32(payload)
     with tempfile.TemporaryDirectory() as directory:
         dtb = Path(directory)/'giulia.dtb'
         dtb.write_bytes(decoder.unused_data)
@@ -108,13 +128,22 @@ def main():
         kernel = gzip.compress(raw,mtime=0)+dtb.read_bytes()
     struct.pack_into('<I',header,8,len(kernel))
     result = bytes(header)+kernel+bytes(-len(kernel)%4096)+payload+bytes(-len(payload)%4096)+bytes(signature_size)
+    require(args.max_image_bytes is None or len(result) <= args.max_image_bytes,
+            f'Complete Android image ({len(result)} bytes) exceeds the supplied partition capacity ({args.max_image_bytes} bytes)')
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open('xb') as f:
         f.write(result)
     report = {'firmware_sha256': sha(firmware), 'payload_sha256': sha(payload),
               'sha256': sha(result), 'bytes': len(result), 'header_version': args.header_version,
-              'payload_crc32':f'{crc:08x}',
+              'payload_bytes':len(payload), 'payload_crc32':f'{crc:08x}',
+              'payload_geometry':geometry, 'max_image_bytes':args.max_image_bytes,
+              'image_capacity_checked':args.max_image_bytes is not None,
+              'compiled_payload_identity_verified':False,
               'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
+    if firmware_identity is not None:
+        report['firmware_payload_identity']=firmware_identity
+        report['firmware_payload_identity_source']='firmware report relink input manifest'
+    if pr.get('loader_budget'):report['loader_budget']=pr['loader_budget']
     if pr.get('modem_contract'):report['modem_contract']=pr['modem_contract']
     args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))

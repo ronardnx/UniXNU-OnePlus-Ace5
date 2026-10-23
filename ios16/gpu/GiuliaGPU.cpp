@@ -12,7 +12,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IODeviceTreeSupport.h>
-#include <mach-o/loader.h>
+#include <libkern/kernel_mach_header.h>
 #include <pexpert/pexpert.h>
 #include <libkern/c++/OSData.h>
 #include <kern/thread.h>
@@ -398,7 +398,7 @@ static bool gpuFirmwareError(unsigned code,uint64_t at,const char *reason,uint64
 
 bool GiuliaGPU::loadFirmware(struct gg_pack *pack)
 {
-    const struct mach_header_64 *h=&_mh_execute_header;
+    const kernel_mach_header_t *h=&_mh_execute_header;
     struct segment_command_64 segment={}; bool found=false;
     if (h->magic!=MH_MAGIC_64) return gpuFirmwareError(1,0,"mach-magic",MH_MAGIC_64,h->magic);
     if (!h->ncmds || h->ncmds>128) return gpuFirmwareError(2,16,"command-count-range-1-to-128",128,h->ncmds);

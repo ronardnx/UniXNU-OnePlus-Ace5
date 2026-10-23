@@ -315,6 +315,14 @@ GitHub Actions 的 `ios16-xnu.yml` 提供 `hotload=true` 输入，从已审查�
 固定 XNU，再核对模块／常驻运行时源码摘要、Mach-O 函数定义及真实核心调用。
 热加载构建只上传内核、模块、清单和日志，跳过 UEFI／启动镜像任务。
 
+全模块内核在本地嵌入 Wi-Fi、GPU、音频固件后，可能超过原有 64 MiB FAT
+容量。`make-ios16-payload.py --payload-mib 128` 可显式选择较大的容量，默认
+仍为 64；生成和核验同时检查 FAT 分配、实际 DarwinBoot 的 128 MiB 内核文件、
+254 MiB 虚拟跨度及 ADT 声明窗口中的 16 KiB 对齐布局。最终启动镜像可通过
+`pack-payload.py --max-image-bytes N` 限制在已独立确认的目标分区容量内。
+新 payload 必须更新 UEFI 中的大小／CRC 身份后重新链接；修改 DTB 属性本身
+不足以更新固件编译期校验值。固件重链接输入证据与独立二进制身份核验分别记录。
+
 `hl.status`、`hl.list`、`hl.core` 可在本终端查询；后者显示调度／VM／VFS 模块真实调用、回退和拒绝计数，切换期间也可读取。上传、按名称调用、更新、卸载使用公共 kit 的 `hotload.py`，操作前退出 shell／投屏并关闭其他串口进程。主机工具用 nonce 关联就绪查询、逐块确认偏移，完整摘要校验后才提交。断连丢弃未提交上传，已提交操作继续；结果不确定时查询状态，不重复提交。
 
 NLH2 接受位置无关 C 模块，最多 16 个命名模块、每模块 8 项依赖，支持显式 EXPORT／IMPORT 状态迁移。已接入 `thread_quantum_init`、`vm_fault_is_sequential`、`cluster_max_io_size` 和 `cluster_max_prefetch` 的纯数值决策，对应 `xnu-sched`、`xnu-vm`、`xnu-vfs`。对象、锁、CPU ledger、VM CAS 和 I/O 资源保持常驻；更新期间立即回退原算法，模块私有计数迁移。公共 kit 的 `build-core.py` 生成三个域的 baseline／upgrade／失败场景，`hotload.py core` 读取计数，`call xnu-sched 0/1/2` 分别读取调用／改变／导入数（其他域使用对应名称）。
