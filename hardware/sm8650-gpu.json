@@ -124,6 +124,12 @@
   "vendor_scheduler": "adreno_gen7_9_0_hwsched_gpudev",
   "vendor_sources": [
     {
+      "file": "kgsl_util.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl_util.h",
+      "git_blob": "cbeeca27a13eb6da521ceed6a10c517cb76c0e96",
+      "sha256": "e7b8c1a8fc598987a0f1b81279e7f06e6ee2b6d6f1be417f9d7dd8417124c18d"
+    },
+    {
       "file": "adreno-gpulist.h",
       "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h",
       "git_blob": "c60f1171b36063ca1f8a8550db9edfc6babc3f8a",
