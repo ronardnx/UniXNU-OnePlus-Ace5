@@ -104,7 +104,7 @@ GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用�
 
 驱动源码已按职责拆分到 `ios16/` 下的 13 个模块目录。共享资源仲裁位于平台层，可选驱动与输入启动注册由统一装配入口处理。目录职责、依赖规则及检查命令见[驱动模块规范](docs/DRIVER_MODULES.md)。
 
-通过 `--hotload-source` 可显式引入公共 `UniXNU/kits/NativeHotload` kit。常驻适配器将调度时间片、VM 顺序访问及 VFS 聚簇大小／预读算法接入可替换策略，具备私有状态迁移、回滚和原算法回退。核心子系统其余部分和硬件驱动仍需迁移，完整目标内核编译及实机热替换仍待验证。参见[模块规范](docs/DRIVER_MODULES.md)及[终端接入](docs/USB_TERMINAL.md#开发用原生模块热更新)。
+通过 `--hotload-source` 可显式引入公共 `UniXNU/kits/NativeHotload` kit。常驻适配器将调度时间片、VM 顺序访问及 VFS 聚簇大小／预读算法接入可替换策略，具备私有状态迁移、回滚和原算法回退。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核与 15 个模块的编译，并核验真实链接入口与核心调用。核心子系统其余部分和硬件驱动仍需迁移，实机热替换尚未验证。参见[模块规范](docs/DRIVER_MODULES.md)及[终端接入](docs/USB_TERMINAL.md#开发用原生模块热更新)。
 
 | 路径 | 用途 |
 | --- | --- |

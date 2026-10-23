@@ -327,4 +327,4 @@ GitHub Actions 的 `ios16-xnu.yml` 提供 `hotload=true` 输入，从已审查�
 
 NLH2 接受位置无关 C 模块，最多 16 个命名模块、每模块 8 项依赖，支持显式 EXPORT／IMPORT 状态迁移。已接入 `thread_quantum_init`、`vm_fault_is_sequential`、`cluster_max_io_size` 和 `cluster_max_prefetch` 的纯数值决策，对应 `xnu-sched`、`xnu-vm`、`xnu-vfs`。对象、锁、CPU ledger、VM CAS 和 I/O 资源保持常驻；更新期间立即回退原算法，模块私有计数迁移。公共 kit 的 `build-core.py` 生成三个域的 baseline／upgrade／失败场景，`hotload.py core` 读取计数，`call xnu-sched 0/1/2` 分别读取调用／改变／导入数（其他域使用对应名称）。
 
-完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件；尚无目标内核完整构建或实机热替换结果。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。
+完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核编译、真实链接入口／调用核验及 15 个策略模块构建，实机热替换尚未验证。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。
