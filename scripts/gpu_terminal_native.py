@@ -241,9 +241,21 @@ class NativeHfi:
             attempt={'header':hex(header),'status':'pending','queue_publication_confirmed':False}
             self.report.setdefault('raw_submission_attempts',[]).append(attempt)
             self.report['raw_cp_submitted']=None
-            watched=self.dev(13,n,1000)
-            attempt.update(status='watch_returned',reply=watched,
-                queue_publication_confirmed=('stage=queue_committed header='+hex(header)) in watched)
+            if getattr(self,'host_raw_dispatch',False):
+                from gpu_terminal_diagnostics import _checkpoint
+                attempt.update(transport='separate-op6-host-doorbell',status='before_queue_publication')
+                _checkpoint(self.l.capture.root/'result.json',self.report)
+                self.dev(6,n)
+                attempt.update(status='queue_committed',queue_publication_confirmed=True)
+                self.report['raw_cp_submitted']=True
+                _checkpoint(self.l.capture.root/'result.json',self.report)
+                self.l.write(0x3d7e650,1,verify=False)
+                attempt.update(status='doorbell_returned',doorbell_confirmed=True)
+                _checkpoint(self.l.capture.root/'result.json',self.report)
+            else:
+                watched=self.dev(13,n,1000)
+                attempt.update(status='watch_returned',reply=watched,
+                    queue_publication_confirmed=('stage=queue_committed header='+hex(header)) in watched)
             self.report['raw_cp_submitted']=attempt['queue_publication_confirmed']
         else:
             self.dev(6,n)

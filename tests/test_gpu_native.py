@@ -3,6 +3,27 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from gpu_terminal_native import NativeHfi,start_hwsched
 class NativeProtocol(unittest.TestCase):
+ def test_host_raw_dispatch_records_queue_and_doorbell_separately(self):
+  import tempfile
+  from types import SimpleNamespace
+  for fail in (False,True):
+   with tempfile.TemporaryDirectory() as folder:
+    n=NativeHfi.__new__(NativeHfi);n.sequence=0x900;n.report={};n.platform_enabled=True;n.host_raw_dispatch=True
+    events=[]
+    def dev(op,*args):
+     events.append(op)
+     if op==6 and fail:raise RuntimeError('publication not confirmed')
+    n.dev=dev
+    n.l=SimpleNamespace(capture=SimpleNamespace(root=Path(folder)),write=lambda *a,**k:events.append('doorbell'))
+    if fail:
+     with self.assertRaisesRegex(RuntimeError,'publication'):n.packet(131,[1,2])
+     self.assertNotIn('doorbell',events)
+     self.assertIsNone(n.report['raw_cp_submitted'])
+    else:
+     n.packet(131,[1,2])
+     self.assertEqual(events,[10,5,5,5,6,'doorbell'])
+     self.assertTrue(n.report['raw_submission_attempts'][0]['doorbell_confirmed'])
+    self.assertNotIn(13,events)
  def test_aqe_negotiated_between_core_start_and_start(self):
   class T:
    def __init__(self):self.calls=[]

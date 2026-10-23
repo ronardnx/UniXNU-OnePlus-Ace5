@@ -77,6 +77,17 @@ void GiuliaGPU::devAllocation(unsigned n)
     IOLog("GIULIA GPU DEV: allocation=%u offset=%#x bytes=%#x flags=%#x kind=%u gpu=%#x gmu=%#x\n",
         n,a.offset,a.bytes,a.flags,a.kind,gpu,gmu);
 }
+static bool gpuDevPublish(IOBufferMemoryDescriptor *const *memory,uint32_t at,uint32_t bytes)
+{
+    if(!ggd_bounds(at,bytes))return false;
+    while(bytes) {
+        uint32_t n=GGD_CHUNK-at%GGD_CHUNK;if(n>bytes)n=bytes;
+        IOBufferMemoryDescriptor *m=memory[at/GGD_CHUNK];
+        if(!m || !giulia_gpu_cache_publish((uint8_t *)m->getBytesNoCopy()+at%GGD_CHUNK,n))return false;
+        at+=n;bytes-=n;
+    }
+    return true;
+}
 void GiuliaGPU::devCommand(const uint32_t *v)
 {
     unsigned token=v[0],op=v[1];uint32_t a=v[2],b=v[3],c=v[4],d=v[5];int code=0;
@@ -113,11 +124,14 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         break;
     case 3:
         if((a&3)||!gpuDevWritable(&devPool,devUcode,devMappingsManaged,a,4)){code=4;break;}
-        *(volatile uint32_t *)devPointer(a)=b;__asm__ volatile("dsb sy" ::: "memory");break;
-    case 4:
+        *(volatile uint32_t *)devPointer(a)=b;
+        if(!gpuDevPublish(devMemory,a,4)){platformPoisoned=true;code=8;}break;
+    case 4: {
         if(!gpuDevWritable(&devPool,devUcode,devMappingsManaged,a,b)){code=4;break;}
+        uint32_t start=a,bytes=b;
         while(b) {uint32_t n=GGD_CHUNK-a%GGD_CHUNK;if(n>b)n=b;bzero(devPointer(a),n);a+=n;b-=n;}
-        __asm__ volatile("dsb sy" ::: "memory");break;
+        if(!gpuDevPublish(devMemory,start,bytes)){platformPoisoned=true;code=8;}break;
+    }
     case 5:
         if(a>=255){code=4;break;}devPacket[a]=b;devWritten[a]=true;break;
     case 6: {
@@ -136,6 +150,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
            pack.asset[a].size>UINT32_MAX ||
            !gpuDevWritable(&devPool,devUcode,devMappingsManaged,b,(uint32_t)pack.asset[a].size)) {code=4;break;}
         int owner=ggd_owner(&devPool,b,(uint32_t)pack.asset[a].size);
+        uint32_t publishAt=b,publishBytes=(uint32_t)pack.asset[a].size;
         bool ucode=a==GG_ASSET_SQE || a==GG_ASSET_AQE;
         if(owner<0 || (ucode && (devPool.allocations[owner].kind!=0 || !(devPool.allocations[owner].flags&1)))) {
             code=4;break;
@@ -148,11 +163,14 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         }
         if(ucode) {
             uint32_t at=devPool.allocations[owner].offset,left=devPool.allocations[owner].bytes;
+            publishAt=at;publishBytes=left;
             while(left) {uint32_t n=GGD_CHUNK-at%GGD_CHUNK;if(n>left)n=left;bzero(devPointer(at),n);at+=n;left-=n;}
         }
         size_t left=pack.asset[a].size,offset=0;
         while(left){size_t n=GGD_CHUNK-b%GGD_CHUNK;if(n>left)n=left;memcpy(devPointer(b),pack.asset[a].data+offset,n);b+=n;offset+=n;left-=n;}
-        __asm__ volatile("dsb sy" ::: "memory");
+        /* Make copied code and zeroed padding visible before executable
+         * PTE publication; allocation cache flags alone are not proof. */
+        if(!gpuDevPublish(devMemory,publishAt,publishBytes)){platformPoisoned=true;code=8;break;}
         if(ucode) {
             devUcode[owner]=true;
             if(devMappingsManaged) {

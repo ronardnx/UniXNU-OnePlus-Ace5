@@ -96,7 +96,7 @@ struct IOBufferMemoryDescriptor {
     void release(){free(cpu);++freed;delete this;}
 };
 extern "C" int giulia_gpu_cache_publish(const void *p,size_t n) {
-    assert(p && !((uintptr_t)p&0x3fff) && n && !(n&0x3fff));++cleanCalls;
+    assert(p && n);++cleanCalls;
     if(watchByte && *watchByte!=watchOriginal && !changedAt)changedAt=cleanCalls;
     return cleanCalls!=cleanFail;
 }
@@ -271,7 +271,7 @@ static void failures() {
         } else {
             // Failure before revocation leaves bytes untouched; failure after
             // revocation/copy preserves the sealed record and invalid leaves.
-            cleanFail=cleanCalls+1+2*(phase-3);
+            cleanFail=cleanCalls+1+2*(phase-3)+(phase>=5);
             assert(command(s,7,GG_ASSET_SQE,a.offset+4092)==8);
             assert(s.devUcode[index]==(phase>=5));
             if(phase<5)assert(*(uint32_t *)s.devPointer(a.offset)==0x5a5a5a5a);
@@ -513,12 +513,24 @@ static void fence() {
         assert(!memcmp(packet,s.devPacket,sizeof(packet)) && !memcmp(queue.data(),hfi,GGH_BYTES));
     }
 }
+static void data_publication() {
+    GiuliaGPU s;prepare(s,true);unsigned index=add(s,12288,0x301);auto a=s.devPool.allocations[index];
+    unsigned before=cleanCalls;
+    assert(!command(s,3,a.offset,0x12345678));assert(cleanCalls==before+1);
+    assert(!command(s,4,a.offset,4096));assert(cleanCalls==before+2);
+    // Four table publications revoke access; the fifth publication is the
+    // copied firmware data. Failure must not expose an executable leaf.
+    cleanFail=cleanCalls+5;
+    assert(command(s,7,GG_ASSET_SQE,a.offset+4092)==8);
+    assert(s.platformPoisoned && !s.devUcode[index]);code_leaves(s,index,false);
+    cleanFail=0;quarantine(s,a.offset);
+}
 int main(int argc,char **argv) {
     assert(argc==2);std::ifstream file(argv[1],std::ios::binary);assert(file);
     fixturePack={std::istreambuf_iterator<char>(file),std::istreambuf_iterator<char>()};
     assert(gg_pack_open(fixturePack.data(),fixturePack.size(),&decoded));
     seal(false,GG_ASSET_SQE,false);seal(true,GG_ASSET_SQE,true);seal(true,GG_ASSET_AQE,false,true);
-    command_guards();failures();memstore();ipc();fence();assert(allocated==freed);
+    command_guards();data_publication();failures();memstore();ipc();fence();assert(allocated==freed);
     puts("Actual GPU devCommand: RAM/UCODE, memstore, IPC exclusion, registered fence import/live epochs, paired provider ownership, publication/TLBI failure retention and quarantine passed (synthetic provider; no controller)");
 }
 '''

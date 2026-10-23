@@ -19,9 +19,11 @@ parser.add_argument('--without-aqe',action='store_true',help='Register-only base
 parser.add_argument('--watch-read-audit',action='store_true',help='Checkpoint individual watch preflight MMIO reads; never submits RAW')
 parser.add_argument('--kernel-snapshot-audit',action='store_true',help='After successful host read audit, invoke snapshot-only OP14 (no HFI submission)')
 parser.add_argument('--prepare-cp-only',action='store_true',help='Configure and verify SQE/AQE, then request fault-gated OP14; never submit RAW')
+parser.add_argument('--host-raw-dispatch',action='store_true',help='Explicit CP-mapped trial through separate OP6 publication and host doorbell')
 args=parser.parse_args()
 if not args.platform:parser.error('Native HWSCHED requires --platform and ABI3 allocation mapping policy')
-if args.stage in ('cp','cpv2','nop','cp-secure','cp-mapped'):parser.error('CP experiment disabled after 900E, including 2026-10-23 OP13 with a passing OP14 snapshot; queue/doorbell completion remains unconfirmed')
+if args.stage in ('cp','cpv2','nop','cp-secure') or (args.stage=='cp-mapped' and not args.host_raw_dispatch):parser.error('OP13 replay remains disabled; cp-mapped requires explicit --host-raw-dispatch')
+if args.host_raw_dispatch and args.stage!='cp-mapped':parser.error('Host RAW dispatch requires cp-mapped')
 if args.stage=='cp-secure' and (not args.platform or args.without_aqe):parser.error('cp-secure requires --platform and AQE')
 if args.stage=='cp-mapped' and (not args.platform or args.without_aqe):parser.error('cp-mapped requires --platform and AQE')
 if args.watch_read_audit and (args.stage!='configure' or not args.platform or args.without_aqe):parser.error('Watch audit requires configure --platform with AQE')
@@ -54,6 +56,7 @@ with Live('gpu-native-hwsched-terminal') as live:
         if entry['status']!='complete' or (include_gx and entry['gx']['status']!='complete'):
             raise RuntimeError('Incomplete diagnostic snapshot: '+phase)
     transport=NativeHfi(live,report)
+    transport.host_raw_dispatch=args.host_raw_dispatch
     if not re.search(r'^GIULIA GPU DEV: resources_abi=1 memstore=1 secure_allocation_mappings=1$',transport.info,re.M):
         raise RuntimeError('Current kernel lacks dedicated memstore and per-allocation secure mappings')
     root_pa=transport.gmu_root
