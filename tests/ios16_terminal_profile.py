@@ -31,5 +31,6 @@ with tempfile.TemporaryDirectory() as folder:
     assert '0x84000009u' in source
     assert (profile/'0082-giulia-fastboot-reboot.patch').is_file()
     if (profile/'0073-giulia-complete-boot-log.patch').exists():
+        assert (profile/'0070-giulia-service-images.patch').is_file()
         assert 'ring_bytes=33554432' in source
 print('USB terminal and complete-log patch chain applied successfully')

@@ -149,10 +149,12 @@ def main():
             data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
             patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',tofile='b/bsd/dev/'+name))
         (a.out/'0069-giulia-touch.patch').write_text(patch)
-        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
-                        a.out/'0070-giulia-service-images.patch')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     if a.gui:
+        # Complete GUI logging consumes the service-image sampler even when
+        # the optional physical touch driver is omitted.
+        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
+                        a.out/'0070-giulia-service-images.patch')
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
                         a.out/'0071-giulia-on-demand-samples.patch')
         patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
