@@ -1,0 +1,416 @@
+{
+  "date": "2026-10-23",
+  "status": "device-verified CM3/SMMU RAM read-write; stock GMU/HFI and Metal pending",
+  "device": "OnePlus Ace 5 PKG110",
+  "kernel_commit": "206aa56484d5da3e47c8881f443e5de9b9639e1b",
+  "packaging_commit": "12476be59c884ef60f18cd9287ed17695bb17884",
+  "ci_run": 39850691157,
+  "ci_url": "https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/39850691157",
+  "boot_image": {
+    "path": "out/ios16/gpu-memory-fix-boot-20261023-r2/giulia-ios16-wifi-pcie.img",
+    "bytes": 69292032,
+    "sha256": "d83cf8301fd0f057e9a0a223a81a397debd1a09c04c5fd9bb20c7962110d04db"
+  },
+  "boot_method": "fastboot boot",
+  "flash_performed": false,
+  "panic_fix": {
+    "fault_pc": "0xfffffe0007b627a4",
+    "instruction": "dc zva,x3",
+    "esr": "0x96000061",
+    "host_ram_cache_policy": "normal-copyback-explicit-clean",
+    "reservations": 5,
+    "table_pages": 6,
+    "leaf_pages": 104,
+    "boot_verified": true
+  },
+  "smmu": {
+    "id0": "0x4c017e18",
+    "id1": "0x40000016",
+    "id2": "0x5511",
+    "scr0": "0x2f0406",
+    "banks": 22,
+    "streams": 24,
+    "bank": 0,
+    "slot": 0,
+    "sid": 5,
+    "asid": "0x750",
+    "root_pa_this_boot_only": "0x8c6b78000",
+    "atos_supported": false,
+    "atos_attempt_not_used_as_evidence": true,
+    "context_programming_readback_verified": true,
+    "stream_attach_detach_verified": true,
+    "tlb_sync_verified": true
+  },
+  "stock_tcm": {
+    "firmware_sha256": "9685f62c42543befcaee68d25355e16bf55cdb0d573bddcc9f6633f59eec3f72",
+    "writes": 135,
+    "readbacks": 135,
+    "tcm_bytes": 540,
+    "reset": 1,
+    "firmware_ready": 0,
+    "gmu_started": false,
+    "blocks": [
+      {
+        "iova": "0x0",
+        "physical": "0x3d6d000",
+        "bytes": 476,
+        "sha256": "5364043d9c121f718c8f8e29436d1be4ddb0c58343a0c57005c5bcefb426862c"
+      },
+      {
+        "iova": "0x10007f98",
+        "physical": "0x3d74f98",
+        "bytes": 40,
+        "sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+      },
+      {
+        "iova": "0x10007fdc",
+        "physical": "0x3d74fdc",
+        "bytes": 24,
+        "sha256": "bd291af86afa62716e467d4d10647b90cfe7eb10bcb4a7222ebdd991ee888cc4"
+      }
+    ]
+  },
+  "cm3_read": {
+    "expected_words": [
+      3172971807,
+      3171988752
+    ],
+    "completed": true,
+    "states": [
+      2807037954
+    ],
+    "words": [
+      3172971807,
+      3171988752
+    ],
+    "cm3_cfsr": 0,
+    "cm3_bfar": 0,
+    "smmu_fsr": 1024,
+    "smmu_far": 492572602203118,
+    "smmu_fsynr": 2034039,
+    "global_fault": 0,
+    "cleanup": {
+      "reset": 1,
+      "sctlr": 0,
+      "smr0": 0,
+      "s2cr0": 131072,
+      "tlbstatus": 0,
+      "original_tcm_restored": true
+    }
+  },
+  "unmapped_kernel_page": {
+    "expected_words": [
+      3172971807,
+      3171988752
+    ],
+    "completed": false,
+    "negative_control": true,
+    "states": [
+      2807037954
+    ],
+    "words": [
+      0,
+      0
+    ],
+    "cm3_cfsr": 0,
+    "cm3_bfar": 0,
+    "smmu_fsr": 1026,
+    "smmu_far": 1610620928,
+    "smmu_far_low": 1610620928,
+    "smmu_far_high": 0,
+    "smmu_fsynr": 2031651,
+    "global_fault": 0,
+    "smmu_fault_valid": true,
+    "test_passed": true,
+    "cleanup": {
+      "reset": 1,
+      "sctlr": 0,
+      "smr0": 0,
+      "s2cr0": 131072,
+      "tlbstatus": 0,
+      "original_tcm_restored": true
+    }
+  },
+  "cm3_read_write": {
+    "expected_words": [
+      3172971807,
+      3171988752
+    ],
+    "completed": true,
+    "negative_control": false,
+    "states": [
+      2807037954
+    ],
+    "words": [
+      3172971807,
+      3171988752
+    ],
+    "cm3_cfsr": 0,
+    "cm3_bfar": 0,
+    "write_value": 2807089918,
+    "original_value": 0,
+    "restored_value": 0,
+    "smmu_fsr": 1024,
+    "smmu_far": 1610620928,
+    "smmu_far_low": 1610620928,
+    "smmu_far_high": 0,
+    "smmu_fsynr": 2031651,
+    "global_fault": 0,
+    "smmu_fault_valid": false,
+    "test_passed": true,
+    "cleanup": {
+      "reset": 1,
+      "sctlr": 0,
+      "smr0": 0,
+      "s2cr0": 131072,
+      "tlbstatus": 0,
+      "original_tcm_restored": true
+    }
+  },
+  "unresolved_experiment": {
+    "iova": "0x50000",
+    "far": "0x6ff000",
+    "fault_observed": true,
+    "expected_far_matched": false,
+    "counted_as_pass": false
+  },
+  "final_state": {
+    "gmu_reset_held": true,
+    "stock_tcm_restored": true,
+    "context_enabled": false,
+    "smr0": 0,
+    "s2cr0": "0x20000",
+    "ttbr0": 0,
+    "ttbr1": 0,
+    "tlbstatus": 0,
+    "context_configuration_retained_while_disabled": true,
+    "experimental_clock_bits_restored": true,
+    "terminal_maps_remaining": 0,
+    "stock_gmu_started": false,
+    "hfi_ready": false,
+    "metal_ready": false
+  },
+  "limits": [
+    "Clock rates were not measured and PLL/rate registers were not changed",
+    "Native driver still performs preparation only; terminal experiments were explicit",
+    "No stock GMU/HFI execution, GPU rendering, completion fences or Metal",
+    "Read/write data was validated by CM3; CPU invalidation after arbitrary device writes was not tested",
+    "Post-test status-line and AHB observation source updates are not in the booted kernel"
+  ],
+  "diagnostic_sources": [
+    {
+      "path": "tests/firmware/giulia_gmu_read_probe.S",
+      "bytes": 953,
+      "sha256": "6464b5b139f8a35a089b284972137a17d827199251aba19500b9091da4cf7169"
+    },
+    {
+      "path": "tests/firmware/giulia_gmu_dma_probe.S",
+      "bytes": 1115,
+      "sha256": "465e73183a20a1d31c8482252d38c1f2835a15bf4ed771bb7db792a33d12ae98"
+    }
+  ],
+  "diagnostic_binaries": [
+    {
+      "path": ".cache/gmu-read-probe.bin",
+      "bytes": 144,
+      "sha256": "19d86acf6314707bf6518fdd98d748601c23b3cfffda5e5e96888875b51c346b"
+    },
+    {
+      "path": ".cache/gmu-read-hole-probe.bin",
+      "bytes": 148,
+      "sha256": "21e1e27d3b6cd4282aa776903ae7b10be526960ca3a34aa18da7de6b702b1aac"
+    },
+    {
+      "path": ".cache/gmu-dma-probe.bin",
+      "bytes": 180,
+      "sha256": "d66cb06a55e28283a30e335620fafe7d2d9deee63ef8b0eed72b0d744f3747eb"
+    }
+  ],
+  "evidence": [
+    {
+      "path": "out/ios16/gpu-memory-fix-test-1/20261023-045547-691336/device-000.log",
+      "bytes": 559122,
+      "sha256": "0296b6d2a1262e0a71eeb9f69c4ddff70de6235cabe0a059b126368cdb83a40f"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050056-062660/device-000.log",
+      "bytes": 6924,
+      "sha256": "35f1f3357915cb00028331de30db56b9b22b85da337f25a59d89d093de46cbb7"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050124-054462/device-000.log",
+      "bytes": 5577,
+      "sha256": "414ebe0ceeb00132de1797e311a5e83c3d2f8fe190f355d50def3fa8d2590abb"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050158-913117/device-000.log",
+      "bytes": 351130,
+      "sha256": "68a25368171f546905da75eda2ffcc5f3c699d086260a885d30f6c5004522f2b"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050233-636837/device-000.log",
+      "bytes": 2402,
+      "sha256": "63dd4d3eed9ca9bc12f2ab5c8d524f9fab7aff8db9211971ecaf46efe5f51d1d"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050254-375615/device-000.log",
+      "bytes": 155,
+      "sha256": "bb90432bec7860c5176787a211d560acfa8d666fa20dde725ab318cd8a84e38c"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050305-809384/device-000.log",
+      "bytes": 2588,
+      "sha256": "3cc3404b72a900581642e332d234a60d25bb0716c4a5ccd934e5e872a26735a3"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050352-274821/device-000.log",
+      "bytes": 352023,
+      "sha256": "cfc5e40fff211d3ab0b49e58e5090fc2d6c452dccb051d8a482f356e5fde0c60"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050421-008523/device-000.log",
+      "bytes": 4729,
+      "sha256": "544a374efbb41b9e4af0d04a9c00badf58678d809e1873975e10b1ae6e4f4ead"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050459-847351/device-000.log",
+      "bytes": 278,
+      "sha256": "a376969e71a62efae5cd21fd910dc93edbadfaf11e2979397b7388e204c4cd67"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050527-002642/device-000.log",
+      "bytes": 39732,
+      "sha256": "4703a16460a3384dcccce9dcc0c96a5e7bf5690eb42a329e050ff606abbbd00c"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050634-608425/device-000.log",
+      "bytes": 454671,
+      "sha256": "c5cb54c8e748d54d8b6e3bb467eb23aa1187029098c922b1d0e02cde0277f4e9"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050707-230593/device-000.log",
+      "bytes": 36884,
+      "sha256": "57964d7ded23f2c0240f632e279b581e4a1ced51e7a73eb4d129db364d78cfab"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050803-006456/device-000.log",
+      "bytes": 335980,
+      "sha256": "6f9ab42738ccb0451341682c03aac1fcbaf5f29e2e012308d43a4be60a624e88"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050817-634328/device-000.log",
+      "bytes": 8166,
+      "sha256": "fc8dc2272bea8fff9fa2e84930eb9fc588e24cb2ca3a1d3871c0c262d5552905"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050833-957517/device-000.log",
+      "bytes": 5164,
+      "sha256": "3001a666031213eb6f8206a6a5131593c64292b4e8c38032c5ddfb3f98c2cb71"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-050854-314937/device-000.log",
+      "bytes": 4628,
+      "sha256": "3d8d7ff2f46ba86cd8aac21ef9e04fb18816d94197bc38932be653b33212b2bf"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051011-830503/device-000.log",
+      "bytes": 359822,
+      "sha256": "18db731e34c6a5e48146c2410746aeeebfb9d98ac44b25026afc471ccf45509e"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051037-793635/device-000.log",
+      "bytes": 207,
+      "sha256": "7327a10264c89fa5715e45b1f363aacfdcd129c0daac6ba606fec7e81b7a3a09"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051207-741992/device-000.log",
+      "bytes": 273326,
+      "sha256": "bccd0656e2fec6020d4398a462a91008969e1e97556e6b35d8a677ba09e3f90a"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051259-832930/device-000.log",
+      "bytes": 476,
+      "sha256": "6b7f8214549a997bf98deb4ee93ba3994a1797776afc10906835b02472636118"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051309-027654/device-000.log",
+      "bytes": 413,
+      "sha256": "ccee536f5de16914c16991b7c1891eb161b5690131655397d34875a4be345a4c"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051321-434417/device-000.log",
+      "bytes": 3740,
+      "sha256": "be55a1f91b41a240ef16a1d07a52a6be0c0835f81731707d5cb080139cf36927"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051506-031695/device-000.log",
+      "bytes": 311617,
+      "sha256": "0399ef490c1b0a15616e5fab806cd35bded16940b0c1e3620677559d67da4be2"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-051611-735034/device-000.log",
+      "bytes": 284456,
+      "sha256": "97b3080ba2ee6630175f68a1d230c395b1c98b826c7931d851456be0be41e37e"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-052400-188643/device-000.log",
+      "bytes": 587612,
+      "sha256": "0f9932beec63bac6c98e9cf3b829626c89a260d8f0c3e7c0f074047529e1ba3c"
+    },
+    {
+      "path": "out/ios16/gpu-live-terminal/20261023-052459-206607/device-000.log",
+      "bytes": 3163,
+      "sha256": "a7ff3f568f6eb56ce5b7cb34178727847fb6fe2389603a3ea1af7392d07047da"
+    },
+    {
+      "path": "out/ios16/gpu-live-tcm/20261023-051127-539522/device-000.log",
+      "bytes": 20487,
+      "sha256": "7e7e444039319a31526508760e08b438ea62920d88c47f57b65802eeddcb9920"
+    },
+    {
+      "path": "out/ios16/gpu-live-tcm/20261023-051127-539522/tcm-verification.json",
+      "bytes": 773,
+      "sha256": "eb3a63c87109b120daf2a5bb72498e6a5a3b6a387b1ff069273f17c47dc99a86"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-051739-032077/device-000.log",
+      "bytes": 22984,
+      "sha256": "3b9b62623e8ec5742dfdc514c008304008960131457434e6f540e4a4b9c826ae"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-051901-044756/device-000.log",
+      "bytes": 306903,
+      "sha256": "08f0d1c61710e3b62cbc419a3476032a28fc65b42307108979f4fbcf27f81658"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-052036-855722/device-000.log",
+      "bytes": 311365,
+      "sha256": "cbdd115d6b390903564e6b2bcb9c1e9fc378a7f7b227f3b39b1c5d19e7746a3a"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-051739-032077/probe.json",
+      "bytes": 466,
+      "sha256": "439d982cc4ccfd5a7a8b8417a3352417e3431bc375f80ba37ff4edefd1e703ca"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-051901-044756/probe.json",
+      "bytes": 524,
+      "sha256": "925ba6a0d84317bc8c1dbeff65a826e4cf97ca339b3b931d11ed0e6d8c85a7ab"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-read/20261023-052036-855722/probe.json",
+      "bytes": 580,
+      "sha256": "195c593a74f47cb0a9461980f89c134a71bbc6d36e1b41ec33d73823a6e04966"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-dma/20261023-052138-706190/device-000.log",
+      "bytes": 22524,
+      "sha256": "864095f921ccc35a283db0abef7421776504d961677d863cbcb038919ab30f07"
+    },
+    {
+      "path": "out/ios16/gpu-live-cm3-dma/20261023-052138-706190/probe.json",
+      "bytes": 677,
+      "sha256": "dedbde7eef1d00a76961f2231cda405661e49e2adc06fa28bc7a6045e3df32ad"
+    }
+  ]
+}

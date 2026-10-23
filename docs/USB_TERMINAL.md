@@ -40,10 +40,22 @@ scripts\debug-terminal.cmd --port COM21
 | `display` | 启动 framebuffer 宽、高、步长、位深；不是当前显示健康检查 |
 | `usb` | CDC 状态、事件、setup、包大小、收发与日志计数 |
 | `ufs` | 驱动现有卷状态、可写标记、几何和设备号；锁忙时立即报告 busy，不额外访问磁盘 |
+| `audio.status` | 音频映射阶段；当前明确报告 hardware_ready／playback／recording 为 0 |
+| `audio.map` | 固定的 ADSP／LPASS、中断、SIA9177／WCD939x 与 DMA 映射证据；不读取或写入寄存器 |
 | `gpu.status` | GPU 准备阶段、固件校验、RAM／未激活页表数量和最近一次观察；未编译或未启用服务时明确报告 unavailable |
 | `gpu.observe` | 向 GPU 工作线程提交一次有前置门控的只读电源／SMMU 观察，随后输出状态；不使能时钟、电源或 DMA |
 
 这些命令通过 `prepare-ios16.py` 纳入 base/GUI 补丁；CMD 工具及守护进程源码也随 profile 输出。
+
+音频查询随本轮源码纳入所有 profile，需重新构建内核；不需要额外 `--audio` 开关。
+它们只显示静态映射，未进行实机音频验证，也不随 `all`／`collect` 自动执行。
+来源、固件校验及后续驱动工作见[音频映射](AUDIO_MAPPING.md)。
+
+后续的可选 `--audio` 内核和本地 `--audio-prepare` 打包会接入协调服务：
+`audio.status` 改为报告运行时状态；`audio.preflight` 检查固件及平台 provider。
+`audio.start`、`audio.stop`、`audio.test` 要求 debug 模式与完整原生 provider，
+当前 provider 尚未实现，命令会明确报告缺失并阻止硬件操作。原厂播放图和驱动核心的
+验证范围见[音频驱动进展](AUDIO_BRINGUP.md)。这三个操作命令不支持 `watch`。
 
 GPU 查询需包含 `--gpu` 的新 GUI 内核及本地固件，并通过 `giulia_gpu=1/2`
 启动服务。`gpu.status` 可用 `watch gpu.status 2` 定期查询；`gpu.observe`
@@ -60,6 +72,7 @@ GPU 查询需包含 `--gpu` 的新 GUI 内核及本地固件，并通过 `giulia
 | `collect` | 基础查询 + RAM 日志重放 + GUI sample，15 秒后保存报告；不保证所有异步响应均已返回 |
 | `logs wifi` | 查看已收到的 Wi-Fi / PCIe / MHI / QMI / WMI 日志 |
 | `logs gpu` | 查看 GPU / GMU / Adreno / SMMU 日志 |
+| `logs audio` | 查看已收到的音频映射／ADSP／LPASS／Codec 日志 |
 | `logs touch` | 查看触控 / HID 日志 |
 | `logs display` | 查看显示 / framebuffer / backboard 日志 |
 | `logs ufs` | 查看 UFS / 根卷 / HFS 日志 |
@@ -87,7 +100,7 @@ scripts\debug-terminal.cmd --command collect --seconds 25
 
 ## 实时投屏和截图
 
-需要包含 GSC1 屏幕转发的新 GUI 内核，并启用 `giulia_debug=1`。`features` 会列出 `screen.start`、`screen.stop`、`screen.snapshot`。在同一个终端连接中执行：
+需要包含 GSC1 屏幕转发及远程 HID 输入的新 GUI 内核，并启用 `giulia_debug=1`。`features` 会列出 `screen.start`、`screen.stop`、`screen.snapshot`、`screen.configure` 和 `input.*`。更新电脑脚本后仍需重新生成、编译和启动新内核。在同一个终端连接中执行：
 
 ```text
 ace5> screen.start
@@ -96,22 +109,44 @@ ace5> screen.snapshot
 ace5> screen.stop
 ```
 
-`screen.start` 自动打开电脑默认浏览器中的本地实时预览窗口，地址绑定 `127.0.0.1` 的临时端口，也会打印可复制的 URL。窗口持续显示手机真实 framebuffer，目标上限为每秒 1 帧，实际速度取决于 USB 和日志流量；同时可在原终端继续发送诊断命令。传输按块与日志交替，不需要第二个串口连接。`screen.stop` 在块边界停止并保留最后一帧；退出电脑工具或进入 shell 也会停止屏幕传输。
+`screen.start` 自动打开电脑默认浏览器中的本地实时预览窗口，地址绑定 `127.0.0.1` 的临时端口，也会打印可复制的 URL。窗口持续显示手机真实 framebuffer，默认最长边 695 像素、目标上限每秒 1 帧；同时可在原终端继续发送诊断命令。传输按块与日志交替，不需要第二个串口连接。`screen.stop` 在块边界停止并保留最后一帧；退出电脑工具或进入 shell 也会停止屏幕传输并释放远程输入。
+
+电脑端操作参考 [scrcpy 的控制方式](https://github.com/Genymobile/scrcpy/blob/master/doc/control.md) 和 [画面设置](https://github.com/Genymobile/scrcpy/blob/master/doc/video.md)。首次打开默认关闭「电脑控制」，收到手机 `input.status` 的真实能力报告后才能开启；触控、键盘和系统按键分别检测，没有服务的操作保持不可用。
+
+| 操作 | 效果 |
+| --- | --- |
+| 左键点击、长按、拖动 | 单指触控，缩放和旋转后仍对应手机原始坐标 |
+| 滚轮 | 转换为短距离单指滑动；支持横向滚动 |
+| 右键 / `Alt+B` | 发送 Escape；iOS 是否返回由应用决定 |
+| 中键 / `Alt+H` | 主屏幕 HID 按键 |
+| 键盘 | 点击画面聚焦后转发物理键位、按下/松开和左右修饰键，由手机键盘布局解释 |
+| `Alt+P` / `Alt+↑` / `Alt+↓` | 电源 / 音量加 / 音量减 |
+| `Alt+F` / `Alt+←` / `Alt+→` | 全屏 / 向左旋转预览 / 向右旋转预览 |
+| 画面设置 | 最长边预设或自定义 160–2780 像素，按原屏幕比例采样；目标帧率 1–30 |
+| 适应窗口 / 缩放 | 仅调整电脑预览大小；不改变传输分辨率 |
+| 截图 / 保存最新 PNG | 请求手机截图 / 下载最后完整接收的 PNG |
+
+窗口失焦、隐藏、关闭、关闭电脑控制或输入队列溢出时释放远程触点和按键。浏览器心跳失效后电脑端关闭控制，设备端另有 3 秒输入租约；USB 断开、停止投屏和进入 shell 也释放输入。物理触控使用 0–9 号触点，远程触控保留 10 号，避免与手指争用。当前不含多指缩放、输入法组字、Unicode 文本注入、剪贴板同步、音频或 H.264/H.265 编码。
+
+分辨率在设备采样端生效，保持当前帧传输完整后再应用下一帧。原生上限为 1264×2780；目标帧率是采样上限，窗口另显示实际收到的帧率和最近帧时间。当前仍以 RGB565 原始像素经 CDC 发送，提高分辨率会增加传输时间，30 FPS 选项不代表已达到 scrcpy 的编码视频性能。
 
 也可从 CMD 一次启动持续投屏，Ctrl+C 结束：
 
 ```bat
 scripts\debug-terminal.cmd --command screen.start --seconds 3600
+scripts\debug-terminal.cmd --command screen.start --max-size 1280 --max-fps 5 --seconds 3600
 scripts\debug-terminal.cmd --command screen.snapshot --seconds 10
 ```
 
 每次完整且通过 CRC 校验的帧更新会话目录的 `screens\latest.png`，适合直接查看或分享；`screen.snapshot` 另外保留 `screens\screen-帧编号.png`，预览窗口也提供保存最新 PNG 的链接。连续投屏只更新 latest，不会持续堆积图片。`screens\screen.json` 记录帧编号、UTC 接收时间及源尺寸，窗口显示最近接收时间，避免把旧画面当成新帧。
 
-画面为原生 1264×2780 面板每 4 像素采样后的 316×695、RGB565 图像，不包含声音或远程触控。读取与 CPU 合成共用显示锁，复制完成后释放锁，再通过 CDC 发送；没有 framebuffer 时只报告 unavailable，不生成替代画面。早期引导尚未注册显示驱动、用户态直接写默认面板 surface 等情况可能尚无帧或出现撕裂，实际显示和帧率需新内核实机核实。
+也可以在终端执行 `screen.configure 1280 5` 修改最长边与目标帧率，`input.status` 查询服务，`input.release` 释放远程输入。浏览器只向串口线程提交有界命令，不直接打开第二个串口。HTTP 控制请求限制为本机、同源和本次窗口令牌；允许的操作为投屏设置与输入，不能经该接口发送任意诊断或 shell 命令。
 
-GSC1 每块带长度、帧编号、尺寸和 CRC32，整帧另有 CRC32；最大图像 439240 字节，块负载不超过 1024 字节。损坏／丢字节的数据不会输出到终端文本，也不会保存为有效截图；下一校验包或 `screen.stop` 的校验控制记录恢复解析。PTY 的 BEGIN/END 标记内不解析屏幕魔数，避免损坏 shell 原始输出。
+读取与 CPU 合成共用显示锁，复制完成后释放锁，再通过 CDC 发送；没有 framebuffer 时只报告 unavailable，不生成替代画面。早期引导尚未注册显示驱动、用户态直接写默认面板 surface 等情况可能尚无帧或出现撕裂，实际显示、输入效果和帧率需新内核实机核实。
 
-离线验证：`bash scripts/test-ios16-screen.sh`，包含真实 C 发送格式到 Python/PNG 的联测、连续预览更新、CRC/丢字节、停止恢复、USB 任意分片及 framebuffer 取样边界。离线模型通过不等于手机投屏已验证。
+GSC1 每块带长度、帧编号、尺寸和 CRC32，整帧另有 CRC32；最大图像 7027840 字节，块负载不超过 1024 字节。默认 316×695 仍与旧 GSC1 帧兼容，旧电脑解码器需要更新才能接收更高分辨率。损坏／丢字节的数据不会输出到终端文本，也不会保存为有效截图；下一校验包或 `screen.stop` 的校验控制记录恢复解析。PTY 的 BEGIN/END 标记内不解析屏幕魔数，避免损坏 shell 原始输出。
+
+离线验证：`bash scripts/test-ios16-screen.sh`，包含真实 C 发送格式到 Python/PNG 的联测、可变分辨率、连续预览更新、CRC/丢字节、停止恢复、USB 任意分片、framebuffer 取样边界、HID 输入协议、输入租约、桌面控制队列和本地 HTTP 请求校验。离线模型通过不等于手机投屏或反向控制已验证。
 
 ## 真实 shell
 

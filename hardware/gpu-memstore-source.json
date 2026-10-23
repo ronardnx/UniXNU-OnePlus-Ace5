@@ -1,0 +1,256 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+  "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+  "verification": {
+    "date": "2026-10-23",
+    "method": "Downloaded each immutable raw URL and verified byte equality with the local GPU-source cache. Recorded SHA-256, Git blob SHA-1 and byte length. No vendor source is redistributed in this manifest.",
+    "requires_network_for_tests": false
+  },
+  "files": [
+    {
+      "file": "kgsl.h",
+      "path": "vendor/qcom/opensource/graphics-kernel/kgsl.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl.h",
+      "bytes": 24407,
+      "sha256": "91719fae474726bef4fbfa4e0bd78ce41ff651f808f04000c55a8bda2f9ac4fe",
+      "git_blob": "4c926d531489e9924a66c6f0c1c4e577f27cc402",
+      "evidence": [
+        {
+          "lines": [
+            51,
+            60
+          ],
+          "supports": "Memstore uses eight host pages; four priority ringbuffer levels and two additional records are excluded from the context limit."
+        },
+        {
+          "lines": [
+            63,
+            75
+          ],
+          "supports": "Context and ringbuffer addresses are record-stride offsets; the final context ID is reserved for the global context."
+        }
+      ]
+    },
+    {
+      "file": "msm_kgsl.h",
+      "path": "vendor/qcom/opensource/graphics-kernel/include/uapi/linux/msm_kgsl.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/include/uapi/linux/msm_kgsl.h",
+      "bytes": 69128,
+      "sha256": "0509a1a38c99d4b0dde881069eea0475b77f07ab250cbe0a02cfc8a7984ed00b",
+      "git_blob": "4d93db001b3ff92bfbe13de5d529326abfda75d9",
+      "evidence": [
+        {
+          "lines": [
+            284,
+            315
+          ],
+          "supports": "The device memstore record contains ten unsigned 32-bit fields; SOP is at byte 0 and EOP at byte 8, giving a 40-byte stride."
+        }
+      ]
+    },
+    {
+      "file": "adreno.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno.c",
+      "bytes": 102419,
+      "sha256": "7610fc36f8a482f4a09a3d332c3ebb7505a8540281bf770f8e7b2f0d21346799",
+      "git_blob": "2f818ec7a5c967bae194211db9c8846b6ead707c",
+      "evidence": [
+        {
+          "lines": [
+            1339,
+            1347
+          ],
+          "supports": "The device memstore is allocated once through the global allocator; APRIV devices request privileged memory and do not request GPU read-only permissions."
+        },
+        {
+          "lines": [
+            2896,
+            2919
+          ],
+          "supports": "CPU timestamp observation reads the requested SOP or EOP word from the device memstore."
+        }
+      ]
+    },
+    {
+      "file": "adreno-gpulist.h",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno-gpulist.h",
+      "bytes": 107665,
+      "sha256": "08293f60e0be8b3a16ec0b800588d700f54b34d2e9e32e64aac115f05548c8f3",
+      "git_blob": "c60f1171b36063ca1f8a8550db9edfc6babc3f8a",
+      "evidence": [
+        {
+          "lines": [
+            2418,
+            2428
+          ],
+          "supports": "The gen7-9-1 device advertises APRIV, hardware fence and preemption capabilities; capability flags alone do not supply a working local hardware-fence owner."
+        }
+      ]
+    },
+    {
+      "file": "adreno_gen7_hwsched_hfi.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "bytes": 124261,
+      "sha256": "306930a131d0fa3bc3cc3873dbfaf205b6bd5a4243f55a74cced411c08de6782",
+      "git_blob": "3c02fbf92e11b058460e7d902a8a356bcc77e6a9",
+      "evidence": [
+        {
+          "lines": [
+            1536,
+            1556
+          ],
+          "supports": "GMU permissions and the selected GMU VA region derive from independent GMU flags."
+        },
+        {
+          "lines": [
+            1566,
+            1571
+          ],
+          "supports": "Allocation lookup keys are memory kind plus GMU memory handle."
+        },
+        {
+          "lines": [
+            1608,
+            1634
+          ],
+          "supports": "GPU flags select privilege, write permission and security; the GMU-only IPC_CORE path explicitly names the qcom,ipc-core DT resource."
+        },
+        {
+          "lines": [
+            1648,
+            1699
+          ],
+          "supports": "MEMSTORE and HW_FENCE use existing device descriptors; optional GMU import uses that same backing instead of allocating ordinary replacement RAM."
+        },
+        {
+          "lines": [
+            2926,
+            2938
+          ],
+          "supports": "Context registration passes record-specific SOP and EOP GPU addresses."
+        },
+        {
+          "lines": [
+            4173,
+            4177
+          ],
+          "supports": "The global context uses its reserved record for SOP and EOP."
+        }
+      ]
+    },
+    {
+      "file": "adreno_hfi.h",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_hfi.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_hfi.h",
+      "bytes": 38194,
+      "sha256": "03fe8212d1a75148999f67df2044133a047501e91a234d0c1176d264428f713c",
+      "git_blob": "5557f2cf584b8801f9a32ad736bd0e7e6e31639d",
+      "evidence": [
+        {
+          "lines": [
+            225,
+            242
+          ],
+          "supports": "HFI defines IPC_CORE, MEMSTORE and HW_FENCE as distinct memory kinds; MEMSTORE stores context SOP/EOP while HW_FENCE owns Tx/Rx headers and queues."
+        },
+        {
+          "lines": [
+            279,
+            311
+          ],
+          "supports": "GPU, GMU and host access/init flag bits have separate meanings; cacheability and secure requests are distinct flags."
+        }
+      ]
+    },
+    {
+      "file": "kgsl.c",
+      "path": "vendor/qcom/opensource/graphics-kernel/kgsl.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/kgsl.c",
+      "bytes": 140895,
+      "sha256": "21f8f7ba8556f4bea965ac4c811843b26c8a59508b912b7a5cdfb9791c9d7da5",
+      "git_blob": "bcda4c16efe8098c8aa47f7c391e5e6e9a942f36",
+      "evidence": [
+        {
+          "lines": [
+            738,
+            751
+          ],
+          "supports": "Context allocation starts at ID 1 and excludes the reserved global context ID."
+        }
+      ]
+    }
+  ],
+  "provider_policy": {
+    "implementation": [
+      "ios16/giulia_gpu_memstore.h",
+      "ios16/giulia_gpu_memstore_mapping.h",
+      "ios16/giulia_gpu_mapping_impl.h"
+    ],
+    "bytes": 32768,
+    "page_bytes": 4096,
+    "page_count": 8,
+    "size_basis": "Local provider choice of eight 4 KiB pages. The pinned vendor formula is eight host PAGE_SIZE pages; this manifest does not establish the vendor kernel PAGE_SIZE.",
+    "gpu_iova": "0x66000000",
+    "gmu_iova": "0x66000000 when GMU_ACC is requested; otherwise unmapped",
+    "record_bytes": 40,
+    "sop_offset": 0,
+    "eop_offset": 8,
+    "context_limit_exclusive": 813,
+    "global_context_id": 812,
+    "user_context_ids": [
+      1,
+      811
+    ],
+    "gpu_required_flags": "GFX_ACC | GFX_PRIV | GFX_WRITEABLE (0x7)",
+    "gmu_permissions": "Independent GMU_ACC, GMU_PRIV and GMU_WRITEABLE bits; no cacheable alias.",
+    "ownership": "Independent pinned Normal NC singleton, no ordinary development-pool offset. Repeated compatible imports never clear live storage.",
+    "observation": "Two ordered SOP/EOP observations. stable means equal samples only; completion_verified remains 0."
+  },
+  "unimplemented_resource_evidence": {
+    "other_mmio": {
+      "kinds": [
+        11,
+        12,
+        13,
+        20
+      ],
+      "status": "Not mapped: the fixed source path does not establish a board resource binding for these kinds. RAM is not a substitute for MMIO."
+    },
+    "hardware_fence": {
+      "kind": 23,
+      "source": "adreno_gen7_hwsched_hfi.c:1648-1655",
+      "status": "Not mapped: requires a dedicated controller and preallocated Tx/Rx queues plus completion semantics; timestamp observation is not a hardware fence."
+    }
+  },
+  "validation_limits": [
+    "Source provenance and host software checks do not establish successful device translation, execution or coherency.",
+    "No new device run, SMC, RAW submission, production fence or Metal support is evidenced by this manifest."
+  ],
+  "implemented_ipc_core_evidence": {
+    "kind": 19,
+    "binding_source": "adreno_gen7_hwsched_hfi.c:1622-1628",
+    "board_node": "qcom,gmu@3d69000",
+    "property": "qcom,ipc-core",
+    "physical": "0x400000",
+    "bytes": "0x140000",
+    "board_dts_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1",
+    "board_dts_reference": "hardware/sm8650-gpu.json:dts_sha256",
+    "local_capture": "out/ios16/gpu-platform-boot-20261023-r2/captured-board.dts",
+    "line": 30685,
+    "conflicting_existing_page": {
+      "physical": "0x406000",
+      "bytes": "0x1000",
+      "owner": "WiFi / AOP QMP doorbell",
+      "local_evidence": [
+        "ios16/giulia_wifi_qmp.h:4-6",
+        "ios16/giulia_wifi_mapping.h:41",
+        "docs/WIFI_MAPPING.md:29"
+      ]
+    },
+    "status": "Implemented as the fixed GMU-only IPC_CORE provider, gated by kernel host-client arbitration and a clean QMP handoff; retained until reboot. No CPU resource access or zeroing."
+  }
+}

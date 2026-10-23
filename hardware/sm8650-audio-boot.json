@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "board": "giulia",
+  "status": "offline-pas-loader-and-power-plan-verified",
+  "hardware_validated": false,
+  "adsp_started": false,
+  "speaker_playback_verified": false,
+  "kernel_source_commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+  "firmware_release": "PKG110_16.0.3.500(CN01)",
+  "sources": [
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/remoteproc/qcom_q6v5_pas.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/mdt_loader.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/regulator/rpmh-regulator.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/clk/qcom/clk-rpmh.c",
+    "../ace5-analysis/running-device.dts"
+  ],
+  "package": {
+    "format": "GAFWPK1",
+    "input_file_count": 56,
+    "bytes": 41603072,
+    "sha256": "cbbbe5ad380a011a848677c1b57ed658ba4874833e84f95785743d5731b99f49",
+    "compiled_pin": "ios16/giulia_audio_firmware_pin.h",
+    "builder": "scripts/make-audio-firmware-pack.py",
+    "firmware_bytes_committed": false,
+    "metadata": "Compact ELF32 header/program table followed by authenticated hash data; split p_offset is not an offset into the MDT file.",
+    "payloads": "PT_LOAD segments with nonzero p_filesz use decimal .bNN indices. BSS is zeroed to p_memsz; gaps are preserved.",
+    "images": [
+      {
+        "name": "adsp_dtb.mdt",
+        "pas_id": 36,
+        "base": 2649227264,
+        "capacity": 524288,
+        "load_bytes": 57344,
+        "load_segments": 1,
+        "elf_machine": 1
+      },
+      {
+        "name": "adsp.mdt",
+        "pas_id": 1,
+        "base": 2649751552,
+        "capacity": 86507520,
+        "load_bytes": 86507520,
+        "load_segments": 55,
+        "elf_machine": 164
+      }
+    ]
+  },
+  "boot_sequence": [
+    "Validate entire package, require its compiled SHA256 pin and authoritative exclusive ownership of both carveouts.",
+    "Allocate isolated contiguous uncached PAS metadata; recheck prerequisites after allocation.",
+    "Hold fresh interrupt baseline, AOP adsp load state, XO, lcx/lmx, rproc_ddr and crypto_ddr resources.",
+    "PAS INIT(1), MEM_SETUP(2), copy/zero/cache-sync, AUTH_AND_RESET(5), first DTB PAS 36 and then ADSP PAS 1.",
+    "Require a fresh ready event within 5000 ms and no fatal/watchdog indication.",
+    "After clients quiesce, PAS SHUTDOWN(6) for ADSP then DTB, then release metadata and resource references."
+  ],
+  "failure_handling": "Any ambiguous failure after prepare retains metadata/resource references and quarantines the boot epoch. A repeated terminal command cannot clear quarantine.",
+  "power_plan": {
+    "implementation": "ios16/giulia_audio_power.h",
+    "writes_hardware": false,
+    "rails": ["lcx.lvl", "lmx.lvl"],
+    "consumer_level_minimum": 384,
+    "native_selector": "First command-DB AUX little-endian u16 entry at or above 384; native array index is the RPMh data value. No literal 384 vote.",
+    "aux_limit_entries": 16,
+    "xo_resource": "xo.lvl",
+    "xo_enable_value": 3,
+    "state_sets": ["sleep", "wake", "active"],
+    "interconnect_paths": ["rproc_ddr", "crypto_ddr"],
+    "interconnect_average": 4294967295,
+    "interconnect_peak": 4294967295,
+    "interconnect_note": "These are ICC API bandwidth requests from the pinned remoteproc source, not raw BCM vote encodings. Native provider resolution, aggregation and acknowledgement are still required."
+  },
+  "offline_validation": [
+    "C lifecycle fault injection at every allocation, prepare, PAS, write, sync, ready and shutdown stage under ASan/UBSan.",
+    "Python package tests compare generated synthetic and real packages with the independent C parser.",
+    "Local stock 56-file package matches the compiled pin and C parser: 56 load segments, DTB span 57344, ADSP span 86507520.",
+    "C/C++ power-plan tests check selector conversion, minimum rounding, zero padding, malformed AUX, wrong resource types and lookup failures."
+  ],
+  "required_native_backends": [
+    "Boot-epoch reservation/exclusive ownership handoff for both DTB and ADSP carveouts; a UEFI reserved memory descriptor alone is insufficient.",
+    "Native shared RPMh resource owner for lcx/lmx/XO and active/wake/sleep aggregation, AOP load-state acknowledgement, rproc_ddr and secure crypto_ddr ICC paths.",
+    "Physically contiguous isolated uncached metadata allocation and carveout copy/cache maintenance.",
+    "SCM PAS transport with interrupted/busy/waitqueue completion and checked secure result.",
+    "Fresh ADSP ready/fatal/watchdog event handling and client quiescence before shutdown."
+  ]
+}

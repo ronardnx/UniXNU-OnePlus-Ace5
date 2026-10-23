@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-23",
+  "status": "Secure platform and START passed; USB900E during OP13; exact queue/doorbell boundary unconfirmed",
+  "kernel_commit": "2624d8ef990061ed5f48f753da35da94af49fe76",
+  "evidence": {
+    "path": "out/ios16/gpu-native-hwsched-terminal/20261023-123043-316182/result.json",
+    "sha256": "e46ff602f10d5251a93491c2c18f1616affabecfd73af0dfaeccf14992cc79b4"
+  },
+  "secure_cx_call_executed": true,
+  "hwsched_start_accepted": true,
+  "secure_allocations": [
+    {
+      "handle": 0,
+      "bytes": 3657728,
+      "gpu": 4026531840,
+      "gmu": 0,
+      "flags": 4103,
+      "kind": 5,
+      "secure": true,
+      "gmu_handle": 5
+    }
+  ],
+  "context_banks": {
+    "gmu": 2,
+    "gpu": 0,
+    "gpu_reserved": [
+      0,
+      1
+    ],
+    "secure": 3
+  },
+  "gmu_nmi_modified": false,
+  "cp_init_ack_received": false,
+  "queue_publication_confirmed": false,
+  "doorbell_confirmed": false,
+  "gpu_submission_verified": false,
+  "metal_verified": false,
+  "paused_on_900e": true,
+  "cleanup_confirmed": false,
+  "diagnostic_boundary": {
+    "kernel_snapshot_text_received": false,
+    "kernel_dispatch_text_received": false,
+    "console_async_drops_possible": true
+  },
+  "new_resume_device_state": "Fastboot observed; restore same image for no-RAW diagnostic isolation"
+}

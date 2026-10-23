@@ -1,0 +1,513 @@
+{
+  "schema": 1,
+  "purpose": "Pinned source evidence and implementation prerequisites for a real GPU hardware-fence provider; this manifest does not register a controller, map carveout memory or prove hardware completion.",
+  "verification": {
+    "date": "2026-10-23",
+    "method": "Downloaded immutable raw source URLs. Module/DT file Git blob hashes were checked against the fetched exact commit tree; public header is from the repository-established separate kernel reference and is separately identified. Byte lengths and SHA-256 hashes refer to downloaded bytes. No source is redistributed here.",
+    "requires_network_for_tests": false,
+    "kernel_module_pairing": "Both commits are fixed repository references; matching the running stock kernel or controller firmware is not proven by these files."
+  },
+  "files": [
+    {
+      "file": "adreno_hwsched.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_hwsched.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_hwsched.c",
+      "bytes": 68221,
+      "sha256": "e62f222be34aea46326aedf2c9f256c1f1f61f6302d3cf8e9a6a5efbe72dd19e",
+      "git_blob": "af27b24bebfb2980543d1b23131d80c1727386d3",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            2241,
+            2290
+          ],
+          "supports": "GPU requires hardware-fence capability and context queues, registers HW_FENCE_CLIENT_ID_CTX0, then imports the provider physical descriptor for GMU mapping. Ordinary RAM is not allocated for these queues."
+        },
+        {
+          "lines": [
+            1935,
+            1952
+          ],
+          "supports": "GPU Tx queue free-space accounting includes pending hardware fences and uses dword indices."
+        }
+      ]
+    },
+    {
+      "file": "adreno_hwsched.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_hwsched.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_hwsched.h",
+      "bytes": 9183,
+      "sha256": "e3c017d175c935d80aae64dc2f260a8df5e061e49829098746670d501aecc42f",
+      "git_blob": "1c205ab5c38f496f0b8b539a9c6ee545393c26a2",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            61,
+            75
+          ],
+          "supports": "The GPU fence owner contains both the provider handle/physical descriptor and the GPU memory descriptor."
+        }
+      ]
+    },
+    {
+      "file": "msm_hw_fence.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/msm_hw_fence.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/src/msm_hw_fence.c",
+      "bytes": 23247,
+      "sha256": "c69d2514778f11680cb4bb103eb21ca80cbfc8059db47f0e57caf2dfac3b6142",
+      "git_blob": "5ec9286eb5c539775d5ec259740a1da7cf02810f",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            20,
+            141
+          ],
+          "supports": "Client registration requires resources_ready and uniqueness, creates the fixed client queues and initializes controller resources; it does not test vm_ready."
+        },
+        {
+          "lines": [
+            168,
+            219
+          ],
+          "supports": "Creating a hardware fence requires vm_ready and allocates a real shared fence-table entry before setting its enabled flag."
+        },
+        {
+          "lines": [
+            430,
+            508
+          ],
+          "supports": "Tx queue update and explicit IPCC signal APIs require both resources_ready and vm_ready."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_priv.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_priv.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_priv.c",
+      "bytes": 57739,
+      "sha256": "441356894aedd90c88b2ee0ab686ce0c0d55d252c83cbb7975f20eaa2dd60b38",
+      "git_blob": "52d1159b2fefc7e787ba067646e8a6407ea13c8c",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            38,
+            171
+          ],
+          "supports": "Queue initialization uses provider-reserved physical memory. The table size, header offset, queue size and payload size are byte quantities in this implementation; read/write indices are separately dword based."
+        },
+        {
+          "lines": [
+            638,
+            760
+          ],
+          "supports": "Driver initialization owns control queues, global locks, fence table, IPCC mapping, QTIME mapping and VM interrupt setup before client resources are available."
+        },
+        {
+          "lines": [
+            828,
+            846
+          ],
+          "supports": "Controller client registration is intentionally a no-op in this source version: static memory allocation avoids a control-queue registration handshake."
+        },
+        {
+          "lines": [
+            340,
+            464
+          ],
+          "supports": "Client queue updates use dword indices, leave room at wraparound, publish payload before the producer index and write payload revision 1.0."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_priv.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/include/hw_fence_drv_priv.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/include/hw_fence_drv_priv.h",
+      "bytes": 20839,
+      "sha256": "b152e58f1a2ac3a266fc465898bc8db5cf6213a58fc7e75e087501a40c9e2a47",
+      "git_blob": "fb4caacf43d976d396609ce943816f785ecdc0e7",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            24,
+            52
+          ],
+          "supports": "There are two control queues and normally two client queues; control allocation uses a 24-byte maximum payload and RX-client locks are eight bytes each."
+        },
+        {
+          "lines": [
+            418,
+            431
+          ],
+          "supports": "Client queue payload structure has 64 bytes with context, sequence, hash, flags, client_data, error and timestamps."
+        },
+        {
+          "lines": [
+            470,
+            488
+          ],
+          "supports": "Shared hardware-fence table entries have 160 bytes under the inspected fixed-width ARM64 ABI, including a shared atomic lock and five client_data slots."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_utils.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_utils.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_utils.c",
+      "bytes": 35307,
+      "sha256": "f2c761c821ab77a0bb865b11ced6cd3d09ec6141f8862e1846593a49cd1891a4",
+      "git_blob": "f2b34c1c4fba1ef70e530d23308a9bf92dc818a3",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            112,
+            125
+          ],
+          "supports": "Default GPU client has one client, two queues, no padding and no producer-index substitution; absent queue count override uses the global count."
+        },
+        {
+          "lines": [
+            159,
+            191
+          ],
+          "supports": "Releasing the cross-VM shared lock sends APPS signal 30 when the SVM waiter bit is set."
+        },
+        {
+          "lines": [
+            244,
+            278
+          ],
+          "supports": "Control RX queue is consumed for fence errors, with payload type 2 and a validated client id."
+        },
+        {
+          "lines": [
+            352,
+            400
+          ],
+          "supports": "Gunyah doorbell read/clean dispatches control RX and uses the board doorbell label."
+        },
+        {
+          "lines": [
+            403,
+            539
+          ],
+          "supports": "VM READY validates exact previously shared carveout ownership or performs SCM assignment plus Gunyah RM mem-share; vm_ready is set only after successful share or exact identity match."
+        },
+        {
+          "lines": [
+            546,
+            615
+          ],
+          "supports": "Provider maps and initializes the DT reserved carveout, verifies capacity and registers RM notifications; it is not an arbitrary heap allocation."
+        },
+        {
+          "lines": [
+            635,
+            707
+          ],
+          "supports": "Memory layout is control queues, global locks, fence table, then fixed per-client queues, with remaining bytes for optional events."
+        },
+        {
+          "lines": [
+            800,
+            928
+          ],
+          "supports": "Client descriptors use board queue counts and PAGE_ALIGN. GPU is first in the fixed client region."
+        },
+        {
+          "lines": [
+            934,
+            981
+          ],
+          "supports": "Control queue allocation uses 24 bytes times board queue entries; the fence table is sizeof(msm_hw_fence) times board table entries."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_ipc.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_ipc.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_ipc.c",
+      "bytes": 16182,
+      "sha256": "5639a103de415d7258977670e3c71097a85f0f8e8dbd8642889dcb9e2c1db1fc",
+      "git_blob": "a9b317e87c9f016f51bd9ec471ff6579ee32b1c7",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            84,
+            93
+          ],
+          "supports": "Pineapple control client is APPS PID3 / VID8 / signal1; GPU client is PID4 / VID9 / signal0. GPU update_rxq and send_ipc are false in this table."
+        },
+        {
+          "lines": [
+            236,
+            255
+          ],
+          "supports": "SEND writes receiver virtual client id in upper 16 bits and signal id below, then orders the write."
+        },
+        {
+          "lines": [
+            304,
+            367
+          ],
+          "supports": "IPCC revision 0x20003 selects Pineapple fence protocol 4 and APPS physical client 3. Setup configures APPS CONFIG and RECV_SIGNAL_ENABLE."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_ipc.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/include/hw_fence_drv_ipc.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/include/hw_fence_drv_ipc.h",
+      "bytes": 5121,
+      "sha256": "6149a8499db384c011e9777d153ce2ae480188609eee87d3a13e3de3c5a68ba3",
+      "git_blob": "93bafd1e9328570468654be7c818ad78a1c34a74",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            9,
+            49
+          ],
+          "supports": "Defines distinct virtual/physical clients, Pineapple fence protocol 4, stride 0x40000 per protocol and 0x1000 per physical client; CONFIG=+8, SEND=+12, RECV_SIGNAL_ENABLE=+20."
+        }
+      ]
+    },
+    {
+      "file": "pineapple-hw-fence.dtsi",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/proprietary/mm-devicetree/hw_fence/pineapple-hw-fence.dtsi",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/mm-devicetree/hw_fence/pineapple-hw-fence.dtsi",
+      "bytes": 1039,
+      "sha256": "c74ce4e107a9d3ea5f6b6efa28e9d379299d82f3ff3093c9c2cd31c73516fccf",
+      "git_blob": "31c03c294af7d34b562ca517ccd3b1dd12117d0a",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            1,
+            42
+          ],
+          "supports": "Board source selects 8192 table entries, 800 default queue entries, IPCC 0x400000+0x200000, QTIME 0xc221000+0x1000, IPCC 0x20003, Gunyah memory label5, doorbell label6 and peer-name3."
+        }
+      ]
+    },
+    {
+      "file": "msm_hw_fence.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/soc/qcom/msm_hw_fence.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/soc/qcom/msm_hw_fence.h",
+      "bytes": 25761,
+      "sha256": "b23da72718c276bc45b991be3acea4f22c62abc9caf393d077d5bdd5b56f8cce",
+      "git_blob": "62c0f3ba853752e911403815d0878a8e2a79722a",
+      "commit_tree_blob_verified": false,
+      "evidence": [
+        {
+          "lines": [
+            80,
+            133
+          ],
+          "supports": "Public queue table is six u32 fields (24 bytes), queue header is fourteen u32 fields (56 bytes). Comments label some fields dwords, but the fixed module initializer writes bytes."
+        },
+        {
+          "lines": [
+            136,
+            149
+          ],
+          "supports": "Provider returns CPU pointer, physical address and u64 size."
+        },
+        {
+          "lines": [
+            202,
+            228
+          ],
+          "supports": "GPU external client id CTX0 is 1."
+        }
+      ]
+    },
+    {
+      "file": "adreno_gen7_hwsched_hfi.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched_hfi.c",
+      "bytes": 124261,
+      "sha256": "306930a131d0fa3bc3cc3873dbfaf205b6bd5a4243f55a74cced411c08de6782",
+      "git_blob": "3c02fbf92e11b058460e7d902a8a356bcc77e6a9",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            1648,
+            1699
+          ],
+          "supports": "HFI kind23 borrows the existing registered hardware-fence descriptor and optionally imports it to GMU address space."
+        },
+        {
+          "lines": [
+            3517,
+            3555
+          ],
+          "supports": "Real hardware-fence creation calls the provider to obtain a table handle before subsequent GMU notification."
+        }
+      ]
+    }
+  ],
+  "board_evidence": {
+    "capture": "out/ios16/gpu-platform-boot-20261023-r2/captured-board.dts",
+    "sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1",
+    "reserved_memory": {
+      "node": "/reserved-memory/hwfence-shmem",
+      "lines": [
+        283,
+        287
+      ],
+      "physical": "0xd4e23000",
+      "bytes": "0x2dd000",
+      "no_map": true
+    },
+    "controller": {
+      "node": "/soc/qcom,hw-fence",
+      "lines": [
+        30622,
+        30651
+      ],
+      "default_queue_entries": 800,
+      "table_entries": 8192,
+      "ipc_revision": "0x20003",
+      "ipcc_physical": "0x400000",
+      "ipcc_bytes": "0x200000",
+      "qtime_physical": "0xc221000",
+      "qtime_bytes": "0x1000",
+      "gunyah_peer_name": 3,
+      "gunyah_memory_label": 5,
+      "gunyah_doorbell_label": 6
+    }
+  },
+  "ipcc_shared_resource_requirements": {
+    "protocol": 4,
+    "physical_address_formula": "0x400000 + protocol*0x40000 + physical_client*0x1000",
+    "apps": {
+      "physical_client": 3,
+      "virtual_client": 8,
+      "page": "0x503000",
+      "send": "0x50300c",
+      "control_signal": 1,
+      "cross_vm_lock_wake_signal": 30
+    },
+    "gpu": {
+      "physical_client": 4,
+      "virtual_client": 9,
+      "page": "0x504000",
+      "send": "0x50400c",
+      "signal": 0,
+      "provider_update_rxq": false,
+      "provider_send_ipc": false
+    },
+    "register_offsets": {
+      "config": "0x8",
+      "send": "0xc",
+      "receive_signal_enable": "0x14"
+    },
+    "send_value_formula": "(receiver_virtual_client << 16) | signal",
+    "overlap": "Both fence pages are contained in the GMU qcom,ipc-core range 0x400000..0x540000. The existing QMP 0x406000 page belongs to the same aperture but a different protocol/client window. A shared aperture owner must track these uses; mapping the aperture does not authorize fence register writes."
+  },
+  "wire_layout": {
+    "queue_table_header_bytes": 24,
+    "queue_header_bytes": 56,
+    "gpu_queue_count": 2,
+    "gpu_payload_bytes": 64,
+    "control_allocation_payload_bytes": 24,
+    "fence_table_entry_bytes": 160,
+    "queue_type_tx": 1,
+    "queue_type_rx": 2,
+    "client_payload_version": "1.0",
+    "size_units": "Initializer writes bytes for table size, qhdr0_offset, qhdr_size, queue_size and pkt_size. GPU read/write queue indices use dwords. Do not follow the conflicting public-header dword comments for these size fields.",
+    "gpu_start_address_field": "Queue header start_addr is a 32-bit physical address, not a GMU virtual address.",
+    "control_payload_caution": "The fixed allocator reserves control queues using 24 bytes per configured entry, but the shared error-reader helper advances/copies sizeof(msm_hw_fence_queue_payload), which is 64 bytes (hw_fence_drv_priv.c:225-296). Do not infer a 24-byte controller error wire format or 800 64-byte error slots from the allocation count. A compatible controller ABI still needs to be established.",
+    "fixed_layout_order": [
+      "Control queue table and two control queues",
+      "Eight-byte locks for each RX-capable static/configurable client",
+      "Shared fence table",
+      "PAGE_ALIGN to first GPU client region",
+      "GPU queue table, TX/RX headers, TX/RX payload arrays",
+      "All remaining configured client regions in original order",
+      "Optional debug events in remaining carveout"
+    ]
+  },
+  "conditional_4k_layout": {
+    "status": "Derived example only; vendor host PAGE_SIZE and runtime controller layout must be established before use. Not an allocation authorization.",
+    "page_bytes": 4096,
+    "control_region_offset": "0x0",
+    "control_region_bytes": "0x9688",
+    "lock_region_offset": "0x9688",
+    "lock_region_bytes": "0x80",
+    "lock_count": 16,
+    "fence_table_offset": "0x9708",
+    "fence_table_bytes": "0x140000",
+    "gpu_region_offset": "0x14a000",
+    "gpu_region_physical": "0xd4f6d000",
+    "gpu_region_bytes": "0x1a000",
+    "gpu_tx_header_offset": "0x18",
+    "gpu_rx_header_offset": "0x50",
+    "gpu_tx_payload_offset": "0x88",
+    "gpu_rx_payload_offset": "0xc888",
+    "gpu_each_queue_payload_bytes": "0xc800",
+    "gpu_tx_payload_physical": "0xd4f6d088",
+    "gpu_rx_payload_physical": "0xd4f79888",
+    "derivation": "Default 800 entries; GPU payload 64 bytes; control payload allocation 24 bytes; 8192 fence entries at 160 bytes; 14 static RX locks plus one IPE and one VPU lock. GPU has no board-specific padding."
+  },
+  "control_and_vm_protocol": {
+    "client_registration": "In this fixed module, hw_fence_init_controller_resources is intentionally a no-op: controller and client use fixed memory locations, so no control-queue registration ACK exists to emulate.",
+    "control_rx": "Gunyah doorbell bit0 drains control RX for type2 fence error payloads and dispatches registered error callbacks. This is separate from normal GPU completion.",
+    "resources_ready": "Requires actual provider initialization, shared layout, IPCC/QTIME maps and VM doorbell setup. msm_hw_fence_register tests resources_ready and rejects duplicate client registrations.",
+    "vm_ready": "The provider separately observes a matching peer VM READY event and exact shared carveout identity, or successfully performs SCM memory reassignment and Gunyah RM memory share. Merely allocating or mapping memory is insufficient.",
+    "runtime_operations": "Fence create, TX queue update and explicit signal APIs require vm_ready; each fence has a real shared-table handle and cross-VM locking semantics.",
+    "gpu_enable": "Adreno hardware fence registration also requires context queues. Kind23 imports the registered provider descriptor; HFI feature enable and fence completion require their own valid state transitions."
+  },
+  "minimum_implementation_sequence": [
+    "Establish a boot memory ownership contract for the exact reserved carveout and the compatible controller firmware/host-page layout; do not clear firmware-owned or shared live storage.",
+    "Add Gunyah RM peer identity/READY handling, exact shared-memory ownership validation or supported SCM+RM share, and doorbell label6 RX dispatch. Keep resources_ready and vm_ready distinct.",
+    "Own the full fixed shared layout including control queues, global atomic locks, real fence table, and all prescribed client offsets even if GPU is the only locally exposed client.",
+    "Register GPU CTX0 once, construct its returned physical Tx/Rx descriptor from the proven layout, and import that descriptor for HFI kind23 with independently checked GPU/GMU permissions.",
+    "Implement ordered queue producer/consumer operations, cross-VM atomics and signal30 wake, fence handle lifecycle, error propagation and reset/recovery before enabling HFI hardware-fence behavior.",
+    "Verify actual controller participation and completion using the supported platform transport before declaring hardware completion."
+  ],
+  "blocked_claims": [
+    "An ordinary pool or memstore allocation cannot be returned as HFI kind23.",
+    "No fake client handle, synthetic ACK, hard-coded vm_ready or timestamp-only fence completion.",
+    "The static source controller-registration no-op does not remove Gunyah or shared-memory ownership requirements.",
+    "A valid physical address, page-table mapping or capability flag alone does not prove a live fence provider.",
+    "The captured reserved-memory node and conditional offsets are evidence, not permission to initialize device memory."
+  ],
+  "validation_limits": [
+    "Only downloaded source, Git provenance, local board text and derived arithmetic were inspected.",
+    "No device reads or writes, no SMC, no Gunyah RPC, no hardware fence registration, and no GPU completion test were performed.",
+    "This file adds source evidence only and changes no production implementation."
+  ],
+  "follow_up_stock_evidence": "hardware/gpu-fence-stock.json: independent pinned stock allocator instructions and boot IKCONFIG both establish 4KiB, without verified build pairing or runtime controller ownership.",
+  "implemented_import_boundary": "docs/GPU_FENCE_PROVIDER.md: kernel-only frozen provider registration, paired IPC ownership, actual GMU-only HFI kind23 import, live epoch validation and zero-tail mapping. No native Gunyah producer or completion engine is installed."
+}

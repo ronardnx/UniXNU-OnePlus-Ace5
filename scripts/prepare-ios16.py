@@ -24,13 +24,15 @@ def main():
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--gui', action='store_true', help='Include bounded display/surface/HID compatibility services')
     p.add_argument('--touch', action='store_true', help='Include opt-in Ace 5 TouchCom v1 hardware bring-up')
-    p.add_argument('--wifi', action='store_true', help='Include WCN7850 PCIe/MHI/QMI/WMI passive scan transport and iOS16 IO80211 service')
+    p.add_argument('--wifi', action='store_true', help='Include WCN7850 PCIe/MHI/QMI/WMI scan, single-station open/WPA2-CCMP transport and iOS16 IO80211 service')
     p.add_argument('--gpu', action='store_true', help='Include opt-in A750 firmware/host-memory preparation and gated power observation; not acceleration')
+    p.add_argument('--audio', action='store_true', help='Include ADSP/GLINK/SIPA coordinator; native platform/PCM provider still required')
     p.add_argument('--debug-userland', type=Path, help='Exact signed debug daemon/shell manifest from offline staging')
     a = p.parse_args()
     if a.touch and not a.gui:p.error('--touch requires --gui')
     if a.wifi and not a.gui:p.error('--wifi requires --gui')
     if a.gpu and not a.gui:p.error('--gpu requires --gui')
+    if a.audio and not a.gui:p.error('--audio requires --gui')
     if a.debug_userland and not a.gui:p.error('--debug-userland requires --gui')
     debug_trust=debug_trust_source(a.debug_userland) if a.debug_userland else None
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
@@ -106,7 +108,7 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
-    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu)
+    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu, audio=a.audio)
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -185,6 +187,8 @@ def main():
         for name in ('0073-giulia-complete-boot-log.patch','0074-giulia-ios-pid-hibernate.patch'):
             shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16'/name,a.out/name)
         native_display_patch(a.out, Path(__file__).resolve().parents[1])
+        from ios16_keys import keys_patch
+        keys_patch(a.out, Path(__file__).resolve().parents[1])
         if a.wifi:
             patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
                      '@@ -15,2 +15,3 @@\n'
@@ -209,13 +213,18 @@ def main():
                 data = data.replace('#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
                 patch += ''.join(difflib.unified_diff([], data.splitlines(True),
                                  fromfile='/dev/null', tofile='b/iokit/Kernel/arm/'+name))
+            from ios16_wifi_sae import wifi_sae_patch
+            patch += wifi_sae_patch(a.out, Path(__file__).resolve().parents[1])
             (a.out/'0076-giulia-wifi-runtime.patch').write_text(patch)
         if a.gpu:
             from ios16_gpu_patch import gpu_patch
             gpu_patch(a.out, Path(__file__).resolve().parents[1])
+        if a.audio:
+            from ios16_audio_patch import audio_patch
+            audio_patch(a.out, Path(__file__).resolve().parents[1])
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     (a.out/'capture-debug.ps1').write_text(capture)
-    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'terminal-requirements.txt'):
+    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'ios16_screen_viewer.html', 'terminal-requirements.txt'):
         shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
     shutil.copytree(Path(__file__).resolve().parents[1]/'ios16/userland',a.out/'userland')
     shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
@@ -234,14 +243,19 @@ def main():
         'usb_terminal_host':'debug-terminal.cmd',
         'usb_terminal_hardware_tested':False,
         'screen_forwarding_included':a.gui,
-        'screen_forwarding_protocol':'GSC1 RGB565_LE 316x695, bounded CRC chunks, max 1 fps' if a.gui else None,
+        'screen_forwarding_protocol':'GSC1 RGB565_LE up to 1264x2780, bounded CRC chunks, configurable max_size/max_fps' if a.gui else None,
+        'screen_remote_input_included':a.gui,
+        'screen_remote_input_protocol':'normalized touch, USB HID keyboard/modifiers and consumer buttons, 3-second release lease' if a.gui else None,
         'profile':'gui' if a.gui else 'base','requires_local_gui_adt':a.gui,
         'physical_touch_driver_included':a.touch,'touch_protocol':'TouchCom v1 legacy/FIFO or GPIO SPI' if a.touch else None,
         'wifi_runtime_included':a.wifi,
         'gpu_runtime_included':a.gpu,
         'gpu_terminal_included':a.gpu,
+        'audio_runtime_included':a.audio,
+        'audio_platform_provider_included':False,
+        'audio_scope':'pinned ADSP pack, boot/IPC/SIPA coordinator; native power/ICC and PCM provider missing' if a.audio else None,
         'gpu_scope':'pinned firmware, GMU host-memory preparation, optional gated read-only power/SMMU observation; no GPU submission' if a.gpu else None,
-        'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211; association/data path excluded' if a.wifi else None,
+        'wifi_scope':'PCIe, MHI, QRTR/QMI, CE/HTC/WMI passive scan, IO80211 single-station open/WPA2-CCMP and TCL/REO Ethernet; hardware networking unverified' if a.wifi else None,
         'read_only_trust_catalog_query':a.gui,
         'complete_boot_logging_available':a.gui,
         'native_panel':{'width':1264,'height':2780,'stride':5056,

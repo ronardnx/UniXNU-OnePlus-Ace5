@@ -23,6 +23,17 @@ class Terminal(unittest.TestCase):
                 terminal.wire_command(command)
         self.assertEqual(terminal.wire_command('ps'), b'ps\n')
 
+    def test_hfi_diagnostic_commands(self):
+        for name in ('pin', 'status', 'query', 'poll', 'log'):
+            command = 'gpu.hfi.' + name
+            self.assertEqual(terminal.wire_command(command), (command + '\n').encode())
+            for suffix in (' now', ';ping', '\nping'):
+                with self.assertRaises(ValueError):
+                    terminal.wire_command(command + suffix)
+        for command in ('gpu.hfi.start', 'gpu.hfi.unpin', 'gpu.hfi'):
+            with self.assertRaises(ValueError):
+                terminal.wire_command(command)
+
     def test_split_utf8_and_historical_topic_export(self):
         with tempfile.TemporaryDirectory() as directory:
             capture = terminal.Capture(Path(directory))
@@ -36,6 +47,72 @@ class Terminal(unittest.TestCase):
                 self.assertIn('测试', (capture.root/'wifi.txt').read_text(encoding='utf-8'))
                 self.assertNotIn('GPU', (capture.root/'wifi.txt').read_text(encoding='utf-8'))
                 self.assertIn('historical', (capture.root/'session.json').read_text())
+            finally:
+                capture.close()
+
+    def test_split_input_status_enables_control_only_after_complete_device_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            capture = terminal.Capture(Path(directory))
+            try:
+                control = capture.screen_control
+                capture.feed(b'GIULIA INPUT: available=1 touch=1 key')
+                with self.assertRaises(ValueError):
+                    control.handle({'action': 'control', 'enabled': True})
+                capture.feed(b'board=1 buttons=1\n')
+                control.handle({'action': 'control', 'enabled': True})
+                self.assertTrue(capture.screen_store.info['settings']['control'])
+                capture.feed(b'GIULIA INPUT: available=0 touch=0 keyboard=0 buttons=0\n')
+                self.assertFalse(capture.screen_store.info['settings']['control'])
+            finally:
+                capture.close()
+
+    def test_pointer_events_use_serial_tick_without_diagnostic_command_delay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            capture = terminal.Capture(Path(directory))
+            try:
+                commands = terminal.Commands(capture, 'fake')
+                writes = []
+                serial = SimpleNamespace(write=lambda data: writes.append(data) or len(data))
+                clock = [100.0]
+                with patch.object(terminal.time, 'monotonic', side_effect=lambda: clock[0]):
+                    commands.accept('ping')
+                    commands.tick(serial)
+                    capture.feed(b'GIULIA INPUT: available=1 touch=1 keyboard=1 buttons=1\n')
+                    capture.screen_control.handle({'action': 'control', 'enabled': True})
+                    capture.screen_control.handle({'action': 'touch', 'phase': 'down', 'x': 1, 'y': 2})
+                    capture.screen_control.handle({'action': 'touch', 'phase': 'up', 'x': 3, 'y': 4})
+                    self.assertEqual(writes, [b'ping\n'])
+                    clock[0] += .02
+                    commands.tick(serial)
+                    clock[0] += .02
+                    commands.tick(serial)
+                    self.assertEqual(writes, [b'ping\n', b'input.touch down 1 2\n', b'input.touch up 3 4\n'])
+                    self.assertLess(clock[0], commands.next_send)
+                    capture.screen_control.handle({'action': 'key', 'code': 'KeyA', 'pressed': True})
+                    clock[0] += .02
+                    with self.assertRaises(OSError):
+                        commands.tick(SimpleNamespace(write=lambda _data: 0))
+            finally:
+                capture.close()
+
+    def test_entering_shell_drops_queued_viewer_events_before_serial_transition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            capture = terminal.Capture(Path(directory))
+            try:
+                commands = terminal.Commands(capture, 'fake')
+                capture.feed(b'GIULIA INPUT: available=1 touch=1 keyboard=1 buttons=1\n')
+                capture.screen_control.handle({'action': 'control', 'enabled': True})
+                capture.screen_control.handle({'action': 'key', 'code': 'KeyA', 'pressed': True})
+                commands.accept('shell')
+                with self.assertRaises(ValueError):
+                    capture.screen_control.handle({'action': 'snapshot'})
+                writes = []
+                serial = SimpleNamespace(write=lambda data: writes.append(data) or len(data))
+                commands.tick(serial)
+                self.assertEqual(writes, [b'shell\n'])
+                with terminal.stop_screen_session(serial, lambda: commands.screen_started, capture.screen_control):
+                    pass
+                self.assertEqual(writes, [b'shell\n'])
             finally:
                 capture.close()
 
@@ -83,6 +160,33 @@ class Terminal(unittest.TestCase):
                  'shell.size 0 24','shell.size 0x80 24')
         for cmd in invalid:
             with self.subTest(cmd=cmd),self.assertRaises(ValueError):terminal.wire_command(cmd)
+
+    def test_screen_and_input_wire_commands_validate_device_bounds(self):
+        valid = ('screen.configure 160 1', 'screen.configure 2780 30',
+                 'input.status', 'input.release', 'input.keepalive',
+                 'input.touch down 0 65535', 'input.touch move 65535 0',
+                 'input.touch up 32768 32768', 'input.touch cancel 0 0',
+                 'input.key 4 1 255', 'input.key 231 0 0',
+                 'input.button home 1', 'input.button home 0',
+                 'input.button back 1',
+                 'input.button power 1', 'input.button volumeup 0',
+                 'input.button volumedown 1')
+        for command in valid:
+            with self.subTest(command=command):
+                self.assertEqual(terminal.wire_command(command), (command + '\n').encode('ascii'))
+        invalid = ('screen.configure 159 1', 'screen.configure 2781 1',
+                   'screen.configure 695 0', 'screen.configure 695 31',
+                   'screen.configure 695.0 1', 'screen.configure 695 1 extra',
+                   'input.touch tap 0 0', 'input.touch down -1 0',
+                   'input.touch up 65536 0', 'input.touch move 0 0 1',
+                   'input.key 3 1 0', 'input.key 232 1 0',
+                   'input.key 4 2 0', 'input.key 4 1 256',
+                   'input.key 4 1 -1', 'input.button unknown 1',
+                   'input.button power 2', 'input.status now',
+                   'input.release\nping', 'input.keepalive now')
+        for command in invalid:
+            with self.subTest(command=command), self.assertRaises(ValueError):
+                terminal.wire_command(command)
 
     def test_raw_shell_markers_split_at_every_byte(self):
         raw=b'\x1b[32mroot# \xe4\xbd\xa0\xe5\xa5\xbd\x00\xff'

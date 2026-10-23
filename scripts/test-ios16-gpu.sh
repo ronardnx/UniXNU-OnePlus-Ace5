@@ -19,6 +19,53 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -pthread \
 "$tmp/terminal"
 python3 tests/ios16_gpu_terminal_profile.py
 python3 tests/ios16_gpu_service.py
+python3 tests/ios16_gpu_platform_runtime.py
+python3 tests/ios16_gpu_mapping_runtime.py
+python3 tests/ios16_gpu_dev_runtime.py
+python3 tests/ios16_gpu_ipcc_clients.py
+python3 tests/ios16_gpu_ipc_raw.py
+python3 tests/ios16_gpu_watch_boundary.py
+if [ "$#" = 1 ] && [ -f "$(dirname "$1")/firmware.pack" ]; then
+    python3 tests/ios16_gpu_host_memory.py "$(dirname "$1")/firmware.pack"
+else
+    python3 tests/ios16_gpu_host_memory.py
+fi
+python3 tests/ios16_gpu_cache.py
+python3 tests/ios16_gpu_probe.py
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_scm.c -o "$tmp/scm"
+"$tmp/scm"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_mapping.c ios16/vendor/ArmSmmu4K/ArmSmmu4K.c -o "$tmp/mapping"
+"$tmp/mapping"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_memstore.c -o "$tmp/memstore"
+"$tmp/memstore"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_ipc.c ios16/vendor/ArmSmmu4K/ArmSmmu4K.c -o "$tmp/ipc"
+"$tmp/ipc"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all -pthread \
+    tests/ios16_gpu_ipcc_owner.c -o "$tmp/ipcc-owner"
+"$tmp/ipcc-owner"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_fence.c -o "$tmp/fence"
+"$tmp/fence"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_fence_mapping.c -o "$tmp/fence-mapping"
+"$tmp/fence-mapping"
+cc -std=c11 -Wall -Wextra -Werror -Wno-misleading-indentation -fsanitize=address,undefined -fno-sanitize-recover=all -pthread \
+    tests/ios16_gpu_fence_provider.c -o "$tmp/fence-provider"
+"$tmp/fence-provider"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_platform.c -o "$tmp/platform"
+if [ "$#" = 1 ]; then
+    "$tmp/platform" "$(dirname "$1")/gen70900_zap.mbn"
+else
+    "$tmp/platform"
+fi
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
+    tests/ios16_gpu_hfi.c -o "$tmp/hfi"
+"$tmp/hfi"
 for name in prepare consumer; do
     cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
         "tests/ios16_gpu_power_$name.c" -o "$tmp/power-$name"
@@ -66,3 +113,6 @@ c++ -x c++ -std=c++17 -Wall -Wextra -Werror -fsyntax-only \
     -include ios16/giulia_gpu_pack.h -include ios16/giulia_gpu_memory.h \
     -include ios16/giulia_gpu_power.h -include ios16/giulia_gpu_control.h /dev/null
 python3 -m unittest discover -s tests -p 'test_gpu.py' -v
+
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/ios16_gpu_dev.c -o "$tmp/dev"
+"$tmp/dev"

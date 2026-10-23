@@ -90,6 +90,46 @@ def native_display_patch(profile: Path, repository: Path):
     marker = 'class SweetHIDTouch'
     pos = hid.index(marker)
     hid = hid[:pos] + '#include "../giulia_display.h"\n\n' + hid[pos:]
+    hid = replace(hid, '#define SWEET_TOUCH_FINGERS 10', '#define SWEET_TOUCH_FINGERS 11')
+    # The USB and physical-input workers can now call touch concurrently.
+    # Publish each collection in the same order as its fDown/fX/fY update.
+    hid = replace(hid, '\tIOLockUnlock(fLock);\n\n\tif (was != down) {',
+                  '\t/* Keep physical and remote collections in state-update order. */\n'
+                  '\tif (was != down) {')
+    hid = replace(hid, '\tdispatchEvent(collection);\n\tcollection->release();',
+                  '\tdispatchEvent(collection);\n\tcollection->release();\n\tIOLockUnlock(fLock);')
+    hid = replace(hid, '#include <IOKit/IOLib.h>',
+                  '#include <IOKit/IOLib.h>\n#include <machine/atomic.h>')
+    hid = replace(hid, '\tvoid key(UInt32 usage, bool down);',
+                  '\tvoid key(UInt32 usage, bool down);\n'
+                  '\tbool remoteKey(UInt32 page, UInt32 usage, bool down);\n'
+                  '\tbool sourceKey(UInt32 usage, bool down, bool remote);\n'
+                  '\tIOLock *fButtonLock;\n\tUInt32 fPhysicalButtons, fRemoteButtons;')
+    hid = replace(hid, '\tif (PE_parse_boot_argn("sweethidtest",',
+                  '\tfButtonLock = IOLockAlloc();\n\tif (!fButtonLock) return false;\n'
+                  '\tfPhysicalButtons = fRemoteButtons = 0;\n'
+                  '\tif (PE_parse_boot_argn("sweethidtest",')
+    key_begin = hid.index('SweetHIDButtons::key(UInt32 usage, bool down)\n{')
+    key_end = hid.index('\nvoid\nSweetHIDButtons::testFired', key_begin)
+    hid = hid[:key_begin] + ('SweetHIDButtons::key(UInt32 usage, bool down)\n{\n'
+                            '\t(void)sourceKey(usage, down, false);\n}\n') + hid[key_end:]
+    hid = replace(hid, 'static SweetHIDButtons *gSweetButtons;',
+                  'static SweetHIDButtons *_Atomic gSweetButtons;')
+    hid = replace(hid, 'static SweetHIDTouch *gSweetTouch;',
+                  'static SweetHIDTouch *_Atomic gSweetTouch;')
+    hid = replace(hid, '\tgSweetButtons = this;',
+                  '\tthis->retain();\n\tos_atomic_store(&gSweetButtons, this, release);')
+    hid = replace(hid, '\tgSweetTouch = this;',
+                  '\tthis->retain();\n\tos_atomic_store(&gSweetTouch, this, release);')
+    hid = replace(hid, '\tif (gSweetButtons && key >= 0 && key < (int)(sizeof(usages) / sizeof(usages[0]))) {\n'
+                  '\t\tgSweetButtons->key(usages[key], down != 0);',
+                  '\tSweetHIDButtons *service = os_atomic_load(&gSweetButtons, acquire);\n'
+                  '\tif (service && key >= 0 && key < (int)(sizeof(usages) / sizeof(usages[0]))) {\n'
+                  '\t\tservice->key(usages[key], down != 0);')
+    hid = replace(hid, '\tif (gSweetTouch) {\n\t\tgSweetTouch->touch(finger, down != 0, x, y);',
+                  '\tSweetHIDTouch *service = os_atomic_load(&gSweetTouch, acquire);\n'
+                  '\tif (service) {\n\t\tservice->touch(finger, down != 0, x, y);')
+    hid += '\n#include "../giulia_input_keyboard.inc"\n#include "../giulia_input_hid.inc"\n'
     output = ''
     for name, before, after in zip(targets, old, (fb, hid)):
         output += ''.join(difflib.unified_diff(before.splitlines(True), after.splitlines(True),
@@ -101,4 +141,23 @@ def native_display_patch(profile: Path, repository: Path):
     capture = (repository / 'ios16/giulia_screen_framebuffer.inc').read_text()
     output += ''.join(difflib.unified_diff([], capture.splitlines(True), fromfile='/dev/null',
                                          tofile='b/iokit/Kernel/arm/giulia_screen_framebuffer.inc'))
+    remote = (repository / 'ios16/giulia_input_hid.inc').read_text()
+    output += ''.join(difflib.unified_diff([], remote.splitlines(True), fromfile='/dev/null',
+                                         tofile='b/iokit/Kernel/arm/giulia_input_hid.inc'))
+    keyboard = (repository / 'ios16/giulia_input_keyboard.inc').read_text()
+    output += ''.join(difflib.unified_diff([], keyboard.splitlines(True), fromfile='/dev/null',
+                                         tofile='b/iokit/Kernel/arm/giulia_input_keyboard.inc'))
+    personality = ('    "     \'IOClass\'         = SweetHIDTouch;"\n'
+                   '    "     \'IOProviderClass\' = IOResources;"\n'
+                   '    "     \'IOMatchCategory\' = SweetHIDTouch;"\n'
+                   '    "   },"\n')
+    composite = personality + ('    "   {"\n'
+                   '    "     \'IOClass\'         = GiuliaHIDKeyboard;"\n'
+                   '    "     \'IOProviderClass\' = IOResources;"\n'
+                   '    "     \'IOMatchCategory\' = GiuliaHIDKeyboard;"\n'
+                   '    "   },"\n')
+    following = ('#endif\n    "   {"\n'
+                 '    "     \'IOClass\'         = IOPanicPlatform;"\n')
+    output += ''.join(difflib.unified_diff((personality+following).splitlines(True), (composite+following).splitlines(True),
+                     fromfile='a/iokit/KernelConfigTables.cpp', tofile='b/iokit/KernelConfigTables.cpp'))
     (profile / '0075-giulia-native-panel.patch').write_text(output, errors='surrogateescape')

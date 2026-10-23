@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-23",
+  "board": "giulia",
+  "kind": "read-only firmware ABI audit",
+  "hardware_validated": false,
+  "conclusion": "NPA and ICB wire shapes are sufficiently identified for a version-pinned UEFI client prototype. This does not yet establish a safe persistent ADSP handoff: cold epoch and post-ExitBootServices power/ICC ownership are unresolved.",
+  "pins": {
+    "PILProxyDxe": {
+      "path": ".cache\\stock-boot-16.0.3.500\\modules\\uefi-PILProxyDxe.pe",
+      "sha256": "e1424b49623d180202391e18f400b4ea26d5172695434ef94a2b7fbbd599a546"
+    },
+    "PILDxe": {
+      "path": ".cache\\stock-boot-16.0.3.500\\modules\\uefi-PILDxe.pe",
+      "sha256": "f3797b473c73a5306e5e4b8a188ea1b3932f4ffc2a64e21acebc87773dcb46c7"
+    },
+    "NpaDxe": {
+      "path": ".cache\\stock-boot-16.0.3.500\\modules\\uefi-NpaDxe.pe",
+      "sha256": "5121401d95a521091a27085d44059bf33e9a685e997d0e40a25aaf42062b8759"
+    },
+    "ICBDxe": {
+      "path": ".cache\\stock-boot-16.0.3.500\\modules\\uefi-ICBDxe.pe",
+      "sha256": "3a4d4443dae74de2c2f149e11333ee5420cb4175321dee3e73365fba1cc9d219"
+    },
+    "RpmhDxe": {
+      "path": ".cache\\stock-boot-16.0.3.500\\modules\\uefi-RpmhDxe.pe",
+      "sha256": "25f7b71a44622c573034b86b412dfeaf67de76064560c3f5408491118a1d9ee2"
+    }
+  },
+  "npa": {
+    "guid": "79d6c870-725e-489e-a0a1-27e7a5d0cb35",
+    "version": "0x10003",
+    "provider_table_rva": "0x110b8",
+    "install_rva": "0x13f8-0x1424",
+    "method_offsets": {
+      "0x10": {
+        "provider_rva": "0x1440",
+        "consumer_wrapper_rva": "0x5430",
+        "prototype": "EFI_STATUS CreateSyncClientEx(const char *resource, const char *client_name, uint32_t client_type, uint32_t client_data_bytes, const void *client_data, void **handle)",
+        "note": "No This argument. Provider writes core return to handle and returns EFI_SUCCESS even if handle is null."
+      },
+      "0x18": {
+        "provider_rva": "0x146c",
+        "consumer_wrapper_rva": "0x5640",
+        "prototype": "EFI_STATUS CompleteRequest(void *handle)"
+      },
+      "0x28": {
+        "provider_rva": "0x149c",
+        "consumer_wrapper_rva": "0x5548",
+        "prototype": "EFI_STATUS IssueScalar(void *handle, uint32_t logical_level)"
+      },
+      "0x78": {
+        "provider_rva": "0x15dc",
+        "consumer_wrapper_rva": "0x54e0",
+        "prototype": "EFI_STATUS DestroyClient(void *handle)"
+      },
+      "0x90": {
+        "provider_rva": "0x1624",
+        "consumer_wrapper_rva": "0x55c0",
+        "prototype": "EFI_STATUS IssueVector(void *handle, uint32_t word_count, const void *requests)",
+        "note": "Provider invokes core RVA0x3620 then returns 0; EFI return is not an independently checked hardware status."
+      }
+    },
+    "rail_client_type": "0x40",
+    "icb_client_type": "0x400",
+    "icb_client_data": "Consecutive pairs {uint32 master, uint32 slave}, eight bytes per route. CreateSyncClientEx client_data_bytes=8*route_count.",
+    "icb_request": "32-byte record with aligned u64 fields per route: u32 type at +0; reserved/pad +4; u64 instantaneous bandwidth at +8; u64 average bandwidth at +16; optional latency/flags area +24. Type 4 selects direct bandwidth values. IssueVector word_count=8*route_count.",
+    "icb_evidence": [
+      "PILProxyDxe RVA0x23c4-0x2424: type 0x400, size and vector count shifted by 3",
+      "PILProxyDxe RVA0x2090-0x20f0: request allocation stride32 and type field",
+      "PILProxyDxe RVA0x2294-0x22c0: direct 64-bit values at +8/+16",
+      "ICBDxe RVA0x3268-0x336c: type4 copies +8/+16 to instantaneous/average result",
+      "ICBDxe RVA0x5618-0x5930: commits states and performs conditional wait; flags affect wait behavior"
+    ],
+    "icb_protocol": {
+      "guid_rva": "0xb068",
+      "version": "0x10000",
+      "table_rva": "0xb108",
+      "methods": "Only one method +8 (RVA0x13ec), invoking internal initialization/synchronization. Actual client arbitration uses NPA /icb/arbiter."
+    }
+  },
+  "stock_uefi_proxy_configuration": {
+    "source": "xbl_config.elf embedded DTB offset0x144d4",
+    "extracted_file": ".cache/audio-native-audit/xbl-144d4.dtb",
+    "sha256": "7dfde297c2587dfb2b26e30b0ea93d22fc1fdc111007b0bf9a9a5b6223010bb4",
+    "node": "/soc/pil/pil_proxy_vote/pil_proxy_vote_1",
+    "subsys_id": 1,
+    "client_name": "PIL_ADSP",
+    "rails": [
+      "/vcs/vdd_lpi_mx",
+      "/vcs/vdd_lpi_cx"
+    ],
+    "rail_levels": [
+      256,
+      256
+    ],
+    "icb_resource": "/icb/arbiter",
+    "master_slave": [
+      25,
+      0
+    ],
+    "request_type": 4,
+    "instantaneous_bps": 100000000,
+    "average_bps": 100000000,
+    "flags": [
+      3,
+      3
+    ],
+    "warning": "These are UEFI native configuration IDs/units, not Linux DT interconnect IDs. Android requests logical384 and UINT_MAX ICC for both rproc_ddr and crypto_ddr. UEFI proxy alone does not prove those distinct native requirements."
+  },
+  "proxy_lifetime": {
+    "starts_adsp": false,
+    "behavior": "PILProxyDxe registers proxy event handlers. Event1 or8 invokes vote; event16 invokes unvote. Event2 may install SSR callback or an EFI relative timer; timer callback completes and destroys clients.",
+    "evidence": [
+      "dispatch RVA0x1590-0x1804",
+      "vote RVA0x22e0",
+      "unvote RVA0x24e0-0x25c8",
+      "timer CreateEvent/SetTimer RVA0x1774-0x17c4, callback RVA0x14e4"
+    ],
+    "required_strategy": "Use independent clients and retained resources, not the stock PIL_ADSP client. Confirm provider shutdown/ExitBootServices treatment before producing a lease."
+  },
+  "exit_boot_services": {
+    "rpmh_event_guid": "27abf055-b1b8-4c26-8048-748f37baa2df",
+    "registration_rva": "0x15ec-0x161c",
+    "callback_rva": "0x14a0",
+    "observed": "Callback uninstalls RPMh protocol and calls RVA0x39e8. It iterates configured drivers/TCS and invokes0x7ca0 plus0x7d70, each writing zero to per-TCS offsets0xd24 and0xd2c (driver type2 adds0x20000; TCS stride0x2a0).",
+    "limit": "This proves teardown of TCS controls, not that all previously sent active hardware votes are zeroed. It also prevents claiming persistent sleep/wake programming or callable firmware RPMh service after EBS. XNU needs an explicit RSC takeover/restoration contract."
+  },
+  "pil_cold_proof": {
+    "guid": "1f4f1da3-4d8d-4894-ba2a-13d3207f9739",
+    "version": "0x10005",
+    "table_rva": "0x181a8",
+    "get_config_by_id": {
+      "method_offset": "0x28",
+      "rva": "0x17d4",
+      "bytes_copied": "0x238"
+    },
+    "get_config_by_name": {
+      "method_offset": "0x30",
+      "rva": "0x1830",
+      "bytes_copied": "0x238"
+    },
+    "not_cold_proof": "Both GetConfig calls return config data only. Internal context live flag at context+0x2c is not an exposed secure hardware query and may omit bootloader/earlier-stage ownership. SCM PIL command7 means supported, not stopped; command9 describes reserved memory.",
+    "query_present_but_not_state": "PIL+0x20 invokes shutdown by subsystem ID (RVA0x17b4->0x1fc4); absence of own running context returns failure and cannot prove an earlier stage has stopped.",
+    "consumers_with_pil_guid": [
+      "DisplayDxe",
+      "Ebl",
+      "FvDxe",
+      "QcomBds",
+      "QcomChargerApp",
+      "QcomChargerDxeLA",
+      "SSRDxe"
+    ],
+    "full_adsp_literal": "QcomChargerDxeLA has UTF16 FULL_ADSP at0x20720 plus PIL GUID; must audit this consumer before claiming that excluding GLink prevents ADSP boot.",
+    "current_source_includes": "../uefi-giulia/Platforms/OnePlus/giuliaPkg/giulia.fdf includes APRIORI.inc and DXE.inc. PIL/PILProxy and QcomChargerDxeLA are enabled in DXE. GLink is commented in DXE but still named in APRIORI line61; APRIORI is an ordering GUID list and does not by itself prove the module is packaged. Inspect final FV to establish actual GLink presence/absence.",
+    "required_strategy": "An authoritative boot epoch with all potential loaders excluded/audited, or coordinated teardown of all DSP/IPC clients plus checked ADSP+DTB PAS shutdown completion; never derive cold from stale SMP2P zero."
+  },
+  "offline_next_steps": [
+    "Verify the built giulia firmware actually embeds the same provider hashes, not only matching version fields. Establish new independent named NPA clients with pinned ABI and typed, bounded vector storage.",
+    "Finish VCS logical-level support and native ICB route/ack audit for both DSP and secure crypto paths, preserving shared floors. Existing extracted stock ADSP proxy alone is not enough.",
+    "Implement authoritative UEFI reservation and cold/reset epoch producer, including all earlier loader clients and post-EBS resource persistence or a native XNU RSC restore transaction.",
+    "Only set gan lease bits after actual native successful transactions; report partial evidence otherwise. A complete ABI probe can be implemented offline, but actual hardware boot/playback remains unverified without a device."
+  ]
+}

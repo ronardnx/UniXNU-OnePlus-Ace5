@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "board": "giulia",
+  "status": "offline-components-and-coordinator",
+  "device_connected": false,
+  "hardware_executed": false,
+  "adsp_boot_verified": false,
+  "speaker_playback_verified": false,
+  "xnu_target_kernel_build_verified": false,
+  "platform_provider_registered_by_this_repository": false,
+  "implemented": [
+    "Pinned ELF32 ADSP and DTB package, PAS lifecycle, memory bounds and BSS",
+    "Fixed SMC64 PIL frame adapter with complete transport and secure status checks",
+    "LCX/LMX native selector and XO vote planning from command DB",
+    "SMEM allocation under hardware mutex, IPCC, SMP2P fresh-ready and latched-fault checks",
+    "GLINK channel, intents, bounded GPR packets and correlated SPF state query",
+    "Stock APM graph/connection/default-calibration transactions with correlated responses",
+    "Authenticated SIA9177 reset, identity, trim, startup and shutdown sequences",
+    "Serialized coordinator and optional GiuliaAudio service with explicit provider boundary",
+    "Read-only kernel firmware segment embedding, packaging checks and CI integration"
+  ],
+  "dependencies_not_bound": [
+    "Authoritative cold/reset epoch, reserved-memory ownership and persistent power/ICC/RSC lease",
+    "Complete XNU platform provider binding the tested native helpers",
+    "DSP file service and AMDB dynamic module loading",
+    "Physical PCM DMA/SMMU, MI2S media/clock configuration and completion tracking",
+    "Physical I2C/GPIO adapter and per-device speaker protection calibration"
+  ],
+  "runtime_behavior_without_provider": {
+    "audio_prepare": "Validates the local package and starts only the coordinator thread",
+    "audio_start_and_test": "Report native-platform-owner-missing without invoking hardware callbacks",
+    "boot_arguments_grant_ownership": false,
+    "ambiguous_secure_or_dma_cleanup": "Quarantine state and retain backing; no retry clears ownership uncertainty"
+  },
+  "validation": {
+    "audio_python_tests": 66,
+    "audio_python_failures": 0,
+    "repository_python_tests": 237,
+    "repository_python_failures": 0,
+    "repository_python_skipped": 1,
+    "skip_reason": "Screen C packet fixture is supplied only by the screen test runner",
+    "c": "Strict C11, ASan and UBSan for resource, boot, transport, native, SCM, power, graph and runtime failure paths",
+    "cpp": "Strict C++14 whole-service host shim plus header interoperability; not a target XNU link",
+    "patch_combinations": "Audio with and without Wi-Fi/GPU: four default git apply check/application cases",
+    "stock_inputs": "56 firmware files, complete stock SIPA, 781 ACDB graph vectors checked against official AML, stock graph and 22 CKV exports",
+    "firmware_bytes_redistributed": false
+  },
+  "evidence": [
+    "hardware/sm8650-audio.json",
+    "hardware/sm8650-audio-boot.json",
+    "hardware/sm8650-audio-transport.json",
+    "hardware/sm8650-audio-speaker.json",
+    "hardware/sm8650-audio-graph.json",
+    "hardware/sm8650-audio-platform-audit.json"
+  ]
+}

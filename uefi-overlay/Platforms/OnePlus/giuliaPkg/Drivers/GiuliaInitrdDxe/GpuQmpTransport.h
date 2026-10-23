@@ -7,7 +7,7 @@
  * All MMIO callbacks must use aligned 32-bit accesses. The caller serializes
  * operations and supplies one persistent software lease shared by every APSS
  * QMP client. Empty storage alone is not an ownership grant. Cold links and
- * already-open channels and transitional remote handshakes are rejected;
+ * already-open host channels and unexplained remote transitions are rejected;
  * uncertain published data is retained. Only the APSS channel state and its
  * ACK of the AOP channel are changed; shared link fields are never written.
  */
@@ -144,20 +144,27 @@ static inline int qpt_open(const struct qpt_io *b,struct qpt_state *s)
     if(s->leased || s->owned || s->pending)return QPT_BUSY;
     if(!b->claim(b->context,s))return QPT_BUSY;
     s->leased=1;s->phase=QPT_CLOSED;s->error=0;s->publication_verified=0;
-    unsigned error=QPT_DESCRIPTOR;
+    unsigned error=QPT_DESCRIPTOR;uint32_t remote=0;
     if(!qpt_geometry(b,s,1))goto before_claim;
     error=QPT_NOT_READY;if(!qpt_links_up(b,s))goto before_claim;
     error=QPT_BUSY;
     s->remote_ack=qpt_read(b,s,0x18);
+    remote=qpt_read(b,s,0x14);
     if((s->remote_ack!=QPT_UP && s->remote_ack!=QPT_DOWN) ||
-       qpt_read(b,s,0x14)!=s->remote_ack)goto before_claim;
+       (remote!=s->remote_ack && !(remote==QPT_UP && s->remote_ack==QPT_DOWN)))goto before_claim;
+    /* AOP may reopen after a completed firmware/UEFI close while APSS's ACK
+     * is still DOWN. The vendor qmp_open writes host UP, observes remote UP,
+     * then acknowledges remote UP. This is a fresh open request, only when
+     * both host state/ACK are DOWN and BOTH mailboxes are empty. Never clear
+     * inherited payload or appropriate an already-open host channel. */
     /* Recheck just before changing the HLOS channel. No inherited message,
      * open channel, transitional handshake or geometry is appropriated. */
     for(unsigned i=0;i<2;i++) {
         if(!qpt_owns(b,s) || !qpt_geometry(b,s,0) || !qpt_links_up(b,s) ||
-           qpt_read(b,s,0x14)!=s->remote_ack || qpt_read(b,s,0x18)!=s->remote_ack ||
+           qpt_read(b,s,0x14)!=remote || qpt_read(b,s,0x18)!=s->remote_ack ||
            qpt_read(b,s,0x2c)!=QPT_DOWN || qpt_read(b,s,0x30)!=QPT_DOWN ||
-           qpt_read(b,s,s->offset)!=0)goto before_claim;
+           qpt_read(b,s,s->offset)!=0 ||
+           (remote!=s->remote_ack && qpt_read(b,s,s->remote_offset)!=0))goto before_claim;
     }
     s->owned=1;s->phase=QPT_OPENING;
     b->write32(b->context,0x2c,QPT_UP);b->barrier(b->context);

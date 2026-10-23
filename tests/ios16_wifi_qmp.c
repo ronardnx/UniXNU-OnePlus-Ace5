@@ -15,11 +15,13 @@ struct model {
     unsigned drop_payload,publication_mode;
     unsigned remote_ack_writes,drop_remote_ack,remote_stays_up,close_link_loss;
     unsigned corrupt_remote_ack,close_pending_bytes;
+    unsigned remote_state_reads,change_remote_on_read;
 } h;
 
 static uint32_t read32(void *context,uint32_t offset)
 {
     struct model *m=context;assert(!(offset&3) && offset<QPT_MSGRAM_BYTES);
+    if(offset==0x14 && ++m->remote_state_reads==m->change_remote_on_read)m->ram[offset/4]=QPT_DOWN;
     m->reads++;return m->ram[offset/4];
 }
 static void write32(void *context,uint32_t offset,uint32_t value)
@@ -168,6 +170,30 @@ int main(void)
     init(&s);h.ram[0x14/4]=h.ram[0x18/4]=QPT_DOWN;
     assert(qpt_open(&io,&s)==QPT_OK && h.remote_ack_writes==1 && h.kicks==2);
     assert(qpt_close(&io,&s)==QPT_OK && h.remote_ack_writes==2);unrelated_unchanged();cases++;
+    /* Observed after UEFI: remote UP / remote ACK DOWN, host DOWN/DOWN,
+     * both lengths zero. Follow the vendor open handshake; never reset a
+     * mailbox or steal an inherited open APSS channel to make it work. */
+    init(&s);h.ram[0x18/4]=QPT_DOWN;h.ram[0xc0/4]=0;
+    memcpy(h.before,h.ram,sizeof(h.ram));
+    assert(qpt_open(&io,&s)==QPT_OK && s.owned && s.leased);
+    assert(h.remote_ack_writes==1 && h.kicks==2 && h.ram[0x18/4]==QPT_UP);
+    assert(qpt_send(&io,&s,packet,64)==QPT_OK && qpt_close(&io,&s)==QPT_OK);
+    unrelated_unchanged();cases++;
+    for(unsigned fault=0;fault<6;fault++) {
+        init(&s);h.ram[0x18/4]=QPT_DOWN;h.ram[0xc0/4]=0;
+        if(fault==0)h.ram[0xc0/4]=64;
+        if(fault==1)h.ram[0x128/4]=64;
+        if(fault==2)h.ram[0x2c/4]=QPT_UP;
+        if(fault==3)h.ram[0x30/4]=QPT_UP;
+        if(fault==4)h.ram[0x18/4]=0x12345678;
+        if(fault==5)h.change_remote_on_read=3;
+        memcpy(h.before,h.ram,sizeof(h.ram));
+        assert(qpt_open(&io,&s)==QPT_BUSY && !s.leased && !s.owned && !h.owner && !h.writes);
+        if(fault!=5)unchanged();cases++;
+    }
+    init(&s);h.ram[0x18/4]=QPT_DOWN;h.ram[0xc0/4]=0;h.drop_remote_ack=1;
+    assert(qpt_open(&io,&s)==QPT_IO && s.owned && s.leased && s.phase==QPT_UNCERTAIN);
+    assert(h.remote_ack_writes==1 && !h.received_bytes && h.ram[0x128/4]==0);cases++;
     for(unsigned i=0;i<3;i++) {
         init(&s);
         if(i==0)h.ram[0x2c/4]=h.ram[0x30/4]=QPT_UP;

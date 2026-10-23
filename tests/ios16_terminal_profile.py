@@ -10,6 +10,10 @@ with tempfile.TemporaryDirectory() as folder:
             '--include=bsd/dev/vermeer_usb_debug.c',str(patch)],cwd=root,check=True)
     source=(root/'bsd/dev/vermeer_usb_debug.c').read_text()
     assert 'giulia_terminal_command(u.command)' in source
+    assert 'if(gaudio_command(cmd))return 1;' in source
+    assert 'static int gaudio_command(const char *cmd)' in source
+    assert 'audio.status audio.map' in source
+    assert 'speakers=SIA9177-left+right interface=secondary-MI2S' in source
     assert 'GIULIA SHELL: /dev/giulia-debug ready;' in source
     assert 'GIULIA REG: mapped slot=' in source
     assert 'gr_command(cmd)' in source

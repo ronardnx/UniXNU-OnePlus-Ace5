@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
- * WCN7850 Copy Engine 0/1/2/3, polled HTC/WMI transport. Register/descriptor
+ * WCN7850 Copy Engine 0/1/2/3/4, polled HTC/WMI/HTT control transport. Register/descriptor
  * layouts: Linux v6.12 ath12k/{hal.c,hal.h,hal_desc.h,ce.c,hw.c}.
- * This owns a separate 2 MiB slice of the established SMMU arena. CE4/HTT
- * packet data is not enabled by this scan transport. The caller serializes
+ * This owns a separate 2 MiB slice of the established SMMU arena. CE4 sends
+ * bounded HTT control messages; network data uses the separate TCL/REO rings.
+ * The caller serializes
  * MMIO/window access and keeps the MHI wake vote asserted.
  */
 #ifndef GIULIA_WIFI_CE_H
@@ -18,7 +19,7 @@ struct gwc_io {
     uint8_t *memory;uint64_t dma;
 };
 struct gwc_ring { uint32_t reg,ptr,desc,remote,buffers,count,entry,head,tail,status_tail,rx_buffer;unsigned pipe,status,active; };
-struct gwc_state { struct gwc_ring ring[6];unsigned active,error,quarantine; };
+struct gwc_state { struct gwc_ring ring[7];unsigned active,error,quarantine; };
 static inline unsigned gwc_reg(unsigned pipe,int rx) { return 0x1b80000u+pipe*0x2000u+(rx?0x1000:0); }
 static inline int gwc_fail(struct gwc_state *s,unsigned e) { if(!s->error)s->error=e;return (int)s->error; }
 static inline void gwc_reg64(const struct gwc_io *io,uint32_t reg,uint64_t n) {
@@ -28,9 +29,9 @@ static inline int gwc_init(struct gwc_state *s,const struct gwc_io *io) {
     if(!s || !io || !io->read || !io->write || !io->sync || !io->ready || !io->receive || !io->memory ||
         (io->dma&4095) || io->dma>0x100000000ull-GWC_BYTES || s->active || s->quarantine)return GWC_ARGUMENT;
     if(!io->ready(io->context,io->dma,GWC_BYTES))return gwc_fail(s,GWC_DMA);
-    const unsigned pipes[6]={0,1,1,2,2,3},counts[6]={16,512,512,64,64,32};
-    const unsigned entries[6]={4,2,4,2,4,4};size_t buffer=0x20000;
-    for(unsigned i=0;i<6;i++) {
+    const unsigned pipes[7]={0,1,1,2,2,3,4},counts[7]={16,512,512,64,64,32,256};
+    const unsigned entries[7]={4,2,4,2,4,4,4};size_t buffer=0x20000;
+    for(unsigned i=0;i<7;i++) {
         struct gwc_ring *r=&s->ring[i];r->pipe=pipes[i];r->count=counts[i];r->entry=entries[i];r->status=i==2 || i==4;
         int rx=r->pipe==1 || r->pipe==2;
         r->reg=gwc_reg(r->pipe,rx)+(r->status?0x58:0);r->ptr=gwc_reg(r->pipe,rx)+(r->status?0x408:0x400);
@@ -42,7 +43,7 @@ static inline int gwc_init(struct gwc_state *s,const struct gwc_io *io) {
     if(buffer>GWC_BYTES)return gwc_fail(s,GWC_ARGUMENT);
     for(size_t i=0;i<GWC_BYTES;i++)((volatile uint8_t *)io->memory)[i]=0;
     io->sync(io->context,0,GWC_BYTES,1);
-    for(unsigned i=0;i<6;i++) {
+    for(unsigned i=0;i<7;i++) {
         struct gwc_ring *r=&s->ring[i];uint64_t base=io->dma+r->desc,remote=io->dma+r->remote;
         io->write(io->context,r->reg,(uint32_t)base);
         io->write(io->context,r->reg+4,(uint32_t)(base>>32)|(r->count*r->entry<<8));
@@ -75,7 +76,7 @@ static inline int gwc_init(struct gwc_state *s,const struct gwc_io *io) {
 }
 /* Called before MHI reset. Failure keeps the entire arena pinned. */
 static inline int gwc_stop(struct gwc_state *s,const struct gwc_io *io) {
-    for(unsigned i=0;i<6;i++)if(s->ring[i].active) {
+    for(unsigned i=0;i<7;i++)if(s->ring[i].active) {
         struct gwc_ring *r=&s->ring[i];io->write(io->context,r->reg+0x10,0);
         uint32_t v=io->read(io->context,r->reg+0x10);
         if(v==0xffffffffu || (v&0x40))s->quarantine=1;else r->active=0;
@@ -88,8 +89,9 @@ static inline int gwc_remote(struct gwc_state *s,const struct gwc_io *io,struct 
     *slot=v/r->entry;return 0;
 }
 static inline int gwc_send(struct gwc_state *s,const struct gwc_io *io,unsigned pipe,const void *v,size_t n) {
-    if(!s->active || s->error || (pipe!=0 && pipe!=3) || !v || !n || n>GWC_BUFFER)return GWC_ARGUMENT;
-    struct gwc_ring *r=&s->ring[pipe==0?0:5];uint32_t tail;
+    if(!s->active || s->error || (pipe!=0 && pipe!=3 && pipe!=4) || !v || !n ||
+       n>(pipe==4?256u:GWC_BUFFER))return GWC_ARGUMENT;
+    struct gwc_ring *r=&s->ring[pipe==0?0:pipe==3?5:6];uint32_t tail;
     if(gwc_remote(s,io,r,&tail))return (int)s->error;
     unsigned pending=(r->head-r->tail)&(r->count-1),done=(tail-r->tail)&(r->count-1);
     if(done>pending)return gwc_fail(s,GWC_POINTER);r->tail=tail;

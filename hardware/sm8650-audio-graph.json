@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "board": "OnePlus giulia / SM8650",
+  "stock_build": "16.0.3.500",
+  "source": {
+    "repository": "https://github.com/AudioReach/audioreach-graphservices",
+    "commit": "76d04ffb30caa1fe609b94f9f6081210cb962fc1",
+    "acdb_sha256": "b3bc49d6a085e578199e8f13c019d2ef0b32e71644044f4af8eb41386ef5e072",
+    "acdb_bytes": 3762262,
+    "graph_count": 781,
+    "alias_count": 492,
+    "native_enumeration_and_get_graph_match_count": 781,
+    "dependency_files": [
+      {
+        "image": "odm.img",
+        "source": "/lib/rfsa/adsp/libsixth_rx_v3.so",
+        "path": "libsixth_rx_v3.so",
+        "bytes": 409528,
+        "sha256": "1df91039581e3e0493043baf713c92582838f08818d928d60cd68c348057c54c"
+      },
+      {
+        "image": "vendor.img",
+        "source": "/etc/usecaseKvManager.xml",
+        "path": "vendor-usecaseKvManager.xml",
+        "bytes": 83856,
+        "sha256": "e194d6b848c5e33a2255b344dc8aa90268d89022e94861ca42af78065d210f1b"
+      },
+      {
+        "image": "odm.img",
+        "source": "/etc/usecaseKvManager.xml",
+        "path": "odm-usecaseKvManager.xml",
+        "bytes": 94016,
+        "sha256": "b5faf0ba2ea3be5410a28cdeb1767f6780396549714f22a810f7ddb4e7ebff6d"
+      }
+    ],
+    "stock_xml_selection": [
+      {
+        "path": "vendor-usecaseKvManager.xml",
+        "selection": "PAL_STREAM_LOW_LATENCY, RX, Instance 1, PAL_DEVICE_OUT_SPEAKER, default CustomConfig",
+        "exact_gkv_match": true
+      },
+      {
+        "path": "odm-usecaseKvManager.xml",
+        "selection": "PAL_STREAM_LOW_LATENCY, RX, Instance 1, PAL_DEVICE_OUT_SPEAKER, default CustomConfig",
+        "exact_gkv_match": true
+      }
+    ]
+  },
+  "graph": {
+    "description": "Stock low-latency speaker instance 1 audio MBDRC",
+    "key_vector": [
+      {
+        "key": "0xa1000000",
+        "value": "0xa100000e"
+      },
+      {
+        "key": "0xa2000000",
+        "value": "0xa2000001"
+      },
+      {
+        "key": "0xab000000",
+        "value": "0x1"
+      },
+      {
+        "key": "0xac000000",
+        "value": "0xac000002"
+      }
+    ],
+    "subgraphs": [
+      {
+        "id": 2952790018,
+        "destinations": []
+      },
+      {
+        "id": 2952790053,
+        "destinations": [
+          2952790018
+        ]
+      },
+      {
+        "id": 2952790052,
+        "destinations": [
+          2952790053
+        ]
+      },
+      {
+        "id": 2952790051,
+        "destinations": [
+          2952790052
+        ]
+      }
+    ],
+    "modules": [
+      {
+        "module_id": 117444624,
+        "instance_id": 16402
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16391
+      },
+      {
+        "module_id": 117444625,
+        "instance_id": 16782
+      },
+      {
+        "module_id": 117444618,
+        "instance_id": 17096
+      },
+      {
+        "module_id": 385935616,
+        "instance_id": 18273
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16585
+      },
+      {
+        "module_id": 117444629,
+        "instance_id": 16586
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16589
+      },
+      {
+        "module_id": 117444624,
+        "instance_id": 16591
+      },
+      {
+        "module_id": 117444664,
+        "instance_id": 16592
+      },
+      {
+        "module_id": 117444629,
+        "instance_id": 16758
+      },
+      {
+        "module_id": 117444635,
+        "instance_id": 16471
+      },
+      {
+        "module_id": 117444629,
+        "instance_id": 16584
+      },
+      {
+        "module_id": 117444608,
+        "instance_id": 16573
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16574
+      },
+      {
+        "module_id": 117444613,
+        "instance_id": 16575
+      },
+      {
+        "module_id": 117444611,
+        "instance_id": 16576
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16577
+      },
+      {
+        "module_id": 117444635,
+        "instance_id": 16579
+      },
+      {
+        "module_id": 117444633,
+        "instance_id": 16580
+      },
+      {
+        "module_id": 117444634,
+        "instance_id": 16582
+      },
+      {
+        "module_id": 117444658,
+        "instance_id": 16741
+      }
+    ],
+    "runtime_source_port_range": [
+      "0x2010",
+      "0x2100"
+    ],
+    "gpr_destination_port": 1
+  },
+  "baseline": {
+    "ckv": [],
+    "selection_meaning": "Empty CKV selects baseline static ACDB data, not per-device calibration or active volume/profile selection",
+    "available_ckvs": [
+      [],
+      [
+        [
+          4009754624,
+          0
+        ]
+      ],
+      [
+        [
+          4009754624,
+          2
+        ]
+      ],
+      [
+        [
+          4009754624,
+          3
+        ]
+      ],
+      [
+        [
+          4009754624,
+          4
+        ]
+      ],
+      [
+        [
+          4009754624,
+          5
+        ]
+      ],
+      [
+        [
+          2751463424,
+          0
+        ]
+      ],
+      [
+        [
+          2751463424,
+          1
+        ]
+      ],
+      [
+        [
+          2751463424,
+          2
+        ]
+      ],
+      [
+        [
+          2751463424,
+          3
+        ]
+      ],
+      [
+        [
+          2751463424,
+          4
+        ]
+      ],
+      [
+        [
+          2751463424,
+          5
+        ]
+      ],
+      [
+        [
+          2751463424,
+          6
+        ]
+      ],
+      [
+        [
+          2751463424,
+          7
+        ]
+      ],
+      [
+        [
+          2751463424,
+          8
+        ]
+      ],
+      [
+        [
+          2751463424,
+          9
+        ]
+      ],
+      [
+        [
+          2751463424,
+          10
+        ]
+      ],
+      [
+        [
+          2751463424,
+          11
+        ]
+      ],
+      [
+        [
+          2751463424,
+          12
+        ]
+      ],
+      [
+        [
+          2751463424,
+          13
+        ]
+      ],
+      [
+        [
+          2751463424,
+          14
+        ]
+      ],
+      [
+        [
+          2751463424,
+          15
+        ]
+      ]
+    ],
+    "persistent_calibration": "All 22 queries returned AR_ENOTEXIST (19)",
+    "parameter_count": 59,
+    "maximum_parameter_record_bytes": 3600,
+    "inband_set_cfg_chunks": 2
+  },
+  "dynamic_module_dependencies": [
+    {
+      "module_id": 385935616,
+      "module_type": 2,
+      "filename": "libsixth_rx_v3.so",
+      "tag": "sixth_sia81xx_rx",
+      "offset": 612,
+      "bytes": 56,
+      "file_verified": true,
+      "sha256": "1df91039581e3e0493043baf713c92582838f08818d928d60cd68c348057c54c",
+      "elf_needed": [
+        "libc.so",
+        "libgcc.so"
+      ],
+      "dsp_file_service_available": false
+    }
+  ],
+  "exported_files": [
+    {
+      "path": "subgraphs.bin",
+      "bytes": 44,
+      "sha256": "2b3ffa9e31c5c1ac61316ec98a1dc798c9c312411aeedbc7eae804852e56ea45"
+    },
+    {
+      "path": "driver-properties.bin",
+      "bytes": 144,
+      "sha256": "8482cae4dcf98f5e4a98cc95db61cf4a0977fabbc5a38fe131308054f27f5f2d"
+    },
+    {
+      "path": "apm-graph-open.bin",
+      "bytes": 2792,
+      "sha256": "5329daa2e9fd850db679ee7c4ddd65479be13c4e936ca1b9739a98ea391a99ed"
+    },
+    {
+      "path": "amdb-speaker-register.bin",
+      "bytes": 68,
+      "sha256": "383755e92dc51f1c30e403b423f3f154bacfddebfcaae58b4bae961c3c4983ef"
+    },
+    {
+      "path": "libsixth_rx_v3.so",
+      "bytes": 409528,
+      "sha256": "1df91039581e3e0493043baf713c92582838f08818d928d60cd68c348057c54c"
+    },
+    {
+      "path": "apm-connections.bin",
+      "bytes": 120,
+      "sha256": "2bb6463e6425921f6dd362a2c4e2c45e6a901205cfc451633e07653b3fb8c87c"
+    },
+    {
+      "path": "cal-0000-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "692062db86e03476f53a6608a944a2621886f9dab84aea73159c3d9306d5a21f"
+    },
+    {
+      "path": "cal-0001-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "339c88abe37d440db8abafab400290feacf2eed4c1094400f02757da4cecd436"
+    },
+    {
+      "path": "cal-0002-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "74993f22a35099fc8c2c3819f427f0462ab18e4b260b89db17c02eb491c67831"
+    },
+    {
+      "path": "cal-0003-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "42abd6a7dbced94e925f9d947af4cd2087413f552a328f4fa85e9062facb1fd5"
+    },
+    {
+      "path": "cal-0004-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "3b948e0c9255b11c9d7d0ca0bf7b8788b0752f286d3405dbf9bac6d110eb1e76"
+    },
+    {
+      "path": "cal-0005-nonpersist.bin",
+      "bytes": 6400,
+      "sha256": "42abd6a7dbced94e925f9d947af4cd2087413f552a328f4fa85e9062facb1fd5"
+    },
+    {
+      "path": "cal-0006-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "bebb6491a1405840371071a2337ccd76ae214f6fc80013db5b6ff9f06c430d41"
+    },
+    {
+      "path": "cal-0007-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "4ac07d970722c58ec350748820b26d557ab80950138eeb3598fb3d42f8b844dd"
+    },
+    {
+      "path": "cal-0008-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "f5cb421d7730537794d0b55ad8b4dfd9e7d0e856551c6325ffdd9dab312fc14a"
+    },
+    {
+      "path": "cal-0009-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "ed5ab039543ef2e385590382dacec3f39d21b6ba9149af4378803698c74da0b3"
+    },
+    {
+      "path": "cal-0010-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "a741af7c59c765ffb68670ae8f14f2d5c690d71e7f36fe410986fbb5ddb69b80"
+    },
+    {
+      "path": "cal-0011-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "c2a69fead3119c684b9e439d0c119966b85a8e75edb3eabb6e00c0bc3736104d"
+    },
+    {
+      "path": "cal-0012-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "8fb517535ec2828f67dcb885ae2a399d698bd6b8868c11205f00644cb1a2ed3e"
+    },
+    {
+      "path": "cal-0013-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "51ab03c01c93dd55cd4078eb7cd85a08a609771142a23a0d0f7e414b797aee81"
+    },
+    {
+      "path": "cal-0014-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "2ddb79d6f74a33c0d7c6b0bdad95f1cc6608f7b6f37222f155a3f575e7a05d6c"
+    },
+    {
+      "path": "cal-0015-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "adce45030795190ce0825be5ff14054baf4da680fc7897611c0bcdeaad01be94"
+    },
+    {
+      "path": "cal-0016-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "b04fc6808da400f70de2328c2a7d58a6d0f97d2965f17e33100e2e383812e588"
+    },
+    {
+      "path": "cal-0017-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "28c24c2741372749cbf90eced69ed2335efd0cbe89984479c1d087fcadbd1bd5"
+    },
+    {
+      "path": "cal-0018-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "228dfb7d1cd60e8faa464b66c57b411ed3dcf10503a82b59438ebd906643faf8"
+    },
+    {
+      "path": "cal-0019-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "be292e6ffa382cb66a4c1597a0b9618f799c61b42e529129905fb48d76cedf57"
+    },
+    {
+      "path": "cal-0020-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "d1716f669414de5e0e2b5974c2916f52147505708a87f29f1803b5dbc0f7d5be"
+    },
+    {
+      "path": "cal-0021-nonpersist.bin",
+      "bytes": 6576,
+      "sha256": "8f22229f29288357cb7e4069b0109a07ecc431cbd04df746d7f0dfa40ea0f76a"
+    }
+  ],
+  "runtime_requirements": [
+    "AMDB dynamic modules loaded via a working ADSP file service",
+    "verified I2S endpoint media/clock configuration and shared-memory PCM DMA",
+    "per-device speaker protection calibration and runtime settings",
+    "correlated OPEN, every SET_CFG, PREPARE and START acknowledgements"
+  ],
+  "readiness": {
+    "graph_control_state_machine_implemented": true,
+    "amp_sequence_implemented": true,
+    "physical_pcm_provider_bound": false,
+    "adsp_file_service_implemented": false,
+    "hardware_executed": false,
+    "playback_verified": false
+  },
+  "verification": {
+    "graph_unittest_count": 10,
+    "speaker_unittest_count": 8,
+    "native": "Official AML host build validated every stock GKV/subgraph list and exported all 22 baseline calibration variants",
+    "c": "Pinned real graph/connection/default-cal blobs passed transaction tests; token/opcode/domain/port mismatch, remote errors, timeout, stale ACK, backpressure, SSR, close recovery and record-boundary splitting exercised using mock transport"
+  }
+}

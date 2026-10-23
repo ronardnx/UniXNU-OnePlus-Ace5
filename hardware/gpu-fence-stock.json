@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "purpose": "Read-only evidence for the stock hardware-fence allocator's page alignment and the separately inspected stock Android kernel's page configuration. This is not a runtime provider or permission to initialize shared memory.",
+  "inspection_date": "2026-10-23",
+  "module": {
+    "artifact": "msm_hw_fence.ko",
+    "local_cache": ".cache/wifi-stock-16.0.3.500/vendor-dlkm/lib/modules/msm_hw_fence.ko",
+    "bytes": 256200,
+    "sha256": "238ee23a7c52493c84047024a1dde6406648d6fd6ee26b0c46f504b595444e77",
+    "vermagic": "6.1.118-android14-11-o-geb5e030f21ba SMP preempt mod_unload modversions aarch64",
+    "provenance": "Existing extracted stock cache. .cache/extract-stock-wifi-modules.py names the PKG110 16.0.3.500 ROM vendor_dlkm.img source; a fresh byte-for-byte extraction from that image was not performed in this inspection.",
+    "elf": {
+      "class": 64,
+      "endianness": "little",
+      "machine": 183,
+      "type": 1,
+      "section": ".text",
+      "section_file_offset": "0x2dc8",
+      "symbol": "hw_fence_utils_parse_dt_props",
+      "symbol_value": "0x8cc4",
+      "symbol_bytes": 3048
+    },
+    "instruction_checks": [
+      {
+        "text_offset": "0x9044",
+        "file_offset": "0xbe0c",
+        "word": "0x528202e9",
+        "assembly": "mov w9, #0x1017",
+        "meaning": "Addend includes the 24-byte table header plus 4095 for page rounding."
+      },
+      {
+        "text_offset": "0x9048",
+        "file_offset": "0xbe10",
+        "word": "0x0b090108",
+        "assembly": "add w8, w8, w9"
+      },
+      {
+        "text_offset": "0x904c",
+        "file_offset": "0xbe14",
+        "word": "0x12144d07",
+        "assembly": "and w7, w8, #0xfffff000",
+        "meaning": "Client region size is rounded to a 4096-byte boundary."
+      },
+      {
+        "text_offset": "0x9054",
+        "file_offset": "0xbe1c",
+        "word": "0xb9002767",
+        "assembly": "str w7, [x27, #0x24]",
+        "meaning": "The rounded size is stored in the client type descriptor."
+      },
+      {
+        "text_offset": "0x9194",
+        "file_offset": "0xbf5c",
+        "word": "0x113ffd08",
+        "assembly": "add w8, w8, #0xfff"
+      },
+      {
+        "text_offset": "0x9198",
+        "file_offset": "0xbf60",
+        "word": "0x12144d13",
+        "assembly": "and w19, w8, #0xfffff000",
+        "meaning": "First client region offset after control queues, locks and fence table is rounded to a 4096-byte boundary."
+      }
+    ],
+    "source_correspondence": {
+      "cached_file": ".cache/gpu-fence-source/hw_fence_drv_utils.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_utils.c",
+      "client_region_page_align_line": 857,
+      "first_client_offset_page_align_line": 912,
+      "limit": "The two PAGE_ALIGN expressions explain the inspected binary instructions. Complete source-to-binary equivalence has not been established."
+    },
+    "allocator_page_bytes": 4096
+  },
+  "boot": {
+    "artifact": "boot.img",
+    "package": "PKG110domestic_11_16.0.3.500CN01_2026010902170644",
+    "bytes": 201326592,
+    "sha256": "2e3c5ee00b83f7d8a68ea377a235eb44407d6021d6f5ec42f8cae61ded094c66",
+    "header_version": 4,
+    "kernel_offset": 4096,
+    "kernel_bytes": 35625472,
+    "kernel_sha256": "a2cf993f792d41b474574131dbd3bef532b25a99eeca2833a3cd0f2376ed768c",
+    "version_prefix": "Linux version 6.1.118-android14-11-o-g64180ab070e5 ",
+    "ikconfig_start_marker_kernel_offset": "0x10d1a68",
+    "ikconfig_end_marker_kernel_offset": "0x10dc9c4",
+    "ikconfig_gzip_bytes": 44884,
+    "ikconfig_bytes": 206921,
+    "ikconfig_sha256": "2a345d0db236d1942889af7f21f2b7d82c2c5fadcaa6a5e42e3cb191b2b18d5a",
+    "config_evidence": [
+      {"line": 310, "text": "CONFIG_ARM64_PAGE_SHIFT=12"},
+      {"line": 434, "text": "CONFIG_ARM64_4K_PAGES=y"},
+      {"line": 435, "text": "# CONFIG_ARM64_16K_PAGES is not set"},
+      {"line": 436, "text": "# CONFIG_ARM64_64K_PAGES is not set"}
+    ],
+    "kernel_page_bytes": 4096
+  },
+  "established": [
+    "The pinned stock fence module rounds client allocation sizes and first-client offsets to 4096 bytes.",
+    "The separately pinned stock boot image embeds CONFIG_ARM64_PAGE_SHIFT=12 and CONFIG_ARM64_4K_PAGES=y."
+  ],
+  "not_established": [
+    "The module vermagic ends in geb5e030f21ba, while the inspected boot kernel version ends in g64180ab070e5. These are separate evidence artifacts, not a verified build pair.",
+    "Neither file proves the currently booted kernel, the running controller firmware ABI, its fixed queue layout, or that it owns and accepts the captured carveout.",
+    "4 KiB allocator alignment alone does not prove all client counts, fence entry sizes, control RX payload semantics or the derived GPU queue physical address.",
+    "No runtime Gunyah RM transport, VM READY identity, shared-memory ownership, memparcel, doorbell capability, registered GPU client or hardware completion is established.",
+    "No device I/O, HVC, SMC, shared-memory initialization or controller registration was performed."
+  ],
+  "verification": {
+    "script": "scripts/check-gpu-fence-stock.py",
+    "module_example": "python scripts/check-gpu-fence-stock.py --module PATH/TO/msm_hw_fence.ko",
+    "module_and_boot_example": "python scripts/check-gpu-fence-stock.py --module PATH/TO/msm_hw_fence.ko --boot PATH/TO/boot.img",
+    "dependencies": "Python standard library only. Initial instruction interpretation used Capstone; the checker validates pinned ELF structure and exact raw ARM64 words without executing them.",
+    "input_policy": "Only explicitly supplied regular files are read; the script has no device or transport adapter."
+  }
+}

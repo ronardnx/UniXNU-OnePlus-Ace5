@@ -13,16 +13,20 @@ import subprocess
 import sys
 import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ios16_screen import ScreenWire, ScreenStore, ScreenViewer
+from ios16_screen import ScreenWire, ScreenStore, ScreenViewer, ScreenControl
 
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe',
-                   'screen.start','screen.stop','screen.snapshot')
+                   'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
+                   'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
+                   'screen.start','screen.stop','screen.snapshot',
+                   'input.status','input.release','input.keepalive')
 TOPICS = {
     'wifi': r'WIFI|PCIE|GIULIA PCI:|GIULIA SMMU:|WCN|MHI|QMI|QMP|PMU|WMI|IO80211',
     'gpu': r'GPU|GMU|ADRENO|SMMU',
+    'audio': r'GIULIA AUDIO:|LPASS|ADSP|SoundWire|WCD93|SIA91|WSA88',
     'touch': r'TOUCH|HID|TouchCom',
     'display': r'FB:|framebuffer|display|scanout|backboard',
     'ufs': r'UFS|BLOCK:|ROOT:|HFS|I/O error',
@@ -38,15 +42,28 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   wifi.status / wifi.start   inspect/release an opted-in pre-DMA wait
   gpu.status              retained GPU preparation/last-observation state
   gpu.observe             queue gated read-only power/SMMU observation
+  gpu.hfi.pin             retain diagnostic DMA buffers until reboot (mode 3)
+  gpu.hfi.status          inspect the 17 HWSCHED queue headers
+  gpu.hfi.query           enqueue warmboot query; manual doorbell still required
+  gpu.hfi.poll            drain bounded HFI reply/debug packets
+  gpu.hfi.log             read the first 64 words of the GMU log buffer
+  audio.status           audio implementation stage; no live hardware query
+  audio.map              firmware/source board metadata; does not map MMIO
+  audio.preflight        opted-in runtime firmware/provider status
+  audio.start / audio.stop   require native platform lease (not yet supplied)
+  audio.test             bounded speaker test; also requires calibrated PCM provider
   reboot.fastboot         sync disks and restart into Fastboot (debug kernel)
   reboot.status           inspect a pending reboot request
-  screen.start            real live screen in a local browser, about 1 fps
+  screen.start            live screen with mouse/keyboard controls in browser
   screen.stop             stop screen transfer (logs and commands continue)
   screen.snapshot         save a real framebuffer screenshot as PNG
+  screen.configure N FPS  maximum edge 160..2780, target FPS 1..30 (USB limited)
+  input.status            actual touch/keyboard/button service availability
+  input.release           release remote touches and held keyboard/buttons
 Host commands:
   :help                  this help
   logs TOPIC             retained session logs, NOT fresh hardware queries
-                         wifi gpu touch display ufs usb process panic power all
+                         wifi gpu audio touch display ufs usb process panic power all
   all                    queue all bounded device queries
   collect                all queries + retained RAM replay + GUI sample;
                          saves a diagnostic bundle after 15 seconds
@@ -74,7 +91,31 @@ def wire_command(line):
     register_arity = {'reg.map': 2, 'reg.maps': 0, 'reg.unmap': 1,
                       'reg.read': 2, 'reg.write': 3, 'reg.rmw': 4, 'reg.dump': 3,
                       'shell.size': 2}
-    if words and words[0] in register_arity:
+    if words and words[0] in ('screen.configure', 'input.touch', 'input.key', 'input.button'):
+        command = words[0]
+        if command == 'input.button':
+            valid = len(words) == 3 and words[1] in ('home','back','power','volumeup','volumedown') and words[2] in ('0','1')
+        else:
+            start = 2 if command == 'input.touch' else 1
+            numbers = words[start:]
+            valid = len(words) == {'screen.configure':3, 'input.touch':4, 'input.key':4}[command]
+            valid = valid and all(re.fullmatch(r'[0-9]{1,5}', n) for n in numbers)
+            if valid:
+                values = [int(n) for n in numbers]
+                if command == 'screen.configure':
+                    valid = 160 <= values[0] <= 2780 and 1 <= values[1] <= 30
+                elif command == 'input.touch':
+                    valid = words[1] in ('down','move','up','cancel') and all(0 <= n <= 65535 for n in values)
+                else:
+                    valid = 4 <= values[0] <= 231 and values[1] in (0,1) and 0 <= values[2] <= 255
+        if not valid:
+            raise ValueError('Invalid screen/input command; use :help.')
+    elif words and words[0] == 'gpu.dev':
+        if len(words)!=7 or any(not re.fullmatch(r'(?:0x[0-9a-f]+|[0-9]+)', x) for x in words[1:]):
+            raise ValueError('Invalid GPU development command')
+        if any(int(x,16 if x.startswith('0x') else 10)>0xffffffff for x in words[1:]):
+            raise ValueError('GPU development argument overflow')
+    elif words and words[0] in register_arity:
         if (len(words) != register_arity[words[0]] + 1 or
                 any(not re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', x) for x in words[1:])):
             raise ValueError('Invalid register syntax; use :help.')
@@ -199,6 +240,7 @@ class Capture:
         self.total = 0
         self.screen_wire = ScreenWire()
         self.screen_store = ScreenStore(self.root / 'screens')
+        self.screen_control = ScreenControl(self.screen_store)
         self.viewer = None
         self.last_text = b''
         self.screen_notices = deque()
@@ -223,6 +265,8 @@ class Capture:
         text = self.decoder.decode(data)
         chunks = (self.pending + text).split('\n')
         self.lines.extend(chunks[:-1])
+        for record in chunks[:-1]:
+            self.screen_control.observe(record.rstrip('\r'))
         self.pending = chunks[-1]
         # Bound an unterminated line from a noisy device.
         if len(self.pending) > 16384:
@@ -249,13 +293,14 @@ class Capture:
         return self.root
 
     def close(self):
+        self.screen_control.set_connection('disconnected')
         self.stream.close()
         if self.viewer:
             self.viewer.close()
 
     def preview(self):
         if self.viewer is None:
-            self.viewer = ScreenViewer(self.screen_store)
+            self.viewer = ScreenViewer(self.screen_store, self.screen_control)
             self.viewer.open()
         return self.viewer.url
 
@@ -271,6 +316,7 @@ class Commands:
         self.shell_deadline = None
         self.reboot_sent = False
         self.screen_started = False
+        self.next_control = 0
 
     def accept(self, line):
         words = line.strip().split()
@@ -290,7 +336,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:
@@ -316,10 +362,12 @@ class Commands:
             if self.queue or self.save_at is not None or self.shell_deadline is not None:
                 raise ValueError('Wait for pending commands before rebooting.')
             self.watch = None
+            self.capture.screen_control.set_connection('reboot')
         if line == 'shell':
             if self.queue or self.save_at is not None or self.shell_deadline is not None:
                 raise ValueError('Wait for pending commands before entering shell.')
             self.watch = None
+            self.capture.screen_control.set_connection('shell')
         self.queue.append(line)
         if line == 'screen.start':
             return 'Live screen viewer: ' + self.capture.preview()
@@ -341,11 +389,28 @@ class Commands:
                 self.screen_started = False
             if command == 'screen.start':
                 self.screen_started = True
+                self.capture.screen_control.request_status()
             if command == 'screen.stop':
                 self.screen_started = False
+                self.capture.screen_control.handle({'action': 'control', 'enabled': False})
             if command == 'reboot.fastboot':
                 self.reboot_sent = True
             self.next_send = now + 0.4
+        elif now >= self.next_control:
+            command = self.capture.screen_control.poll(now)
+            if command:
+                data = wire_command(command)
+                if serial.write(data) != len(data):
+                    raise OSError('Incomplete screen control write; reconnect before retrying.')
+                # Movement is transient; retaining every pointer/heartbeat would
+                # grow session metadata for the entire duration of mirroring.
+                if not command.startswith('input.'):
+                    self.capture.events.append({'time': datetime.now().isoformat(), 'sent': command})
+                if command == 'screen.start':
+                    self.screen_started = True
+                elif command == 'screen.stop':
+                    self.screen_started = False
+                self.next_control = now + 0.01
         if self.save_at is not None and now >= self.save_at and not self.queue:
             self.save_at = None
             return 'Saved: ' + str(self.capture.save(self.port))
@@ -381,10 +446,19 @@ def wait_fastboot(serial_number, timeout, runner=subprocess.run,
 
 
 @contextmanager
-def stop_screen_session(serial, active):
+def stop_screen_session(serial, active, control=None):
     try:
         yield
     finally:
+        if control:
+            # This runs before closing the sole serial connection. The kernel
+            # also releases input on DTR loss and its independent lease timeout.
+            try:
+                if control.available and control.connection == 'diagnostic':
+                    serial.write(wire_command('input.release'))
+            except OSError:
+                pass
+            control.set_connection('disconnected')
         if active():
             try:
                 serial.write(wire_command('screen.stop'))
@@ -410,7 +484,7 @@ def run(args, serial_module, ports):
     try:
         # pySerial defaults to DTR/RTS asserted; CDC transmits only while DTR is set.
         with serial_module.Serial(port, 115200, timeout=0, write_timeout=2) as serial, \
-                stop_screen_session(serial, lambda: commands is not None and commands.screen_started):
+                stop_screen_session(serial, lambda: commands is not None and commands.screen_started, capture.screen_control):
             commands = Commands(capture, port)
             print(f'Connected {port}. Logs: {capture.root}\n' + HELP)
             line = ''
@@ -426,6 +500,8 @@ def run(args, serial_module, ports):
                 if not args.command:
                     print('ace5> ' + line, end='', flush=True)
             if args.command:
+                if getattr(args, 'max_size', None) is not None or getattr(args, 'max_fps', None) is not None:
+                    show(commands.accept(f'screen.configure {args.max_size or 695} {args.max_fps or 1}'))
                 show(commands.accept(args.command))
             else:
                 import msvcrt
@@ -456,6 +532,7 @@ def run(args, serial_module, ports):
                             show(safe_text(log_decoder.decode(chunk)))
                         elif kind == 'begin':
                             commands.shell_deadline = None
+                            capture.screen_control.set_connection('shell')
                             if console:
                                 console.raw(True)
                             print('\r\n[Phone PTY: Ctrl+] returns to debugger]\r', flush=True)
@@ -463,6 +540,8 @@ def run(args, serial_module, ports):
                             sys.stdout.buffer.write(chunk)
                             sys.stdout.buffer.flush()
                         else:
+                            capture.screen_control.set_connection('diagnostic')
+                            capture.screen_control.request_status()
                             if console:
                                 console.raw(False)
                             print('\r\n[Shell ended]', flush=True)
@@ -472,6 +551,7 @@ def run(args, serial_module, ports):
                     show(commands.tick(serial))
                     if commands.shell_deadline and time.monotonic() >= commands.shell_deadline:
                         commands.shell_deadline = None
+                        capture.screen_control.set_connection('diagnostic')
                         show('Shell did not start. Check giulia_debug=1 and the installed daemon/shell.')
                 if not args.command and msvcrt.kbhit():
                     key = msvcrt.getwch()
@@ -557,9 +637,17 @@ def main():
     parser.add_argument('--seconds', type=float, default=20)
     parser.add_argument('--fastboot-serial', help='For reboot.fastboot: wait for this exact Fastboot device before success')
     parser.add_argument('--output', default=str(Path(__file__).resolve().parent / '../out/terminal'))
+    parser.add_argument('-m', '--max-size', type=int, help='Maximum mirrored edge, 160..2780; keeps panel aspect ratio')
+    parser.add_argument('--max-fps', type=int, help='Target capture rate, 1..30; actual rate depends on USB bandwidth')
     args = parser.parse_args()
     if not 1 <= args.seconds <= 86400:
         parser.error('--seconds must be 1..86400')
+    if args.max_size is not None and not 160 <= args.max_size <= 2780:
+        parser.error('--max-size must be 160..2780')
+    if args.max_fps is not None and not 1 <= args.max_fps <= 30:
+        parser.error('--max-fps must be 1..30')
+    if (args.max_size is not None or args.max_fps is not None) and args.command not in ('screen.start','screen.snapshot'):
+        parser.error('--max-size/--max-fps require --command screen.start or screen.snapshot')
     if args.command == 'shell':
         parser.error('Use interactive mode for shell; --command cannot control a PTY.')
     if args.fastboot_serial:

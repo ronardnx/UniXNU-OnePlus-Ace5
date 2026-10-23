@@ -1,5 +1,8 @@
 # Ace 5 原生 GPU 适配
 
+当前开发映射的地址、GPU/GMU 权限、固件封存、HFI 全部 kind 处理与
+尚缺的专用资源提供者见 [GPU 映射层](GPU_MAPPING.md)。下文包含历史阶段记录。
+
 目标为 Darwin 22 / iOS 16 的原生 GPU 加速，最终由 Metal、IOSurface 和
 系统 render server 合成界面。已接入 Darwin 22 的 `GiuliaGPU` 准备服务、
 本地固件段和 GMU 主机内存分配，并提供有前置条件的只读电源观察。
@@ -301,3 +304,46 @@ GPU／Wi-Fi 统一内核阻止 Wi-Fi 再次打开该通道，即使稍后邮箱�
 [`hardware/ios16-gpu-power-integration.json`](../hardware/ios16-gpu-power-integration.json)。
 当前仅完成编译与打包，未启动手机，也未实测电源／时钟／复位读取路径。
 本轮上游增量只拉取用于比较，尚未合并或更新版本锁定。
+
+## 实机内存准备 panic 修复（2026-10-23）
+
+用户提供的启动照片在 `plan-reservations code=0` 后记录
+`ESR=0x96000061`、`PC=0xfffffe0007b627a4`、
+`LR=0xfffffe0007a77038`。对照模式 3 候选的原始内核，PC 是
+`bzero+0x44` 的 `dc zva,x3`，LR 前一条指令是
+`GiuliaGPU::prepareMemory()` 对 `bzero` 的调用。
+故障地址为目标缓冲区加 `0x40`，已经按缓存行对齐。
+
+原代码对 GMU RAM 和页表请求 `kIOMapInhibitCache`。XNU ARM64
+将这一选项映射为 Device 类型，而
+[ARM DC ZVA 定义](https://support.arm.com/documentation/ddi0601/2024-06/AArch64-Instructions/DC-ZVA--Data-Cache-Zero-by-VA?lang=en)
+规定对 Device 内存清零产生 Alignment fault。该故障发生在 CPU
+准备内存时；这张照片不能证明 GPU 上电、SMMU 或 GMU 执行成功。
+
+修复统一使用 Normal copyback 的宿主连续分配，并显式禁用系统
+IOMMU mapper；GPU 寄存器映射仍保留 Device 属性。分配在清零前
+核对 CPU/物理地址对齐、连续长度、XNU 所有权窗口及 36 位 GPU
+物理地址上限。页表池全部清零，包括未使用的页面。
+
+继续适配的 CPU 内存发布路径使用 `CTR_EL0.DminLine` 取得最小缓存行
+大小，对固件 RAM 和页表执行 `DC CVAC` 到一致性点并以 `DSB SY`
+结束。GMU 侧页表仍描述 Normal NC；后续 DMA 接管必须重新确认
+静止状态、清理所有最新 CPU 写入，并在设备写回后执行相应失效。
+本次发布不等于获得 SMMU 租约，也不保证设备总线一致性。
+`gpu.status` 新增 `host_cache_published`；模式 3 在准备内存前输出
+UEFI 电源报告，以便保留下一次启动的交接诊断。
+
+`tests/ios16_gpu_host_memory.py` 执行生产 `prepareMemory()` 和真实
+页表实现，验证普通/未按缓存行对齐的固件复制、所有分配尾部清零、
+独立页表遍历及每个分配/发布失败点；可选本地固件包覆盖五段真实
+预留、6 个表页和 104 个叶页。`tests/ios16_gpu_cache.py` 核对原始
+AArch64 汇编，并用明确标注的主机 hook 验证缓存行范围及屏障顺序。
+这些主机测试不模拟 ARM 内存属性，修复后仍需手机启动验证。
+
+随后已完成临时启动和现有 USB 终端实测：本次 panic 不再发生；
+五段 RAM、6 个表页／104 个叶页全部准备完成。继续通过终端验证了
+原厂 TCM 全部 135 个字的写入／回读、SID 5 的配置与撤销、CM3 诊断
+程序经 SMMU 读取／写入宿主 RAM，以及未映射地址的实际翻译故障。
+实验后保持 CM3 复位、断开 stream、关闭 context 并恢复原厂 TCM。
+原厂 GMU/HFI 与 Metal 尚未接通。证据、限制和复现源码见
+[GPU_TERMINAL_BRINGUP.md](GPU_TERMINAL_BRINGUP.md)。

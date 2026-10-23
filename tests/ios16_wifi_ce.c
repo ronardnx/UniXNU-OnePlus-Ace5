@@ -3,9 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 #include "../ios16/giulia_wifi_ce.h"
-struct fixture {struct gwc_state s;struct gwc_io io;uint32_t regs[0x8000/4];uint8_t ram[GWC_BYTES];unsigned reads,writes,received,deny,lose;};
-static uint32_t readreg(void *v,uint32_t a){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b88000&&!(a&3));f->reads++;return f->regs[(a-0x1b80000)/4];}
-static void writereg(void *v,uint32_t a,uint32_t n){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b88000&&!(a&3));f->writes++;if(a!=f->lose)f->regs[(a-0x1b80000)/4]=n;}
+struct fixture {struct gwc_state s;struct gwc_io io;uint32_t regs[0xa000/4];uint8_t ram[GWC_BYTES];unsigned reads,writes,received,deny,lose;};
+static uint32_t readreg(void *v,uint32_t a){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b8a000&&!(a&3));f->reads++;return f->regs[(a-0x1b80000)/4];}
+static void writereg(void *v,uint32_t a,uint32_t n){struct fixture *f=v;assert(a>=0x1b80000&&a<0x1b8a000&&!(a&3));f->writes++;if(a!=f->lose)f->regs[(a-0x1b80000)/4]=n;}
 static int ready(void *v,uint64_t pa,size_t n){struct fixture *f=v;assert(pa==0x20000000&&n==GWC_BYTES);return !f->deny;}
 static void syncmem(void *v,size_t off,size_t n,int to){(void)v;(void)to;assert(off<=GWC_BYTES&&n<=GWC_BYTES-off);}
 static int receive(void *v,unsigned pipe,const void *p,size_t n){struct fixture *f=v;assert(pipe==1||pipe==2);assert(n==100&&gwq_u32(p)==f->received);f->received++;return 0;}
@@ -26,6 +26,10 @@ int main(void){
     assert(gwc_send(&f->s,&f->io,3,msg,sizeof(msg))==GWC_FULL);
     struct gwc_ring *r=&f->s.ring[5];gwq_w32(f->ram+r->remote,r->head*4);
     for(unsigned i=0;i<100;i++){assert(!gwc_send(&f->s,&f->io,3,msg,sizeof(msg)));gwq_w32(f->ram+r->remote,r->head*4);}
+    uint8_t htt[257]={0};assert(gwc_send(&f->s,&f->io,4,htt,sizeof(htt))==GWC_ARGUMENT);
+    for(unsigned i=0;i<255;i++)assert(!gwc_send(&f->s,&f->io,4,htt,256));
+    assert(gwc_send(&f->s,&f->io,4,htt,256)==GWC_FULL);
+    r=&f->s.ring[6];gwq_w32(f->ram+r->remote,r->head*4);assert(!gwc_send(&f->s,&f->io,4,htt,256));
     assert(gwc_stop(&f->s,&f->io)&&!f->s.active);free(f);
     f=make();f->deny=1;assert(gwc_init(&f->s,&f->io)==GWC_DMA&&!f->writes);free(f);
     f=make();f->regs[0x10/4]=0x40;assert(gwc_init(&f->s,&f->io)==GWC_INHERITED&&!f->writes);free(f);

@@ -10,10 +10,31 @@ MARKERS = (
     b'GIULIA GPU: firmware pack mapped read-only and digest verified',
     b'GIULIA FB: native panel 1264x2780 full coverage;',
     b'GiuliaGPU',
+    b'cpu_cache=normal-copyback',
+    b'GIULIA GPU: host RAM cache publication complete;',
+    b'GIULIA GPU HFI: table_iova=',
+    b'GIULIA GPU HFI: query_ack=1',
+    b'GIULIA GPU PLATFORM: abi=3',
+    b'GIULIA GPU SECURE: pool_owned=1',
+    b'GIULIA GPU WATCH: stage=doorbell_before header=',
+    b'GIULIA GPU MAPPING: managed=1',
+    b'GIULIA GPU MAPPING: audit_complete=1',
+    b'GIULIA GPU DEV: resources_abi=1 memstore=1 secure_allocation_mappings=1',
+    b'GIULIA GPU MEMSTORE: bytes=',
+    b'GIULIA GPU MEMSTORE: context=',
+    b'GIULIA GPU SECURE: audit_complete=1',
+    b'GIULIA GPU DEV: ipc_core=1 ipc_host_arbitration=1 ipc_retained_until_reboot=1',
+    b'GIULIA GPU IPC: bytes=',
+    b'GIULIA GPU DEV: fence_import_abi=1 fence_completion=0',
+    b'GIULIA GPU FENCE: unavailable reason=provider-not-registered',
+    b'GIULIA GPU FENCE: bytes=',
+    b'GIULIA GPU ZAP: pas=13 authenticated=1',
 )
 SYMBOLS = tuple('_giulia_gpu_' + name for name in (
     'power_acquire', 'power_release', 'smmu_start', 'smmu_stop',
-    'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available',
+    'gmu_load', 'gmu_start', 'log_event', 'terminal', 'qmp_available', 'cache_publish',
+    'ipcc_claim', 'ipcc_owns', 'ipcc_release',
+    'fence_register', 'fence_ipcc_claim', 'fence_ipcc_owns',
 ))
 
 

@@ -22,6 +22,10 @@ on:
         description: Include A750 firmware/RAM preparation and gated observation (requires GUI; firmware stays local)
         type: boolean
         default: false
+      audio:
+        description: Include experimental audio coordinator (requires GUI; native platform provider incomplete)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -40,9 +44,10 @@ jobs:
           TOUCH: ${{ inputs.touch }}
           WIFI: ${{ inputs.wifi }}
           GPU: ${{ inputs.gpu }}
+          AUDIO: ${{ inputs.audio }}
         run: |
-          if [ "$PROFILE" != gui ] && { [ "$TOUCH" = true ] || [ "$WIFI" = true ] || [ "$GPU" = true ]; }; then
-            echo 'Touch, Wi-Fi and GPU require the GUI profile' >&2
+          if [ "$PROFILE" != gui ] && { [ "$TOUCH" = true ] || [ "$WIFI" = true ] || [ "$GPU" = true ] || [ "$AUDIO" = true ]; }; then
+            echo 'Touch, Wi-Fi, GPU and audio require the GUI profile' >&2
             exit 2
           fi
       - uses: actions/checkout@v4
@@ -76,6 +81,8 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_debug_userland.py'
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all tests/ios16_reboot.c -o /tmp/reboot-test
           /tmp/reboot-test
+      - name: Validate audio board mapping and metadata commands
+        run: bash scripts/test-ios16-audio.sh
       - name: Validate screen capture, host viewer and development Setup
         run: |
           test -f tests/ios16_screen.c
@@ -97,7 +104,7 @@ jobs:
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }}
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }} ${{ inputs.audio && '--audio' || '' }}
           python3 tests/ios16_terminal_profile.py profile
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -I profile-source/vermeer tests/ios16_dma.c -o /tmp/dma-test
           /tmp/dma-test

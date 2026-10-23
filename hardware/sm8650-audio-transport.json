@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "board": "giulia",
+  "soc": "SM8650",
+  "status": "native-wire-transport-offline-tested",
+  "hardware_validated": false,
+  "playback_validated": false,
+  "source_files": [
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/soc/qcom/smem.c",
+      "sha256": "4967df8c12bef1758751243fb7759edbe56cc7340cdf587ec8839a9383442741",
+      "bytes": 34216,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/smem.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/soc/qcom/smp2p.c",
+      "sha256": "81a36bad06a689ae4679dd1aca4a17867bb2603c01266bd491101c6e00d790e5",
+      "bytes": 24269,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/soc/qcom/smp2p.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_smem.c",
+      "sha256": "9fec6a165cd729403f7bca9c22523c03b23d2a5bfb897d78fec7779ef2fa4ce3",
+      "bytes": 7532,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_smem.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_native.c",
+      "sha256": "ed801e228372edac1922d2e57b927362ef59073c779f672ca5d4ee2649d280a8",
+      "bytes": 67851,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_native.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h",
+      "sha256": "2f7169f33cb936a49df53f1734ed6ed4468bdd143d1a32b535a8c252aad97710",
+      "bytes": 9019,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/dsp/spf-core.c",
+      "sha256": "3f8f4016d577da61b0e1586740ca278325c54cd328e3a9d1effd9f3a20e2caf4",
+      "bytes": 10978,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/dsp/spf-core.c"
+    }
+  ],
+  "smem": {
+    "partition_table_tail_bytes": 4096,
+    "global_host": 65534,
+    "remote_host": 2,
+    "descriptor_item": 478,
+    "descriptor_bytes": 32,
+    "tx_item": 479,
+    "rx_item": 480,
+    "tx_bytes": 16384,
+    "allocation_requires_remote_hwspinlock": true,
+    "global_fallback": "only when private partition is absent"
+  },
+  "smp2p": {
+    "outbound_item": 429,
+    "inbound_item": 443,
+    "item_bytes": 340,
+    "ipcc_client": 3,
+    "ipcc_signal": 2,
+    "outbound_entry": "master-kernel",
+    "inbound_entry": "slave-kernel",
+    "fatal_bit": 0,
+    "ready_bit": 1,
+    "fresh_ready_required": true,
+    "ssr_ack_feature_offered": false
+  },
+  "glink": {
+    "channel": "adsp_apps",
+    "version": 1,
+    "features_offered": 0,
+    "ipcc_client": 3,
+    "ipcc_signal": 0,
+    "packet_limit": 4096,
+    "remote_intent_limit": 16,
+    "open_length_bits": 16,
+    "open_priority_bits": 16
+  },
+  "gpr": {
+    "header_bytes": 24,
+    "apps_domain": 3,
+    "adsp_domain": 2,
+    "spf_source_port": 3,
+    "apm_destination_port": 1,
+    "get_spf_state": 16781345,
+    "get_spf_state_response": 33558535,
+    "basic_response": 33558533,
+    "ready_status": 1,
+    "token_correlation": true
+  },
+  "integration_requirements": [
+    "Acquire exclusive stopped-ADSP ownership before resetting AP-owned FIFO indices or SMP2P outbound state.",
+    "Map shared memory noncached/coherent and supply full memory barriers plus IPCC notifications.",
+    "Hold the interprocessor hardware spinlock for SMEM allocation; a local CPU lock is insufficient.",
+    "Capture SMP2P before PAS auth/reset, arm only after PAS success, and require fresh ready before accepting SPF readiness.",
+    "Use fresh nonzero GPR tokens and bound startup/response waits in the caller."
+  ],
+  "limitations": [
+    "No physical device was attached during validation.",
+    "No PAS, power, clock, MMIO, or DMA implementation resides in this wire-only header.",
+    "SPF-ready only proves the query exchange; it does not open a speaker graph or validate audible playback.",
+    "Legacy SMEM v11 global heaps, automatic SSR recovery, zero-copy and intentless GLINK are unsupported."
+  ]
+}

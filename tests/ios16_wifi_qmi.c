@@ -7,6 +7,8 @@ struct fixture {
     struct gwq_state s;struct gwq_io io;
     unsigned phase,requests,chunks[5],resumes,drop,wrong_id,remote_fail,secure,missing_board;
     unsigned corrupt,fail_asset,fail_alloc,overlap,allocs,modes,configs;
+    unsigned second_mem_type,fail_alloc_after,memory_responses;
+    unsigned dev_mem_present,dev_mem_bytes,dev_mem_overflow;
     unsigned missing_chip,chip_bytes,board_bytes,board_id,asset_calls;
     unsigned legacy_ready_only,ready_in_response;
     unsigned pmu_present,pmu_count,pmu_truncated,pmu_extra,pmu_bad_flag,pmu_bad_name,pmu_full_name;
@@ -53,9 +55,10 @@ static int send_packet(void *ctx,const void *v,size_t n) {
         f->host_features=gwq_u64(a);f->host_caps++;assert(f->host_caps==1);f->phase=2;
     }
     if(msg==0x36) {
+        f->memory_responses++;
         a=gwq_field(t,len,1,&z);assert(a && z==35 && a[0]==2);
         assert(gwq_u32(a+9)==65536 && gwq_u32(a+13)==1 && !a[17]);
-        assert(gwq_u32(a+26)==4096 && gwq_u32(a+30)==2 && !gwq_u64(a+18));
+        assert(gwq_u32(a+26)==4096 && gwq_u32(a+30)==f->second_mem_type && gwq_u64(a+18)==0x20010000);
         if(!f->fail_alloc)assert(gwq_u64(a+1)==0x20000000);f->phase=3;
     }
     if(msg==0x25) {
@@ -85,6 +88,14 @@ static int send_packet(void *ctx,const void *v,size_t n) {
         if(!f->missing_chip)gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x10,b,f->chip_bytes);
         gwq_w32(b,f->board_id);
         if(!f->missing_board)gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x11,b,f->board_bytes);
+        if(f->dev_mem_present) {
+            uint8_t memory[80]={0};
+            gwq_w64(memory,f->dev_mem_overflow?UINT64_MAX-4095:UINT64_C(0x1c20000));
+            gwq_w64(memory+8,0x10000);
+            gwq_w64(memory+16,UINT64_C(0x100002000));gwq_w64(memory+24,0x2000);
+            assert(f->dev_mem_bytes<=sizeof(memory));
+            assert(gwq_tlv(reply+7,sizeof(reply)-7,&bytes,0x1c,memory,f->dev_mem_bytes));
+        }
         if(f->pmu_present) {
             uint8_t pmu[1+17*48+1]={0};assert(f->pmu_count<=17);pmu[0]=(uint8_t)f->pmu_count;
             for(unsigned i=0;i<f->pmu_count;i++) {
@@ -113,7 +124,7 @@ static int pump(void *ctx,unsigned us) {
         gwq_w32(b+12,2);gwq_w32(b+16,0x1234);f->phase=1;return packet(f,4,b,20,0,1);}
     if(f->phase==2){uint8_t b[40]={1,32,0,2}; /* TLV 1: count and two segments, first has cfg */
         gwq_w32(b+4,65536);gwq_w32(b+8,1);b[12]=1;gwq_w64(b+13,0);gwq_w32(b+21,65536);b[25]=(uint8_t)f->secure;
-        gwq_w32(b+26,4096);gwq_w32(b+30,2);b[34]=0;f->phase=20;return indication(f,0x35,b,35);}
+        gwq_w32(b+26,4096);gwq_w32(b+30,f->second_mem_type);b[34]=0;f->phase=20;return indication(f,0x35,b,35);}
     if(f->phase==3 && f->clock_ms>=f->memory_at_ms){f->phase=30;return indication(f,0x37,NULL,0);}
     if(f->phase==4 && f->clock_ms>=f->ready_at_ms){
         f->phase=40;int error=indication(f,f->legacy_ready_only?0x21:0x38,NULL,0);
@@ -129,7 +140,7 @@ static int pump(void *ctx,unsigned us) {
 }
 static uint64_t now_ms(void *ctx){return ((struct fixture *)ctx)->clock_ms;}
 static int allocate(void *ctx,size_t size,uint64_t *pa,void **va) {
-    struct fixture *f=ctx;if(f->fail_alloc)return 1;
+    struct fixture *f=ctx;if(f->fail_alloc || (f->fail_alloc_after && f->allocs>=f->fail_alloc_after))return 1;
     size_t start=(f->used+4095)&~(size_t)4095;if(f->overlap)start=0;
     if(size>sizeof(f->ram)-start)return 1;*pa=0x20000000+start;*va=f->ram+start;
     f->used=start+size;f->allocs++;return 0;
@@ -150,7 +161,7 @@ static int configure_pmu(void *ctx,const struct gwq_pmu_param *params,unsigned c
 }
 static struct fixture *make(void) {
     struct fixture *f=calloc(1,sizeof(*f));assert(f);f->io=(struct gwq_io){f,send_packet,pump,allocate,clean,asset,0x20000000,sizeof(f->ram),now_ms,configure_pmu};
-    f->chip_bytes=8;f->board_bytes=4;f->board_id=0xff;
+    f->chip_bytes=8;f->board_bytes=4;f->board_id=0xff;f->second_mem_type=GWQ_MEM_BDF;
     f->pump_step_ms=1;
     for(size_t i=0;i<sizeof(f->reg);i++)f->reg[i]=(uint8_t)(i*7);
     for(size_t i=0;i<sizeof(f->board);i++)f->board[i]=(uint8_t)(i*11);
@@ -159,18 +170,52 @@ static struct fixture *make(void) {
 }
 int main(void) {
     struct fixture *f=make();assert(!gwq_initialize(&f->s,&f->io,2));
-    assert(f->s.provisioned && f->s.fw_ready && f->chunks[4]==2 && f->chunks[1]==3 && f->resumes==3 && f->allocs==2);
+    assert(f->s.provisioned && f->s.fw_ready && f->chunks[4]==2 && f->chunks[1]==3 && f->resumes==3 && f->allocs==3);
     assert(f->s.cap_response_bytes==25 && f->s.chip_info_present && f->s.chip_info_bytes==8);
     assert(f->s.chip_family==0x55667788 && f->s.board_info_present && f->s.board_info_bytes==4 && !f->s.board_default);
     assert(f->s.indication_count==3 && !f->s.unknown_indications && f->s.last_indication==0x38);
     assert(f->s.indication_mask==((1ull<<0x35)|(1ull<<0x37)|(1ull<<0x38)));
     assert(!f->s.pmu_present && !f->s.pmu_valid);
+    assert(!f->s.dev_mem_present && !f->s.dev_mem_valid);
     assert(!f->platform_calls && !f->s.pmu_configured && !f->s.platform_error);
     assert(f->host_caps==1 && f->host_features==UINT64_C(8));
     assert(!f->s.initializing && f->s.timeout_phase==GWQ_TIMEOUT_NONE);
     assert(f->s.host_cap_ms==1 && f->s.memory_ready_ms==3 && f->s.cap_ms==3 && f->s.m3_ms==3 && f->s.fw_ready_ms==4);
     assert(f->s.elapsed_ms==4);
     uint8_t pipes[20]={0},svc[12]={0};assert(!gwq_configure(&f->s,&f->io,pipes,1,svc,1));assert(f->configs==1&&f->modes==1);free(f);
+    /* The phone CNSS contract includes BDF, DPD, QDSS and all other defined
+     * nonsecure segment types. Every response must name allocated backing. */
+    for(unsigned type=0;type<GWQ_MEM_TYPES;type++) {
+        f=make();f->second_mem_type=type;
+        assert(!gwq_initialize(&f->s,&f->io,2) && f->memory_responses==1 && f->allocs==3);
+        assert(f->s.allocated[1].type==type && f->s.allocated[1].address==0x20010000);
+        assert(f->s.mem_request_count==2 && f->s.mem_requested_bytes==69632);
+        assert(f->s.mem_failure_index==UINT32_MAX && f->s.mem_failure_type==UINT32_MAX);free(f);
+    }
+    for(unsigned fail=0;fail<2;fail++) {
+        f=make();if(fail)f->fail_alloc_after=1;else f->fail_alloc=1;
+        assert(gwq_initialize(&f->s,&f->io,2)==GWQ_MEMORY && f->allocs==fail);
+        assert(!f->memory_responses && !f->s.mem_response_sent && !f->s.provisioned);
+        assert(f->s.mem_failure_index==fail && f->s.mem_failure_type==(fail?GWQ_MEM_BDF:GWQ_MEM_DDR));free(f);
+    }
+    f=make();f->second_mem_type=GWQ_MEM_TYPES;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_MEMORY && !f->allocs && !f->memory_responses);
+    assert(f->s.mem_failure_index==1 && f->s.mem_failure_type==GWQ_MEM_TYPES);free(f);
+    f=make();f->io.dma_bytes=65536;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_MEMORY && !f->allocs && !f->memory_responses);free(f);
+    f=make();f->dev_mem_present=1;f->dev_mem_bytes=64;
+    assert(!gwq_initialize(&f->s,&f->io,2) && f->s.dev_mem_present && f->s.dev_mem_valid);
+    assert(f->s.dev_mem[0].start==0x1c20000 && f->s.dev_mem[0].bytes==0x10000);
+    assert(f->s.dev_mem[1].start==UINT64_C(0x100002000) && f->s.dev_mem[1].bytes==0x2000);
+    assert(!f->s.dev_mem[2].start && !f->s.dev_mem[2].bytes && !f->s.dev_mem[3].bytes);free(f);
+    const unsigned bad_dev_lengths[]={0,1,16,63,65};
+    for(unsigned i=0;i<sizeof(bad_dev_lengths)/sizeof(bad_dev_lengths[0]);i++) {
+        f=make();f->dev_mem_present=1;f->dev_mem_bytes=bad_dev_lengths[i];
+        assert(gwq_initialize(&f->s,&f->io,2)==GWQ_WIRE && f->s.dev_mem_present && !f->s.dev_mem_valid);
+        assert(!f->asset_calls && !f->s.provisioned);free(f);
+    }
+    f=make();f->dev_mem_present=f->dev_mem_overflow=1;f->dev_mem_bytes=64;
+    assert(gwq_initialize(&f->s,&f->io,2)==GWQ_WIRE && !f->s.dev_mem_valid && !f->asset_calls);free(f);
     unsigned *flag;for(unsigned i=0;i<9;i++) {
         f=make();switch(i){case 0:flag=&f->drop;break;case 1:flag=&f->wrong_id;break;case 2:flag=&f->remote_fail;break;
             case 3:flag=&f->secure;break;case 4:flag=&f->missing_chip;break;case 5:flag=&f->corrupt;break;
@@ -326,6 +371,6 @@ int main(void) {
     assert(f->s.filtered_data_packets==5 && f->s.indication_count==1);free(f);
     f=make();uint8_t bad[20]={0};gwq_w32(bad,4);gwq_w32(bad+4,0x45);gwq_w32(bad+8,0x201);
     gwq_w32(bad+12,2);gwq_w32(bad+16,123);assert(!packet(f,4,bad,20,0,0)&&!f->s.server);free(f);
-    puts("QRTR/QMI: complete firmware exchange, explicit QDSS-config absence, vendor optional-board semantics, identity diagnostics, segmented assets, DMA ownership and malformed/failure cases passed");
+    puts("QRTR/QMI: complete firmware exchange, all vendor memory types, allocation failure without zero-IOVA responses, explicit QDSS-config absence, identity diagnostics, segmented assets, DMA ownership and malformed/failure cases passed");
     return 0;
 }

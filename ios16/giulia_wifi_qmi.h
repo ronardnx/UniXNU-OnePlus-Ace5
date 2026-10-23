@@ -12,6 +12,7 @@
 #define GWQ_PACKET 8192u
 #define GWQ_CTRL 0xfffffffeu
 #define GWQ_SEGMENTS 52u
+#define GWQ_DEVICE_MEMORY_REGIONS 4u
 #define GWQ_TIMEOUT 10000u /* One QMI RPC or service discovery, milliseconds. */
 /* CNSS mission boot watchdog: default QMI timeout + 30000 ms, distinct from
  * each RPC's deadline. Start once MHI channels are usable, before discovery. */
@@ -25,6 +26,12 @@ enum gwq_error { GWQ_OK,GWQ_ARGUMENT,GWQ_WIRE,GWQ_TRANSPORT,GWQ_TIMEOUT_ERROR,
     GWQ_PLATFORM_ERROR };
 enum gwq_timeout_phase { GWQ_TIMEOUT_NONE,GWQ_TIMEOUT_RPC,GWQ_TIMEOUT_SERVER,GWQ_TIMEOUT_MISSION };
 enum gwq_asset { GWQ_REGDB,GWQ_BOARD,GWQ_PHY };
+/* OnePlus WLANFW wlfw_mem_type_enum_v01. CNSS allocates every requested
+ * segment; the PC ath12k policy of declining BDF/DPD/etc. does not describe
+ * this phone's vendor firmware contract. Secure carveouts remain rejected. */
+enum gwq_memory_type { GWQ_MEM_MSA,GWQ_MEM_DDR,GWQ_MEM_BDF,GWQ_MEM_M3,
+    GWQ_MEM_CAL,GWQ_MEM_DPD,GWQ_MEM_QDSS,GWQ_MEM_HANG,GWQ_MEM_MLO,
+    GWQ_MEM_PAGEABLE,GWQ_MEM_AFC,GWQ_MEM_LPASS,GWQ_MEM_CALDB,GWQ_MEM_TYPES };
 struct gwq_pmu_param;
 struct gwq_io {
     void *context;
@@ -38,6 +45,7 @@ struct gwq_io {
     int (*configure_pmu)(void *,const struct gwq_pmu_param *,unsigned);
 };
 struct gwq_span { uint64_t address; uint32_t bytes,type; };
+struct gwq_device_memory {uint64_t start,bytes;};
 struct gwq_pmu_param {
     char pin_name[33];
     uint32_t wake_valid,wake_mv,sleep_valid,sleep_mv;
@@ -46,9 +54,13 @@ struct gwq_state {
     unsigned error,major,hello,server,waiting,replied,registered,host_cap;
     unsigned mem_pending,mem_ready,fw_ready,provisioned,configured,mem_rounds;
     unsigned mem_response_sent,allocations;
+    uint32_t mem_request_count,mem_failure_index,mem_failure_type;
+    uint64_t mem_requested_bytes;
     uint32_t node,port,chip,board,soc,firmware,remote_error,last_message;
     uint32_t cap_response_bytes,chip_info_present,chip_info_bytes,chip_family;
     uint32_t board_info_present,board_info_bytes,board_default;
+    unsigned dev_mem_present,dev_mem_valid;
+    struct gwq_device_memory dev_mem[GWQ_DEVICE_MEMORY_REGIONS];
     uint32_t last_indication,indication_count,unknown_indications,last_unknown_indication;
     uint64_t indication_mask;
     uint32_t pmu_present,pmu_bytes,pmu_count,pmu_valid,pmu_bad_entry;
@@ -260,13 +272,21 @@ static inline int gwq_alloc(struct gwq_state *s,const struct gwq_io *io,size_t n
 }
 static inline int gwq_memory(struct gwq_state *s,const struct gwq_io *io) {
     if(!s->mem_pending || ++s->mem_rounds>3 || s->mem_ready)return gwq_fail(s,GWQ_STATE);
+    s->mem_request_count=0;s->mem_requested_bytes=0;
+    s->mem_failure_index=s->mem_failure_type=UINT32_MAX;
     size_t n;const uint8_t *p=gwq_field(s->mem_request,s->mem_bytes,1,&n);
     if(!p || !n || !p[0] || p[0]>GWQ_SEGMENTS)return gwq_fail(s,GWQ_MEMORY);
     unsigned count=p[0];size_t o=1;uint32_t sizes[GWQ_SEGMENTS],types[GWQ_SEGMENTS];
+    if(s->allocations>GWQ_SEGMENTS+4-count)return gwq_fail(s,GWQ_MEMORY);
+    s->mem_request_count=count;
     for(unsigned i=0;i<count;i++) {
         if(n-o<9)return gwq_fail(s,GWQ_MEMORY);
         sizes[i]=gwq_u32(p+o);types[i]=gwq_u32(p+o+4);unsigned cfg=p[o+8];o+=9;
-        if(!sizes[i] || cfg>2 || n-o<cfg*13)return gwq_fail(s,GWQ_MEMORY);
+        s->mem_failure_index=i;s->mem_failure_type=types[i];
+        if(!sizes[i] || types[i]>=GWQ_MEM_TYPES || cfg>2 || n-o<cfg*13 ||
+           s->mem_requested_bytes>io->dma_bytes || sizes[i]>io->dma_bytes-s->mem_requested_bytes)
+            return gwq_fail(s,GWQ_MEMORY);
+        s->mem_requested_bytes+=sizes[i];
         for(unsigned j=0;j<cfg;j++,o+=13) {
             uint64_t off=gwq_u64(p+o);uint32_t z=gwq_u32(p+o+8);
             if(p[o+12] || off>sizes[i] || z>sizes[i]-off)return gwq_fail(s,GWQ_MEMORY);
@@ -277,14 +297,17 @@ static inline int gwq_memory(struct gwq_state *s,const struct gwq_io *io) {
     uint8_t response[1+17*GWQ_SEGMENTS];response[0]=(uint8_t)count;
     for(unsigned i=0;i<count;i++) {
         uint64_t pa=0;void *va=NULL;unsigned type=types[i];
-        if(type==1 || type==3 || type==4 || type==9) {
-            if(gwq_alloc(s,io,sizes[i],type,&pa,&va)) {
-                uint8_t *b=(uint8_t *)va;for(size_t j=0;j<sizes[i];j++)b[j]=0;io->clean(io->context,va,sizes[i]);
-            }
-            if(s->error)return (int)s->error;
-        }
+        s->mem_failure_index=i;s->mem_failure_type=type;
+        /* cnss_pci_alloc_fw_mem fails the event on allocation failure; never
+         * publish a nonzero length at IOVA zero and wait for FW_INIT_DONE.
+         * Earlier allocations stay owned until the transport is quiescent. */
+        if(!gwq_alloc(s,io,sizes[i],type,&pa,&va))return gwq_fail(s,GWQ_MEMORY);
+        volatile uint8_t *b=(volatile uint8_t *)va;
+        for(size_t j=0;j<sizes[i];j++)b[j]=0;
+        io->clean(io->context,va,sizes[i]);
         uint8_t *r=response+1+i*17;gwq_w64(r,pa);gwq_w32(r+8,sizes[i]);gwq_w32(r+12,type);r[16]=0;
     }
+    s->mem_failure_index=s->mem_failure_type=UINT32_MAX;
     n=0;gwq_tlv(s->request,sizeof(s->request),&n,1,response,1+17*count);
     s->mem_pending=0;s->mem_response_sent=1;return gwq_request(s,io,0x36,n);
 }
@@ -335,6 +358,23 @@ static inline int gwq_pmu_cap(struct gwq_state *s) {
     }
     s->pmu_bad_entry=0xffffffffu;s->pmu_valid=1;return 0;
 }
+/* CAP device memory is a STATIC_ARRAY of four {u64 start,u64 size}
+ * entries, unlike REQUEST_MEM's counted array. These are device addresses,
+ * not host physical RAM and not an authorization to map arbitrary memory.
+ * DP must check the required CMEM extent/alignment before any BAR access. */
+static inline int gwq_device_mem_cap(struct gwq_state *s) {
+    size_t bytes;const uint8_t *p=gwq_field(s->response,s->response_bytes,0x1c,&bytes);
+    s->dev_mem_present=p!=NULL;s->dev_mem_valid=0;
+    for(unsigned i=0;i<GWQ_DEVICE_MEMORY_REGIONS;i++)s->dev_mem[i].start=s->dev_mem[i].bytes=0;
+    if(!p)return 0;
+    if(bytes!=16u*GWQ_DEVICE_MEMORY_REGIONS)return gwq_fail(s,GWQ_WIRE);
+    for(unsigned i=0;i<GWQ_DEVICE_MEMORY_REGIONS;i++) {
+        uint64_t start=gwq_u64(p+16*i),size=gwq_u64(p+16*i+8);
+        if(size>UINT64_MAX-start)return gwq_fail(s,GWQ_WIRE);
+        s->dev_mem[i].start=start;s->dev_mem[i].bytes=size;
+    }
+    s->dev_mem_valid=1;return 0;
+}
 static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     if(!s->mem_ready || s->provisioned)return gwq_fail(s,GWQ_STATE);
     if(gwq_request(s,io,0x24,0))return (int)s->error;
@@ -359,7 +399,7 @@ static inline int gwq_provision(struct gwq_state *s,const struct gwq_io *io) {
     const uint8_t *p;
     p=gwq_field(s->response,s->response_bytes,0x12,&z);if(p && z==4)s->soc=gwq_u32(p);
     p=gwq_field(s->response,s->response_bytes,0x13,&z);if(p && z>=4)s->firmware=gwq_u32(p);
-    if(gwq_pmu_cap(s))return (int)s->error;
+    if(gwq_device_mem_cap(s) || gwq_pmu_cap(s))return (int)s->error;
     /* CNSS applies the validated CAP PMU table before firmware resource
      * provisioning. The platform owns AOP serialization, board constraints and
      * retained/uncertain writes; never send assets after a platform failure. */

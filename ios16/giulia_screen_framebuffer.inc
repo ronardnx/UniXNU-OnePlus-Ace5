@@ -21,23 +21,26 @@ static void giulia_screen_register(AppleCLCD *fb)
             0, __ATOMIC_RELEASE, __ATOMIC_RELAXED)) fb->release();
 }
 
-extern "C" int giulia_screen_capture(uint8_t *rgb565, size_t capacity,
-                                    unsigned *width, unsigned *height)
+extern "C" int giulia_screen_capture_size(uint8_t *rgb565, size_t capacity,
+                                    unsigned *width, unsigned *height, unsigned max_size)
 {
-    const unsigned step = 4, out_width = GD_WIDTH / step,
-        out_height = GD_HEIGHT / step;
-    const size_t bytes = (size_t)out_width * out_height * 2;
     if (width) *width = 0;
     if (height) *height = 0;
+    if (max_size < 160 || max_size > GD_HEIGHT) return 0;
+    const unsigned out_height = max_size,
+        out_width = (unsigned)((uint64_t)GD_WIDTH * max_size / GD_HEIGHT);
+    const size_t bytes = (size_t)out_width * out_height * 2;
     if (!rgb565 || !width || !height || capacity < bytes) return 0;
     AppleCLCD *fb = __atomic_load_n(&giulia_screen_framebuffer, __ATOMIC_ACQUIRE);
     if (!giulia_screen_geometry(fb)) return 0;
     IOLockLock(fb->fCaptureLock);
     const volatile uint32_t *pixels = (const volatile uint32_t *)fb->fPixels;
     for (unsigned y = 0; y < out_height; y++) {
-        const volatile uint32_t *row = pixels + (size_t)y * step * (GD_STRIDE / 4);
+        unsigned sy = (unsigned)((uint64_t)y * GD_HEIGHT / out_height);
+        const volatile uint32_t *row = pixels + (size_t)sy * (GD_STRIDE / 4);
         for (unsigned x = 0; x < out_width; x++) {
-            uint32_t bgra = row[x * step];
+            unsigned sx = (unsigned)((uint64_t)x * GD_WIDTH / out_width);
+            uint32_t bgra = row[sx];
             uint16_t color = (uint16_t)(((bgra >> 19) & 31u) << 11 |
                 ((bgra >> 10) & 63u) << 5 | ((bgra >> 3) & 31u));
             size_t offset = ((size_t)y * out_width + x) * 2;
@@ -50,3 +53,7 @@ extern "C" int giulia_screen_capture(uint8_t *rgb565, size_t capacity,
     *height = out_height;
     return 1;
 }
+
+extern "C" int giulia_screen_capture(uint8_t *rgb565, size_t capacity,
+                                    unsigned *width, unsigned *height)
+{ return giulia_screen_capture_size(rgb565, capacity, width, height, 695); }

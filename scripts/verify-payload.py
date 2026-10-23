@@ -11,6 +11,7 @@ from ios16_platform import check_platform, read_nodes
 from ios16_wifi import check_wifi_platform
 from ios16_wifi_runtime import check_runtime
 from ios16_gpu_runtime import check_runtime as check_gpu_runtime
+from ios16_audio_runtime import check_runtime as check_audio_runtime
 from ios16_gpu_power import check_request as check_gpu_power_request
 from ios16_trust_catalog import modules
 
@@ -51,6 +52,15 @@ with tempfile.TemporaryDirectory() as directory:
     gpu_runtime=check_gpu_runtime((temporary/'kernel.macho').read_bytes(),gpu_meta)
     if gpu_runtime!=gpu_report:
         raise SystemExit('GPU firmware/service binding differs from the embedded kernel')
+    audio_report=report.get('audio_runtime')
+    audio_meta={'audio_runtime_included':bool(audio_report),
+                'audio_firmware':audio_report.get('firmware') if audio_report else None}
+    audio_runtime=check_audio_runtime((temporary/'kernel.macho').read_bytes(),audio_meta)
+    if audio_runtime!=audio_report:
+        raise SystemExit('Audio firmware/coordinator binding differs from the embedded kernel')
+    if report.get('audio_prepare') and (not audio_runtime or not report.get('root_finder_id') or
+                                      not report.get('platform_match',{}).get('gui')):
+        raise SystemExit('Audio preparation requires the verified GUI root and audio firmware')
     if report.get('gpu_mode') and (report['gpu_mode'] not in (1,2,3) or not gpu_runtime or
                                   not report.get('root_finder_id') or not report.get('platform_match',{}).get('gui')):
         raise SystemExit('GPU mode requires the verified GUI root and GPU firmware')
@@ -141,6 +151,7 @@ with tempfile.TemporaryDirectory() as directory:
                 raise SystemExit('GPIO SPI worker missing from the kernel')
             expected+=' giulia_touch_gpio=1'
         if report.get('gpu_mode'):expected+=' giulia_gpu='+str(report['gpu_mode'])
+        if report.get('audio_prepare'):expected+=' giulia_audio=1'
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

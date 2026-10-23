@@ -43,7 +43,17 @@ def gpu_terminal_source(gpu=False):
             '    return 1;\n}\n')
 
 
-def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=False):
+def audio_terminal_source(audio=False):
+    """Embed board metadata queries without acquiring audio hardware resources."""
+    root = Path(__file__).resolve().parents[1]
+    mapping = (root/'ios16/giulia_audio_mapping.h').read_text().replace(
+        '#include <stdint.h>\n', '').replace('#include <stddef.h>\n', '')
+    runtime = ('extern int giulia_audio_runtime_command(const char *);\n' if audio else
+               'static int giulia_audio_runtime_command(const char *cmd) {(void)cmd;return 0;}\n')
+    return runtime + mapping + '\n' + (root/'ios16/giulia_audio_terminal.inc').read_text()
+
+
+def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=False, audio=False):
     if 'giulia_terminal_command' in usb.read_text():
         raise ValueError('Terminal integration already applied')
     root = Path(__file__).resolve().parents[1]
@@ -57,13 +67,25 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
         '/* GIULIA_SCREEN_CORE is embedded here by the profile generator. */',
         (root/'ios16/giulia_screen.h').read_text().replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n',''))
     screen = screen.replace('/* GIULIA_SCREEN_PROVIDER is embedded here by the profile generator. */',
-        'extern int giulia_screen_capture(uint8_t *,size_t,unsigned *,unsigned *);' if gui else
-        'static int giulia_screen_capture(uint8_t *p,size_t n,unsigned *w,unsigned *h) '
-        '{(void)p;(void)n;(void)w;(void)h;return 0;}')
+        'extern int giulia_screen_capture_size(uint8_t *,size_t,unsigned *,unsigned *,unsigned);' if gui else
+        'static int giulia_screen_capture_size(uint8_t *p,size_t n,unsigned *w,unsigned *h,unsigned m) '
+        '{(void)p;(void)n;(void)w;(void)h;(void)m;return 0;}')
+    remote = (root/'ios16/giulia_input.inc').read_text().replace(
+        '/* GIULIA_INPUT_PROVIDER is embedded here by the profile generator. */',
+        ('extern unsigned giulia_remote_ready(void);\n'
+         'extern int giulia_remote_touch(unsigned,unsigned,unsigned);\n'
+         'extern int giulia_remote_hid(unsigned,unsigned,unsigned);') if gui else
+        ('static unsigned giulia_remote_ready(void) {return 0;}\n'
+         'static int giulia_remote_touch(unsigned d,unsigned x,unsigned y) {(void)d;(void)x;(void)y;return 0;}\n'
+         'static int giulia_remote_hid(unsigned p,unsigned u,unsigned d) {(void)p;(void)u;(void)d;return 0;}'))
+    screen = screen.replace('/* GIULIA_INPUT_CORE is embedded here by the profile generator. */', remote)
     code = (gpu_terminal_source(gpu) + 'extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
             (root/'ios16/giulia_mmio.inc').read_text() + '\n' +
-            reboot + '\n' + screen + '\n' +
+            reboot + '\n' + screen + '\n' + audio_terminal_source(audio) + '\n' +
             (root / 'ios16/giulia_terminal.inc').read_text())
+    if audio:
+        code = code.replace('audio=audio.status,audio.map stage=board-mapping-only hardware_ready=0 playback=0 recording=0',
+                            'audio=audio.status,audio.map,audio.preflight,audio.start,audio.stop,audio.test runtime=1 provider_required=1 hardware_verified=0')
     if wifi:
         code='extern int giulia_wifi_terminal(const char *);\n'+code
         code=code.replace('    if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;',
@@ -75,7 +97,8 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '    else if (giulia_terminal_command(u.command)) {}\n'
          '    else if (!strcmp(u.command,"ping"))')
     edit(usb, 'commands help status ping replay',
-         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot gpu.status gpu.observe')
+         'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
+         + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')
@@ -96,6 +119,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '    unsigned n=vermeer_debug_copy(&u.cursor,(char *)(u.dma+TX),TX_SIZE);')
     edit(usb, '    while (!u.failed) {', '    gs_register();\n    while (!u.failed) {')
     edit(usb, '        transmit();',
+         '        ginput_tick(gscreen_now());\n'
          '        if (!u.configured || !u.dtr) {gs_disconnect();gscreen_disconnect();}\n        transmit();')
     edit(usb, '    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());',
          '    gs_disconnect();gscreen_disconnect();\n    wr(DEVTEN,0);wr(DCTL,rd(DCTL)&~RUN);\n    thread_terminate(current_thread());')

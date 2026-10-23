@@ -81,6 +81,13 @@ static int gm_command(const char *cmd)
         if(*p || a<0x100000 || a>=0x80000000 || !b || b>0x10000 ||
            a%PAGE_SIZE || b%PAGE_SIZE || b>0x80000000-a ||
            (gPhysSize && a<gPhysBase+gPhysSize && a+b>gPhysBase))goto syntax;
+#if GIULIA_GPU_INCLUDED
+        /* The fixed GMU IPC aperture overlaps APSS host doorbells. A raw
+         * alias would bypass the GPU/Wi-Fi/audio mapping-lifetime broker. */
+        if(a<0x540000 && a+b>0x400000) {
+            printf("GIULIA REG: disabled for reserved IPC_CORE window; use gpu.dev resource provider\n");return 1;
+        }
+#endif
         unsigned slot=16;
         for(unsigned i=0;i<16;i++) {
             if(!gm_maps[i].virtual) { if(slot==16)slot=i;continue; }

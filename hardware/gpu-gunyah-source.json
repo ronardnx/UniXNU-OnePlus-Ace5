@@ -1,0 +1,697 @@
+{
+  "schema": 1,
+  "purpose": "Pinned source evidence for a bounded GPU Gunyah RM transport and doorbell boundary. This file performs no hypercall, memory share, capability registration or controller initialization.",
+  "verification": {
+    "date": "2026-10-23",
+    "method": "Fetched immutable raw source bytes and verified Git blob SHA-1 against entries from exact commit Git trees; recorded byte length and SHA-256. The recursive kernel tree response was truncated, but every listed kernel path was present and matched. The module recursive tree was complete. No source bytes are redistributed in this manifest.",
+    "kernel_commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+    "module_commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+    "module_tree_search": "Complete module tree contains Gunyah DT bindings and board nodes, but no gh_rm/msgq/hcall implementation. Fence driver uses public kernel interfaces.",
+    "runtime_pairing": "Fixed repository references are not proof of the running hypervisor ABI or stock image build pairing.",
+    "requires_network_for_tests": false
+  },
+  "files": [
+    {
+      "file": "gh_rm_core.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/gh_rm_core.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/gh_rm_core.c",
+      "bytes": 27102,
+      "sha256": "e81fce84b2ec9b5b16bceb722c3f497ec9dc5bebaf7c4540f5ce1ea14a68f581",
+      "git_blob": "ed5f2e79a6015e96faf0c4357f216e6f521c5041",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            947,
+            982
+          ],
+          "supports": "Compatibility RM driver attaches as an auxiliary child to gunyah RM and obtains the canonical rm object."
+        }
+      ]
+    },
+    {
+      "file": "gh_rm_drv_private.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/gh_rm_drv_private.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/gh_rm_drv_private.h",
+      "bytes": 13030,
+      "sha256": "3e9ba4f6f748e1c1cb044f7c74f855d85c1f0d9b0c0114b42a47b1746fa57589",
+      "git_blob": "4802c94613d08356f1e6b4550e1ba856ea2add1c",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            19,
+            54
+          ],
+          "supports": "Legacy packed header agrees with canonical 8-byte RPC header and four message types."
+        }
+      ]
+    },
+    {
+      "file": "gh_rm_iface.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/gh_rm_iface.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/gh_rm_iface.c",
+      "bytes": 77863,
+      "sha256": "0e96aabc19494b56f1f5d7e233f441c7c1820d2aa12a784f7d49322a3abceda5",
+      "git_blob": "958d463016232463e779d17ed25c9ba6a2cb248a",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            229,
+            249
+          ],
+          "supports": "Compatibility VM RPC interface invokes canonical gh_rm_call(rm, ...)."
+        }
+      ]
+    },
+    {
+      "file": "gh_msgq.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/gh_msgq.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/gh_msgq.c",
+      "bytes": 17318,
+      "sha256": "e4f046ce2608afd90ff3df132e5bfd842643cfa11e5130dc1ab9b8a479f733f1",
+      "git_blob": "70cd017fd4a6f688be65a1563691d8a6dad128a6",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            125,
+            157
+          ],
+          "supports": "Legacy receive maps empty to retry and uses the supplied pointer directly."
+        },
+        {
+          "lines": [
+            258,
+            291
+          ],
+          "supports": "Legacy send passes buffer without physical conversion; only low 32 driver flags reach the hypercall."
+        },
+        {
+          "lines": [
+            313,
+            323
+          ],
+          "supports": "Legacy public MSGQ send enforces maximum 240 bytes."
+        }
+      ]
+    },
+    {
+      "file": "hcall_msgq.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/hcall_msgq.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/hcall_msgq.h",
+      "bytes": 2982,
+      "sha256": "559572a9ca2a98bd46a6b22a10f069a28225ea9b9808d5c9c9c8907d066c7d33",
+      "git_blob": "efcc316baa3730a4118f08128e29b3c726212fa9",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            56,
+            73
+          ],
+          "supports": "Legacy send HVC immediate 0x601B and argument/response order."
+        },
+        {
+          "lines": [
+            76,
+            103
+          ],
+          "supports": "Legacy receive HVC immediate 0x601C and argument/response order."
+        }
+      ]
+    },
+    {
+      "file": "hcall_dbl.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/hcall_dbl.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/hcall_dbl.h",
+      "bytes": 2009,
+      "sha256": "f4d27bbef2d90074db005b85d23abf0a66551c868c41301b57e0a38038b6cf91",
+      "git_blob": "6018e074e42eb4ee80b7ceaa93d7af11ff694f5d",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            53,
+            75
+          ],
+          "supports": "Legacy doorbell receive HVC immediate 0x6013 takes capid and clear mask, returns old flags."
+        }
+      ]
+    },
+    {
+      "file": "gh_dbl.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/gh_dbl.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/gh_dbl.c",
+      "bytes": 18776,
+      "sha256": "cc38a94b07ee6819a593073cf4bdcd0e261a6a0075f6de76eb6ba07f35078a31",
+      "git_blob": "ca14e6b68ecfa524ba7c64dbe79fecfa2704038e",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            117,
+            159
+          ],
+          "supports": "Read-and-clean deasserts a pending bound interrupt and replaces input clear mask with prior unmasked flags only on success."
+        }
+      ]
+    },
+    {
+      "file": "gh_common.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah/gh_common.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah/gh_common.h",
+      "bytes": 907,
+      "sha256": "8d2aeb12159c22f73a8a013201e22daced082c3c6cbed63ac2507bceefc56e02",
+      "git_blob": "1f3c52ed7e2718e8ed831dd17108d434aa2c180f",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            14,
+            31
+          ],
+          "supports": "Capability IDs and doorbell flags are 64 bits; all-ones capability is invalid."
+        }
+      ]
+    },
+    {
+      "file": "gh_msgq.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah/gh_msgq.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah/gh_msgq.h",
+      "bytes": 2192,
+      "sha256": "7b7cf76c95cc57920b0398caacb326495aa8a0ad7468c4cfb9047ae569329302",
+      "git_blob": "3acb047fc1d1f2a134e64cafe9ecc9a1c645201c",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            31,
+            38
+          ],
+          "supports": "MSGQ maximum is 240 bytes; PUSH bit0 and local NONBLOCK bit32 are distinct."
+        }
+      ]
+    },
+    {
+      "file": "gh_dbl.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah/gh_dbl.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah/gh_dbl.h",
+      "bytes": 2736,
+      "sha256": "fa889a6c867af7936ac7ba011c3f34d0cdc558326cd9066c2733a8bbfd06390b",
+      "git_blob": "f16dd62f045ce62b8c92bd760aa302253aa1a5a4",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            14,
+            35
+          ],
+          "supports": "Doorbell labels and local driver nonblocking flag."
+        }
+      ]
+    },
+    {
+      "file": "hcall_common.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah/hcall_common.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah/hcall_common.h",
+      "bytes": 430,
+      "sha256": "acbcc952b2ffd033a03f6f48ff79e5025c4a9b08395af36a8784d3e7c7187d42",
+      "git_blob": "6efdf9bcdc22c1e6c7ac5496e442311949321bad",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            11,
+            19
+          ],
+          "supports": "Legacy argument/response sets each contain eight unsigned-long registers; function immediate is u16."
+        }
+      ]
+    },
+    {
+      "file": "hcall.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "arch/arm64/include/asm/gunyah/hcall.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/arch/arm64/include/asm/gunyah/hcall.h",
+      "bytes": 1647,
+      "sha256": "723f9ce35a5f99ed2c17cc71eab502a76cb3111c7d36e3e425c0882ac0ba77e4",
+      "git_blob": "2365bb231ccf72b67eacdb0ebd1d0e15b0ebf608",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            20,
+            66
+          ],
+          "supports": "Legacy ABI uses HVC immediate, args x0-x7, results x0-x7, status x0, memory clobber, and x9-x18 clobbers with conditional x18 save/restore."
+        }
+      ]
+    },
+    {
+      "file": "Makefile",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/Makefile",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/Makefile",
+      "bytes": 1269,
+      "sha256": "a0ddab3db9d6b67d4ff5f514f44c799ce20191b5e577272c99d47532aa98fe06",
+      "git_blob": "b05cd540f7cd6d3e257000258de1cd6d2ad80140",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            1,
+            24
+          ],
+          "supports": "Compatibility drivers and canonical gunyah resource manager are distinct compiled objects."
+        }
+      ]
+    },
+    {
+      "file": "rsc_mgr.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/virt/gunyah/rsc_mgr.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/virt/gunyah/rsc_mgr.c",
+      "bytes": 29446,
+      "sha256": "dcf93defed5eb0386fe580dd85b0b099d8b027b01e1b8daa19f9056860f5ea39",
+      "git_blob": "4d2c6ea2af4467102ddac946c1386ebc038ea792",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            27,
+            109
+          ],
+          "supports": "Canonical RPC header masks, packed little-endian fields and RM error codes."
+        },
+        {
+          "lines": [
+            364,
+            393
+          ],
+          "supports": "Receive allocation allows at most 62 continuation frames and sizes the buffer from initial payload and continuation count."
+        },
+        {
+          "lines": [
+            458,
+            507
+          ],
+          "supports": "Initial reply matches both sequence and message ID; continuation preserves message ID and continuation count. Source continuation matching does not verify sequence."
+        },
+        {
+          "lines": [
+            536,
+            564
+          ],
+          "supports": "Frames must be between 8 and 240 bytes with API byte 0x21; accepts reply, notification or continuation, not request."
+        },
+        {
+          "lines": [
+            577,
+            644
+          ],
+          "supports": "Request fragmentation is at 232 payload bytes; request limit is 62*232 bytes, fragment count is continuation count, last fragment sets PUSH."
+        },
+        {
+          "lines": [
+            667,
+            738
+          ],
+          "supports": "Sequence uses cyclic unsigned-16-bit allocator, message ID zero is reserved, send and reply wait are serialized, and nonzero RM reply errors reject the operation."
+        },
+        {
+          "lines": [
+            815,
+            857
+          ],
+          "supports": "Initial RM capabilities and interrupts come from the gunyah-resource-manager node; identification requires Gunyah UUID and API v1."
+        },
+        {
+          "lines": [
+            914,
+            942
+          ],
+          "supports": "Hibernation restore obtains fresh capabilities from the hypervisor info area, showing that boot capability values are not permanent."
+        }
+      ]
+    },
+    {
+      "file": "gunyah-msgq.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "drivers/mailbox/gunyah-msgq.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/drivers/mailbox/gunyah-msgq.c",
+      "bytes": 6405,
+      "sha256": "5b10dc1910c470f9f8c196f15921bf207b38660fa5aca4b89f4623c7c18c61a5",
+      "git_blob": "7f777339278ebf9e321acc22753725026b5df0ac",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            18,
+            40
+          ],
+          "supports": "Canonical mailbox receive uses stack buffer through gh_hypercall_msgq_recv; empty ends the drain."
+        },
+        {
+          "lines": [
+            63,
+            113
+          ],
+          "supports": "Canonical mailbox send uses gh_hypercall_msgq_send; ready=false still means successful acceptance but queue is now full."
+        }
+      ]
+    },
+    {
+      "file": "gunyah_hypercall.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "arch/arm64/gunyah/gunyah_hypercall.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/arch/arm64/gunyah/gunyah_hypercall.c",
+      "bytes": 4544,
+      "sha256": "5ab21a3b7e24652adde94e8c6f4a1412123b7a0b9fa287400605eb2e3ab8c06c",
+      "git_blob": "79e56fd2567c6fa649b21a631a4cf263b56a86ed",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            12,
+            31
+          ],
+          "supports": "SMCCC Gunyah identity UUID verification."
+        },
+        {
+          "lines": [
+            34,
+            46
+          ],
+          "supports": "SMCCC function construction and fixed MSGQ IDs 0x801B and 0x801C."
+        },
+        {
+          "lines": [
+            87,
+            117
+          ],
+          "supports": "Canonical MSGQ uses SMCCC HVC, a virtual buffer pointer and x0 status/x1-x2 result values; this is separate from legacy immediate ABI."
+        }
+      ]
+    },
+    {
+      "file": "include__linux__gunyah.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/gunyah.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/gunyah.h",
+      "bytes": 5165,
+      "sha256": "77434226dfc72a4e7b00fb53bdf9c96c48bb663e37f2c5164ed069430db6fe4c",
+      "git_blob": "1f4451363c73628d897eaf2e392f5d08133b8611",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            39,
+            49
+          ],
+          "supports": "Canonical maximum MSGQ frame is 240 bytes."
+        },
+        {
+          "lines": [
+            79,
+            109
+          ],
+          "supports": "Hypervisor error values include OK0, unimplemented -1, retry -2, empty60 and full61."
+        },
+        {
+          "lines": [
+            154,
+            170
+          ],
+          "supports": "Hypervisor API info version/endian/64-bit masks."
+        },
+        {
+          "lines": [
+            174,
+            181
+          ],
+          "supports": "Canonical MSGQ PUSH bit0 and pointer-valued wrappers."
+        }
+      ]
+    },
+    {
+      "file": "include__linux__arm-smccc.h",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "include/linux/arm-smccc.h",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_oneplus_sm8650/d763ed47deec55451366c1187f813f2f309d88a7/include/linux/arm-smccc.h",
+      "bytes": 20183,
+      "sha256": "14c1725e97add02f45f27a754812fd4e6bae190967b09541c4c1dd3fa7f60710",
+      "git_blob": "b23906d0652f478ba9b67d577c5a9b2d74c0cd3e",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            18,
+            52
+          ],
+          "supports": "FAST<<31, SMC64<<30 and VENDOR_HYP=6<<24 yield prefix 0xc6000000."
+        },
+        {
+          "lines": [
+            425,
+            429
+          ],
+          "supports": "SMCCC HVC instruction uses immediate zero."
+        },
+        {
+          "lines": [
+            561,
+            574
+          ],
+          "supports": "SMCCC v1.1 HVC passes arguments in registers 0-7 and returns registers 0-3."
+        }
+      ]
+    },
+    {
+      "file": "hw_fence_drv_utils.c",
+      "repository": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_utils.c",
+      "url": "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/mm-drivers/hw_fence/src/hw_fence_drv_utils.c",
+      "bytes": 35307,
+      "sha256": "f2c761c821ab77a0bb865b11ced6cd3d09ec6141f8862e1846593a49cd1891a4",
+      "git_blob": "f2b34c1c4fba1ef70e530d23308a9bf92dc818a3",
+      "commit_tree_blob_verified": true,
+      "evidence": [
+        {
+          "lines": [
+            352,
+            400
+          ],
+          "supports": "Fence callback invokes legacy gh_dbl_read_and_clean and registers the board label; it does not call the canonical SMCCC bell wrappers."
+        }
+      ]
+    }
+  ],
+  "rm_wire": {
+    "canonical_source": "drivers/virt/gunyah/rsc_mgr.c",
+    "byte_order": "little-endian",
+    "header_bytes": 8,
+    "reply_header_bytes": 12,
+    "header": [
+      {
+        "offset": 0,
+        "bytes": 1,
+        "field": "api",
+        "value": "0x21",
+        "bits": "low4 version1; high4 header_words2"
+      },
+      {
+        "offset": 1,
+        "bytes": 1,
+        "field": "type_and_fragments",
+        "bits": "low2 type; high6 total continuation count"
+      },
+      {
+        "offset": 2,
+        "bytes": 2,
+        "field": "sequence",
+        "encoding": "u16 little-endian"
+      },
+      {
+        "offset": 4,
+        "bytes": 4,
+        "field": "message_id",
+        "encoding": "u32 little-endian"
+      }
+    ],
+    "reply_error": {
+      "offset": 8,
+      "bytes": 4,
+      "encoding": "u32 little-endian",
+      "scope": "Only initial standard reply, not continuation headers."
+    },
+    "types": {
+      "continuation": 0,
+      "request": 1,
+      "reply": 2,
+      "notification": 3
+    },
+    "frame_max_bytes": 240,
+    "ordinary_payload_max_bytes": 232,
+    "initial_reply_payload_max_bytes": 228,
+    "tx_request_max_payload_bytes": 14384,
+    "tx_request_max_frames": 62,
+    "tx_request_max_continuations": 61,
+    "rx_max_continuations": 62,
+    "rx_max_notification_payload_bytes": 14616,
+    "rx_max_reply_payload_bytes": 14612,
+    "fragmentation": "For a nonempty request, continuation count=(payload_bytes-1)//232; empty request has count0 and still sends one header. First frame is REQUEST, later frames CONTINUATION. All frames preserve sequence, message ID and continuation count. Only the final transmitted frame sets PUSH. Initial reply carries err_code; later continuation payload starts after the ordinary 8-byte header. Fragment count is not a fragment ordinal.",
+    "sequence": "Canonical implementation allocates a cyclic 16-bit sequence, permits the complete u16 range, matches initial reply by sequence plus message ID, and removes the live sequence after completing the call. Message ID0 is reserved.",
+    "receive_validation": "Source accepts only header API0x21 and frame sizes8..240. Reply requires12-byte header. Incoming REQUEST is invalid. Source continuation code compares message ID and continuation count but does not compare sequence; a new bounded implementation should also enforce sequence and buffer bounds.",
+    "assembly": "Only one active incoming fragmented message at a time; a new initial notification or matching reply aborts the unfinished active message. Notification completion is dispatched separately from an RPC reply.",
+    "completion": "An accepted MSGQ send does not imply RM success. Wait for all reply fragments and inspect the standard RM error before returning payload.",
+    "reply_error_codes": {
+      "OK": 0,
+      "UNIMPLEMENTED": "0xffffffff",
+      "NOMEM": 1,
+      "NORESOURCE": 2,
+      "DENIED": 3,
+      "INVALID": 4,
+      "BUSY": 5,
+      "ARGUMENT_INVALID": 6,
+      "HANDLE_INVALID": 7,
+      "VALIDATE_FAILED": 8,
+      "MAP_FAILED": 9,
+      "MEM_INVALID": 10,
+      "MEM_INUSE": 11,
+      "MEM_RELEASED": 12,
+      "VMID_INVALID": 13,
+      "LOOKUP_FAILED": 14,
+      "IRQ_INVALID": 15,
+      "IRQ_INUSE": 16,
+      "IRQ_RELEASED": 17
+    }
+  },
+  "canonical_rm_smccc_transport": {
+    "call_chain": [
+      "gh_rm_iface.c -> gh_rm_call(rm,...) in rsc_mgr.c",
+      "rsc_mgr.c -> mailbox gunyah-msgq.c",
+      "gunyah-msgq.c -> arch/arm64/gunyah/gunyah_hypercall.c"
+    ],
+    "instruction": "hvc #0",
+    "function_id_formula": "(1<<31)|(1<<30)|(6<<24)|function_number",
+    "send": {
+      "function_number": "0x801b",
+      "x0": "0xc600801b",
+      "x1": "tx capability ID",
+      "x2": "message byte length",
+      "x3": "CPU virtual address of message bytes",
+      "x4": "PUSH bit0 or zero",
+      "x5": 0,
+      "results": {
+        "x0": "signed hypervisor status",
+        "x1": "nonzero means space remains after accepted send"
+      }
+    },
+    "receive": {
+      "function_number": "0x801c",
+      "x0": "0xc600801c",
+      "x1": "rx capability ID",
+      "x2": "CPU virtual address of writable buffer",
+      "x3": "buffer capacity in bytes",
+      "x4": 0,
+      "results": {
+        "x0": "signed hypervisor status",
+        "x1": "received byte count",
+        "x2": "nonzero means another message remains"
+      }
+    },
+    "address_semantics": "Both wrappers pass the original pointer cast to uintptr_t without virt_to_phys or DMA translation. The canonical receiver passes a local stack buffer. Kernel VA is supported by source evidence; substituting a physical address is not supported.",
+    "push": 1,
+    "capability_source": "Initial capabilities are 64-bit reg entries of gunyah-resource-manager: index0 TX, index1 RX. They are capability handles, not MMIO addresses. Hibernation obtains fresh handles from RM info area. No captured handle is a durable default.",
+    "prerequisites": "Source verifies the Gunyah SMCCC UUID then API version1 before RM probe. The live implementation must also establish valid boot capabilities, memory accessibility, IRQ/polling ownership and hypervisor compatibility."
+  },
+  "legacy_transport": {
+    "scope": "Distinct compatibility MSGQ and doorbell implementations coexist in the same kernel commit. Do not apply this calling convention to canonical RM merely because the headers are nearby.",
+    "instruction": "hvc #immediate; x0 starts with arg0, not a SMCCC function ID",
+    "register_contract": "Arguments x0-x7; response x0-x7; return status x0. Source clobbers x9-x18 (with conditional x18 save/restore for shadow call stack) and memory.",
+    "send": {
+      "immediate": "0x601b",
+      "arguments": {
+        "x0": "tx capability ID",
+        "x1": "byte length",
+        "x2": "CPU virtual buffer address",
+        "x3": "low32 send flags"
+      },
+      "results": {
+        "x0": "status",
+        "x1": "not_full"
+      }
+    },
+    "receive": {
+      "immediate": "0x601c",
+      "arguments": {
+        "x0": "rx capability ID",
+        "x1": "CPU virtual buffer address",
+        "x2": "capacity bytes"
+      },
+      "results": {
+        "x0": "status",
+        "x1": "received byte count",
+        "x2": "not_empty"
+      }
+    },
+    "doorbell_read_and_clean": {
+      "immediate": "0x6013",
+      "arguments": {
+        "x0": "rx doorbell capability ID",
+        "x1": "bits to clear"
+      },
+      "results": {
+        "x0": "status",
+        "x1": "previous unmasked flags"
+      },
+      "semantics": "Atomically reads prior flags and clears requested bits; pending bound virtual interrupt is deasserted. Caller output changes only when status is zero. The pinned fence driver invokes this path.",
+      "smccc_warning": "The fixed canonical hypercall source provides SMCCC BELL_SEND0x8012 and BELL_SET_MASK0x8015 but no bell receive wrapper. Do not infer or issue 0xc6008013 from a pattern."
+    }
+  },
+  "hypervisor_status": {
+    "OK": 0,
+    "UNIMPLEMENTED": -1,
+    "RETRY": -2,
+    "MSGQUEUE_EMPTY": 60,
+    "MSGQUEUE_FULL": 61,
+    "meaning": "Status is distinct from an RM reply err_code. A successful send with ready=false was accepted and must not be resent. EMPTY/FULL are flow-control outcomes; other errors require transport handling."
+  },
+  "validation_limits": [
+    "Only pinned source text and Git provenance were inspected.",
+    "No HVC/SMC, device reads or writes, RM request, memory reassignment or hardware-fence operation was executed.",
+    "No valid runtime capabilities, peer identity, Gunyah ownership, firmware compatibility or hardware completion is proven by this file."
+  ]
+}

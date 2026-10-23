@@ -20,13 +20,14 @@
 | 调试控制台 | 已验证 | USB CDC 串口传输与启动日志采集 |
 | 用户界面 | 已验证 | 可启动 Hello / 设置界面；完整系统功能仍在开发中 |
 | 显示与触控 | 已验证 | 设置界面铺满 1264×2780 面板，触控对齐；UIKit 使用缩放后的 1125×2436 画布 |
-| Wi-Fi | 尚不可用 | PCIe、BHI/BHIE、AMSS 和 QMI 资源请求已实测；当前等待固件就绪通知超时，扫描尚未运行 |
+| Wi-Fi | 联网尚未实测 | PCIe、BHI/BHIE、AMSS 和 QMI 资源请求已实测；最新实机运行在固件就绪之前的 QMP 打开阶段停止；关联、WPA2 与数据通路主机测试通过 |
 | GPU | 已接入准备服务 | A750 固件／RAM 准备、未激活 SMMU 页表及门控观察；尚无 GPU 执行与 Metal 加速 |
-| 音频、蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
+| 音频 | 已加入实验性运行时核心 | 固定固件 ADSP／PAS、GLINK／GPR、APM 和双 SIA9177 代码；原生资源／PCM provider 未完成，尚无实机播放或录音验证 |
+| 蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
 
-显示旋转、电源状态切换和应用兼容性仍需验证。Wi-Fi 关联、认证及网络数据传输尚未实现。
+显示旋转、电源状态切换和应用兼容性仍需验证。Wi-Fi 已加入单站关联、WPA2/WPA3-SAE、PMF、定向与后台扫描、基本漫游、REO 队列回收和 Ethernet 传输代码；本轮没有构建新内核，也没有实机验证这些改动。实现与限制见 [Wi-Fi 联网](docs/WIFI_NETWORK.md)，启动证据见 [固件就绪记录](docs/WIFI_FIRMWARE_READY.md)。
 
-详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
+详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)、[音频驱动进展](docs/AUDIO_BRINGUP.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
 
 ## 环境要求
 
@@ -82,6 +83,10 @@ bash scripts/test-ios16-wifi-runtime.sh
 ```
 
 运行时检查覆盖 PCI 配置、DMA 隔离、固件传输、扫描协议及显示边界。这些属于主机端测试，不能证明无线链路已工作。编译结果、镜像校验与实机结果应分别记录。
+
+Wi-Fi 的 MMIO、CPU/物理地址/IOVA、资源释放及 iOS 请求映射范围见 [Wi-Fi 映射层](docs/WIFI_MAPPING.md)。
+
+GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用后端见 [GPU 映射层](docs/GPU_MAPPING.md)。
 
 ## 仓库结构
 

@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-23",
+  "status": "boot-verified memory-panic fix; terminal CM3/SMMU read-write verified",
+  "ci": {
+    "repository": "tycykp/UniXNU-OnePlus-Ace5",
+    "run": 39850691157,
+    "commit": "206aa56484d5da3e47c8881f443e5de9b9639e1b",
+    "url": "https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/39850691157",
+    "conclusion": "success",
+    "profile": "gui",
+    "touch": true,
+    "wifi": true,
+    "gpu": true
+  },
+  "kernel_compilation_commit": "206aa56484d5da3e47c8881f443e5de9b9639e1b",
+  "packaging_source_commit": "12476be59c884ef60f18cd9287ed17695bb17884",
+  "checkout_head_observed_at_finalization": "8ea27a9f86d872529aff4075e521887ff696a3b8",
+  "fixed_source_inventory_sha256": "5c843a523d9b4ed63c50894a38b0075a9e01999e86d55312802afaf0319fc6d3",
+  "tracked_source_files_verified": 392,
+  "ci_artifact": {
+    "id": 12457766215,
+    "name": "ace5-ios16-xnu",
+    "bytes": 15086831,
+    "sha256": "664b517de1ced7cba1628902d586d6aba15467edd4c3089603395294644a0a60",
+    "digest_matched_github": true,
+    "zip_crc_verified": true,
+    "extracted_files_matched": true
+  },
+  "boot_image": {
+    "path": "out/ios16/gpu-memory-fix-boot-20261023-r2/giulia-ios16-wifi-pcie.img",
+    "bytes": 69292032,
+    "sha256": "d83cf8301fd0f057e9a0a223a81a397debd1a09c04c5fd9bb20c7962110d04db"
+  },
+  "image_layout": {
+    "header_version": 3,
+    "payload_offset": 2183168,
+    "payload_bytes": 67108864,
+    "padding_verified": true,
+    "embedded_payload_identical": true,
+    "bootshim_and_uefi_identical": true,
+    "fdt_payload_size_and_crc_verified": true
+  },
+  "raw_kernel_sha256": "79216d6c9bbb686e83338daba16c7f16e78d1e7a754571d9d60f4c7fd770c0d4",
+  "ci_rebased_kernel_sha256": "79216d6c9bbb686e83338daba16c7f16e78d1e7a754571d9d60f4c7fd770c0d4",
+  "embedded_kernel_sha256": "cd8a2ff92b20ed445871957b13281ca58fb28e17ccf78cb0dffd7725dac9537d",
+  "gpu_mode": 3,
+  "gpu_state": {
+    "power_acquired": false,
+    "smmu_active": false,
+    "gmu_started": false,
+    "hardware_ready": false,
+    "acceleration": false,
+    "host_memory_prepared": true,
+    "custom_cm3_execution_verified": true,
+    "smmu_ram_read_write_verified": true,
+    "stock_gmu_started": false
+  },
+  "firmware": {
+    "wifi": {
+      "segment": "__WIFI_FW",
+      "virtual_address": "0xfffffe000a178000",
+      "virtual_bytes": 22446080,
+      "file_offset": 17432576,
+      "bytes": 22438550,
+      "sha256": "5a84c3a28b23c7d0a3a94df89a52830f4b9d0807cd62e915f897774effcc41c5"
+    },
+    "gpu": {
+      "segment": "__GPU_FW",
+      "virtual_address": "0xfffffe000b6e0000",
+      "virtual_bytes": 229376,
+      "file_offset": 39878656,
+      "bytes": 221184,
+      "sha256": "a93cef06eed69c1de28021136f80306664068d563278adab6fd64695ee70e7de"
+    }
+  },
+  "root_binding_verified": true,
+  "userdata_rebuilt": false,
+  "userdata_flashed": false,
+  "development_adt_sha256": "1d45725260ef0f75e83e00bea4b2e92e28168a21d2734b53dbd290645b381bee",
+  "gpu_request_adt_sha256": "9aaeb50daefb1a1348a6656a540777f3fc219f0cbd4b070953c32e8f69bdf4a3",
+  "gpu_power_handoff": {
+    "version": 1,
+    "report_bytes": 256,
+    "stage": "requested-before-exit-boot-services",
+    "resources_retained_until_reset": true,
+    "hardware_verified": false,
+    "provider_waits_preemptible": false,
+    "gmu_execution": false,
+    "acceleration": false
+  },
+  "provider_waits_preemptible": false,
+  "ci_patch_files_compared": 79,
+  "ci_profile_matches_generated_source": true,
+  "matching_ci_host_tools": [
+    {
+      "name": "debug-terminal.cmd",
+      "sha256": "d95e2dd8d062eb1a405ebfb75d1a78b63ee91df652e08a7bb311b95d1f6adebb"
+    },
+    {
+      "name": "debug_terminal.py",
+      "sha256": "1210c5af90ecf9afecb9c6df330c67a2cab6d75e91f55a8484a1f3e752b69afc"
+    },
+    {
+      "name": "ios16_screen.py",
+      "sha256": "385e9125bd57298551263b4c8a55ad60ed51ab23ada8c913a4d395116cd43fd0"
+    },
+    {
+      "name": "terminal-requirements.txt",
+      "sha256": "0b81718d1cbe8a7696e45a9388c9205272b5e345cd79d0cf1ccfb7a9fd1925e9"
+    },
+    {
+      "name": "giulia_debug_abi.h",
+      "sha256": "e08811abf864ffcf1dbeb6c1ab99271696be57eea24914d8a0097d7d50c45592"
+    },
+    {
+      "name": "capture-debug.ps1",
+      "sha256": "38ba8f00a16a657f86fdcf883e3ef0089d283efa40aa538f60f39e9d446772c8"
+    }
+  ],
+  "validation": [
+    "CI mandatory GPU, Wi-Fi, screen and Setup checks",
+    "CI XNU compile, executable GPU symbols and DarwinBoot relocation",
+    "GitHub artifact SHA256, ZIP CRC and extracted-file comparison",
+    "Fixed Git source snapshot and generated/CI patch comparison",
+    "Exact CI-kernel to local Wi-Fi/GPU firmware embedding chain",
+    "FAT/kernel/ADT/trust-cache/root/configuration verification",
+    "UEFI build report and Android v3 payload/FDT binding"
+  ],
+  "phone_accessed": true,
+  "device_commands_executed": true,
+  "phone_booted": true,
+  "flash_performed": false,
+  "pending": [
+    "Device proof of UEFI CX/clocks, reset ordering and native firmware-call completion",
+    "GPU SMMU ownership/cache/fault adapters",
+    "Secure CX, PDC/RSC, interrupts/bandwidth and complete HWSCHED HFI",
+    "GPU command execution, fences, Metal and system composition",
+    "Device validation"
+  ],
+  "delivery_report": "out/ios16/gpu-memory-fix-boot-20261023-r2/delivery.json",
+  "device_evidence": "hardware/ios16-gpu-terminal-bringup.json"
+}

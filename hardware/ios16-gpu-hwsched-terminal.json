@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "status": "HFI tables and CORE_FW_START accepted; START awaiting owned GPU/GMU scratch allocation",
+  "kernel_recompiled": false,
+  "partition_flashed": false,
+  "gpu_submission_verified": false,
+  "metal_verified": false,
+  "evidence": {
+    "hfi_stress": {
+      "path": "out/ios16/gpu-hfi-stress-terminal/20261023-063723-143298/result.json",
+      "sha256": "0d8e5a3c8c6f96eae97fc7eaf455a4bddee73a58744a0321a707c1ed8676837d"
+    },
+    "nmi_read": {
+      "path": "out/ios16/gpu-nmi-read-terminal/20261023-064609-366683/result.json",
+      "sha256": "0406a0dcc2c2425b26a42af3922cbd113a28b8fc060dfcbf8aef60909ba63c47"
+    },
+    "hwsched_start": {
+      "path": "out/ios16/gpu-hwsched-start-terminal/20261023-065930-942285/result.json",
+      "sha256": "1c6468293ab1e6bd38d37ff140533b180655bc776ad0d561b85d5d4d68c6b600"
+    },
+    "failed_cmddb": {
+      "path": "out/ios16/gpu-cmddb-terminal/20261023-065339-144950/result.json",
+      "sha256": "efa0dafaf3b017ce6c1555816b266f34949749f47bb149c83011f1393e2c5798"
+    },
+    "recovery": {
+      "path": "out/ios16/gpu-hfi-device-20261023-recovery1/boot.json",
+      "sha256": "41dc9740e3743e10159ed4fb72b52104cde0458b1e993a0346637e14bf038162"
+    },
+    "panel_off": {
+      "path": "out/ios16/panel-display-terminal/20261023-065711-734746/result.json",
+      "sha256": "99a6f723c254d42d5ab230a167d20bc7ee901beae1892aa3655291ac330df8c4"
+    }
+  },
+  "accepted_commands": [
+    {
+      "id": 12,
+      "value": 1,
+      "status": 0
+    },
+    {
+      "id": 15,
+      "value": 0,
+      "status": null
+    },
+    {
+      "id": 3,
+      "value": 0,
+      "status": null
+    },
+    {
+      "id": 11,
+      "value": 0,
+      "status": 0
+    },
+    {
+      "id": 11,
+      "value": 0,
+      "status": 0
+    },
+    {
+      "id": 14,
+      "value": 0,
+      "status": null
+    },
+    {
+      "id": 12,
+      "value": 1,
+      "status": 0
+    }
+  ],
+  "pending_memory_request": {
+    "kind": "SCRATCH",
+    "bytes": 4096,
+    "flags": "0x33f",
+    "gmu_handle": 2,
+    "requires_gpu_mapping": true,
+    "requires_gmu_mapping": true
+  },
+  "final_cleanup": {
+    "reset_held": true,
+    "stream_faulted": true,
+    "context_disabled": true,
+    "tlb_synced": true,
+    "stock_tcm_retained": true,
+    "owned_ram_pinned_until_reboot": true
+  },
+  "nmi_restored": true,
+  "smmu_valid_fault": false,
+  "global_fault": 0,
+  "mailbox_test": {
+    "count": 15,
+    "passed": true,
+    "binary_sha256": "4f9058cf0cba12edbfaf2945b23be4e39b51f13efde9c90f231677c0f71ef910"
+  },
+  "hfi_stress_verified": true,
+  "nmi_read_verified": true,
+  "core_fw_start_verified": true,
+  "hwsched_start_verified": false,
+  "recovery_verified": true,
+  "panel_off_command_completed": true,
+  "failed_cmddb_read_verified": false
+}

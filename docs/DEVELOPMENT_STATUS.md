@@ -6,6 +6,46 @@ USB CDC 调试串口、userdata 的 HFSX 根卷读写挂载，以及 launchd 和
 2026-10-22：采用上游迁移基线和全量日志镜像后，用户确认已经出现 Hello／设置界面。
 原来的约 50% 迁移卡点已越过；触控芯片身份和触点报文已验证，完整设备功能尚未验收。
 
+## Wi-Fi 地址与 iOS 接口映射（2026-10-23，主机验证）
+
+Wi-Fi 运行时统一管理 12 类 MMIO 资源，补入访问边界、部分初始化回滚和停止时
+的释放流程。DMA 明确区分 CPU 地址、真实物理地址与 IOVA，连续分配绕过系统
+mapper；MHI、CE、QMI 各自验证分区，MHI 寄存器限制在 BAR 固定窗口，CE
+动态窗口拒绝地址截断。未确认 DMA 或 QMP 停止时继续保留对应资源。
+
+iOS 代理请求集中到可测试的映射层，按 20H392 实际 ABI 修正零长标量请求、
+PHY 字段顺序、扫描排队状态和跨客户端扫描游标，并检查完整输出容量。
+详细资源表、支持的请求和测试命令见 [Wi-Fi 映射层](WIFI_MAPPING.md)。
+
+该映射层阶段没有进行新的内核镜像构建或实机测试。
+
+2026-10-23 续接：最新实机记录在 QMP 远端请求打开通道时退出，尚未再次进入
+旧记录的 `FW_INIT_DONE` 等待；精确握手状态修复、QMI 内存分配修复见
+[固件就绪记录](WIFI_FIRMWARE_READY.md)。单站关联、WPA2-PSK/CCMP、密钥完成确认、
+TCL/WBM TX 与 RXDMA/REO RX、BSD Ethernet 和 iOS 请求已接入代码，主机测试覆盖
+认证门控、组播密钥更新、断连清理与真实运行时函数。尚未构建新内核、打包镜像或
+触发 CI，也没有新的射频、DHCP、DNS 或联网实测。实现及限制见 [Wi-Fi 联网](WIFI_NETWORK.md)。
+
+同日继续补入隐藏 SSID 定向扫描、连接中扫描、最多三次自动重连、按 RSSI 重新关联
+的基本漫游，以及等待真实 REO invalidate/flush 状态的队列复用。SAE group 19
+（H&P/H2E）、PMKID、WPA3 四次握手与 PMF/IGTK/SA Query 已接入生产路径。
+主机测试验证协议、内存所有权和实际运行时函数；完整支持范围和实机验收缺口仍以上述文档为准。
+
+## 音频板级映射（2026-10-23）
+
+后续已加入固定 ADSP 包／PAS、SMEM／GLINK／GPR、APM 图事务和双 SIA9177
+控制核心，可选 `--audio` 协调服务及本地固件嵌入路径。原厂扬声器图、22 组
+基线校准和动态模块均已取得。平台资源 lease、DSP 文件服务和物理 PCM／I2C
+provider 仍未完整绑定，实际启动与发声尚不可用。详见[音频驱动进展](AUDIO_BRINGUP.md)。
+
+已根据 Android 实机 DT、原厂 `16.0.3.500` 固件和固定版本的一加开源 BSP
+加入 ADSP／LPASS、WCD939x、双 SIA9177、IRQ／GPR／Audio ION 映射。
+WSA／WSA2／WSA884x 在本机被禁用；扬声器使用 secondary MI2S 和 I2C4 双功放。
+base／GUI profile 均接入 `audio.map`、`audio.status` 静态查询，当前
+`hardware_ready=0 playback=0 recording=0`。映射和固件完整性已通过离线校验，
+完整 XNU 目标编译、DSP 启动及播放／录音实机验证仍待完成。
+详见[音频映射](AUDIO_MAPPING.md)及[来源清单](../hardware/sm8650-audio.json)。
+
 ## Wi-Fi 固件传输：根端口 Bus Master 修复（2026-10-22）
 
 最新实机已通过 PCIe 枚举、SMMU、MSI、BHI/BHIE 下载和 AMSS 启动，MHI

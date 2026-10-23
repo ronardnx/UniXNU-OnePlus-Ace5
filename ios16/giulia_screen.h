@@ -9,6 +9,9 @@
 #define GSC_WIDTH 316u
 #define GSC_HEIGHT 695u
 #define GSC_FRAME_BYTES (GSC_WIDTH*GSC_HEIGHT*2u)
+#define GSC_MAX_WIDTH 1264u
+#define GSC_MAX_HEIGHT 2780u
+#define GSC_MAX_FRAME_BYTES (GSC_MAX_WIDTH*GSC_MAX_HEIGHT*2u)
 #define GSC_HEADER_BYTES 44u
 #define GSC_CHUNK_BYTES 1024u
 static const uint8_t gsc_magic[8]={0,'G','S','C','1',13,10,26};
@@ -30,12 +33,15 @@ static inline unsigned gsc_control(uint8_t *out,unsigned capacity,uint32_t id)
     gsc_u32(out+8,id?id:1);gsc_u32(out+12,2); /* verified stop/resync record */
     gsc_u32(out+40,gsc_crc(out+8,32));return GSC_HEADER_BYTES;
 }
-static inline unsigned gsc_packet(uint8_t *out,unsigned capacity,unsigned mps,
-    const uint8_t *frame,uint32_t id,unsigned snapshot,uint32_t offset,uint32_t frame_crc)
+static inline unsigned gsc_packet_size(uint8_t *out,unsigned capacity,unsigned mps,
+    const uint8_t *frame,uint32_t id,unsigned snapshot,uint32_t offset,uint32_t frame_crc,
+    unsigned width,unsigned height)
 {
+    if(!width || width>GSC_MAX_WIDTH || !height || height>GSC_MAX_HEIGHT)return 0;
+    unsigned total=width*height*2u;
     if(!out || !frame || !id || snapshot>1 || capacity<=GSC_HEADER_BYTES ||
-       (mps!=64 && mps!=512) || offset>=GSC_FRAME_BYTES)return 0;
-    unsigned n=GSC_FRAME_BYTES-offset;
+       (mps!=64 && mps!=512) || offset>=total)return 0;
+    unsigned n=total-offset;
     if(n>GSC_CHUNK_BYTES)n=GSC_CHUNK_BYTES;
     if(n>capacity-GSC_HEADER_BYTES)n=capacity-GSC_HEADER_BYTES;
     /* Every queued DWC3 transfer ends in a short packet, without padding. */
@@ -43,12 +49,15 @@ static inline unsigned gsc_packet(uint8_t *out,unsigned capacity,unsigned mps,
     if(!n)return 0;
     for(unsigned i=0;i<8;i++)out[i]=gsc_magic[i];
     gsc_u32(out+8,id);gsc_u32(out+12,snapshot);
-    out[16]=GSC_WIDTH&255;out[17]=GSC_WIDTH>>8;
-    out[18]=GSC_HEIGHT&255;out[19]=GSC_HEIGHT>>8;
-    gsc_u32(out+20,GSC_FRAME_BYTES);gsc_u32(out+24,offset);gsc_u32(out+28,n);
+    out[16]=width&255;out[17]=width>>8;
+    out[18]=height&255;out[19]=height>>8;
+    gsc_u32(out+20,total);gsc_u32(out+24,offset);gsc_u32(out+28,n);
     gsc_u32(out+32,gsc_crc(frame+offset,n));gsc_u32(out+36,frame_crc);
     gsc_u32(out+40,gsc_crc(out+8,32));
     for(unsigned i=0;i<n;i++)out[GSC_HEADER_BYTES+i]=frame[offset+i];
     return GSC_HEADER_BYTES+n;
 }
+static inline unsigned gsc_packet(uint8_t *out,unsigned capacity,unsigned mps,
+    const uint8_t *frame,uint32_t id,unsigned snapshot,uint32_t offset,uint32_t frame_crc)
+{return gsc_packet_size(out,capacity,mps,frame,id,snapshot,offset,frame_crc,GSC_WIDTH,GSC_HEIGHT);}
 #endif

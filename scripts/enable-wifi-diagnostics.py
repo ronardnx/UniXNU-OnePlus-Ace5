@@ -56,7 +56,10 @@ STATIC VOID GiuliaAppendWifiDiagnostic (CHAR8 *Line, UINTN Capacity)
 }
 
 '''
-pattern=r'\n#include "GiuliaWifiReport.h"\n(?:#include "GiuliaWifiEncoding.h"\n)?STATIC VOID GiuliaAppendWifiDiagnostic.*?\n}\n\n'
+# Other installers may insert an include between our headers and function.
+# Match the function independently; otherwise rebuilding with GPU enabled
+# appends a second definition instead of updating the existing helper.
+pattern=r'\nSTATIC VOID GiuliaAppendWifiDiagnostic \(CHAR8 \*Line, UINTN Capacity\)\n\{.*?\n}\n'
 if os.environ.get('GIULIA_WIFI_SNAPSHOT') == '1':
     # Same bounded space as v5; only a failed link substitutes a snapshot.
     # A distinct prefix prevents XNU from treating diagnostic words as a
@@ -75,9 +78,18 @@ if os.environ.get('GIULIA_WIFI_SNAPSHOT') == '1':
   }
   CopyMem(Extra,Prefix,AsciiStrLen(Prefix));''')
 if re.search(pattern,text,re.S):
-    text,count=re.subn(pattern,lambda _:helper,text,flags=re.S)
+    function=helper[helper.index('\nSTATIC VOID'):].rstrip()+'\n'
+    text,count=re.subn(pattern,lambda _:function,text,flags=re.S)
     if count!=1:raise ValueError('Ambiguous Wi-Fi diagnostic helper')
+    for header in ('GiuliaWifiReport.h','GiuliaWifiEncoding.h'):
+        include='#include "'+header+'"\n'
+        if text.count(include)>1:raise ValueError('Duplicate Wi-Fi diagnostic include')
+        if include not in text:
+            text=text.replace('\nSTATIC VOID GiuliaAppendWifiDiagnostic',
+                              '\n'+include+'STATIC VOID GiuliaAppendWifiDiagnostic',1)
 else:
+    if 'STATIC VOID GiuliaAppendWifiDiagnostic' in text:
+        raise ValueError('Unrecognized Wi-Fi diagnostic helper')
     lines=text.splitlines(True)
     at=max(i for i,line in enumerate(lines) if line.startswith('#include '))+1
     lines.insert(at,helper)

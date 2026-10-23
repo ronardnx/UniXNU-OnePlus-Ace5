@@ -1,4 +1,5 @@
-"""Apply GPU integration in GUI profiles both with and without Wi-Fi."""
+"""Apply GPU/audio integration with each optional Wi-Fi service profile."""
+from itertools import product
 from pathlib import Path
 import subprocess
 import sys
@@ -6,8 +7,9 @@ import tempfile
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
 from ios16_gpu_patch import gpu_patch
+from ios16_audio_patch import audio_patch
 
-for wifi in (False,True):
+for wifi,gpu,audio in product((False,True),repeat=3):
     with tempfile.TemporaryDirectory() as directory:
         folder=Path(directory)
         (folder/'iokit/conf').mkdir(parents=True)
@@ -25,14 +27,29 @@ for wifi in (False,True):
             (folder/'0076-giulia-wifi-runtime.patch').write_text('')
             (folder/'iokit/Kernel/arm').mkdir(parents=True)
             (folder/'iokit/Kernel/arm/GiuliaWiFi.cpp').write_text((ROOT/'ios16/GiuliaWiFi.cpp').read_text())
-        gpu_patch(folder,ROOT)
-        subprocess.run(['git','apply','--check',str(folder/'0077-giulia-gpu-runtime.patch')],cwd=folder,check=True)
-        subprocess.run(['git','apply',str(folder/'0077-giulia-gpu-runtime.patch')],cwd=folder,check=True)
+        patches=[]
+        if gpu:
+            gpu_patch(folder,ROOT)
+            patches.append('0077-giulia-gpu-runtime.patch')
+        if audio:
+            audio_patch(folder,ROOT)
+            patches.append('0084-giulia-audio-runtime.patch')
+        for patch in patches:
+            subprocess.run(['git','apply','--check',str(folder/patch)],cwd=folder,check=True)
+            subprocess.run(['git','apply',str(folder/patch)],cwd=folder,check=True)
         actual=(folder/'iokit/conf/files.arm64').read_text()
-        assert actual.count('GiuliaGPU.cpp')==1
+        assert actual.count('GiuliaGPU.cpp')==int(gpu)
+        assert actual.count('GiuliaAudio.cpp')==int(audio)
         assert ('GiuliaWiFi.cpp' in actual)==wifi
-        assert 'giulia_gpu_sha256.h' in (folder/'iokit/Kernel/arm/giulia_gpu_pack.h').read_text()
-        assert 'giulia_gpu_power_report.h' in (folder/'iokit/Kernel/arm/giulia_gpu_power_handoff.h').read_text()
+        if gpu:
+            assert 'giulia_gpu_sha256.h' in (folder/'iokit/Kernel/arm/giulia_gpu_pack.h').read_text()
+            assert 'giulia_gpu_power_report.h' in (folder/'iokit/Kernel/arm/giulia_gpu_power_handoff.h').read_text()
+            for name in ('giulia_gpu_memstore.h','giulia_gpu_memstore_mapping.h','giulia_gpu_secure_mapping.h',
+                         'giulia_gpu_ipcc_owner.h','giulia_gpu_fence.h','giulia_gpu_fence_provider.h',
+                         'giulia_gpu_fence_mapping.h','giulia_gpu_fence_impl.h'):
+                assert (folder/'iokit/Kernel/arm'/name).is_file()
         if wifi:
-            assert '#define GIULIA_GPU_QMP_GATE 1' in (folder/'iokit/Kernel/arm/GiuliaWiFi.cpp').read_text()
-print('GPU patch applies with default git context rules in both GUI profiles')
+            assert f'#define GIULIA_GPU_QMP_GATE {int(gpu)}' in (folder/'iokit/Kernel/arm/GiuliaWiFi.cpp').read_text()
+        if audio:
+            assert f'#define GIULIA_GPU_IPCC_GATE {int(gpu)}' in (folder/'iokit/Kernel/arm/GiuliaAudio.cpp').read_text()
+print('GPU/audio patches apply with default git context rules in all eight GUI profiles')

@@ -21,6 +21,15 @@ with tempfile.TemporaryDirectory() as folder:
     first=source.read_bytes()
     subprocess.run(command,check=True,capture_output=True)
     assert source.read_bytes()==first,'Helper installation is not idempotent'
+    # GPU installation can split the Wi-Fi include/function block. Re-running
+    # the Wi-Fi installer must preserve that include without a second helper.
+    source.write_text(first.decode().replace('#include "GiuliaWifiEncoding.h"\n',
+        '#include "GiuliaWifiEncoding.h"\n#include "GpuPowerHandoff.h"\n'))
+    interleaved=source.read_bytes()
+    subprocess.run(command,check=True,capture_output=True)
+    assert source.read_bytes()==interleaved
+    assert source.read_text().count('STATIC VOID GiuliaAppendWifiDiagnostic')==1
+    source.write_bytes(first)
     text=source.read_text()
     assert text.index('  GiuliaAppendWifiDiagnostic (') < text.index('  GiuliaAppendPowerDiagnostic (')
     helper=text[text.index('#include "GiuliaWifiReport.h"'):text.index('VOID Original')]

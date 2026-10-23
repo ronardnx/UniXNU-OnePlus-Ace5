@@ -119,7 +119,7 @@ class Screen(unittest.TestCase):
             self.assertFalse(wire.errors)
 
     def test_dimension_caps_and_malformed_header_are_bounded(self):
-        for width, height, flags, size in ((317, 1, 0, 2), (1, 696, 0, 2), (2, 1, 3, 4), (2, 1, 0, 1025)):
+        for width, height, flags, size in ((1265, 1, 0, 2), (1, 2781, 0, 2), (2, 1, 3, 4), (2, 1, 0, 1025)):
             header = screen.HEADER.pack(screen.MAGIC, 1, flags, width, height, width * height * 2,
                                         0, size, 0, 0, 0)
             header = header[:40] + struct.pack('<I', binascii.crc32(header[8:40]))
@@ -127,6 +127,32 @@ class Screen(unittest.TestCase):
             self.assertEqual(wire.feed(header + b'x' * 100000)[1], [])
             self.assertLessEqual(len(wire.pending), len(screen.MAGIC) - 1)
             self.assertEqual(wire.errors, 1)
+
+    def test_configured_dimensions_survive_fragmented_packets_and_resolution_changes(self):
+        wire = screen.ScreenWire()
+        for frame_id, width, height in ((10, 1024, 2), (11, 1, 1920), (12, 316, 695)):
+            pixels = bytes((i * 17 + 23) & 255 for i in range(width * height * 2))
+            data = b''.join(packet(pixels, offset=offset, size=min(1024, len(pixels) - offset),
+                                   frame_id=frame_id, width=width, height=height)
+                            for offset in range(0, len(pixels), 1024))
+            frames = []
+            for offset in range(0, len(data), 257):
+                logs, complete = wire.feed(data[offset:offset + 257])
+                self.assertFalse(logs)
+                frames.extend(complete)
+            self.assertEqual(frames, [(frame_id, 0, width, height, pixels)])
+            self.assertIsNone(wire.frame)
+        self.assertEqual(wire.errors, 0)
+
+    def test_png_accepts_configured_size_and_rejects_out_of_bounds_pixels(self):
+        png = screen.rgb565_png(1024, 1, b'\0\xf8' * 1024)
+        self.assertEqual(struct.unpack_from('>II', png, 16), (1024, 1))
+        for width, height, pixels in ((1265, 1, b'\0\0' * 1265),
+                                      (1, 2781, b'\0\0' * 2781),
+                                      (1024, 1, b'\0\0' * 1023),
+                                      (0, 1, b'')):
+            with self.subTest(width=width, height=height), self.assertRaises(ValueError):
+                screen.rgb565_png(width, height, pixels)
 
     def test_magic_inside_pixel_payload_and_multiple_live_frames(self):
         pixels = screen.MAGIC
@@ -174,7 +200,11 @@ class Screen(unittest.TestCase):
                     self.assertEqual(error.code, 404)
                     error.close()
                 with urlopen(viewer.url) as response:
-                    self.assertIn(b'setTimeout(update,300)', response.read())
+                    html = response.read()
+                    self.assertIn(b'/status', html)
+                    self.assertIn(b'/frame.png', html)
+                    self.assertIn(b'/control', html)
+                    self.assertNotIn(b'__VIEWER_TOKEN__', html)
                 store.receive((1, 0, 1, 1, b'\0\xf8'))
                 with urlopen(viewer.url + 'frame.png') as response:first = response.read()
                 store.receive((2, 0, 1, 1, b'\xe0\x07'))
@@ -251,7 +281,7 @@ class Screen(unittest.TestCase):
             text, complete = wire.feed(data[offset:offset + 257]); logs.extend(text); frames.extend(complete)
         self.assertEqual(len(frames), 1)
         self.assertEqual(frames[0][:4], (7, 0, 316, 695))
-        self.assertEqual(frames[0][4], bytes((i * 17 + 23) & 255 for i in range(screen.MAX_BYTES)))
+        self.assertEqual(frames[0][4], bytes((i * 17 + 23) & 255 for i in range(316 * 695 * 2)))
         self.assertTrue(logs.startswith(b'kernel before\n') and logs.endswith(b'kernel after\n'))
         self.assertNotIn(screen.MAGIC, logs)
         self.assertEqual(wire.errors, 0)

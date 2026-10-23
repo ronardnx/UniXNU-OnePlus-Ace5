@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "kernel_changed": false,
+  "new_kernel_compilations": 0,
+  "gpu_submission_verified": false,
+  "metal_verified": false,
+  "raw_cp_stages_disabled": [
+    "cp",
+    "cpv2",
+    "nop"
+  ],
+  "context_banks": {
+    "gpu": 0,
+    "gmu": 2,
+    "reserved_for_gpu": [
+      0,
+      1
+    ]
+  },
+  "evidence": {
+    "configuration": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-075110-600795/result.json",
+      "sha256": "e4f3d32045516217e276226163cb45d2b19f5e0adf5e781f2049b0ab95507d56",
+      "hwsched_start_accepted": true,
+      "register_setup_verified": true,
+      "gx_off": true,
+      "cleanup_confirmed": true
+    },
+    "nop_before_bank_fix": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-075223-269657/result.json",
+      "sha256": "e3ba06ffc5ffefd1e44b89d120055709ac154129ad0f886869afe5a98a849a48",
+      "hwsched_start_accepted": true,
+      "register_setup_verified": true,
+      "gx_off": false,
+      "cleanup_confirmed": false,
+      "nop_ack_received": false,
+      "observed_usb_after_failure": "05c6:900e",
+      "cp_init_not_reached": true,
+      "mem_write_not_reached": true
+    },
+    "configuration_corrected_banks": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-075814-603196/result.json",
+      "sha256": "f9a7490b3f86e62994e8e435f5d323c828134504c1769e61b6d8796386cfb4b3",
+      "hwsched_start_accepted": true,
+      "register_setup_verified": true,
+      "gx_off": true,
+      "cleanup_confirmed": true
+    },
+    "nop_corrected_banks": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-075909-934070/result.json",
+      "sha256": "b74b95ee5f7490ad7b65da2d3593c0377bac6f7dcb8b5bea07b0051bc020a40f",
+      "hwsched_start_accepted": true,
+      "register_setup_verified": true,
+      "gx_off": false,
+      "cleanup_confirmed": false,
+      "nop_ack_received": false,
+      "observed_usb_after_failure": "05c6:900e",
+      "cp_init_not_reached": true,
+      "mem_write_not_reached": true
+    }
+  },
+  "source_findings": {
+    "bank_constraint": "Vendor qcom_adreno_smmu_alloc_context_bank reserves 0/1 for GPU and starts non-GPU devices at 2",
+    "bank_fix_not_sufficient": true,
+    "gmu_core_version": "4.2.20",
+    "gmu_core_version_raw": "0x40020014",
+    "gmu_owns_all_rbbm_irq_version_threshold": "5.1.6",
+    "irq_ownership_not_yet_implemented": true,
+    "no_root_cause_proven": true,
+    "remaining_candidates": [
+      "GPU instruction-fetch/translation path",
+      "complete hardware/security prerequisites",
+      "firmware-driven command dispatch and fault handling"
+    ]
+  },
+  "sources": [
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c"
+    },
+    {
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/graphics-kernel/adreno_gen7_hwsched.c"
+    }
+  ],
+  "recovery": {
+    "path": "out/ios16/gpu-dev-device-20261023-recovery3/boot.json",
+    "device_preparation_passed": true,
+    "display_off_command_completed": true,
+    "same_image_sha256": "406e4220a0657ad265fa719b99b9e1e46b59caf3b4caaf236fe3b2eae761f0b5"
+  },
+  "offline_checks": {
+    "gen7_configuration_tests": 2,
+    "native_transport_tests": 4,
+    "passed": true
+  }
+}

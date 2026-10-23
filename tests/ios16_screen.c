@@ -9,13 +9,17 @@ static unsigned captures,enabled=1,available=1;
 static int gs_enabled(void){return (int)enabled;}
 static uint64_t mach_absolute_time(void){return fake_ms*1000000;}
 static void absolutetime_to_nanoseconds(uint64_t x,uint64_t *out){*out=x;}
-static int giulia_screen_capture(uint8_t *out,size_t n,unsigned *width,unsigned *height)
+static int giulia_screen_capture_size(uint8_t *out,size_t n,unsigned *width,unsigned *height,unsigned max_size)
 {
     if(!available)return 0;
-    assert(n==GSC_FRAME_BYTES);captures++;*width=GSC_WIDTH;*height=GSC_HEIGHT;
-    for(unsigned i=0;i<n;i++)out[i]=(uint8_t)(i*17u+23u);
+    assert(n==GSC_MAX_FRAME_BYTES);captures++;*width=GSC_MAX_WIDTH*max_size/GSC_MAX_HEIGHT;*height=max_size;
+    for(unsigned i=0;i<*width * *height * 2;i++)out[i]=(uint8_t)(i*17u+23u);
     return 1;
 }
+static unsigned giulia_remote_ready(void){return 0;}
+static int giulia_remote_touch(unsigned d,unsigned x,unsigned y){(void)d;(void)x;(void)y;return 0;}
+static int giulia_remote_hid(unsigned p,unsigned u,unsigned d){(void)p;(void)u;(void)d;return 0;}
+#include "../ios16/giulia_input.inc"
 #include "../ios16/giulia_screen.inc"
 static uint32_t le32(const uint8_t *p)
 {return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
@@ -51,6 +55,9 @@ int main(int argc,char **argv)
     assert(!gsc_packet(buffer,2047,512,frame,0,0,0,0));
     assert(!gsc_packet(buffer,2047,512,frame,1,2,0,0));
     assert(!gsc_packet(buffer,2047,512,frame,1,0,GSC_FRAME_BYTES,0));
+    assert(!gsc_packet_size(buffer,2047,512,frame,1,0,0,0,1265,2780));
+    assert(!gsc_packet_size(buffer,2047,512,frame,1,0,0,0,1264,2781));
+    assert(!gsc_packet_size(buffer,2047,512,frame,1,0,0,0,0,695));
     unsigned length=0;
     assert(gscreen_command("screen.start") && gscreen.live);
     unsigned sent=0,yields=0;
@@ -76,6 +83,23 @@ int main(int argc,char **argv)
     assert(!gscreen_transmit(buffer,2047,&length) && !gscreen.active && !gscreen.requested);
     available=1;assert(gscreen_command("screen.start"));gscreen_disconnect();
     assert(!gscreen_transmit(buffer,2047,&length) && !gscreen.live);
-    puts("Screen protocol: CRC/LE metadata, short packets, bounds, log interleave, 1fps, snapshot, stop and disconnect passed");
+    assert(gscreen_command("screen.configure 159 30") && gscreen.max_size==695);
+    assert(gscreen_command("screen.configure 2781 30") && gscreen.max_size==695);
+    assert(gscreen_command("screen.configure 2780 0") && gscreen.max_fps==1);
+    assert(gscreen_command("screen.configure 2780 31") && gscreen.max_fps==1);
+    assert(gscreen_command("screen.configure 1080 30 trailing") && gscreen.max_size==695);
+    assert(gscreen_command("screen.configure 1080 30") && gscreen.max_size==1080 && gscreen.max_fps==30);
+    assert(gscreen_command("screen.start"));
+    assert(gscreen_transmit(buffer,2047,&length) && gscreen.width==491 && gscreen.height==1080);
+    assert(le32(buffer+20)==491u*1080u*2u && gscreen.next_ms==fake_ms+34);
+    /* Changing a setting cannot change metadata halfway through a frame. */
+    assert(gscreen_command("screen.configure 2780 15"));
+    assert(!gscreen_transmit(buffer,2047,&length));
+    assert(gscreen_transmit(buffer,2047,&length) && le32(buffer+20)==491u*1080u*2u);
+    gscreen_disconnect();assert(gscreen_command("screen.start"));
+    assert(gscreen_transmit(buffer,2047,&length) && gscreen.width==1264 && gscreen.height==2780);
+    assert(le32(buffer+20)==GSC_MAX_FRAME_BYTES && le32(buffer+36)==gsc_crc(gscreen.frame,GSC_MAX_FRAME_BYTES));
+    gscreen_disconnect();
+    puts("Screen protocol: CRC/LE metadata, short packets, bounds, log interleave, configurable size/FPS, frame boundaries, stop and disconnect passed");
     return 0;
 }

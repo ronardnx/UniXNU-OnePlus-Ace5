@@ -6,7 +6,7 @@
 #include "../ios16/giulia_gpu_memory.h"
 #include "../ios16/giulia_gpu_power.h"
 
-struct fake { unsigned calls, last_window, fail; uint32_t cfg,cx,clock; };
+struct fake { unsigned calls, last_window, fail; uint32_t cfg,cx,clock; unsigned ahb_zero; };
 static int read_reg(void *cookie,unsigned window,uint32_t offset,uint32_t *value)
 {
     struct fake *f=cookie;
@@ -17,6 +17,7 @@ static int read_reg(void *cookie,unsigned window,uint32_t offset,uint32_t *value
     if (window==GGP_GPUCC) {
         if (offset==0x9108) *value=0;
         else if (offset==0x9168) *value=f->cx;
+        else if(offset==0x911c && f->ahb_zero)*value=0;
         else *value=f->clock;
     }
     return 0;
@@ -24,10 +25,15 @@ static int read_reg(void *cookie,unsigned window,uint32_t offset,uint32_t *value
 
 int main(int argc,char **argv)
 {
-    struct fake f={0,0,0,1,1u<<31,1};
+    struct fake f={0,0,0,1,1u<<31,1,0};
     struct ggp_io io={&f,read_reg}; struct ggp_report report;
     unsigned calls,i;
     ggp_observe(&io,&report); assert(report.stage==GGP_OBSERVED && report.valid_fields==0x1fff); calls=f.calls;
+    /* Captured Ace 5: AHB CBCR reads zero (including after enable), while
+     * separately enabled SMMU/GCC gates allow actual SMMU and TCM access. */
+    f.ahb_zero=1;ggp_observe(&io,&report);
+    assert(report.stage==GGP_OBSERVED && report.ahb==0 && report.valid_fields==0x1fff);
+    f.ahb_zero=0;
     for (i=1;i<=calls;++i) {
         f.calls=0;f.fail=i;ggp_observe(&io,&report);
         assert(report.stage==GGP_IO_ERROR && f.calls==i);

@@ -61,7 +61,10 @@ static inline void ggp_observe(const struct ggp_io *io, struct ggp_report *r)
     if (!ggp_read(io,r,GGP_GPUCC,0x911c,&r->ahb) ||
         !ggp_read(io,r,GGP_GPUCC,0x7000,&r->smmu_clock) ||
         !ggp_read(io,r,GGP_GPUCC,0x913c,&r->gmu_clock)) return;
-    if (!ggp_expect(r,GGP_CLOCK_OFF,GGP_GPUCC,0x911c,r->ahb,0x80000001,1) ||
+    /* Pineapple AHB is BRANCH_HALT_DELAY. Ace 5 reads CBCR=0 even after
+     * an enable write while SMMU/TCM accesses work; bit 0 is not an access
+     * prerequisite. Keep halt, CX and the independently voted gates checked. */
+    if (!ggp_expect(r,GGP_CLOCK_OFF,GGP_GPUCC,0x911c,r->ahb,0x80000000,0) ||
         !ggp_expect(r,GGP_CLOCK_OFF,GGP_GPUCC,0x7000,r->smmu_clock,0x80000001,1) ||
         !ggp_expect(r,GGP_CLOCK_OFF,GGP_GCC,0x10,r->memnoc,0x80000001,1) ||
         !ggp_expect(r,GGP_CLOCK_OFF,GGP_GCC,0x18,r->dvm,0x80000001,1)) return;

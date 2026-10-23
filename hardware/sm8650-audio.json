@@ -1,0 +1,2315 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "board": "giulia",
+  "model": "OnePlus Ace 5 / PKG110",
+  "soc": "SM8650",
+  "status": "board-mapping-only",
+  "hardware_validated": false,
+  "playback": false,
+  "recording": false,
+  "source_commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+  "source_release": "PKG110_16.0.9.400(CN01)",
+  "firmware_release": "PKG110_16.0.3.500(CN01)",
+  "release_note": "BSP and local firmware releases differ. Addresses/topology were cross-checked against the captured live Android DT; no ABI or runtime compatibility is implied.",
+  "android_device_tree": {
+    "path": "../ace5-analysis/running-device.dtb",
+    "sha256": "1f32afa0b9ec436bdad9726c557dc9abdd35b629531f9593002f5ed886447d9b",
+    "decoded_path": "../ace5-analysis/running-device.dts",
+    "decoded_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1"
+  },
+  "regions": [
+    {
+      "id": "ADSP",
+      "node": "remoteproc-adsp@03000000",
+      "dt_property": "reg",
+      "dt_cells": [
+        50331648,
+        65536
+      ],
+      "base": 50331648,
+      "bytes": 65536,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "IPCC",
+      "node": "qcom,ipcc@406000",
+      "dt_property": "reg",
+      "dt_cells": [
+        4218880,
+        4096
+      ],
+      "base": 4218880,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "APPS_SMMU",
+      "node": "apps-smmu@15000000",
+      "dt_property": "reg",
+      "dt_cells": [
+        352321536,
+        1048576,
+        354410496,
+        64
+      ],
+      "base": 352321536,
+      "bytes": 1048576,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "RX",
+      "node": "rx-macro@6AC0000",
+      "dt_property": "reg",
+      "dt_cells": [
+        111935488,
+        0
+      ],
+      "base": 111935488,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "lpass-cdc-rx-macro.c: RX_MACRO_MAX_OFFSET"
+    },
+    {
+      "id": "TX",
+      "node": "tx-macro@6AE0000",
+      "dt_property": "reg",
+      "dt_cells": [
+        112066560,
+        0
+      ],
+      "base": 112066560,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "lpass-cdc-tx-macro.c: TX_MACRO_MAX_OFFSET"
+    },
+    {
+      "id": "VA",
+      "node": "va-macro@6D44000",
+      "dt_property": "reg",
+      "dt_cells": [
+        114573312,
+        0
+      ],
+      "base": 114573312,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "lpass-cdc-va-macro.c: VA_MACRO_MAX_OFFSET"
+    },
+    {
+      "id": "RX_SWR",
+      "node": "rx_swr_master",
+      "dt_property": "swrm-io-base",
+      "dt_cells": [
+        112001024,
+        0
+      ],
+      "base": 112001024,
+      "bytes": 24744,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "swr-mstr-ctrl.c: SWRM_MAX_REGISTER with CONFIG_SWRM_VER_2P0"
+    },
+    {
+      "id": "VA_SWR",
+      "node": "va_swr_master",
+      "dt_property": "swrm-io-base",
+      "dt_cells": [
+        114491392,
+        0
+      ],
+      "base": 114491392,
+      "bytes": 24744,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "swr-mstr-ctrl.c: SWRM_MAX_REGISTER with CONFIG_SWRM_VER_2P0"
+    },
+    {
+      "id": "LPI_GPIO",
+      "node": "lpi_pinctrl@6E80000",
+      "dt_property": "reg",
+      "dt_cells": [
+        115867648,
+        0
+      ],
+      "base": 115867648,
+      "bytes": 131072,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "pinctrl-lpi.c: LPI_ADDRESS_SIZE"
+    },
+    {
+      "id": "SPEAKER_I2C4",
+      "node": "i2c@99c000",
+      "dt_property": "reg",
+      "dt_cells": [
+        10076160,
+        16384
+      ],
+      "base": 10076160,
+      "bytes": 16384,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "WCD_USB_I2C",
+      "node": "i2c@a8c000",
+      "dt_property": "reg",
+      "dt_cells": [
+        11059200,
+        16384
+      ],
+      "base": 11059200,
+      "bytes": 16384,
+      "kind": "mmio",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "WSA",
+      "node": "wsa-macro@6B00000",
+      "dt_property": "reg",
+      "dt_cells": [
+        112197632,
+        0
+      ],
+      "base": 112197632,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": false,
+      "length_source": "lpass-cdc-wsa-macro.c: macro max offset; disabled board path"
+    },
+    {
+      "id": "WSA2",
+      "node": "wsa2-macro@6AA0000",
+      "dt_property": "reg",
+      "dt_cells": [
+        111804416,
+        0
+      ],
+      "base": 111804416,
+      "bytes": 4096,
+      "kind": "mmio",
+      "enabled": false,
+      "length_source": "lpass-cdc-wsa2-macro.c: macro max offset; disabled board path"
+    },
+    {
+      "id": "WSA_SWR",
+      "node": "wsa_swr_master",
+      "dt_property": "swrm-io-base",
+      "dt_cells": [
+        112263168,
+        0
+      ],
+      "base": 112263168,
+      "bytes": 24744,
+      "kind": "mmio",
+      "enabled": false,
+      "length_source": "swr-mstr-ctrl.c: SWRM_MAX_REGISTER; ancestor disabled"
+    },
+    {
+      "id": "WSA2_SWR",
+      "node": "wsa2_swr_master",
+      "dt_property": "swrm-io-base",
+      "dt_cells": [
+        111869952,
+        0
+      ],
+      "base": 111869952,
+      "bytes": 24744,
+      "kind": "mmio",
+      "enabled": false,
+      "length_source": "swr-mstr-ctrl.c: SWRM_MAX_REGISTER; ancestor disabled"
+    },
+    {
+      "id": "ADSP_DTB",
+      "node": "q6_adsp_dtb_region@9de80000",
+      "dt_property": "reg",
+      "dt_cells": [
+        0,
+        2649227264,
+        0,
+        524288
+      ],
+      "base": 2649227264,
+      "bytes": 524288,
+      "kind": "reserved",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    },
+    {
+      "id": "ADSP_RAM",
+      "node": "adspslpi_region@9df00000",
+      "dt_property": "reg",
+      "dt_cells": [
+        0,
+        2649751552,
+        0,
+        86507520
+      ],
+      "base": 2649751552,
+      "bytes": 86507520,
+      "kind": "reserved",
+      "enabled": true,
+      "length_source": "captured Android DT"
+    }
+  ],
+  "mapping_notes": [
+    "Sizes of zero-length DT macro/SWR/LPI nodes come from pinned driver ioremap arguments, not inferred page sizes.",
+    "SWR size 0x60a8 is the literal vendor ioremap length. The register at offset 0x60a8 is outside it; page padding does not enlarge accessible bounds.",
+    "Reserved ADSP ranges are firmware-owned RAM, not XNU allocations. IOVA ranges and SID masks describe Android, not an installed XNU DMA domain.",
+    "SoundWire device addresses and I2C slave addresses are separate from AP MMIO. Android enabled status does not prove device probe, ownership or audio operation."
+  ],
+  "gic_interrupts": [
+    {
+      "name": "ADSP_WDOG_VIA_PDC6",
+      "spi": 486,
+      "intid": 518
+    },
+    {
+      "name": "IPCC",
+      "spi": 229,
+      "intid": 261
+    },
+    {
+      "name": "RX_SWR",
+      "spi": 155,
+      "intid": 187
+    },
+    {
+      "name": "VA_SWR",
+      "spi": 496,
+      "intid": 528
+    },
+    {
+      "name": "VA_SWR_WAKE",
+      "spi": 520,
+      "intid": 552
+    },
+    {
+      "name": "SPEAKER_I2C4",
+      "spi": 471,
+      "intid": 503
+    },
+    {
+      "name": "WCD_USB_I2C",
+      "spi": 356,
+      "intid": 388
+    }
+  ],
+  "transport": {
+    "remote_pid": 2,
+    "ipcc_client": 3,
+    "ipcc_signal": 0,
+    "gpr_domain": 2,
+    "gpr_apps_domain": 3,
+    "gpr_channel": "adsp_apps",
+    "services": {
+      "spf_core": 3,
+      "audio_packet": 23,
+      "prm": 7
+    },
+    "audio_packet_channel": "apr_audio_svc",
+    "smp2p": {
+      "ipcc_signal": 2,
+      "smem_in": 443,
+      "smem_out": 429,
+      "fatal_bit": 0,
+      "handover_bit": 2,
+      "ready_bit": 1,
+      "stop_ack_bit": 3
+    },
+    "interrupt_note": "ADSP wdog is PDC6 translated using DT PDC range to GIC SPI486; remaining ADSP notifications are SMP2P bits, not GIC INTIDs."
+  },
+  "audio_dma": {
+    "iova_base": 268435456,
+    "iova_bytes": 268435456,
+    "streams": [
+      {
+        "sid": 4097,
+        "mask": 128
+      },
+      {
+        "sid": 4193,
+        "mask": 0
+      }
+    ],
+    "sid_mask_property": [
+      0,
+      15
+    ],
+    "xnu_owned": false
+  },
+  "bus_devices": [
+    {
+      "name": "SIA9177-left",
+      "bus": "i2c4",
+      "address": 108,
+      "reset_gpio": 173
+    },
+    {
+      "name": "SIA9177-right",
+      "bus": "i2c4",
+      "address": 109,
+      "reset_gpio": 178
+    },
+    {
+      "name": "WCD939x-RX",
+      "bus": "rx-soundwire",
+      "address": 60147827236,
+      "reset_gpio": 107
+    },
+    {
+      "name": "WCD939x-TX",
+      "bus": "va-soundwire",
+      "address": 60147827235,
+      "reset_gpio": 107
+    },
+    {
+      "name": "WCD939x-USB-switch",
+      "bus": "i2c@a8c000",
+      "address": 14
+    }
+  ],
+  "source_details": {
+    "board": {
+      "project_ids": [
+        23851,
+        23867
+      ],
+      "machine_compatible": "qcom,pineapple-asoc-snd",
+      "speaker_vendor": "sipa91xx",
+      "speaker_model": "sia9177",
+      "speaker_i2s_id": 1,
+      "speaker_interface": "secondary MI2S",
+      "speaker_i2c_bus_alias": 4,
+      "speaker_i2c_addresses": [
+        108,
+        109
+      ],
+      "speaker_reset_tlmm_gpios": [
+        173,
+        178
+      ],
+      "speaker_codec_names": [
+        "sipa.4-006c",
+        "sipa.4-006d"
+      ],
+      "speaker_codec_dai_names": [
+        "sia91xx-aif-4-6c",
+        "sia91xx-aif-4-6d"
+      ],
+      "lpass_macro_count": 3,
+      "wsa_max_devs": 0,
+      "disabled": [
+        "wsa_macro",
+        "wsa2_macro",
+        "wsa884x_0220",
+        "wsa884x_0221",
+        "wsa884x_2_0220",
+        "wsa884x_2_0221"
+      ],
+      "sources": [
+        "vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dts",
+        "vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dtsi",
+        "vendor/qcom/proprietary/audio-devicetree/oplus/pineapple-audio-overlay-common.dtsi",
+        "vendor/oplus/kernel/audio/qcom/audio_extend_drv.c",
+        "vendor/qcom/opensource/audio-kernel/asoc/pineapple.c"
+      ]
+    },
+    "driver_mapping_lengths": [
+      {
+        "name": "RX macro",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-rx-macro.c",
+        "definition_line": 50,
+        "ioremap_line": 4892
+      },
+      {
+        "name": "TX macro",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-tx-macro.c",
+        "definition_line": 22,
+        "ioremap_line": 2090
+      },
+      {
+        "name": "VA macro",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-va-macro.c",
+        "definition_line": 27,
+        "ioremap_line": 2505
+      },
+      {
+        "name": "WSA macro (disabled)",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa-macro.c",
+        "definition_line": 28,
+        "ioremap_line": 4046
+      },
+      {
+        "name": "WSA2 macro (disabled)",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa2-macro.c",
+        "definition_line": 28,
+        "ioremap_line": 3940
+      },
+      {
+        "name": "SWR master",
+        "bytes": 24744,
+        "hex": "0x60a8",
+        "source": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.c",
+        "ioremap_line": 3315,
+        "definition_source": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-registers.h",
+        "definition_line": 137,
+        "formula": "SWRM_TO_CPU_SW_MESSAGE_READ(2,2) = 0x40a0 + 0x1000*2 + 4*2",
+        "config_source": "vendor/qcom/opensource/audio-kernel/config/pineappleautoconf.h",
+        "config_line": 24,
+        "config": "CONFIG_SWRM_VER_2P0=1",
+        "note": "Exact length passed to devm_ioremap in vendor source, not an independently measured MMIO aperture or permission to access. Preserve raw DT size 0 separately. Last 32-bit register named by this macro would extend four bytes beyond literal length; do not round up silently."
+      },
+      {
+        "name": "SWR hctl",
+        "bytes": 4,
+        "source": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.c",
+        "ioremap_line": 3322
+      },
+      {
+        "name": "RX muxsel",
+        "bytes": 4,
+        "source": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-rx-macro.c",
+        "ioremap_line": 4899
+      },
+      {
+        "name": "LPI pinctrl",
+        "bytes": 131072,
+        "source": "vendor/qcom/opensource/audio-kernel/soc/pinctrl-lpi.c",
+        "definition_line": 32,
+        "ioremap_line": 807
+      },
+      {
+        "name": "LPI slew",
+        "bytes": 4096,
+        "source": "vendor/qcom/opensource/audio-kernel/soc/pinctrl-lpi.c",
+        "definition_line": 33,
+        "ioremap_line": 773
+      }
+    ],
+    "adsp": {
+      "source": "drivers/remoteproc/qcom_q6v5_pas.c",
+      "start_line": 2268,
+      "end_line": 2281,
+      "compatible": "qcom,pineapple-adsp-pas",
+      "firmware_name": "adsp.mdt",
+      "dtb_firmware_name": "adsp_dtb.mdt",
+      "pas_id": 1,
+      "dtb_pas_id": 36,
+      "crash_reason_smem": 423,
+      "minidump_id": 5,
+      "uses_elf64": true,
+      "auto_boot": false,
+      "ssr_name": "lpass",
+      "sysmon_name": "adsp",
+      "qmp_name": "adsp",
+      "ssctl_id": 20
+    },
+    "glink": {
+      "source": "drivers/rpmsg/qcom_glink_smem.c",
+      "descriptor_smem_id": 478,
+      "tx_fifo_smem_id": 479,
+      "rx_fifo_smem_id": 480,
+      "audio_channel": "adsp_apps"
+    },
+    "gpr": {
+      "sources": [
+        "vendor/qcom/opensource/audio-kernel/include/bindings/qcom,gpr.h",
+        "vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h",
+        "vendor/qcom/proprietary/audio-devicetree/pineapple-audio.dtsi",
+        "vendor/qcom/opensource/audio-kernel/dsp/spf-core.c",
+        "vendor/qcom/opensource/audio-kernel/dsp/audio_prm.c",
+        "vendor/qcom/opensource/audio-kernel/include/dsp/audio_prm.h"
+      ],
+      "domain_adsp": 2,
+      "domain_apps": 3,
+      "spf_core_src_port": 3,
+      "audio_prm_src_port": 7,
+      "audio_pkt_service_id": 23,
+      "audio_pkt_channel_name": "apr_audio_svc",
+      "header_bytes": 24,
+      "apm_module_instance_id": 1,
+      "prm_module_instance_id": 2,
+      "apm_cmd_get_spf_state": 16781345,
+      "apm_cmd_rsp_get_spf_state": 33558535,
+      "gpr_basic_response_opcode": 33558533,
+      "prm_cmd_request_hw_rsc": 16781327,
+      "prm_cmd_release_hw_rsc": 16781328,
+      "secondary_mi2s_ibit_clock_id": 258,
+      "secondary_mi2s_ebit_clock_id": 259,
+      "note": "Service IDs, DSP module instance IDs, codec stream IDs, and SoundWire port type IDs are separate number spaces."
+    },
+    "wcd939x": {
+      "bus": "SoundWire",
+      "ap_mmio": false,
+      "regmap_bus_slave": "tx",
+      "register_address_bits": 16,
+      "register_value_bits": 8,
+      "tx_slave_dt_reg_cells": [
+        14,
+        18285091
+      ],
+      "rx_slave_dt_reg_cells": [
+        14,
+        18285092
+      ],
+      "chip_id_registers": [
+        13313,
+        13314,
+        13315,
+        13316
+      ],
+      "hphl_scale_register": 13601,
+      "hphl_alpha_register": 13602,
+      "hphr_scale_register": 13605,
+      "hphr_alpha_register": 13606,
+      "board_scale": 8,
+      "board_alpha": 207,
+      "sources": [
+        "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x.c",
+        "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-regmap.c",
+        "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-registers.h",
+        "vendor/qcom/opensource/audio-kernel/soc/regmap-swr.c"
+      ],
+      "regmap_init_line": 5316,
+      "note": "WCD939x SoundWire codec is distinct from qcom,wcd939x-i2c USB-C switch at I2C address 0x0e."
+    },
+    "sia9177": {
+      "bus": "I2C",
+      "register_address_bits": 8,
+      "register_value_bits": 16,
+      "chip_id_register": 6,
+      "chip_id_ranges": [
+        [
+          22656,
+          22656
+        ],
+        [
+          22672,
+          22673
+        ],
+        [
+          22688,
+          22689
+        ]
+      ],
+      "status_register": 8,
+      "irq_write_clear_register": 9,
+      "irq_register": 10,
+      "irq_enable_register": 17,
+      "efuse_register": 35,
+      "ivadc_conf2_register": 43,
+      "flash_register": 111,
+      "firmware_name": "sipa.bin",
+      "firmware_format_version": 65541,
+      "sources": [
+        "vendor/oplus/kernel/audio/codecs/sipa/sipa_regmap.c",
+        "vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.h",
+        "vendor/oplus/kernel/audio/codecs/sipa/sipa.c",
+        "vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.c",
+        "vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.h",
+        "vendor/oplus/kernel/audio/build.mk"
+      ],
+      "chip_id_definition_line": 114,
+      "note": "Driver has multiple other amplifier families; only CHIP_TYPE_SIA9177 ID ranges are included. Init/startup/shutdown/SRAM sequences are firmware data driven, not inferred from generic defaults."
+    }
+  },
+  "firmware": {
+    "container": {
+      "path": "NON-HLOS.bin",
+      "bytes": 313634816,
+      "sha256": "1964e1f89b887b3c1d5e2bfef5583d50f61f903cb14106a648341963d5b072f0"
+    },
+    "images": [
+      {
+        "path": "adsp.mdt",
+        "base": 2649751552,
+        "bytes": 86507520,
+        "pas_id": 1
+      },
+      {
+        "path": "adsp_dtb.mdt",
+        "base": 2649227264,
+        "bytes": 524288,
+        "pas_id": 36
+      }
+    ],
+    "files": [
+      {
+        "path": "adsp.mdt",
+        "bytes": 8364,
+        "sha256": "d6646787974ec02dc565ddb93c82ef382453af1cceabebbfa15e8a61635d50de"
+      },
+      {
+        "path": "adsp.b01",
+        "bytes": 21032,
+        "sha256": "e5b65995f625b7c08533f589765c53bd6fa4fa6012a60e789dfb3abfbda35327"
+      },
+      {
+        "path": "adsp.b02",
+        "bytes": 131532,
+        "sha256": "fd04f81ec4bbfff2297d132c69fc2a6db70d42b0f778dd065a5741f2c95b2ca7"
+      },
+      {
+        "path": "adsp.b03",
+        "bytes": 88232,
+        "sha256": "53eda52e7ce9e1a16dc1ec37921b54610045ef9195cd994d7b9ff88522743a89"
+      },
+      {
+        "path": "adsp.b04",
+        "bytes": 28084,
+        "sha256": "6f7368a04b51c4be803fdfc09b4b711cf04157ca9ef0df14884dabc6830c09cd"
+      },
+      {
+        "path": "adsp.b05",
+        "bytes": 51280,
+        "sha256": "e2fbbd2ecde76d1977c5e2635807326be694596fc44054f6d114c99acd255987"
+      },
+      {
+        "path": "adsp.b06",
+        "bytes": 733184,
+        "sha256": "d0722caf2a5ac6eeb2c33d3d33fb2a3d49b329c9742318c52b04af0f6e2d8808"
+      },
+      {
+        "path": "adsp.b07",
+        "bytes": 240,
+        "sha256": "913f2f1c676b8f7afa16d21f5eb92578ea5bf8eda9a3f8ee352ec2ffd1b43a8a"
+      },
+      {
+        "path": "adsp.b08",
+        "bytes": 9732,
+        "sha256": "43ce90eead9e9c71c01d98fd98ae12a852d28fb4a6f02d57db923e326540237d"
+      },
+      {
+        "path": "adsp.b09",
+        "bytes": 2811364,
+        "sha256": "97a2ed7d449c48bfb1bce24af99b100583afae5496294141532fff27f8bc5a68"
+      },
+      {
+        "path": "adsp.b10",
+        "bytes": 370756,
+        "sha256": "7b041ef544d978f9883470c7e7b5d0dd14109fa6f2f985fd3057e2b8eb4f821d"
+      },
+      {
+        "path": "adsp.b11",
+        "bytes": 2584,
+        "sha256": "49567f2c4919bc87dec0dbc6abeb441802e30820b23c77358d7b68a9b7d2ca6a"
+      },
+      {
+        "path": "adsp.b12",
+        "bytes": 11872,
+        "sha256": "a2eb7630b5fe7f7224ccec6bab197d4cdd31e3c9a58484dd0e476a5a91957ef1"
+      },
+      {
+        "path": "adsp.b13",
+        "bytes": 1212,
+        "sha256": "6db58e079d61bd49ec10d05569fd171e89a7d58993b969c830cfcc4f12a1f27a"
+      },
+      {
+        "path": "adsp.b14",
+        "bytes": 239752,
+        "sha256": "306b98c0e2d73b7eb4beee772c4f10c8b5bd8e1c90ee0d48e20df0e82c0e6d91"
+      },
+      {
+        "path": "adsp.b15",
+        "bytes": 154732,
+        "sha256": "416f5771bb329cdb670321191268e77243541006a1719f081b0f89f853d1a7ad"
+      },
+      {
+        "path": "adsp.b16",
+        "bytes": 1032192,
+        "sha256": "8e0221494b9d034fa0db5cc62678496d6a47cb8c85ead8cc0925179eef30ecd6"
+      },
+      {
+        "path": "adsp.b17",
+        "bytes": 3060868,
+        "sha256": "809dc3ec515f3e0cdf5feb6e21f674415c65b0cd4b24789222fb6b228dafcebc"
+      },
+      {
+        "path": "adsp.b18",
+        "bytes": 42784,
+        "sha256": "234f4e15f2e94d38df713e2fad30ed9abe332d95d3c65ff350274885655c364a"
+      },
+      {
+        "path": "adsp.b19",
+        "bytes": 272,
+        "sha256": "ad791ebe4d9ec8703180c5e41956c33d9e96638140f5f9ecfde43acd4a7a93ee"
+      },
+      {
+        "path": "adsp.b20",
+        "bytes": 450500,
+        "sha256": "7f447fe744b8ce2e80ab8d722549f71abb34c22bae6c5342a33e1697355abcd3"
+      },
+      {
+        "path": "adsp.b21",
+        "bytes": 610304,
+        "sha256": "eeb52ad20e898ac59640e353880cb946382754121ae9a5cacaab25af6b42499d"
+      },
+      {
+        "path": "adsp.b22",
+        "bytes": 3016536,
+        "sha256": "d2524714b300951a5d63a1c0707c4101672fdfec7db86e40a1fdbe7ba4b0e52d"
+      },
+      {
+        "path": "adsp.b23",
+        "bytes": 7380996,
+        "sha256": "d1917ab5350dc1368019bb584c382ddda96ea883109d7da092a6ff17cfd6a83f"
+      },
+      {
+        "path": "adsp.b25",
+        "bytes": 108,
+        "sha256": "8948a6b88376b9d3f75e89f33ea0c03e149d6ebde637874951c121d0b6b17efd"
+      },
+      {
+        "path": "adsp.b26",
+        "bytes": 12492,
+        "sha256": "36ac0618047ad978240745d845efc855910eabf057bd9220a34b897259d8c406"
+      },
+      {
+        "path": "adsp.b27",
+        "bytes": 39304,
+        "sha256": "1e2d19173ee78dee2f267b591ab3b62052bf37e40c57426d5e67ab38b8d1442e"
+      },
+      {
+        "path": "adsp.b28",
+        "bytes": 777996,
+        "sha256": "1eff2f6a5c764feded582d4417bf5461fba972f94a9229d6754f5602f26ff68b"
+      },
+      {
+        "path": "adsp.b29",
+        "bytes": 199792,
+        "sha256": "77a439a87165e2093355020ef8f9b8dc0471ba0f24bef95d2d16f60f9f54443f"
+      },
+      {
+        "path": "adsp.b30",
+        "bytes": 169348,
+        "sha256": "c5de3c384049a4b374a84c62c9a2243ac4e3eadc820dd3592e6d84c9cdc02697"
+      },
+      {
+        "path": "adsp.b31",
+        "bytes": 8412,
+        "sha256": "78c0b5d30e556116866ee98ccfd67c7670f69237f74eeb79836ec68041ac367c"
+      },
+      {
+        "path": "adsp.b32",
+        "bytes": 104753,
+        "sha256": "72e30fb2d0c6928085a7db60d82cd1fa55da98bd3adcb8ff8d1171d611ceb6cd"
+      },
+      {
+        "path": "adsp.b33",
+        "bytes": 17652,
+        "sha256": "b8313723778917f2f8b96471d500e626102d47a564d22675c837136be0b58bf0"
+      },
+      {
+        "path": "adsp.b34",
+        "bytes": 174000,
+        "sha256": "00a665486903c3ab209765378de77e699a51e700ee6ceff2ca10464d17168016"
+      },
+      {
+        "path": "adsp.b35",
+        "bytes": 90424,
+        "sha256": "77a5829f1f34088852f9708ddb25ea85cf2d0309e74057980f7aebd2c0fdf698"
+      },
+      {
+        "path": "adsp.b36",
+        "bytes": 68048,
+        "sha256": "3e4125e89e816a63eb7f815cb7278a038fdb48ba1d7e23f52ad52edb1f7d7544"
+      },
+      {
+        "path": "adsp.b37",
+        "bytes": 8648,
+        "sha256": "f69a1f4094c70514e8a83ab0412d4716bbc732b6562212f7d42c947756cc9a4f"
+      },
+      {
+        "path": "adsp.b38",
+        "bytes": 54092,
+        "sha256": "769dfc6cec8e59f6ddc5e66198d343d84f430d160beb36d2265a316146b73ca9"
+      },
+      {
+        "path": "adsp.b39",
+        "bytes": 82,
+        "sha256": "cfa5063c8aa324965d3658db10236d23437267960ed2ef669fbceb5d81c5c060"
+      },
+      {
+        "path": "adsp.b40",
+        "bytes": 393216,
+        "sha256": "0ba658e54d8e945c1ba6c24e5dba5e4084869ba4ea4b4190168fefc9391e59e5"
+      },
+      {
+        "path": "adsp.b41",
+        "bytes": 7860996,
+        "sha256": "4a9ff322b2bbe240de8deb4eb40f8689a2b5084e41da63b25021f8251b17b702"
+      },
+      {
+        "path": "adsp.b42",
+        "bytes": 2072584,
+        "sha256": "61480c32640f6f0662cf62618c1b13a1b5a58cfc0d37becf973282bc87abd1e3"
+      },
+      {
+        "path": "adsp.b43",
+        "bytes": 20,
+        "sha256": "271c5783def587733c57edd67523fd9890a97b12fd2ee0ad4237226454bb6b85"
+      },
+      {
+        "path": "adsp.b44",
+        "bytes": 73688,
+        "sha256": "0908de27c85d1404946fe91ed43fac0dad3cde996301d1ffd691907d32e3038b"
+      },
+      {
+        "path": "adsp.b45",
+        "bytes": 28172,
+        "sha256": "57f13c592419b2fe187dabe4c3761fa3f1001ffd7aeb5a87485a7812befdac45"
+      },
+      {
+        "path": "adsp.b46",
+        "bytes": 32264,
+        "sha256": "cc313b9e25efc7c43bc6da91ec262589a862aa48621d8130f131ae3eb299f6ad"
+      },
+      {
+        "path": "adsp.b47",
+        "bytes": 501612,
+        "sha256": "223f75784594378feedf7aa9dc3428bf93867d13a5e39a21b0afd8d4a250eea8"
+      },
+      {
+        "path": "adsp.b48",
+        "bytes": 10948,
+        "sha256": "d5cb0b546ace04cd80a5445b87f2a6f0896aacab3ddec50b385301a6acf6bc71"
+      },
+      {
+        "path": "adsp.b49",
+        "bytes": 375016,
+        "sha256": "e86bac1b8dfd41903caf5e4efd128ad5df7d5e0bf1a3772f229c5d47d3f36eb8"
+      },
+      {
+        "path": "adsp.b50",
+        "bytes": 643072,
+        "sha256": "cfe8650dd07baa5a9d454b17ae27993200c0294d3cd74c584ffa3f271b2e0903"
+      },
+      {
+        "path": "adsp.b51",
+        "bytes": 83815,
+        "sha256": "99fe3a655ec95c8b24b572c06a21cd5cdd315266842a9526e63919aea1a7db47"
+      },
+      {
+        "path": "adsp.b52",
+        "bytes": 962560,
+        "sha256": "d739f15eb2005057c9ccff6f2e5d955af3fda41a214127195fdaef839617581d"
+      },
+      {
+        "path": "adsp.b53",
+        "bytes": 53248,
+        "sha256": "b4ffd9ec65fa418e3075c766544135dd7941a4afb22b14c3af83aff2586a717c"
+      },
+      {
+        "path": "adsp.b54",
+        "bytes": 6349656,
+        "sha256": "5680bd480de972aec5644f95741d0926031f71f153ee83da23ee549851b0a6a7"
+      },
+      {
+        "path": "adsp_dtb.mdt",
+        "bytes": 4044,
+        "sha256": "8a16487e73ab97593a30139c22669cba5966768e6d606a2da5b0f6334edd52f0"
+      },
+      {
+        "path": "adsp_dtb.b01",
+        "bytes": 56884,
+        "sha256": "507d06b89f7ab47ca7bb3d69a229c9326fcba8f0af8834922af6d4c68740b623"
+      }
+    ],
+    "load_summary": [
+      {
+        "bytes": 8364,
+        "sha256": "d6646787974ec02dc565ddb93c82ef382453af1cceabebbfa15e8a61635d50de",
+        "machine": 164,
+        "entry": "0x9df00000",
+        "elf_class": "ELF32",
+        "elf_endian": "little",
+        "load_min": "0x9df00000",
+        "load_end": "0xa3180000",
+        "required_payload_count": 53,
+        "required_payload_bytes": 41416058,
+        "all_required_payloads_verified": true
+      },
+      {
+        "bytes": 4044,
+        "sha256": "8a16487e73ab97593a30139c22669cba5966768e6d606a2da5b0f6334edd52f0",
+        "machine": 1,
+        "entry": "0x9de80000",
+        "elf_class": "ELF32",
+        "elf_endian": "little",
+        "load_min": "0x9de80000",
+        "load_end": "0x9de8de34",
+        "required_payload_count": 1,
+        "required_payload_bytes": 56884,
+        "all_required_payloads_verified": true
+      }
+    ],
+    "zero_file_segments": [
+      "adsp.b24",
+      "adsp.b55"
+    ],
+    "note": "MDT includes signed metadata/hash data. Verify 2 MDTs and 54 nonzero PT_LOAD files; b24/b55 are zero-filled RAM. No loader, authentication, memory assignment, DSP start or calibration is implemented."
+  },
+  "stock_routes": {
+    "parameter_version": "Giulia_20251222_V29",
+    "mixer": {
+      "bytes": 58716,
+      "sha256": "b15f975907c161524d3c93bbb0c3abba4a403ea334eedae3515608066a1edaab"
+    },
+    "mixer_path": "odm:/etc/mixer_paths.xml",
+    "speaker": "Left and right SIPA Playback",
+    "handset": "Left SIPA Receiver",
+    "speaker_line": 352,
+    "handset_line": 607,
+    "calibration": {
+      "bytes": 3762262,
+      "sha256": "b3bc49d6a085e578199e8f13c019d2ef0b32e71644044f4af8eb41386ef5e072"
+    }
+  },
+  "remaining": [
+    "PAS authentication and owned carveouts/SCM assignment; DSP start and restart handling",
+    "SMEM/GLINK/GPR transport, audio power/clock/interrupt ownership",
+    "SPF graph, calibration (ACDB) and SIA sipa.bin validation plus required algorithms",
+    "Codec and amplifier sequencing, PCM DMA and IOAudio2Family/userland integration",
+    "Physical-device playback, capture, routing and suspend/resume validation"
+  ],
+  "dt_checks": [
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        50331648,
+        65536
+      ]
+    },
+    {
+      "node": "qcom,ipcc@406000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        4218880,
+        4096
+      ]
+    },
+    {
+      "node": "apps-smmu@15000000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        352321536,
+        1048576,
+        354410496,
+        64
+      ]
+    },
+    {
+      "node": "rx-macro@6AC0000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        111935488,
+        0
+      ]
+    },
+    {
+      "node": "tx-macro@6AE0000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        112066560,
+        0
+      ]
+    },
+    {
+      "node": "va-macro@6D44000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        114573312,
+        0
+      ]
+    },
+    {
+      "node": "rx_swr_master",
+      "property": "swrm-io-base",
+      "type": "cells",
+      "value": [
+        112001024,
+        0
+      ]
+    },
+    {
+      "node": "va_swr_master",
+      "property": "swrm-io-base",
+      "type": "cells",
+      "value": [
+        114491392,
+        0
+      ]
+    },
+    {
+      "node": "lpi_pinctrl@6E80000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        115867648,
+        0
+      ]
+    },
+    {
+      "node": "i2c@99c000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        10076160,
+        16384
+      ]
+    },
+    {
+      "node": "i2c@a8c000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        11059200,
+        16384
+      ]
+    },
+    {
+      "node": "wsa-macro@6B00000",
+      "property": "status",
+      "type": "strings",
+      "value": [
+        "disabled"
+      ]
+    },
+    {
+      "node": "wsa-macro@6B00000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        112197632,
+        0
+      ]
+    },
+    {
+      "node": "wsa2-macro@6AA0000",
+      "property": "status",
+      "type": "strings",
+      "value": [
+        "disabled"
+      ]
+    },
+    {
+      "node": "wsa2-macro@6AA0000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        111804416,
+        0
+      ]
+    },
+    {
+      "node": "wsa_swr_master",
+      "property": "swrm-io-base",
+      "type": "cells",
+      "value": [
+        112263168,
+        0
+      ]
+    },
+    {
+      "node": "wsa2_swr_master",
+      "property": "swrm-io-base",
+      "type": "cells",
+      "value": [
+        111869952,
+        0
+      ]
+    },
+    {
+      "node": "q6_adsp_dtb_region@9de80000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        0,
+        2649227264,
+        0,
+        524288
+      ]
+    },
+    {
+      "node": "adspslpi_region@9df00000",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        0,
+        2649751552,
+        0,
+        86507520
+      ]
+    },
+    {
+      "node": "qcom,smp2p-adsp",
+      "property": "qcom,smem",
+      "type": "cells",
+      "value": [
+        443,
+        429
+      ]
+    },
+    {
+      "node": "qcom,smp2p-adsp",
+      "property": "interrupts",
+      "type": "cells",
+      "value": [
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "node": "qcom,smp2p-adsp",
+      "property": "mboxes",
+      "type": "cells",
+      "value": [
+        66,
+        3,
+        2
+      ]
+    },
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "compatible",
+      "type": "strings",
+      "value": [
+        "qcom,pineapple-adsp-pas"
+      ]
+    },
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "status",
+      "type": "strings",
+      "value": [
+        "ok"
+      ]
+    },
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "interrupt-names",
+      "type": "strings",
+      "value": [
+        "wdog",
+        "fatal",
+        "handover",
+        "ready",
+        "stop-ack"
+      ]
+    },
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "memory-region",
+      "type": "cells",
+      "value": [
+        177,
+        178
+      ]
+    },
+    {
+      "node": "remoteproc-adsp@03000000",
+      "property": "interrupts-extended",
+      "type": "cells",
+      "value": [
+        46,
+        6,
+        1,
+        179,
+        0,
+        0,
+        179,
+        2,
+        0,
+        179,
+        1,
+        0,
+        179,
+        3,
+        0
+      ]
+    },
+    {
+      "node": "qcom,gpr",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        2
+      ]
+    },
+    {
+      "node": "qcom,gpr",
+      "property": "qcom,intents",
+      "type": "cells",
+      "value": [
+        512,
+        20
+      ]
+    },
+    {
+      "node": "qcom,gpr",
+      "property": "qcom,glink-channels",
+      "type": "strings",
+      "value": [
+        "adsp_apps"
+      ]
+    },
+    {
+      "node": "qcom,gpr",
+      "property": "compatible",
+      "type": "strings",
+      "value": [
+        "qcom,gpr"
+      ]
+    },
+    {
+      "node": "qcom,msm-audio-ion",
+      "property": "qcom,iommu-dma-addr-pool",
+      "type": "cells",
+      "value": [
+        268435456,
+        268435456
+      ]
+    },
+    {
+      "node": "qcom,msm-audio-ion",
+      "property": "iommus",
+      "type": "cells",
+      "value": [
+        82,
+        4097,
+        128,
+        82,
+        4193,
+        0
+      ]
+    },
+    {
+      "node": "qcom,msm-audio-ion",
+      "property": "qcom,smmu-sid-mask",
+      "type": "cells",
+      "value": [
+        0,
+        15
+      ]
+    },
+    {
+      "node": "lpass-cdc",
+      "property": "qcom,lpass-cdc-version",
+      "type": "cells",
+      "value": [
+        7
+      ]
+    },
+    {
+      "node": "lpass-cdc",
+      "property": "qcom,num-macros",
+      "type": "cells",
+      "value": [
+        3
+      ]
+    },
+    {
+      "node": "va_swr_master",
+      "property": "interrupts",
+      "type": "cells",
+      "value": [
+        0,
+        496,
+        4,
+        0,
+        520,
+        4
+      ]
+    },
+    {
+      "node": "va_swr_master",
+      "property": "qcom,swr_master_id",
+      "type": "cells",
+      "value": [
+        3
+      ]
+    },
+    {
+      "node": "va_swr_master",
+      "property": "qcom,swr-port-mapping",
+      "type": "cells",
+      "value": [
+        1,
+        45,
+        3,
+        2,
+        46,
+        1,
+        2,
+        47,
+        2,
+        2,
+        48,
+        4,
+        2,
+        49,
+        8,
+        3,
+        50,
+        1,
+        3,
+        51,
+        2,
+        3,
+        52,
+        4,
+        3,
+        53,
+        8,
+        4,
+        54,
+        1,
+        4,
+        55,
+        2,
+        4,
+        56,
+        4,
+        4,
+        57,
+        8,
+        5,
+        58,
+        3
+      ]
+    },
+    {
+      "node": "rx_swr_master",
+      "property": "interrupts",
+      "type": "cells",
+      "value": [
+        0,
+        155,
+        4
+      ]
+    },
+    {
+      "node": "rx_swr_master",
+      "property": "qcom,swr_master_id",
+      "type": "cells",
+      "value": [
+        2
+      ]
+    },
+    {
+      "node": "rx_swr_master",
+      "property": "qcom,swr-port-mapping",
+      "type": "cells",
+      "value": [
+        1,
+        14,
+        1,
+        1,
+        15,
+        2,
+        2,
+        18,
+        3,
+        3,
+        16,
+        1,
+        3,
+        17,
+        2,
+        4,
+        19,
+        1,
+        5,
+        20,
+        1,
+        5,
+        21,
+        2,
+        6,
+        22,
+        1,
+        7,
+        23,
+        3,
+        8,
+        24,
+        3,
+        9,
+        59,
+        1,
+        9,
+        60,
+        2,
+        10,
+        26,
+        3,
+        11,
+        27,
+        3,
+        12,
+        28,
+        3
+      ]
+    },
+    {
+      "node": "wcd939x-tx-slave",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        14,
+        18285091
+      ]
+    },
+    {
+      "node": "wcd939x-rx-slave",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        14,
+        18285092
+      ]
+    },
+    {
+      "node": "wcd939x-codec",
+      "property": "qcom,tx-slave",
+      "type": "cells",
+      "value": [
+        1805
+      ]
+    },
+    {
+      "node": "wcd939x-codec",
+      "property": "qcom,rx-slave",
+      "type": "cells",
+      "value": [
+        1804
+      ]
+    },
+    {
+      "node": "wcd939x-codec",
+      "property": "qcom,rx_swr_ch_map",
+      "type": "cells",
+      "value": [
+        0,
+        14,
+        1,
+        0,
+        14,
+        0,
+        15,
+        2,
+        0,
+        15,
+        1,
+        18,
+        1,
+        0,
+        18,
+        2,
+        16,
+        1,
+        0,
+        16,
+        2,
+        17,
+        2,
+        0,
+        17,
+        3,
+        19,
+        1,
+        0,
+        19,
+        4,
+        20,
+        1,
+        0,
+        20,
+        4,
+        21,
+        2,
+        0,
+        21,
+        5,
+        59,
+        1,
+        0,
+        59,
+        5,
+        60,
+        2,
+        0,
+        60
+      ]
+    },
+    {
+      "node": "wcd939x-codec",
+      "property": "qcom,tx_swr_ch_map",
+      "type": "cells",
+      "value": [
+        0,
+        30,
+        1,
+        0,
+        46,
+        0,
+        31,
+        2,
+        0,
+        47,
+        1,
+        32,
+        1,
+        0,
+        48,
+        1,
+        33,
+        2,
+        0,
+        49,
+        2,
+        34,
+        1,
+        0,
+        50,
+        2,
+        35,
+        2,
+        0,
+        51,
+        2,
+        29,
+        4,
+        0,
+        52,
+        2,
+        36,
+        4,
+        0,
+        52,
+        2,
+        37,
+        8,
+        0,
+        53,
+        3,
+        38,
+        1,
+        0,
+        54,
+        3,
+        39,
+        2,
+        0,
+        55,
+        3,
+        40,
+        4,
+        0,
+        56,
+        3,
+        41,
+        8,
+        0,
+        57
+      ]
+    },
+    {
+      "node": "sound",
+      "property": "compatible",
+      "type": "strings",
+      "value": [
+        "qcom,pineapple-asoc-snd"
+      ]
+    },
+    {
+      "node": "sound",
+      "property": "asoc-codec-names",
+      "type": "strings",
+      "value": [
+        "msm-stub-codec.1",
+        "lpass-cdc",
+        "wcd939x_codec",
+        "swr-haptics"
+      ]
+    },
+    {
+      "node": "sound",
+      "property": "qcom,wsa-max-devs",
+      "type": "cells",
+      "value": [
+        0
+      ]
+    },
+    {
+      "node": "sound",
+      "property": "qcom,sec-mi2s-gpios",
+      "type": "cells",
+      "value": [
+        1810
+      ]
+    },
+    {
+      "node": "oplus,audio-drv",
+      "property": "oplus,speaker-codec-dai-name",
+      "type": "strings",
+      "value": [
+        "sia91xx-aif-4-6c",
+        "sia91xx-aif-4-6d"
+      ]
+    },
+    {
+      "node": "oplus,audio-drv",
+      "property": "oplus,speaker-codec-name",
+      "type": "strings",
+      "value": [
+        "sipa.4-006c",
+        "sipa.4-006d"
+      ]
+    },
+    {
+      "node": "oplus,audio-drv",
+      "property": "oplus,speaker-vendor",
+      "type": "strings",
+      "value": [
+        "sipa91xx"
+      ]
+    },
+    {
+      "node": "oplus,audio-drv",
+      "property": "oplus,speaker-i2s-id",
+      "type": "cells",
+      "value": [
+        1
+      ]
+    },
+    {
+      "node": "sia91xx@L",
+      "property": "si,si_pa_type",
+      "type": "strings",
+      "value": [
+        "sia9177"
+      ]
+    },
+    {
+      "node": "sia91xx@R",
+      "property": "si,si_pa_type",
+      "type": "strings",
+      "value": [
+        "sia9177"
+      ]
+    },
+    {
+      "node": "sia91xx@L",
+      "property": "si,si_pa_reset",
+      "type": "cells",
+      "value": [
+        197,
+        173,
+        0
+      ]
+    },
+    {
+      "node": "sia91xx@L",
+      "property": "channel_num",
+      "type": "cells",
+      "value": [
+        0
+      ]
+    },
+    {
+      "node": "sia91xx@R",
+      "property": "si,si_pa_reset",
+      "type": "cells",
+      "value": [
+        197,
+        178,
+        0
+      ]
+    },
+    {
+      "node": "sia91xx@R",
+      "property": "channel_num",
+      "type": "cells",
+      "value": [
+        1
+      ]
+    },
+    {
+      "node": "sipa91xx_i2c@6c",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        108
+      ]
+    },
+    {
+      "node": "sipa91xx_i2c@6c",
+      "property": "si,sipa-dev",
+      "type": "cells",
+      "value": [
+        1897
+      ]
+    },
+    {
+      "node": "sipa91xx_i2c@6d",
+      "property": "reg",
+      "type": "cells",
+      "value": [
+        109
+      ]
+    },
+    {
+      "node": "sipa91xx_i2c@6d",
+      "property": "si,sipa-dev",
+      "type": "cells",
+      "value": [
+        1898
+      ]
+    },
+    {
+      "node": "i2c@99c000",
+      "property": "status",
+      "type": "strings",
+      "value": [
+        "ok"
+      ]
+    },
+    {
+      "node": "i2c@99c000",
+      "property": "interrupts",
+      "type": "cells",
+      "value": [
+        0,
+        471,
+        4
+      ]
+    },
+    {
+      "node": "i2c@99c000",
+      "property": "qcom,clk-freq-out",
+      "type": "cells",
+      "value": [
+        400000
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/pineapple-audio.dtsi",
+      "sha256": "8a855a52a6f73979089a861630d2d682adf07c41d0dceb8904234184579c73ca",
+      "git_blob": "3036da12512f364f99ed188c4525110783f617d2",
+      "bytes": 4241,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/pineapple-audio.dtsi",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/pineapple-audio.dtsi"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/pineapple-audio-overlay.dtsi",
+      "sha256": "8040125d86bf139b181424bb5e8647f5721ceea1cb8c2d4d75ad2c33628035b0",
+      "git_blob": "b8ce32710f429b8b8a4418f2729908f1f7c53c63",
+      "bytes": 27475,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/pineapple-audio-overlay.dtsi",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/pineapple-audio-overlay.dtsi"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/pineapple-audio-mtp.dtsi",
+      "sha256": "72fd100ff8b7e164755f060769cf0d97cf81cafef8cfbb70eba0f3abda725893",
+      "git_blob": "99ab847949046154c9a4c42799f337bb2d0cfbbd",
+      "bytes": 139,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/pineapple-audio-mtp.dtsi",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/pineapple-audio-mtp.dtsi"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dts",
+      "sha256": "85a1a31d3f0f403953bd0e8406d1f881a9c59c70409db5bee7147fad638b040f",
+      "git_blob": "5c5fa7b998f15e2e457d9462689665a062eb3e10",
+      "bytes": 306,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dts",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dts"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dtsi",
+      "sha256": "e7fe5b986a32ae0aa4c4eee9292a178225e6d1e1b8a943755c8879083d674eec",
+      "git_blob": "2d1dad25e9df0ba5525a07b8667d70fd5650d5c1",
+      "bytes": 6248,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dtsi",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/oplus/giulia-23851-audio-pineapple-overlay.dtsi"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/proprietary/audio-devicetree/oplus/pineapple-audio-overlay-common.dtsi",
+      "sha256": "171bfff30de8d21b5c47a6b47005634d7abb0a446cf92034ad459528a7779673",
+      "git_blob": "7b50146646fbc6073fe99e334dc92f2c14514dfc",
+      "bytes": 1630,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/proprietary/audio-devicetree/oplus/pineapple-audio-overlay-common.dtsi",
+      "upstream_path": "vendor/qcom/proprietary/audio-devicetree/oplus/pineapple-audio-overlay-common.dtsi"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/pineapple.c",
+      "sha256": "869616acfb24c5046df192dfe1db60a5196ac32df9d309df43454948d0dee367",
+      "git_blob": "2f780fb875faefcfbad7f9169acd3b45d6601e9e",
+      "bytes": 79430,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/pineapple.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/pineapple.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/pineapple-port-config.h",
+      "sha256": "8fb5f60268827735ea32817b76a902577a91c0f578d8816664e616cc943e9f41",
+      "git_blob": "9ff1e39ca5462d1f77aa1c11ce81398d4e33385e",
+      "bytes": 9401,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/pineapple-port-config.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/pineapple-port-config.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/config/pineappleautoconf.h",
+      "sha256": "b016f19ecf6601c82eadf76e12286649e5bde99c942ad4507b3906a092060883",
+      "git_blob": "e7e3b1497e5b32a1bebc1287bf943d11efee06b2",
+      "bytes": 1909,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/config/pineappleautoconf.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/config/pineappleautoconf.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/config/pineappleauto.conf",
+      "sha256": "04e4cf97ec2060ee94bd4ca8cdb8b59b58787651c6821b289b1bf36df5e0dae7",
+      "git_blob": "889d60c70dd31b2d04e978349792c188b8052e88",
+      "bytes": 1471,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/config/pineappleauto.conf",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/config/pineappleauto.conf"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/ipc/gpr-lite.c",
+      "sha256": "ab3f871b7cdcff68c57547a40d3618f8844a2b309d4558c65319c01b2be05918",
+      "git_blob": "0e9f08ab5dbd7054989a41dfc8288cfd25fc4626",
+      "bytes": 17367,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/ipc/gpr-lite.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/ipc/gpr-lite.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h",
+      "sha256": "2f7169f33cb936a49df53f1734ed6ed4468bdd143d1a32b535a8c252aad97710",
+      "git_blob": "e4b47a300dd1edae6c4eba77b0a4c5c736d63adb",
+      "bytes": 9019,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/include/ipc/gpr-lite.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/bindings/qcom,gpr.h",
+      "sha256": "6071cbde9db5820c0c2611b9789a8823725e0d54a9782d40e45bcb8318df8916",
+      "git_blob": "7180e927e5cf3abb53f370bb4b11e4f05bf7a392",
+      "bytes": 817,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/bindings/qcom,gpr.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/include/bindings/qcom,gpr.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/bindings/audio-codec-port-types.h",
+      "sha256": "0fdf6dd9e9896044da28ded367389d36316b6aff068e25ac6f2b40a08a04d584",
+      "git_blob": "2b4ac0c611cfb23df5f2b1ad9bd715cbbe4f37aa",
+      "bytes": 2342,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/bindings/audio-codec-port-types.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/include/bindings/audio-codec-port-types.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/dsp/adsp-loader.c",
+      "sha256": "4b970c6292e2039efcf732fb98d3c2a70408ef81b6253a0753d2c3617f306b50",
+      "git_blob": "6304ad8e4d8e31871066d9633f145a4197393eba",
+      "bytes": 21486,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/dsp/adsp-loader.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/dsp/adsp-loader.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/dsp/audio_prm.c",
+      "sha256": "3ed0c6a620685cc61b3c73e300534e3d4867a256832dbd4a6ca9af8557598612",
+      "git_blob": "84580052625a3f0eb2b11db30e82391a7f605018",
+      "bytes": 20620,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/dsp/audio_prm.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/dsp/audio_prm.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/dsp/spf-core.c",
+      "sha256": "3f8f4016d577da61b0e1586740ca278325c54cd328e3a9d1effd9f3a20e2caf4",
+      "git_blob": "c64292f0ca0c54a0d486bf0bd2a16b122f8eb358",
+      "bytes": 10978,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/dsp/spf-core.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/dsp/spf-core.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/dsp/audio_prm.h",
+      "sha256": "f7fc313dbcee35b8a8fbe4525b4b0664194b8283f68e2fe6cac41cd8c232d53b",
+      "git_blob": "0df5695ddbc4395454d24525a839dd502d0452dd",
+      "bytes": 16464,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/dsp/audio_prm.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/include/dsp/audio_prm.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/include/dsp/spf-core.h",
+      "sha256": "1510a00867426d36e66728b107df1697a18c72ecdf93b36c6de953586c0ebb56",
+      "git_blob": "61f8aea9201ca82052789ae5d78d1a46819fc210",
+      "bytes": 770,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/include/dsp/spf-core.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/include/dsp/spf-core.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc.c",
+      "sha256": "78748977d4be0345d9c473b303276657b75da4d52c0fed9b33a6b6c1c2a3f60d",
+      "git_blob": "6883749c59a3c8baf0d8afe0db0d73df74258581",
+      "bytes": 42588,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-rx-macro.c",
+      "sha256": "2c69fd9d1b86a53419397f82964e060f5d9e49e16054c2185687303356c3b7fc",
+      "git_blob": "84fa9bde4c790a8f3b5c3e04b4a493e6ac63766a",
+      "bytes": 160024,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-rx-macro.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-rx-macro.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-tx-macro.c",
+      "sha256": "6dca78e4f2a496b462ef32a0a3d056a195fcb95ca871c133ebed0509809fa94a",
+      "git_blob": "ca30735cda245ddf025bc13e85a339693bedd712",
+      "bytes": 69894,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-tx-macro.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-tx-macro.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-va-macro.c",
+      "sha256": "3ebcc615ff6fbfb4a2c51f2142cc2f0c9b90023b685118c307a8441e172a2d21",
+      "git_blob": "173efd4445d7a19b1580a205d4591ba521fdba50",
+      "bytes": 79923,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-va-macro.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-va-macro.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa-macro.c",
+      "sha256": "c8ad6383feef2a3f7d6ba5bb2dc860ac9e4ce5980b3b8e9f3fd6eef75e57827e",
+      "git_blob": "b3b7a68b2d9ccd049937b30613e23b13fcbf705e",
+      "bytes": 135388,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa-macro.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa-macro.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa2-macro.c",
+      "sha256": "956c61fc5bd25586a618cc2e809aaa5534303fcc7ef1dd1b1c32b35786a3928a",
+      "git_blob": "5db4e6bc3dff5bb3766388ea1a4ed0423f06ac44",
+      "bytes": 133497,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa2-macro.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/lpass-cdc/lpass-cdc-wsa2-macro.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.c",
+      "sha256": "1f40e37faeb62d3697ccd26f8a620e441105b29e61598e88b30541db0c1bf891",
+      "git_blob": "32e14b345014fb851f7c719e63670326c5df09d3",
+      "bytes": 130428,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.h",
+      "sha256": "7d531b59aee9e8fbfb233c920852ee81e87974de76de6e305de99694ad918727",
+      "git_blob": "614437c4ac317a4ec21c2ccc47f35510b5a96d0d",
+      "bytes": 5024,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-ctrl.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-registers.h",
+      "sha256": "1a48b3b8139f8c098fb2a94b6d946e5bbdfc2f9eeb6894121eec858d1f3d07cd",
+      "git_blob": "a7055764f327fc9a6afeddd29308846d0e4636a6",
+      "bytes": 10607,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/soc/swr-mstr-registers.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/soc/swr-mstr-registers.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/soc/pinctrl-lpi.c",
+      "sha256": "5c0d0754980a6562d79d09848567286d9b7d2e374e38ac4c1aac5758ed0114c2",
+      "git_blob": "113d394e7db607bf4d1f63993a5f0ef1fa37beb2",
+      "bytes": 27422,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/soc/pinctrl-lpi.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/soc/pinctrl-lpi.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/soc/regmap-swr.c",
+      "sha256": "a05a05da66a62d8539b59609eb7c94805b09fff49ad27a51dc1b0ed5cecfeec5",
+      "git_blob": "e978f33f6daa3c4ad05fd9113d4cd9ff17177378",
+      "bytes": 7584,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/soc/regmap-swr.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/soc/regmap-swr.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x.c",
+      "sha256": "07d930accaa16a08d8fb0de3e2b9d1a06a030eac4566ae674a37493a13f8799f",
+      "git_blob": "108c2b4bfa69fc5d372dfde2cdc46778422e49b5",
+      "bytes": 174882,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-slave.c",
+      "sha256": "d028a8155846efb1223ec400b9f2fdb425d8bdca647eb7e53306db87e6e2adce",
+      "git_blob": "2fd78d0015261b1399dcc7bdc7c1d806b9b8d33f",
+      "bytes": 9867,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-slave.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-slave.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-regmap.c",
+      "sha256": "927943b76c8fb92530e1b05da6a41b0cd21fdc8a3c399a7dbd2e0671166d781f",
+      "git_blob": "95b9c83d66f6fe62a26cc47afa505fbbd8dc3eca",
+      "bytes": 28682,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-regmap.c",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-regmap.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-registers.h",
+      "sha256": "593e4c2c6a294e3c4e18d0445185208523ac818a546f967d62c934591fbf03ef",
+      "git_blob": "86a854dba258556ca6c586ac56af4ef67db17368",
+      "bytes": 44987,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-registers.h",
+      "upstream_path": "vendor/qcom/opensource/audio-kernel/asoc/codecs/wcd939x/wcd939x-registers.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/qcom/audio_extend_drv.c",
+      "sha256": "a3b64b9dd3d4623d391cfa036cbac73542461cbd60a6d5dc37e8cb6b4384fb44",
+      "git_blob": "95f3bf27e9774a022f8ec5575a17c5951f122c21",
+      "bytes": 12613,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/qcom/audio_extend_drv.c",
+      "upstream_path": "vendor/oplus/kernel/audio/qcom/audio_extend_drv.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa.c",
+      "sha256": "e9cc41a36fa447c07cf78923ec0a8b6d6d4bb81235912c1a3ea6b0dd020351c7",
+      "git_blob": "b0fbe950caee4a24f02cc7c4bcd253bd2aaeb229",
+      "bytes": 107075,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa.c",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.c",
+      "sha256": "90ee60cb23f6ef3b4f036d713b62282208b3e5105b902367fc124024e1e78ebf",
+      "git_blob": "b7d2561805c142ecf758d16c9da55571a182cfad",
+      "bytes": 18500,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.c",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.h",
+      "sha256": "7ffda322b371033cde009a901d629f4c8efaae7160e6e2d752d1c66f7b21d818",
+      "git_blob": "023622930b2cb2c4cdc42544a5c2aacc2316fb39",
+      "bytes": 3267,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.h",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_91xx.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_common.h",
+      "sha256": "3f05c9c35317e52ff2347872cad83e4dbe636f455f0ed9f2906c8e4af9674466",
+      "git_blob": "61f9efc4dab55e5bbfd43990a1167f5104d06b4f",
+      "bytes": 5316,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_common.h",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_common.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.c",
+      "sha256": "1ca76db07d9c21086e1be209d222a46d2e66f2685c3077d0bbbab582d8d516bb",
+      "git_blob": "4745251b652f5e5ed39093c55f9fb7ab4a892434",
+      "bytes": 11345,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.c",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.h",
+      "sha256": "44355ca074127bd7a8f6b9f21b547946862601e201fb7405474740633070f05b",
+      "git_blob": "34b4f45510cf44fb5352b4a81e4bf2f5294877f3",
+      "bytes": 5819,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.h",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_parameter.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/codecs/sipa/sipa_regmap.c",
+      "sha256": "38383b9d4f6f832b98a2c513b6614701b672b6a8bf7291beb408946df5f9b676",
+      "git_blob": "30960c5fe12be04bc4dfc4d3990780213d9f2ec7",
+      "bytes": 25210,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/codecs/sipa/sipa_regmap.c",
+      "upstream_path": "vendor/oplus/kernel/audio/codecs/sipa/sipa_regmap.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/config/opluspineappleautoconf.h",
+      "sha256": "3357f55a5a4a1c93158cd34fd2655b137eb0f7a47dc8de71968f034d97d54f4b",
+      "git_blob": "44d9caceb694a876501ac7dbe68cdbe3d61883b8",
+      "bytes": 442,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/config/opluspineappleautoconf.h",
+      "upstream_path": "vendor/oplus/kernel/audio/config/opluspineappleautoconf.h"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/config/opluspineappleauto.conf",
+      "sha256": "1f78a7593eb61ee5620980f49388759494a2d48b6d35d5158e74137d4674d397",
+      "git_blob": "c41f7a805eaeff5081c4f4fec4a324cb64ca720a",
+      "bytes": 267,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/config/opluspineappleauto.conf",
+      "upstream_path": "vendor/oplus/kernel/audio/config/opluspineappleauto.conf"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/build.mk",
+      "sha256": "d24a6665462e428aa9e222b916785f35cae76a91616eb16023839f76345e144c",
+      "git_blob": "3d9dbcbde87505eaab94a60feaa6b728f57db25a",
+      "bytes": 6965,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/build.mk",
+      "upstream_path": "vendor/oplus/kernel/audio/build.mk"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650",
+      "commit": "453d8875f815bf9dfad9035982861226a4823a6c",
+      "path": "android_kernel_modules_and_devicetree_oneplus_sm8650/vendor/oplus/kernel/audio/oplus_audio_kernel_modules.mk",
+      "sha256": "4374a52514037a9b9b2cd6e90a18d013a39aaa2b8eb98aac212aed6ce52d67ff",
+      "git_blob": "aa9806add6e0850505cd1ec9bd87f0256ea81cf5",
+      "bytes": 2949,
+      "url": "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/oplus/kernel/audio/oplus_audio_kernel_modules.mk",
+      "upstream_path": "vendor/oplus/kernel/audio/oplus_audio_kernel_modules.mk"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/remoteproc/qcom_q6v5_pas.c",
+      "sha256": "c9ffea4f7b25b1f9227b5b80f29e2af02a0aa3f01504246a1193c8877d905977",
+      "git_blob": "ce974db4a8f75dbef2835e8edad2d66006c2a64d",
+      "bytes": 81060,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/remoteproc/qcom_q6v5_pas.c",
+      "upstream_path": "drivers/remoteproc/qcom_q6v5_pas.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_smem.c",
+      "sha256": "9fec6a165cd729403f7bca9c22523c03b23d2a5bfb897d78fec7779ef2fa4ce3",
+      "git_blob": "ae367ef51227e578a3de03ad933e46fb6edf463c",
+      "bytes": 7532,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_smem.c",
+      "upstream_path": "drivers/rpmsg/qcom_glink_smem.c"
+    },
+    {
+      "repository": "OnePlusOSS/android_kernel_oneplus_sm8650",
+      "commit": "d763ed47deec55451366c1187f813f2f309d88a7",
+      "path": "android_kernel_oneplus_sm8650/drivers/rpmsg/qcom_glink_native.c",
+      "sha256": "ed801e228372edac1922d2e57b927362ef59073c779f672ca5d4ee2649d280a8",
+      "git_blob": "2463f7f46944be04f6e39bd532d01745270b2e6a",
+      "bytes": 67851,
+      "url": "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/d763ed47deec55451366c1187f813f2f309d88a7/drivers/rpmsg/qcom_glink_native.c",
+      "upstream_path": "drivers/rpmsg/qcom_glink_native.c"
+    }
+  ]
+}

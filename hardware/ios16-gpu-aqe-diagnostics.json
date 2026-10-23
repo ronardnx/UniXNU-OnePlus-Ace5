@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "date": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "status": "AQE acknowledged; complete START blocked on required secure GPU context allocation",
+  "kernel_recompiled": false,
+  "partition_flashed": false,
+  "raw_cp_submitted": false,
+  "new_900e_observed": false,
+  "gpu_submission_verified": false,
+  "metal_verified": false,
+  "secure_cx_executed": false,
+  "secure_cx_helper_status": "host-tested offline candidate only; no runtime integration or device execution",
+  "aqe_feature_reply": {
+    "id": 11,
+    "value": 0,
+    "status": 0,
+    "header": "0x9090040b"
+  },
+  "preemption_disable_reply": {
+    "id": 11,
+    "value": 0,
+    "status": 0,
+    "header": "0x9080040b"
+  },
+  "blocked_memory_request": {
+    "flags": "0x1007",
+    "kind": 5,
+    "gmu_handle": 5,
+    "bytes": 3657728,
+    "alignment": "0x0",
+    "raw_words": [
+      "0x1000b14",
+      "0x1",
+      "0x0",
+      "0x0",
+      "0x1007",
+      "0x5",
+      "0x0",
+      "0x5",
+      "0x0",
+      "0x37d000",
+      "0x0"
+    ],
+    "blocked_reason": "Secure GPU allocation and secure context mapping are not implemented"
+  },
+  "baseline": {
+    "aqe_enabled": false,
+    "incomplete_vendor_startup": true,
+    "hwsched_start_accepted": true,
+    "configuration_verified": true,
+    "gx_off": true,
+    "prr_marker": {
+      "allocation": {
+        "handle": 26,
+        "offset": 11837440,
+        "bytes": 4096,
+        "flags": 831,
+        "kind": 0,
+        "gpu": 1639227392,
+        "gmu": 1639227392
+      },
+      "physical": "0x8c76ea000",
+      "bytes": 4096,
+      "register_low": "0x3da6008",
+      "register_high": "0x3da600c",
+      "prepared": true,
+      "retained_until_reboot": true
+    }
+  },
+  "cleanup": {
+    "reset_held": true,
+    "stream_faulted": true,
+    "context_disabled": true,
+    "tlb_synced": true,
+    "stock_tcm_retained": true,
+    "owned_ram_pinned_until_reboot": true
+  },
+  "post_cleanup": {
+    "0x3da6008": "0x0",
+    "0x3da600c": "0x0",
+    "0x3d7e000": "0x1",
+    "0x3dc0000": "0x0",
+    "0x3dc2000": "0x0",
+    "0x3da0800": "0x0",
+    "0x3da0804": "0x0",
+    "0x3da0c00": "0x20000",
+    "0x3da0c04": "0x20000",
+    "0x3dc0058": "0x400",
+    "0x3dc2058": "0x400",
+    "0x3da0048": "0x0",
+    "post_cleanup_verified": true
+  },
+  "display_off": {
+    "requested": "off",
+    "dcs": "0x28",
+    "completed": true,
+    "controller": "0x1f5",
+    "status_before": "0x0",
+    "interrupt_status": "0x1",
+    "ack_error": "0x0",
+    "status_after": "0x0"
+  },
+  "evidence": {
+    "aqe_first_request": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081045-014948/result.json",
+      "sha256": "c300cd1a9e40e883e5c99a84fa65064044ecaf1f0ed4da2c88001311586d65c8"
+    },
+    "baseline_before_prr": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081315-064101/result.json",
+      "sha256": "ee3dd0cab92f9097050f26632ab08fdfe8e8d546aabaea8e70eb4d4548a82165"
+    },
+    "aqe_preemption_disabled": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081355-300984/result.json",
+      "sha256": "88b686dcbaa1841b4afa7a06b6d957a582048e4f3892a1d521ad2deaea04258f"
+    },
+    "prr_mapping_limit_failure": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081546-828101/result.json",
+      "sha256": "a61354e30a677564c59095005ba483fe30e91ca79acc16ece5285c7a9e23fc35"
+    },
+    "prr_baseline": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081633-171938/result.json",
+      "sha256": "d22dcb4caa02d34623ea1085350cbf63e18a11b27c984d37f2e8e0b7094094a7"
+    },
+    "aqe_final": {
+      "path": "out/ios16/gpu-native-hwsched-terminal/20261023-081822-328180/result.json",
+      "sha256": "9866e0055f3a1befcb3efb0fdf95a103d7275d42321a4ad8e595626d70dd964c"
+    },
+    "post_cleanup": {
+      "path": "out/ios16/gpu-post-aqe-state/20261023-081949-566312/result.json",
+      "sha256": "66448b41df3cdfddcddb6aa1c4a0235bc3debe42195a05e59fbf28f6cf42f2d4"
+    },
+    "display_off": {
+      "path": "out/ios16/panel-display-terminal/20261023-081949-774856/result.json",
+      "sha256": "29c057fe7dabb4d85209591ae3977fef89d2c95f5cb971c5799d26eb8930077f"
+    }
+  },
+  "offline_checks": {
+    "python_host_tests": 26,
+    "disabled_raw_entries": 3,
+    "passed": true,
+    "scm_host_asan_ubsan_passed": true
+  },
+  "remaining": [
+    "Dedicated secure allocation without CPU/nonsecure GPU/GMU aliases, HLOS-to-CP_PIXEL ownership, secure domain and failure handling",
+    "Runtime secure-CX and SMMU aperture integration",
+    "Host GPU/GMU IRQ and first-fault capture",
+    "Stock CP_INIT then ZAP/PAS and unsecure switch",
+    "Submission, fences and Metal"
+  ],
+  "source_audit": "docs/GPU_SECURE_START_AUDIT.md",
+  "continuation_files": {
+    "scripts\\gpu-native-hwsched.py": "724abe9ef8fe33e4dd1f810b95a25eb821207e1d69b870800d70737d118afb57",
+    "scripts\\gpu_terminal_diagnostics.py": "53e16f6607e1fe5ee4ed42aa32bbfece4ae8bda8bad210df3c61fc0a2b8c3a0c",
+    "scripts\\gpu_terminal_live.py": "12ed04335bee4e89ccd1c2c2ebb76a7917965ad808fe54b60d01674cdc8dfe00",
+    "scripts\\gpu_terminal_native.py": "39431ca67c5f44665732f11e9c48185d11612b2053fb63c146e1a557dd610aef",
+    "scripts\\gpu_terminal_smmu.py": "579e7da8d468f848e71bca5e897d4c9611820dc4dc2c0875dec840020c7e65e3",
+    "ios16\\giulia_gpu_scm.h": "4390f11ec2d42bbfe9cf9c0d08859e5a584f6286adc77e42ba23558b0164de85",
+    "tests\\ios16_gpu_scm.c": "9dafb6f77ceb859658528a1e0bac7e1fa549731c5a7bcd68c5a001c8a83c5e42",
+    "docs\\GPU_SECURE_START_AUDIT.md": "68a36c647feaa7cf95028297dfa0689067d7103e053e836e30723c0840aec33c"
+  }
+}

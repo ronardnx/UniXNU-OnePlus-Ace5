@@ -59,9 +59,33 @@ int main()
             assert(frame[at] == (uint8_t)expected && frame[at + 1] == (uint8_t)(expected >> 8));
         }
     for (size_t i = frame_bytes; i < frame.size(); i++) assert(frame[i] == 0xa5);
+    assert(!giulia_screen_capture_size(frame.data(), frame_bytes, &width, &height, 159));
+    assert(!giulia_screen_capture_size(frame.data(), frame_bytes, &width, &height, 2781));
+    const size_t native_bytes = (size_t)GD_WIDTH * GD_HEIGHT * 2;
+    std::vector<uint8_t> native(native_bytes + 32, 0xa5);
+    assert(giulia_screen_capture_size(native.data(), native_bytes, &width, &height, 2780));
+    assert(width == GD_WIDTH && height == GD_HEIGHT);
+    for (unsigned y = 0; y < height; y++)
+        for (unsigned x = 0; x < width; x++) {
+            uint16_t expected = (uint16_t)(((x & 255u) >> 3) << 11 |
+                ((y & 255u) >> 2) << 5 | (((x + y) & 255u) >> 3));
+            size_t at = ((size_t)y * width + x) * 2;
+            assert(native[at] == (uint8_t)expected && native[at + 1] == (uint8_t)(expected >> 8));
+        }
+    for (size_t i = native_bytes; i < native.size(); i++) assert(native[i] == 0xa5);
+    assert(giulia_screen_capture_size(frame.data(), frame_bytes, &width, &height, 160));
+    assert(width == 72 && height == 160);
+    for (unsigned y = 0; y < height; y++)
+        for (unsigned x = 0; x < width; x++) {
+            unsigned sx = x * GD_WIDTH / width, sy = y * GD_HEIGHT / height;
+            uint16_t expected = (uint16_t)(((sx & 255u) >> 3) << 11 |
+                ((sy & 255u) >> 2) << 5 | (((sx + sy) & 255u) >> 3));
+            size_t at = ((size_t)y * width + x) * 2;
+            assert(frame[at] == (uint8_t)expected && frame[at + 1] == (uint8_t)(expected >> 8));
+        }
     fb.fRowBytes -= 4;
     assert(!giulia_screen_capture(frame.data(), frame_bytes, &width, &height));
-    assert(width == 0 && height == 0 && lock.locks == 1);
-    puts("Screen framebuffer: 219620 real BGRA samples, RGB565 LE, exact bounds, shared lock and provider lifetime passed");
+    assert(width == 0 && height == 0 && lock.locks == 3 && lock.unlocks == 3 && !lock.held);
+    puts("Screen framebuffer: native/downsampled real BGRA samples, RGB565 LE, exact bounds, shared lock and provider lifetime passed");
     return 0;
 }
