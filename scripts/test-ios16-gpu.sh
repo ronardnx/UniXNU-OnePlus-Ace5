@@ -3,6 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# The A750 platform data is derived from the pinned vendor blobs; fetch them
+# when a caller (for example the GPU workflow) has not done it already.
+if [ ! -f .cache/gpu-source/adreno-gpulist.h ]; then
+  python3 scripts/fetch-ios16-gpu-sources.py --out .cache/gpu-source
+fi
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/uefi_gpu_cold_clocks.c -o "$tmp/cold-clocks"
 "$tmp/cold-clocks"
 python3 tests/ios16_gpu_vendor.py
