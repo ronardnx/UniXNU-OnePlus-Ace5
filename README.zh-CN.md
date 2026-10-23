@@ -106,7 +106,7 @@ GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用�
 
 通过 `--hotload-source` 可显式引入公共 `UniXNU/kits/NativeHotload` kit。常驻适配器将调度时间片、VM 顺序访问及 VFS 聚簇大小／预读算法接入可替换策略，具备私有状态迁移、回滚和原算法回退。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核与 15 个模块的编译，并核验真实链接入口与核心调用。核心子系统其余部分和硬件驱动仍需迁移，实机热替换尚未验证。参见[模块规范](docs/DRIVER_MODULES.md)及[终端接入](docs/USB_TERMINAL.md#开发用原生模块热更新)。
 
-2026-10-24 首次实机上传已完成，但 commit 被执行权限检查拒绝，返回 `EACCES`（13），原生模块没有执行；常驻调度器继续使用原算法回退。私有静态子映射修复与 `hl.memory` 诊断已实现，仍需新一轮完整 Actions 编译和重新临时启动，再验收原生执行及热替换。
+2026-10-24 首次实机上传已完成，但 commit 被执行权限检查拒绝，返回 `EACCES`（13），原生模块没有执行；常驻调度器继续使用原算法回退。私有静态子映射修复与 `hl.memory` 诊断已通过 [Actions 40035230392](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40035230392) 的完整内核及 15 个模块编译，核对全部 20 个 kit 源文件和真实链接的 VM 启动调用。本地打包与镜像核验已完成；仍待临时启动，再验收原生执行、状态迁移、回滚及隔离。
 
 | 路径 | 用途 |
 | --- | --- |
