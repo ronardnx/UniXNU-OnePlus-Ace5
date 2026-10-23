@@ -59,7 +59,11 @@ scripts\debug-terminal.cmd --port COM21
 
 2026-10-23 已用临时启动的旧 r2 镜像记录用户确认的音量加两次、音量减两次、
 电源两次寄存器变化；实测映射见 [`sm8650-keys.json`](../hardware/sm8650-keys.json)。
-该镜像尚不能验证新驱动到 iOS 的 HID 行为。三段式开关使用 AK09970 三轴霍尔传感器，
+上述旧镜像记录仅证明寄存器映射。后续按键最小镜像已验证音量界面响应；
+熄屏修复版已通过物理电源键熄屏／亮屏实测，详见[显示电源说明](DISPLAY_POWER.md)。
+串口 `GIULIA DISPLAY POWER:` 记录实际请求、面板状态和错误；本轮 6 次请求均
+为 `error=0 ack=0 frozen=0`。仅有 `keys.status` 的事件计数仍不足以证明面板已关闭。
+三段式开关使用 AK09970 三轴霍尔传感器，
 GPIO99 仅为中断脚，仍需完成传感器读取与位置校准。
 
 新 GUI 内核另包含默认关闭的三段式诊断线程，只有 `giulia_slider=1` 且新 UEFI

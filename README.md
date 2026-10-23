@@ -20,12 +20,14 @@ Status as of **2026-10-23**. Results apply to the configurations recorded in [`h
 | Debug console | Verified | USB CDC serial transport and startup log capture |
 | User interface | Verified | Hello / Setup starts; complete system functionality remains under development |
 | Display and touch | Verified | Full 1264×2780 panel coverage and aligned touch in Setup; UIKit uses a scaled 1125×2436 canvas |
+| Power and volume keys | Verified in minimal key build | Physical power key turns the panel off/on; volume UI responds. See [validation](docs/DISPLAY_POWER.md) |
+| Alert slider | Unverified | AK09970 driver compiled; sensor reads and three-position calibration pending |
 | Wi-Fi | Networking unverified | PCIe, BHI/BHIE, AMSS and QMI resource requests verified; latest device run stops at QMP open before firmware-ready. Station/WPA2/data-path host tests pass |
 | GPU | Preparation service | A750 firmware/RAM preparation, inactive SMMU tables and gated observation; no GPU execution or Metal acceleration |
 | Audio | Experimental runtime cores | Pinned ADSP/PAS, GLINK/GPR, APM and dual SIA9177 code; native resource/PCM provider incomplete; no device playback or recording validation |
 | Cellular and DRM | Unverified | No complete implementation or device validation |
 
-Display rotation, power transitions and application compatibility require further testing. Wi-Fi includes station association, WPA2/WPA3-SAE, PMF, directed/background scanning, basic roaming, REO queue reclamation and Ethernet transport. These changes have not been built into a new kernel or tested on the device. See [networking implementation and limits](docs/WIFI_NETWORK.md) and [firmware-readiness evidence](docs/WIFI_FIRMWARE_READY.md).
+Display rotation, full system suspend/resume and application compatibility require further testing. Physical power-key display off/on was verified separately in the minimal key build. Wi-Fi includes station association, WPA2/WPA3-SAE, PMF, directed/background scanning, basic roaming, REO queue reclamation and Ethernet transport. These changes have not been built into a new kernel or tested on the device. See [networking implementation and limits](docs/WIFI_NETWORK.md) and [firmware-readiness evidence](docs/WIFI_FIRMWARE_READY.md).
 
 See [development status](docs/DEVELOPMENT_STATUS.md), [audio bring-up](docs/AUDIO_BRINGUP.md) and the [firmware transfer test record](hardware/sm8650-wifi-root-master.json) for evidence and remaining work.
 

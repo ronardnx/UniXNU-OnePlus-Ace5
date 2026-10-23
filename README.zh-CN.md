@@ -20,12 +20,14 @@
 | 调试控制台 | 已验证 | USB CDC 串口传输与启动日志采集 |
 | 用户界面 | 已验证 | 可启动 Hello / 设置界面；完整系统功能仍在开发中 |
 | 显示与触控 | 已验证 | 设置界面铺满 1264×2780 面板，触控对齐；UIKit 使用缩放后的 1125×2436 画布 |
+| 电源与音量键 | 按键最小镜像已实测 | 电源键可熄屏并恢复亮屏，音量界面有响应；见[验证记录](docs/DISPLAY_POWER.md) |
+| 三段式开关 | 尚未验证 | AK09970 驱动已编译，传感器读数与三个档位标定待完成 |
 | Wi-Fi | 联网尚未实测 | PCIe、BHI/BHIE、AMSS 和 QMI 资源请求已实测；最新实机运行在固件就绪之前的 QMP 打开阶段停止；关联、WPA2 与数据通路主机测试通过 |
 | GPU | 已接入准备服务 | A750 固件／RAM 准备、未激活 SMMU 页表及门控观察；尚无 GPU 执行与 Metal 加速 |
 | 音频 | 已加入实验性运行时核心 | 固定固件 ADSP／PAS、GLINK／GPR、APM 和双 SIA9177 代码；原生资源／PCM provider 未完成，尚无实机播放或录音验证 |
 | 蜂窝网络与 DRM | 尚未验证 | 尚无完整实现或实机验证 |
 
-显示旋转、电源状态切换和应用兼容性仍需验证。Wi-Fi 已加入单站关联、WPA2/WPA3-SAE、PMF、定向与后台扫描、基本漫游、REO 队列回收和 Ethernet 传输代码；本轮没有构建新内核，也没有实机验证这些改动。实现与限制见 [Wi-Fi 联网](docs/WIFI_NETWORK.md)，启动证据见 [固件就绪记录](docs/WIFI_FIRMWARE_READY.md)。
+显示旋转、完整系统休眠／恢复和应用兼容性仍需验证；物理电源键的面板熄屏／亮屏已在独立按键最小镜像中实测。Wi-Fi 已加入单站关联、WPA2/WPA3-SAE、PMF、定向与后台扫描、基本漫游、REO 队列回收和 Ethernet 传输代码；本轮没有构建新内核，也没有实机验证这些改动。实现与限制见 [Wi-Fi 联网](docs/WIFI_NETWORK.md)，启动证据见 [固件就绪记录](docs/WIFI_FIRMWARE_READY.md)。
 
 详细证据与待办事项见[开发状态](docs/DEVELOPMENT_STATUS.md)、[音频驱动进展](docs/AUDIO_BRINGUP.md)及[固件传输测试记录](hardware/sm8650-wifi-root-master.json)。
 
