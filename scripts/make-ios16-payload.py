@@ -36,6 +36,7 @@ def main():
     p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
     p.add_argument('--trace-all',action='store_true',help='All processes, byte-preserving stdout/stderr, unlimited periodic snapshots')
     p.add_argument('--enable-touch',action='store_true',help='Start the compiled Ace 5 hardware touch worker')
+    p.add_argument('--enable-slider',action='store_true',help='Opt in to the AK09970 worker; requires matched native Hall preparation and subsequent calibration')
     p.add_argument('--touch-gpio',action='store_true',help='Allow GPIO SPI on the observed GPI-only controller')
     p.add_argument('--wifi-pcie',action='store_true',help='Opt-in WCN7850 power/PCIe enumeration in the matching UEFI; a runtime kernel also requires locally embedded firmware')
     p.add_argument('--gpu-mode',type=int,choices=(1,2,3),help='1: host preparation; 2: gated observation; 3: explicit UEFI CX/clock preparation with a fixed ADT report')
@@ -52,6 +53,9 @@ def main():
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
     platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    if a.enable_slider and (not a.root_report or not platform_match.get('gui') or
+                            b'GIULIA SLIDER: handoff-missing gh=' not in a.kernel.read_bytes()):
+        raise ValueError('Slider requires a GUI root and the compiled guarded AK09970 worker')
     gpu_runtime=check_gpu_runtime(a.kernel.read_bytes(),report)
     audio_runtime=check_audio_runtime(a.kernel.read_bytes(),report)
     if a.audio_prepare and (not audio_runtime or not a.root_report or not platform_match.get('gui')):
@@ -140,6 +144,7 @@ def main():
         if a.touch_gpio:root_args+=' giulia_touch_gpio=1'
         if a.gpu_mode:root_args+=' giulia_gpu='+str(a.gpu_mode)
         if a.audio_prepare:root_args+=' giulia_audio=1'
+        if a.enable_slider:root_args+=' giulia_slider=1'
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
         if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
@@ -180,6 +185,9 @@ def main():
             result['physical_touch_worker']=True
             result['touch_clock_handoff']=True
         if a.touch_gpio:result['touch_gpio']=True
+        if a.enable_slider:
+            result['physical_slider_worker']=True
+            result['hall_prepare_handoff']=True
     if catalog:
         result['trust_catalog']={k:catalog[k] for k in ('sha256','bytes','build','source_ipsw_sha256','unique_hashes')}
     if wifi:result['wifi_bringup']=wifi

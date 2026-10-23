@@ -62,6 +62,22 @@ scripts\debug-terminal.cmd --port COM21
 该镜像尚不能验证新驱动到 iOS 的 HID 行为。三段式开关使用 AK09970 三轴霍尔传感器，
 GPIO99 仅为中断脚，仍需完成传感器读取与位置校准。
 
+新 GUI 内核另包含默认关闭的三段式诊断线程，只有 `giulia_slider=1` 且新 UEFI
+通过 `gh=3` 传入原生供电及 I2C 时钟准备结果时才启动。线程先检查时钟与空闲
+GENI／DMA，再临时取得 GPIO206／207，用开漏 I2C 校验 AK09970 `48 c1`。
+发生错误后停止，尝试恢复传感器控制值与 GPIO 配置；不会猜测 PMIC 寄存器。
+`slider.status` 只读取缓存，`slider.stop` 向线程提交停止请求。
+
+实测传感器后，在每个物理位置保持拨杆静止，分别发送
+`slider.calibrate up RADIUS`、`slider.calibrate middle RADIUS`、
+`slider.calibrate down RADIUS`。RADIUS 必须根据实际读数变化选取，范围为
+1–32767；三个窗口重叠时拒绝启用分类。没有三个有效标定点时位置为 unknown。
+标定仅在本次启动有效，不使用未经实测的磁场正负作为位置依据。
+`slider.hid 1` 才开启实验性 Telephony RingEnable 事件桥接，策略为 down 发出
+ring=1、up／middle 发出 ring=0；iOS 的事件极性和实际静音效果仍需实机验证。
+middle 不代表已实现振动，当前没有触觉驱动。`slider.hid 0` 停止后续事件投递。
+离线测试运行 `bash scripts/test-ios16-slider.sh`。
+
 音频查询随本轮源码纳入所有 profile，需重新构建内核；不需要额外 `--audio` 开关。
 它们只显示静态映射，未进行实机音频验证，也不随 `all`／`collect` 自动执行。
 来源、固件校验及后续驱动工作见[音频映射](AUDIO_MAPPING.md)。

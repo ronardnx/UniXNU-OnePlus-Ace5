@@ -20,6 +20,7 @@ DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe',
                    'keys.status',
+                   'slider.status','slider.stop',
                    'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
                    'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
                    'screen.start','screen.stop','screen.snapshot',
@@ -61,6 +62,10 @@ HELP = '''Device commands (new kernel needed except help/ping/status/replay/samp
   screen.configure N FPS  maximum edge 160..2780, target FPS 1..30 (USB limited)
   input.status            actual touch/keyboard/button service availability
   keys.status             cached physical key readings, delivery counters and errors
+  slider.status           cached AK09970 state; worker is opt-in and requires gh=3
+  slider.calibrate POSITION RADIUS  capture up/middle/down point; radius 1..32767
+  slider.hid 0 / 1        explicit experimental ringer bridge after calibration
+  slider.stop             stop worker and restore sensor/pins; no automatic restart
   input.release           release remote touches and held keyboard/buttons
 Host commands:
   :help                  this help
@@ -93,7 +98,11 @@ def wire_command(line):
     register_arity = {'reg.map': 2, 'reg.maps': 0, 'reg.unmap': 1,
                       'reg.read': 2, 'reg.write': 3, 'reg.rmw': 4, 'reg.dump': 3,
                       'shell.size': 2}
-    if words and words[0] in ('screen.configure', 'input.touch', 'input.key', 'input.button'):
+    if words and words[0] in ('slider.calibrate','slider.hid'):
+        valid = (len(words)==2 and words[1] in ('0','1')) if words[0]=='slider.hid' else (
+            len(words)==3 and words[1] in ('up','middle','down') and bool(re.fullmatch(r'[0-9]{1,5}',words[2])) and 1<=int(words[2])<=32767)
+        if not valid: raise ValueError('Invalid slider diagnostic command.')
+    elif words and words[0] in ('screen.configure', 'input.touch', 'input.key', 'input.button'):
         command = words[0]
         if command == 'input.button':
             valid = len(words) == 3 and words[1] in ('home','back','power','volumeup','volumedown') and words[2] in ('0','1')
@@ -338,7 +347,7 @@ class Commands:
             return 'Polling stopped.'
         if cmd == 'watch' and len(words) == 3:
             wire_command(words[1])
-            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test') or words[1].startswith('reg.'):
+            if words[1] in ('replay', 'sample', 'shell','wifi.start','gpu.observe','reboot.fastboot','screen.start','screen.stop','audio.start','audio.stop','audio.test','slider.stop') or words[1].startswith('reg.'):
                 raise ValueError('Use replay/sample/shell/MMIO explicitly, not periodic polling.')
             seconds = float(words[2])
             if not 1 <= seconds <= 86400:

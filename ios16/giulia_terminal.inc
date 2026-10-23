@@ -25,6 +25,7 @@ static int giulia_terminal_proc(proc_t p, void *arg)
 static int giulia_terminal_command(const char *cmd)
 {
     if(!strcmp(cmd,"keys.status")) {giulia_keys_debug();return 1;}
+    if(giulia_slider_terminal(cmd))return 1;
     if(gaudio_command(cmd))return 1;
     if(giulia_gpu_terminal(cmd))return 1;
     if(gscreen_command(cmd))return 1;
@@ -69,6 +70,7 @@ static int giulia_terminal_command(const char *cmd)
         printf("GIULIA TERM: input=input.status,input.touch,input.key,input.button,input.release,input.keepalive coordinates=0..65535 lease_ms=3000\n");
         printf("GIULIA TERM: gpu=gpu.status,gpu.observe compiled=%u observation=explicit-read-only hardware_ready=0\n",GIULIA_GPU_INCLUDED);
         printf("GIULIA TERM: keys=keys.status compiled=%u observation=cached-no-MMIO\n",GIULIA_KEYS_INCLUDED);
+        printf("GIULIA TERM: slider=slider.status,slider.calibrate,slider.hid,slider.stop compiled=%u requires=giulia_slider1+gh3 default_hid=0\n",GIULIA_KEYS_INCLUDED);
         printf("GIULIA TERM: audio=audio.status,audio.map stage=board-mapping-only hardware_ready=0 playback=0 recording=0\n");
     } else return 0;
     printf("GIULIA TERM: end %s\n",cmd);

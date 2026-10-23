@@ -152,6 +152,14 @@ with tempfile.TemporaryDirectory() as directory:
             expected+=' giulia_touch_gpio=1'
         if report.get('gpu_mode'):expected+=' giulia_gpu='+str(report['gpu_mode'])
         if report.get('audio_prepare'):expected+=' giulia_audio=1'
+        if report.get('physical_slider_worker'):
+            if (not report.get('platform_match',{}).get('gui') or
+                not report.get('hall_prepare_handoff') or
+                b'GIULIA SLIDER: handoff-missing gh=' not in (temporary/'kernel.macho').read_bytes()):
+                raise SystemExit('Guarded AK09970 worker/native Hall handoff missing from the GUI payload')
+            expected+=' giulia_slider=1'
+        elif report.get('hall_prepare_handoff'):
+            raise SystemExit('Hall preparation requires the explicit slider worker profile')
         if report.get('root_kernel_args',expected)!=expected:
             raise SystemExit('Root compatibility options differ from build report')
         if (len(roots)!=1 or roots[0]['type']!='xnu' or roots[0]['path']!=entry['path']

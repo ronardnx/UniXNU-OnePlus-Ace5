@@ -45,10 +45,14 @@ def gpu_terminal_source(gpu=False):
 
 def keys_terminal_source(gui=False):
     if gui:
-        return '#define GIULIA_KEYS_INCLUDED 1\nextern void giulia_keys_debug(void);\n'
+        return ('#define GIULIA_KEYS_INCLUDED 1\nextern void giulia_keys_debug(void);\n'
+                'extern int giulia_slider_terminal(const char *);\n')
     return ('#define GIULIA_KEYS_INCLUDED 0\n'
             'static void giulia_keys_debug(void) {\n'
-            '    printf("GIULIA KEYS: compiled=0 service=unavailable stage=not-compiled\\n");\n}\n')
+            '    printf("GIULIA KEYS: compiled=0 service=unavailable stage=not-compiled\\n");\n}\n'
+            'static int giulia_slider_terminal(const char *cmd) {\n'
+            '    if(strncmp(cmd,"slider.",7))return 0;\n'
+            '    printf("GIULIA SLIDER: compiled=0 service=unavailable\\n");return 1;\n}\n')
 
 
 def audio_terminal_source(audio=False):
@@ -106,7 +110,8 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '    else if (!strcmp(u.command,"ping"))')
     edit(usb, 'commands help status ping replay',
          'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
-         + ' keys.status' + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
+         + ' keys.status slider.status slider.calibrate slider.hid slider.stop'
+         + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')

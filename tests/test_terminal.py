@@ -47,6 +47,14 @@ class Terminal(unittest.TestCase):
             finally:
                 capture.close()
 
+    def test_slider_commands_require_explicit_positions_and_bounds(self):
+        for command in ('slider.status','slider.stop','slider.calibrate up 1',
+                        'slider.calibrate middle 32767','slider.calibrate down 100','slider.hid 0','slider.hid 1'):
+            self.assertEqual(terminal.wire_command(command),(command+'\n').encode())
+        for command in ('slider.start','slider.calibrate up 0','slider.calibrate down 32768',
+                        'slider.calibrate top 100','slider.hid 2','slider.status\nping','slider.hid 1;ping'):
+            with self.assertRaises(ValueError): terminal.wire_command(command)
+
     def test_split_utf8_and_historical_topic_export(self):
         with tempfile.TemporaryDirectory() as directory:
             capture = terminal.Capture(Path(directory))

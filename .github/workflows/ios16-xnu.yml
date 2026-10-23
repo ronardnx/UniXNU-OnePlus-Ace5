@@ -61,6 +61,7 @@ jobs:
           ref: d68e05df683f863f054b0f9c063c54d2b1342b2a
           path: reference
       - name: Prepare host crypto test dependencies
+        if: ${{ inputs.wifi }}
         run: |
           brew install openssl@3
           openssl_prefix=$(brew --prefix openssl@3)
@@ -89,15 +90,24 @@ jobs:
           done
           python3 tests/ios16_wifi_pcie_report.py
           python3 tests/ios16_wifi_handoff.py
-          bash scripts/test-ios16-wifi-runtime.sh
+          if [ '${{ inputs.wifi }}' = true ]; then
+            bash scripts/test-ios16-wifi-runtime.sh
+          fi
           python3 tests/ios16_wifi_embed.py
           python3 -m unittest discover -s tests -p 'test_terminal.py'
           python3 -m unittest discover -s tests -p 'test_debug_userland.py'
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all tests/ios16_reboot.c -o /tmp/reboot-test
           /tmp/reboot-test
       - name: Validate physical key decoding and terminal status
-        run: bash scripts/test-ios16-keys.sh
+        run: |
+          bash scripts/test-ios16-keys.sh
+          bash scripts/test-ios16-slider.sh
+          clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all tests/uefi_hall_prepare.c -o /tmp/hall-prepare-test
+          /tmp/hall-prepare-test
+          python3 tests/uefi_hall_adapters.py
+          python3 -m unittest discover -s tests -p 'test_hall_diagnostics.py'
       - name: Validate audio board mapping and metadata commands
+        if: ${{ inputs.audio }}
         run: bash scripts/test-ios16-audio.sh
       - name: Validate screen capture, host viewer and development Setup
         run: |
@@ -153,6 +163,7 @@ jobs:
             python3 -c "from pathlib import Path; assert b'GIULIA TOUCH: controller result=' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
           fi
           if [ '${{ inputs.profile }}' = gui ]; then
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert all(m in b for m in (b'GIULIA KEYS: observer polling active',b'GIULIA KEYS: compiled=1',b'GIULIA SLIDER: compiled=1',b'keys.status',b'slider.status'))"
             python3 -c "from pathlib import Path; assert b'GIULIA AMFI: trust catalogue ready;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
             python3 -c "from pathlib import Path; assert b'GIULIA LOG: launchd full activity/stderr logging enabled;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
             python3 -c "from pathlib import Path; assert b'GIULIA FB: native panel 1264x2780 full coverage;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"

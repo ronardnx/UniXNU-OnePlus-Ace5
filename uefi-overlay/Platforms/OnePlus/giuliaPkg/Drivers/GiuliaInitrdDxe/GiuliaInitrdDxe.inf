@@ -10,6 +10,9 @@
   ScanPolicy.h
   TouchClock.c
   TouchPower.c
+  HallPower.c
+  HallClock.c
+  HallPreparePolicy.h
   WifiPcie.c
   GpuPower.c
 [Packages]

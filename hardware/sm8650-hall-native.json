@@ -1,0 +1,163 @@
+{
+  "board": "OnePlus Ace 5 / giulia / SM8650",
+  "purpose": "Opt-in UEFI native preparation for subsequent AK09970 transport bring-up",
+  "status": {
+    "implemented": true,
+    "host_tests_passed": true,
+    "live_native_prepare_verified": false,
+    "live_hall_identity_verified": false,
+    "kernel_slider_delivery_verified": false
+  },
+  "compile_define": "GIULIA_HALL_PREPARE",
+  "functions": {
+    "schedule": [
+      "GiuliaHallPowerSchedule",
+      "GiuliaHallClockSchedule"
+    ],
+    "ready": [
+      "GiuliaHallPowerIsReady",
+      "GiuliaHallClockIsReady"
+    ]
+  },
+  "handoff": {
+    "guid": "1c87b711-eaa6-42cb-a3d5-8c2119652131",
+    "variables": [
+      "GiuliaHallPowerStatus",
+      "GiuliaHallClockStatus"
+    ],
+    "bytes": 16,
+    "format": "little-endian <IIQ>",
+    "fields": [
+      "stage",
+      "resource_address_or_clock_index",
+      "EFI_STATUS"
+    ],
+    "ready": "stage == 10 and EFI_STATUS == 0",
+    "scope": "Native API completion only; no independent measurement of rail voltage, physical bus ownership, GENI idle, sensor identity or iOS events.",
+    "attributes": "BOOTSERVICE_ACCESS | RUNTIME_ACCESS; no NON_VOLATILE flag"
+  },
+  "hardware": {
+    "dt": "ace5-analysis/running-device.dts:18842",
+    "compatible": "oplus,dhall-ak09970",
+    "i2c_address": "0x10",
+    "i2c_hub_base": "0x009a0000",
+    "i2c_hub_se": 8,
+    "sda": 206,
+    "scl": 207,
+    "irq": 99,
+    "vcc": {
+      "name": "pm_humu_l1",
+      "resource": "ldob1",
+      "microvolts": 1800000,
+      "physical_spmi_address": "unproven and never used by this adapter"
+    }
+  },
+  "power": {
+    "cmddb_version": "0x10000",
+    "rpmh_version": "0x10001",
+    "cmddb_address_slot": 1,
+    "cmddb_slave_slot": 7,
+    "resource": "ldob1",
+    "expected_cmd_db_slave": 4,
+    "note": "CmdDb slave 4 means VRM; it is not an SPMI slave ID.",
+    "native_driver_id": 2,
+    "driver_kind": "HLOS",
+    "client_name": "giulia-hall-vcc",
+    "rpmh_driver_valid_slot": 1,
+    "rpmh_create_slot": 5,
+    "rpmh_issue_slot": 18,
+    "rpmh_wait_slot": 11,
+    "set": 0,
+    "set_name": "ACTIVE",
+    "completion": true,
+    "commands": [
+      {
+        "offset": 0,
+        "value": 1800,
+        "meaning": "millivolts"
+      },
+      {
+        "offset": 8,
+        "value": 7,
+        "meaning": "PMIC4 LDO high power mode"
+      },
+      {
+        "offset": 4,
+        "value": 1,
+        "meaning": "enable"
+      }
+    ],
+    "retention": "Keep successful/partial/uncertain native client votes for handoff; no shared-rail disable or rollback."
+  },
+  "clock": {
+    "version": "0x1000a",
+    "names": [
+      "gcc_qupv3_i2c_s_ahb_clk",
+      "gcc_qupv3_i2c_core_clk",
+      "gcc_qupv3_i2c_s8_clk"
+    ],
+    "binary_string_offsets": [
+      84185,
+      84882,
+      85073
+    ],
+    "rate_hz": 19200000,
+    "rate_clock_index": 2,
+    "sequence": "Resolve all IDs, set exact SE8 rate, get rate, enable and query IsClockOn for S_AHB/core/SE8.",
+    "retention": "Retain native clock votes through kernel handoff, including partial/unknown results."
+  },
+  "pins": {
+    "stock_file": "pinctrl-pineapple.c",
+    "config_offset": "TLMM 0x0f000000 +0x100000 +gpio*0x1000",
+    "mux_lsb": 2,
+    "active_function": 1,
+    "egpio_present_bit": 11,
+    "apps_owner_bit": 12,
+    "output_enable_bit": 9,
+    "live_preflight_from_root": "GPIO206/207 cfg0x801 implies EGPIO capable and Apps bit12 clear; pin state is not proof of physical SDA/SCL level.",
+    "adapter_pin_writes": false
+  },
+  "firmware_pins": {
+    "verify_script": "scripts/verify-wifi-native-abi.py",
+    "ClockDxe": [
+      "b1608ab9a4759dbbc50e5e5836ee402ff832d8076011e5145460e4af97ba7686",
+      "53c18b9e1569cebbcb9837c1d773cc5e836fb7e902df7c29b27b485a13d4fdfc"
+    ],
+    "RpmhDxe": "cdebce5c9f96d16e71a0db8f9c4dbf591ed314dd94a6543b08c238902df65267",
+    "CmdDbDxe": "5c58d445f356af9f8497ea6f449ba534fd7920b045067cd3b02ad997863077bf"
+  },
+  "tests": {
+    "policy": "tests/uefi_hall_prepare.c",
+    "adapters": "tests/uefi_hall_adapters.py",
+    "toolchain": "WSL clang, C11, -Wall -Wextra -Werror, AddressSanitizer and UndefinedBehaviorSanitizer",
+    "covered": [
+      "Every native policy call failure boundary stops further work",
+      "Bad CmdDb VRM/address rejected before client creation",
+      "Zero request ID accepted as already-completed native operation",
+      "Exact rate and readback required",
+      "Each enabled clock must report on",
+      "Actual adapters use pinned protocol versions, method slots, resource name and clock names",
+      "Missing protocols may arrive later without duplicate completed preparations",
+      "Repeated schedule/notify cannot repeat votes",
+      "Disabled build syntax"
+    ],
+    "not_covered": [
+      "Hardware voltage",
+      "Native provider internal polling timeouts",
+      "Live EGPIO ownership or bus readiness",
+      "Live Hall identity",
+      "iOS16 ringer polarity or three-position policy"
+    ]
+  },
+  "references": [
+    "hardware/sm8650-touch.json",
+    "hardware/sm8650-wifi.json",
+    "out/buttons-slider-session-20261023/reference/evidence.json",
+    "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/vendor/oplus/kernel/device_info/tri_state_key/digital_hall_ic/oplus_ak09970.h",
+    "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/vendor/oplus/kernel/device_info/tri_state_key/digital_hall_ic/oplus_ak09970.c",
+    "https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/vendor/oplus/kernel/device_info/tri_state_key/oplus_tri_key.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/pinctrl/qcom/pinctrl-pineapple.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/pinctrl/qcom/pinctrl-msm.c",
+    "https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/oneplus/sm8650_b_16.0.0_ace_5/drivers/i2c/busses/i2c-msm-geni.c"
+  ]
+}

@@ -12,6 +12,10 @@ if [ "${GIULIA_BOOT_ABI:-darwin23}" = darwin22 ]; then
   python3 "$port_root/scripts/ios16-loader.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
   python3 "$port_root/scripts/enable-touch-diagnostics.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
   python3 "$port_root/scripts/enable-wifi-diagnostics.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
+  if python3 -c 'import pathlib,sys; sys.exit("#define GIULIA_HALL_PREPARE 1\n" not in pathlib.Path(sys.argv[1]).read_text())' "$work/uefi-giulia/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/PayloadIdentity.h"; then
+    python3 "$port_root/scripts/verify-wifi-native-abi.py" --uefi "$work/uefi-giulia"
+    python3 "$port_root/scripts/enable-hall-diagnostics.py" "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
+  fi
   python3 "$port_root/tests/ios16_dram_handoff.py" --driver "$work/uefi-giulia/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 fi
 python3 -m venv "$work/.venv"

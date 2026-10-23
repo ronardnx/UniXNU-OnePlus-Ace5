@@ -22,6 +22,8 @@
 #include "ScanPolicy.h"
 VOID GiuliaTouchClockSchedule (VOID);
 VOID GiuliaTouchPowerSchedule (VOID);
+VOID GiuliaHallPowerSchedule (VOID);
+VOID GiuliaHallClockSchedule (VOID);
 VOID GiuliaWifiInstall (VOID);
 VOID GiuliaGpuPowerInstall (VOID);
 
@@ -255,6 +257,8 @@ GiuliaInitrdDxeEntry (IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE *SystemTabl
   Report (1, 0, 0, EFI_NOT_READY);
   GiuliaTouchClockSchedule ();
   GiuliaTouchPowerSchedule ();
+  GiuliaHallPowerSchedule ();
+  GiuliaHallClockSchedule ();
   GiuliaWifiInstall ();
   GiuliaGpuPowerInstall ();
   Hob = GetFirstGuidHob (&gSiliciumEntryArgHobGuid);

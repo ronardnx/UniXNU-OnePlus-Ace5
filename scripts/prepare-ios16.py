@@ -191,6 +191,8 @@ def main():
         native_display_patch(a.out, Path(__file__).resolve().parents[1])
         from ios16_keys import keys_patch
         keys_patch(a.out, Path(__file__).resolve().parents[1])
+        from ios16_slider import slider_patch
+        slider_patch(a.out, Path(__file__).resolve().parents[1])
         if a.wifi:
             patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
                      '@@ -15,2 +15,3 @@\n'

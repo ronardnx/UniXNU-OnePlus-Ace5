@@ -45,6 +45,10 @@ def main():
     require(0 < kernel_size <= len(firmware)-4096, 'Invalid kernel size')
     payload = args.payload.read_bytes()
     pr = json.loads(args.payload_report.read_text())
+    if pr.get('hall_prepare_handoff'):
+        require(pr.get('physical_slider_worker') is True and
+                fw_report.get('hall_prepare_handoff_available') is True,
+                'Slider requires matched native Hall preparation and bounded loader handoff')
     if pr.get('gpu_power_handoff'):
         require(pr.get('gpu_mode')==3 and fw_report.get('gpu_power_handoff_available') is True,
                 'GPU mode 3 requires the matched GPU prepare protocol and fixed ADT loader')
