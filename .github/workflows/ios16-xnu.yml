@@ -102,6 +102,7 @@ jobs:
         run: |
           bash scripts/test-ios16-keys.sh
           bash scripts/test-ios16-slider.sh
+          bash scripts/test-ios16-display-power.sh
           clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all tests/uefi_hall_prepare.c -o /tmp/hall-prepare-test
           /tmp/hall-prepare-test
           python3 tests/uefi_hall_adapters.py
@@ -163,6 +164,7 @@ jobs:
             python3 -c "from pathlib import Path; assert b'GIULIA TOUCH: controller result=' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
           fi
           if [ '${{ inputs.profile }}' = gui ]; then
+            python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert b'GIULIA DISPLAY POWER: request=' in b and b'GiuliaDisplayPowerFrozen' in b"
             python3 -c "from pathlib import Path; b=Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes(); assert all(m in b for m in (b'GIULIA KEYS: observer polling active',b'GIULIA KEYS: compiled=1',b'GIULIA SLIDER: compiled=1',b'keys.status',b'slider.status'))"
             python3 -c "from pathlib import Path; assert b'GIULIA AMFI: trust catalogue ready;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
             python3 -c "from pathlib import Path; assert b'GIULIA LOG: launchd full activity/stderr logging enabled;' in Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()"
