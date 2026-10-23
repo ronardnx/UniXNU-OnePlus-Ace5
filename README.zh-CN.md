@@ -76,6 +76,12 @@ gh workflow run ios16-xnu.yml --repo tycykp/UniXNU-OnePlus-Ace5 \
 
 工作流生成 `ace5-ios16-xnu` 产物。GUI 打包还需要经过验证的本地产品 ADT、根卷报告、信任缓存及匹配的 WLAN 固件。固件在 CI 完成后于本地嵌入，不随内核源码上传。
 
+对包含已审查 `ci-source/NativeHotload` 快照的分支增加 `-f hotload=true`。
+工作流在 Ubuntu 构建 15 个 ARM64 策略镜像，核对它们与 macOS 常驻运行时的
+源码摘要，并验证目标内核中真实链接的入口与核心调用。内核、模块、来源清单和
+日志一同上传；热加载构建跳过 UEFI／启动镜像集成，实机运行仍需单独验证。
+参见 [CI 源码快照](ci-source/README.md)。
+
 [`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) 使用上述输入及已准备好的 UEFI 源码树组装、校验整合镜像。无参数运行可查看所需路径。每次构建应使用新的输出目录。
 
 构建新 userdata 时，可向 `scripts/rebuild-ios16-userdata.py` 传入 `--skip-setup` 跳过开机设置／激活引导页面。开关默认关闭；省略参数或传 `--no-skip-setup` 时保留正常向导。构建命令与验证说明见[开机向导开关](docs/SETUP_SWITCH.md)。
@@ -97,6 +103,8 @@ GPU/GMU 权限、固件分配生命周期、HFI 资源覆盖及尚缺的专用�
 ## 仓库结构
 
 驱动源码已按职责拆分到 `ios16/` 下的 13 个模块目录。共享资源仲裁位于平台层，可选驱动与输入启动注册由统一装配入口处理。目录职责、依赖规则及检查命令见[驱动模块规范](docs/DRIVER_MODULES.md)。
+
+通过 `--hotload-source` 可显式引入公共 `UniXNU/kits/NativeHotload` kit。常驻适配器将调度时间片、VM 顺序访问及 VFS 聚簇大小／预读算法接入可替换策略，具备私有状态迁移、回滚和原算法回退。核心子系统其余部分和硬件驱动仍需迁移，完整目标内核编译及实机热替换仍待验证。参见[模块规范](docs/DRIVER_MODULES.md)及[终端接入](docs/USB_TERMINAL.md#开发用原生模块热更新)。
 
 | 路径 | 用途 |
 | --- | --- |

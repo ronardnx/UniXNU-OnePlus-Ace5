@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "canonical_source": "UniXNU/kits/NativeHotload",
+  "kernel_pin": "xnu-8796.141.3",
+  "files": {
+    "native_hotload.c": "e5af585e75eb7cc87e5d253e99bde79b9bc2c9b293523eed146806eef867bf5c",
+    "native_hotload.h": "aefaac254989afad6060c7a7fb5d6fdfa1b771eedb72bbaa3254fcefcf90f524",
+    "native_hotload_core.h": "425ea3388ac3b6b6eff7cb994efac61206fc70ac789463c58a8bc8045b91f488",
+    "native_hotload_memory.inc": "f61c5db449d5722dffc1639dba4fbc4bd5ce642e590d7786749135bb1f365f98",
+    "emit_patch.py": "1cb0bea73af792ddb1146433002498a59e7b7698861311bf832d495805d19ede",
+    "hotload.py": "491220c9a18aa0e4e81c6159b53d2d7210125ad890195a10f760ed7f3e309bb8",
+    "build-module.py": "bad90a60bdf451a5219f12537ab48bf1d40022f4477ff5465d2988fca3f17e18",
+    "build-core.py": "147bc5cebb2615812f78ec0b26a2109e1f298ea5790f31ce95e0fa06936238d5",
+    "module.ld": "d4670afd0647fa0a9171ec0f7f15a30e28427080ab76428cfb1d03d5a6f481a0",
+    "nlh_format.py": "4123d5387e462904aa08520ede3662bd4a05067e317abe40e21cd6b3a7e59450",
+    "core/native_core_algorithms.h": "90d01b2f6708b3a7f342e5efa7b68ebcb697ecd8349bc1a7fe2864aa4ab0a86b",
+    "core/policy.c": "8e4010689ad7b5a215c2f5b261da624905fddba33ac6526ba42c9387aab30cab",
+    "core/emit_core_patch.py": "818f30942d080fe8cfb6d07437b7c7894196f61c1d98cc3f2c4b2e5f1afb9795",
+    "core/LICENSE": "5bc4c7a021c0f68ad6080ed1173b3fec1572637c2398490a34102aa6030b7d69",
+    "core/UPSTREAM.md": "8925e8323f9a22e24d3ebb594b1e9c42f522045fee143fdd50ee66ec2e8de93a",
+    "examples/counter.c": "9da324aa5238aed991533f1459be9af64b12cd232a9228286ba629413c312095",
+    "examples/client.c": "3e30f752c55b857f2eb701307247fbde977362af8c013384aaa951db019f49dc"
+  },
+  "abi": 2,
+  "core_interface_abi": 1129250817,
+  "core_state_abi": 1,
+  "core_module_names": [
+    "xnu-sched",
+    "xnu-vm",
+    "xnu-vfs"
+  ],
+  "whole_xnu_core_converted": false,
+  "hardware_verified": false
+}

@@ -94,6 +94,7 @@ gpu_args=()
 if [ -n "$gpu_pack" ]; then gpu_args=(--gpu-mode "$gpu_mode"); fi
 if [ "${GIULIA_DEBUG_TERMINAL:-0}" = 1 ]; then terminal_args+=(--debug-terminal); fi
 if [ "${GIULIA_DEBUG_MMIO:-0}" = 1 ]; then terminal_args+=(--debug-mmio); fi
+if [ "${GIULIA_DEBUG_HOTLOAD:-0}" = 1 ]; then terminal_args+=(--debug-hotload); fi
 if [ "${GIULIA_WIFI_TERMINAL_WAIT:-0}" = 1 ]; then terminal_args+=(--wifi-terminal-wait); fi
 if [ -n "$runtime_pack" ]; then
   wifi_kernel="$output_dir/kernel.macho"

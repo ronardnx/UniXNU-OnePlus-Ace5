@@ -104,6 +104,13 @@ with tempfile.TemporaryDirectory() as directory:
         raise SystemExit('MMIO boot argument/report mismatch')
     if report.get('debug_mmio_enabled') and not report.get('debug_terminal_enabled'):
         raise SystemExit('MMIO requires debug terminal mode')
+    if bool(report.get('debug_hotload_enabled')) != ('unixnu_hotload=1' in debug_args):
+        raise SystemExit('Hotload boot argument/report mismatch')
+    if report.get('debug_hotload_enabled'):
+        from ios16_hotload import check_hotload_kernel
+        if not report.get('debug_terminal_enabled'):
+            raise SystemExit('Hotload requires debug terminal mode')
+        check_hotload_kernel((temporary/'kernel.macho').read_bytes())
     if bool(report.get('wifi_terminal_wait')) != ('giulia_wifi_wait=1' in debug_args):
         raise SystemExit('Wi-Fi terminal wait/report mismatch')
     if report.get('wifi_terminal_wait') and (not report.get('debug_terminal_enabled') or

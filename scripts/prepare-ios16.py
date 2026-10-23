@@ -30,6 +30,8 @@ def main():
     p.add_argument('--audio', action='store_true', help='Include ADSP/GLINK/SIPA coordinator; native platform/PCM provider still required')
     p.add_argument('--modem', action='store_true', help='Include unified modem lifecycle and shared resource broker (GUI profile)')
     p.add_argument('--debug-userland', type=Path, help='Exact signed debug daemon/shell manifest from offline staging')
+    p.add_argument('--hotload-source', type=Path,
+                   help='Opt-in UniXNU/kits/NativeHotload directory; native ARM64 development modules')
     a = p.parse_args()
     if a.touch and not a.gui:p.error('--touch requires --gui')
     if a.wifi and not a.gui:p.error('--wifi requires --gui')
@@ -111,7 +113,8 @@ def main():
              '    else if (!strcmp(u.command,"status"))')
         edit(usb,'help/status/ping/replay','help/status/ping/replay/sample')
         edit(usb,'commands help status ping replay;','commands help status ping replay sample;')
-    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu, audio=a.audio, modem=a.modem)
+    terminal_sources(usb, block, edit, wifi=a.wifi, gui=a.gui, gpu=a.gpu, audio=a.audio, modem=a.modem,
+                     hotload=bool(a.hotload_source))
     sys.argv = [str(a.reference/'tools/prepare_vermeer.py'),str(a.work/'patches'),str(a.out),'--ios-gui' if a.gui else '--ios']
     runpy.run_path(sys.argv[0], run_name='__main__')
     for path in a.out.glob('*.patch'):
@@ -186,6 +189,9 @@ def main():
         selected = [name for name in ("wifi", "gpu", "audio", "modem") if getattr(a, name)]
         emit_optional_modules(a.out, Path(__file__).resolve().parents[1], selected)
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
+    if a.hotload_source:
+        from ios16_modules import emit_hotload_module
+        emit_hotload_module(a.out, a.hotload_source)
     (a.out/'capture-debug.ps1').write_text(capture)
     for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'ios16_screen_viewer.html', 'terminal-requirements.txt'):
         shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
@@ -208,6 +214,10 @@ def main():
             if b'\r\n' in raw:generated.write_bytes(raw.replace(b'\r\n',b'\n'))
     (a.out/'profile.json').write_text(json.dumps({'device':'OnePlus Ace 5 PKG110',
         'usb_terminal_protocol':2,
+        'native_hotload_included':bool(a.hotload_source),
+        'native_hotload_abi':2 if a.hotload_source else None,
+        'native_hotload_core_interface_abi':0x434f0001 if a.hotload_source else None,
+        'native_hotload_core_policy_adapters':['sched_quantum','vm_sequential','vfs_max_io','vfs_prefetch'] if a.hotload_source else [],
         'high_physical_cache_sync_fix':True,
         'debug_userland_trust_included':bool(debug_trust),
         'usb_terminal_host':'debug-terminal.cmd',

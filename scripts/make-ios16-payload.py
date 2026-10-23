@@ -33,6 +33,7 @@ def main():
     p.add_argument('--default-root',action='store_true')
     p.add_argument('--debug-terminal',action='store_true',help='Enable root USB PTY device; requires separately staged debug daemon/shell')
     p.add_argument('--debug-mmio',action='store_true',help='Enable explicit low peripheral MMIO commands; requires --debug-terminal')
+    p.add_argument('--debug-hotload',action='store_true',help='Enable NLH2 native module updates over USB; requires --debug-terminal and matching kernel')
     p.add_argument('--wifi-terminal-wait',action='store_true',help='Wait for wifi.start before DMA initialization so USB captures failures')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
     p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
@@ -49,6 +50,7 @@ def main():
     if a.trace_all:a.trace_services=True
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.debug_mmio and not a.debug_terminal:p.error('--debug-mmio requires --debug-terminal')
+    if a.debug_hotload and not a.debug_terminal:p.error('--debug-hotload requires --debug-terminal')
     if a.wifi_terminal_wait and (not a.debug_terminal or not a.wifi_pcie):
         p.error('--wifi-terminal-wait requires --debug-terminal and --wifi-pcie')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
@@ -101,6 +103,10 @@ def main():
             raise ValueError('Debug terminal requires protocol 2 kernel')
         args+=' giulia_debug=1'
     if a.debug_mmio:args+=' giulia_mmio=1'
+    if a.debug_hotload:
+        from ios16_hotload import check_hotload_kernel
+        check_hotload_kernel(a.kernel.read_bytes())
+        args+=' unixnu_hotload=1'
     if a.wifi_terminal_wait:
         if b'GIULIA WIFI: awaiting wifi.start before DMA setup' not in a.kernel.read_bytes():
             raise ValueError('Kernel lacks the Wi-Fi terminal start gate')
@@ -178,6 +184,7 @@ def main():
             'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window','platform_match':platform_match,
             'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes',
             'debug_terminal_enabled':a.debug_terminal,'debug_mmio_enabled':a.debug_mmio,
+            'debug_hotload_enabled':a.debug_hotload,
             'wifi_terminal_wait':a.wifi_terminal_wait}
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',

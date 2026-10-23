@@ -30,6 +30,10 @@ on:
         description: Include the unified modem framework and shared platform resource broker (requires GUI)
         type: boolean
         default: false
+      hotload:
+        description: Compile NLH2 runtime and 15 core-policy modules for terminal validation (no UEFI image)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -37,8 +41,59 @@ env:
   KERNEL_CONFIG: DEVELOPMENT
   MACHINE_CONFIG: SWEET
 jobs:
+  hotload-modules:
+    if: ${{ github.repository_owner == 'tycykp' && inputs.hotload }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify the committed common-kit snapshot
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          root = Path('ci-source/NativeHotload')
+          snapshot = json.loads(Path('ci-source/native-hotload-source.json').read_text())
+          actual = {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in sorted(root.rglob('*')) if p.is_file() and '__pycache__' not in p.parts}
+          if (snapshot['schema'] != 1 or snapshot['canonical_source'] != 'UniXNU/kits/NativeHotload'
+                  or not actual or snapshot['files'] != actual):
+              raise ValueError('NativeHotload snapshot differs from its recorded common-kit source')
+          out = Path('out')
+          out.mkdir()
+          (out / 'native-hotload-source.json').write_text(json.dumps(snapshot, indent=2) + '\n')
+          build = {'schema': 1, 'repository': os.environ['GITHUB_REPOSITORY'],
+                   'commit': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
+                   'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'hardware_tested': False}
+          (out / 'hotload-build.json').write_text(json.dumps(build, indent=2) + '\n')
+          PY
+      - name: Install ARM64 module compiler and linker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld
+      - name: Build all core-policy module scenarios
+        run: |
+          set -o pipefail
+          clang --version
+          ld.lld --version
+          python3 ci-source/NativeHotload/build-core.py --out out/hotload-core 2>&1 | tee out/hotload-modules.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ace5-ios16-hotload-modules
+          path: |
+            out/hotload-core/
+            out/native-hotload-source.json
+            out/hotload-build.json
+            out/hotload-modules.log
+          retention-days: 14
   build:
-    if: ${{ github.repository_owner == 'tycykp' }}
+    needs: hotload-modules
+    if: ${{ always() && !cancelled() && github.repository_owner == 'tycykp' && (!inputs.hotload || needs.hotload-modules.result == 'success') }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -65,16 +120,79 @@ jobs:
           path: reference
       - name: Check driver module boundaries
         run: python3 scripts/check-driver-modules.py
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.hotload }}
+        with:
+          name: ace5-ios16-hotload-modules
+          path: hotload-artifact
       - name: Prepare pinned XNU build and Ace 5 profile
         run: |
           git init -q dxb
           git -C dxb fetch -q --depth 1 https://github.com/blacktop/darwin-xnu-build 663906528d1cd5ea8fde7de6f16de73db9511549
           git -C dxb checkout -q FETCH_HEAD
           python3 reference/tools/strict_profile_patches.py dxb/build.sh
-          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }} ${{ inputs.audio && '--audio' || '' }} ${{ inputs.modem && '--modem' || '' }}
+          hotload_args=()
+          if [ '${{ inputs.hotload }}' = true ]; then
+            hotload_args+=(--hotload-source "$GITHUB_WORKSPACE/ci-source/NativeHotload")
+          fi
+          python3 scripts/prepare-ios16.py --reference reference --work profile-source --out profile ${{ inputs.profile == 'gui' && '--gui' || '' }} ${{ inputs.touch && '--touch' || '' }} ${{ inputs.wifi && '--wifi' || '' }} ${{ inputs.gpu && '--gpu' || '' }} ${{ inputs.audio && '--audio' || '' }} ${{ inputs.modem && '--modem' || '' }} "${hotload_args[@]}"
           python3 scripts/make-ios16-adt.py --reference reference --out profile/giulia-ios16.adt
           cp profile/*.patch profile/*.sh dxb/patches/
           sed -i '' 's/ARCHS="x86_64 arm64e" VALID_ARCHS="x86_64 arm64e"/ARCHS="x86_64 arm64e arm64" VALID_ARCHS="x86_64 arm64e arm64"/' dxb/build.sh
+      - name: Verify module and resident-runtime source agreement
+        if: ${{ inputs.hotload }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          kit = Path('ci-source/NativeHotload')
+          sys.path.insert(0, str(kit))
+          from nlh_format import CORE_MODULES, parse_image
+          artifact = Path('hotload-artifact')
+          snapshot = json.loads((artifact / 'native-hotload-source.json').read_text())
+          if snapshot != json.loads(Path('ci-source/native-hotload-source.json').read_text()):
+              raise ValueError('Module and kernel jobs used different common-kit snapshots')
+          build = json.loads((artifact / 'hotload-build.json').read_text())
+          if (build['commit'] != os.environ['GITHUB_SHA']
+                  or build['run_id'] != os.environ['GITHUB_RUN_ID']
+                  or build['run_attempt'] != os.environ['GITHUB_RUN_ATTEMPT']):
+              raise ValueError('Modules must come from this workflow run and source commit')
+          runtime = json.loads(Path('profile/hotload-module.json').read_text())
+          suite = json.loads((artifact / 'hotload-core/core-suite.json').read_text())
+          for manifest in (runtime['files'], suite['inputs']):
+              for name, digest in manifest.items():
+                  if snapshot['files'].get(name) != digest:
+                      raise ValueError('Runtime/module source mismatch: ' + name)
+          expected = {(name, variant) for name in CORE_MODULES
+                      for variant in ('baseline', 'upgrade', 'fail-start', 'fail-import', 'fail-stop')}
+          found = set()
+          for entry in suite['artifacts']:
+              key = (entry['name'], entry['variant'])
+              if key in found or key not in expected:
+                  raise ValueError('Duplicate or unexpected core-policy module')
+              found.add(key)
+              image = (artifact / 'hotload-core' / entry['image']).read_bytes()
+              parsed = parse_image(image)
+              if (any(entry.get(name) != value for name, value in parsed.items())
+                      or hashlib.sha256(image).hexdigest() != entry['image_sha256']):
+                  raise ValueError('Module artifact differs from suite manifest')
+              module = json.loads((artifact / 'hotload-core' / entry['module_manifest']).read_text())
+              if module['image_sha256'] != entry['image_sha256']:
+                  raise ValueError('Module image digest differs from build manifest')
+              for name, digest in module['kit_inputs'].items():
+                  if snapshot['files'].get(name) != digest:
+                      raise ValueError('Module build input mismatch: ' + name)
+          if found != expected:
+              raise ValueError('Expected all 15 core-policy module images')
+          report = {'schema': 1, 'commit': build['commit'], 'module_images': len(found),
+                    'kernel_pin': suite['kernel_pin'], 'source_agreement': True,
+                    'hardware_tested': False}
+          Path('profile/hotload-module-check.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
       - name: Select compatible Xcode and dependencies
         run: |
           brew install jq gum bash cmake ninja
@@ -117,6 +235,9 @@ jobs:
           if [ '${{ inputs.modem }}' = true ]; then
             python3 -c "import sys; sys.path.insert(0,'scripts'); from pathlib import Path; from ios16_modem import kernel_declaration; d=kernel_declaration(Path('dxb/fakeroot/System/Library/Kernels/kernel.development.sweet').read_bytes()); assert d['modem_runtime_included'] and d['modem_platform_broker_included']"
           fi
+          if [ '${{ inputs.hotload }}' = true ]; then
+            python3 scripts/check-ios16-hotload-kernel.py dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --manifest profile/hotload-module.json --source ci-source/NativeHotload --report profile/hotload-kernel-check.json
+          fi
       - name: Prepare DarwinBoot kernel pointers
         run: python3 scripts/ios16-rebase.py --reference reference --kernel dxb/fakeroot/System/Library/Kernels/kernel.development.sweet --out profile/kernel.macho
       - uses: actions/upload-artifact@v4
@@ -127,9 +248,10 @@ jobs:
             dxb/fakeroot/System/Library/Kernels/kernel.development.sweet
             xnu-build.log
             profile/
+            hotload-artifact/
           retention-days: 14
   boot-image:
-    if: ${{ github.repository_owner == 'tycykp' && (inputs.profile != 'gui') }}
+    if: ${{ github.repository_owner == 'tycykp' && (inputs.profile != 'gui') && !inputs.hotload }}
     needs: build
     runs-on: ubuntu-24.04
     env:

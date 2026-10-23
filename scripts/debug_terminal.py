@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ios16_screen import ScreenWire, ScreenStore, ScreenViewer, ScreenControl
 
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
+                   'hl.status', 'hl.list',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe','gpu.stack','gpu.share','gpu.fence',
@@ -42,6 +43,7 @@ TOPICS = {
     'all': r'.',
 }
 HELP = '''Device commands (new kernel needed except help/ping/status/replay/sample):
+  hl.status / hl.list / hl.core  native modules/core decisions; transfers use NativeHotload/hotload.py
   info uptime memory ps bootargs display usb ufs features
   help / ping / status / replay / sample (GUI sampler)
   wifi.status / wifi.start   cached firmware boot status / release pre-DMA wait

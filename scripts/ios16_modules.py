@@ -7,6 +7,38 @@ from ios16_module_registry import consolidate_modules
 DRIVERS = ('wifi', 'gpu', 'audio', 'modem')
 
 
+def emit_hotload_module(out, source):
+    """Common implementation stays in UniXNU; giulia owns CDC composition."""
+    import hashlib
+    import runpy
+    source = source.resolve()
+    required = ('native_hotload.c', 'native_hotload.h', 'native_hotload_core.h',
+                'native_hotload_memory.inc', 'emit_patch.py', 'hotload.py',
+                'build-module.py', 'build-core.py', 'module.ld', 'nlh_format.py',
+                'core/native_core_algorithms.h', 'core/policy.c', 'core/emit_core_patch.py',
+                'core/LICENSE', 'core/UPSTREAM.md', 'examples/counter.c', 'examples/client.c')
+    for name in required:
+        if not (source / name).is_file():
+            raise ValueError('Incomplete NativeHotload kit: ' + name)
+    result = runpy.run_path(str(source / 'emit_patch.py'))['emit'](out)
+    tools = out / 'native-hotload'
+    shutil.copytree(source, tools, ignore=shutil.ignore_patterns('__pycache__', 'out', '.cache'))
+    manifest = {'schema': 2, 'abi': 2, 'patch': result.name,
+                'files': {name: hashlib.sha256((source/name).read_bytes()).hexdigest()
+                          for name in required},
+                'max_modules': 16, 'dependency_calls': True, 'state_transfer': True,
+                'built_in_drivers_reloadable': False, 'xnu_core_converted': False,
+                'core_policies_converted': True, 'core_interface_abi': 0x434f0001,
+                'core_state_abi': 1, 'resident_core_objects': True,
+                'core_module_names': ['xnu-sched', 'xnu-vm', 'xnu-vfs'],
+                'core_policy_adapters': ['sched_quantum', 'vm_sequential',
+                                         'vfs_max_io', 'vfs_prefetch'],
+                'hardware_tested': False}
+    (out / 'hotload-module.json').write_text(json.dumps(manifest, indent=2) + '\n',
+                                             encoding='utf-8', newline='\n')
+    return manifest
+
+
 def emit_input_modules(out, root, *, touch=False):
     """Wire physical input workers once; no input driver knows its peers."""
     selected = (['touch'] if touch else []) + ['keys', 'slider']

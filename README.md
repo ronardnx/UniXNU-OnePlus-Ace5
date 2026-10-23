@@ -76,6 +76,13 @@ gh workflow run ios16-xnu.yml --repo tycykp/UniXNU-OnePlus-Ace5 \
 
 The workflow produces the `ace5-ios16-xnu` artifact. GUI packaging also requires the verified local product ADT, root-volume report, trust catalogue and matching WLAN firmware. Firmware is embedded locally after CI and is not uploaded with kernel sources.
 
+For a branch containing the reviewed `ci-source/NativeHotload` snapshot, add
+`-f hotload=true`. The workflow builds 15 ARM64 policy images on Ubuntu, checks
+their source hashes against the macOS resident runtime, and verifies the linked
+kernel's real gateway definitions and core calls. Kernel, modules, provenance
+and logs are uploaded together. Hotload builds skip UEFI/boot-image integration;
+device execution remains a separate validation step. See [CI source snapshots](ci-source/README.md).
+
 [`scripts/build-ios16-wifi-bringup.sh`](scripts/build-ios16-wifi-bringup.sh) assembles and validates the integrated image from those inputs and an existing prepared UEFI checkout. Run it without arguments to display the required paths. Use a new output directory for each build.
 
 To skip the first-boot Setup UI in a new userdata image, pass `--skip-setup` to `scripts/rebuild-ios16-userdata.py`. The switch defaults to off; omit it or use `--no-skip-setup` to retain Setup. See the [Setup switch guide](docs/SETUP_SWITCH.md) for build commands and verification.
@@ -97,6 +104,8 @@ See [GPU mappings](docs/GPU_MAPPING.md) for GPU/GMU permissions, firmware alloca
 Driver sources are organized into 13 modules under `ios16/`. Shared resource arbitration lives in the platform layer; optional driver registration and input startup are assembled centrally. See the [driver module rules](docs/DRIVER_MODULES.md) for ownership, allowed dependencies, and validation commands.
 
 For an interactive USB debug console on Windows CMD, run `scripts\debug-terminal.cmd`. Protocol 2 diagnostics, explicit MMIO access and `reboot.fastboot` have been tested on the device. The PTY shell still requires a separately staged daemon and signed ARM64 shell/tools and has not been validated on hardware. See [USB terminal instructions](docs/USB_TERMINAL.md) for deployment and commands.
+
+Opt-in NLH2 module loading uses the common `UniXNU/kits/NativeHotload` kit via `--hotload-source`. Resident adapters connect scheduler quantum, VM sequential-access and VFS cluster sizing/prefetch algorithms to replaceable policies with private-state migration, rollback and original-algorithm fallback. The rest of the core subsystems and hardware drivers still requires conversion; full target-kernel compilation and device replacement validation remain pending. See [module rules](docs/DRIVER_MODULES.md) and [terminal integration](docs/USB_TERMINAL.md#开发用原生模块热更新).
 
 | Path | Purpose |
 | --- | --- |

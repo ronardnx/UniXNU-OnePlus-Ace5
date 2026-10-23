@@ -40,6 +40,10 @@ Wi-Fi 和音频通过平台资源 API 获取 IPCC/QMP 资源，不要求 GPU 或
 
 现有 CLI 开关及硬件启用策略保留。独立模块表示源码和构建边界，不代表可动态卸载的 kext；硬件租约、在途 DMA 与不确定状态的保留规则仍然有效。
 
+通用模块热加载通过装配入口 `emit_hotload_module` 显式引入公共仓库的 `kits/NativeHotload`，生成 `0092-native-hotload.patch` 与 `hotload-module.json`，USB 桥仍由终端装配层连接。选择参数为 `--hotload-source`，默认关闭。NLH2 C ABI 提供命名多模块、依赖关系、调用入口及显式状态迁移。补丁将调度时间片、VM 顺序访问判定、VFS 聚簇大小／预读计算接入三个核心策略模块；对象资源常驻，私有计数迁移，切换期间走原算法，清单记录 `core_policies_converted=true` 及具体适配器。
+
+清单仍保留 `built_in_drivers_reloadable=false`、`xnu_core_converted=false`，表示内建硬件驱动及整个核心子系统尚未转换。硬件转换仍需完整上游流程、常驻事件适配及可靠的停止／回滚实现；扩大核心替换范围另需处理运行队列／映射布局、CPU 协调和更新基础设施的自依赖。完整目标链接与实机验证尚未完成。
+
 ## 新增与修改模块
 
 1. 在对应目录放置源码，在 `ios16_sources.py` 声明新命名或新模块的归属。

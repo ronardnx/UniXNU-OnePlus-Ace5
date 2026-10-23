@@ -304,4 +304,19 @@ python3 scripts/prepare-ios16.py --reference ../reference-vermeer \
 
 电脑协议解析、参数拒绝、跨 USB 包 shell 标记、原始字节保留、安装预检、launchd 缓存和信任清单均有离线 Python 测试。基础版/GUI 版仅生成补丁并检查语法，不代表 C 源码已编译或设备通路已工作。
 
-仍不包含 GDB/LLDB 单步、自动驱动暂停/重启、DMA 内存分配、任意 RAM 访问、基带协议栈或 GPU 作业提交器。寄存器接口提供操作能力，具体硬件调试仍需遵守相应硬件时序。
+仍不包含 GDB/LLDB 单步、现有静态驱动的自动暂停/重启、DMA 内存分配、任意 RAM 访问、基带协议栈或 GPU 作业提交器。寄存器接口提供操作能力，具体硬件调试仍需遵守相应硬件时序。
+
+## 开发用原生模块热更新
+
+生成 profile 时可传入 `--hotload-source ../UniXNU/kits/NativeHotload`，由装配层加入公共 NLH2 装载器及 USB 桥；默认不编入。完整构建后，打包增加 `--debug-terminal --debug-hotload`，对应 `unixnu_hotload=1`。首次仍需启动一次包含装载器的新内核。
+
+GitHub Actions 的 `ios16-xnu.yml` 提供 `hotload=true` 输入，从已审查分支的
+`ci-source/NativeHotload` 纯源码快照编译。Ubuntu 生成 15 个模块，macOS 编译
+固定 XNU，再核对模块／常驻运行时源码摘要、Mach-O 函数定义及真实核心调用。
+热加载构建只上传内核、模块、清单和日志，跳过 UEFI／启动镜像任务。
+
+`hl.status`、`hl.list`、`hl.core` 可在本终端查询；后者显示调度／VM／VFS 模块真实调用、回退和拒绝计数，切换期间也可读取。上传、按名称调用、更新、卸载使用公共 kit 的 `hotload.py`，操作前退出 shell／投屏并关闭其他串口进程。主机工具用 nonce 关联就绪查询、逐块确认偏移，完整摘要校验后才提交。断连丢弃未提交上传，已提交操作继续；结果不确定时查询状态，不重复提交。
+
+NLH2 接受位置无关 C 模块，最多 16 个命名模块、每模块 8 项依赖，支持显式 EXPORT／IMPORT 状态迁移。已接入 `thread_quantum_init`、`vm_fault_is_sequential`、`cluster_max_io_size` 和 `cluster_max_prefetch` 的纯数值决策，对应 `xnu-sched`、`xnu-vm`、`xnu-vfs`。对象、锁、CPU ledger、VM CAS 和 I/O 资源保持常驻；更新期间立即回退原算法，模块私有计数迁移。公共 kit 的 `build-core.py` 生成三个域的 baseline／upgrade／失败场景，`hotload.py core` 读取计数，`call xnu-sched 0/1/2` 分别读取调用／改变／导入数（其他域使用对应名称）。
+
+完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件；尚无目标内核完整构建或实机热替换结果。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。
