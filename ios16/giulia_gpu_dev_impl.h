@@ -39,9 +39,13 @@ uint8_t *GiuliaGPU::devPointer(uint32_t at)
 void GiuliaGPU::devAllocation(unsigned n)
 {
     const struct ggd_allocation &a=devPool.allocations[n];
-    uint32_t gmu=(a.flags&0x80?GGD_CACHE:GGD_BASE)+a.offset;
+    uint32_t gpu=GGD_BASE+a.offset,gmu=(a.flags&0x80?GGD_CACHE:GGD_BASE)+a.offset;
+    if(devMappingsManaged) {
+        if(!ggm_attributes(a.flags,0,devUcode[n]))gpu=0;
+        if(!ggm_attributes(a.flags,1,devUcode[n]))gmu=0;
+    }
     IOLog("GIULIA GPU DEV: allocation=%u offset=%#x bytes=%#x flags=%#x kind=%u gpu=%#x gmu=%#x\n",
-        n,a.offset,a.bytes,a.flags,a.kind,GGD_BASE+a.offset,gmu);
+        n,a.offset,a.bytes,a.flags,a.kind,gpu,gmu);
 }
 void GiuliaGPU::devCommand(const uint32_t *v)
 {
@@ -52,10 +56,12 @@ void GiuliaGPU::devCommand(const uint32_t *v)
     case 0:
         IOLog("GIULIA GPU DEV: abi=1 gmu_root=%#llx gpu_root=%#llx base=%#x bytes=%#x cache_base=%#x pinned=%u\n",
             (unsigned long long)gmuRoot,(unsigned long long)gpuRoot,GGD_BASE,GGD_BYTES,GGD_CACHE,manualMemoryPinned);
-        IOLog("GIULIA GPU DEV: mappings=privileged-rwx-normal-nc native_page=4096 lifecycle=until-reboot device_writes=0\n");break;
+        IOLog("GIULIA GPU DEV: mappings=%s native_page=4096 lifecycle=until-reboot device_writes=0\n",
+            devMappingsManaged?"per-allocation-normal-nc":"prepared-inactive-until-policy");break;
     case 1: {
         int n=ggd_alloc(&devPool,a,b,c,d);
         if(n<0){code=3;break;}
+        if(devMappingsManaged){code=mapDevAllocation((unsigned)n);if(code)break;}
         devAllocation((unsigned)n);break;
     }
     case 2:
@@ -85,9 +91,23 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         struct gg_pack pack={};
         if(a>=GG_ASSETS || !gg_pack_open((const void *)firmwareMap->getVirtualAddress(),firmwareMemory->getLength(),&pack) ||
            !ggd_bounds(b,(uint32_t)pack.asset[a].size)){code=4;break;}
+        unsigned owner=GGD_MAX;
+        if(devMappingsManaged) {
+            for(unsigned i=0;i<devPool.count;i++) {
+                const struct ggd_allocation &allocation=devPool.allocations[i];
+                if(b>=allocation.offset && pack.asset[a].size<=allocation.bytes &&
+                   b-allocation.offset<=allocation.bytes-pack.asset[a].size){owner=i;break;}
+            }
+            if(owner==GGD_MAX || ((a==1 || a==2) && (devPool.allocations[owner].kind!=0 || !(devPool.allocations[owner].flags&1)))) {
+                code=4;break;
+            }
+        }
         size_t left=pack.asset[a].size,offset=0;
         while(left){size_t n=GGD_CHUNK-b%GGD_CHUNK;if(n>left)n=left;memcpy(devPointer(b),pack.asset[a].data+offset,n);b+=n;offset+=n;left-=n;}
         __asm__ volatile("dsb sy" ::: "memory");
+        if(devMappingsManaged && (a==1 || a==2)) {
+            devUcode[owner]=true;code=mapDevAllocation(owner);if(code)break;
+        }
         IOLog("GIULIA GPU DEV: asset=%u bytes=%lu\n",a,(unsigned long)pack.asset[a].size);break;
     }
     case 8:for(unsigned i=0;i<devPool.count;i++)devAllocation(i);break;
@@ -97,7 +117,7 @@ void GiuliaGPU::devCommand(const uint32_t *v)
             devMemory[a/GGD_CHUNK]->getPhysicalSegment(a%GGD_CHUNK,NULL,kIOMemoryMapperNone));break;
     case 10:bzero(devWritten,sizeof(devWritten));break;
     case 11:
-        if(b||c||d || a>8){code=4;break;}
+        if(b||c||d || a>9){code=4;break;}
         code=platformCommand(a);break;
     case 12:code=secureAllocate(a,b,c,d);break;
     case 13:
@@ -113,6 +133,9 @@ void GiuliaGPU::devCommand(const uint32_t *v)
         for(unsigned i=0;i<b;i++)IOLog("GIULIA GPU DEV: log_word=%u value=%#x\n",a+i,words[a+i]);
         break;
     }
+    case 16:
+        if(a||b||c||d){code=4;break;}
+        code=auditDevMappings();break;
     default:code=6;break;
     }
     IOLog("GIULIA GPU DEV: done token=%u op=%u code=%d\n",token,op,code);

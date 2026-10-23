@@ -16,6 +16,7 @@ fixture=r'''
 #include <memory>
 #include "giulia_gpu_pack.h"
 #include "giulia_gpu_hfi.h"
+#include "giulia_gpu_dev.h"
 #include "giulia_gpu_platform.h"
 #include "giulia_gpu_power.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
@@ -92,18 +93,20 @@ public:
     }
 };
 '''+(ROOT/'ios16/giulia_gpu_platform_impl.h').read_text()+r'''
+int GiuliaGPU::configureDevMappings(){return 8;} // Separate actual mapping-method suite.
 static void idle(GiuliaGPU &s) {
     s.platformWrite(0x3d7e000,1);
     for(unsigned i=0;i<24;i++)s.platformWrite(0x3da0c00+4*i,0x20000);
 }
 static void pagewalk(GiuliaGPU &s) {
     auto *tables=(uint64_t *)s.secureTables->getBytesNoCopy();
-    for(unsigned slot=0;slot<GGS_SEC_CHUNKS;slot++)for(unsigned edge=0;edge<2;edge++) {
-        uint64_t va=GGS_SEC_BASE+(uint64_t)slot*GGS_SEC_CHUNK+(edge?GGS_SEC_CHUNK-4096:0);size_t at=0;
+    for(unsigned segment=0;segment<GGS_SEC_SEGMENTS;segment++)for(unsigned offset=0;offset<GGS_SEC_GRANULE;offset+=4096) {
+        uint64_t va=GGS_SEC_BASE+(uint64_t)segment*GGS_SEC_GRANULE+offset;size_t at=0;
         for(unsigned level=1;level<3;level++) {uint64_t e=tables[at*512+((va>>(39-9*level))&511)];assert((e&3)==3);at=((e&0x0000fffffffff000ull)-s.secureRoot)/4096;assert(at<GGS_SEC_TABLE_BYTES/4096);}
         uint64_t leaf=tables[at*512+((va>>12)&511)];
         uint64_t relative=va-GGS_SEC_BASE;
         assert((leaf&0x0000fffffffff000ull)==s.securePA[relative/GGS_SEC_GRANULE]+relative%GGS_SEC_GRANULE);
+        assert((leaf&(3ull<<53))==(3ull<<53) && (leaf&0xfff)==0xe03); // secure data RW/priv/NX
     }
 }
 int main() {

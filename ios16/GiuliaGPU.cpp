@@ -23,6 +23,7 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_hfi.h"
 #include "giulia_gpu_dev.h"
 #include "giulia_gpu_platform.h"
+#include "giulia_gpu_mapping.h"
 #include "giulia_gpu_power.h"
 #include "giulia_gpu_terminal.h"
 #include "giulia_gpu_power_handoff.h"
@@ -78,6 +79,12 @@ class GiuliaGPU : public IOService {
     struct ggs_state scmState;
     bool platformPrepared,platformOwned,platformPoisoned,secureContextActive,zapAuthenticated;
     bool secureOwnershipReady;
+    bool devMappingsManaged;
+    bool devUcode[GGD_MAX];
+    int configureDevMappings();
+    int mapDevAllocation(unsigned);
+    int syncDevMappings();
+    int auditDevMappings();
     unsigned platformEpoch,platformSnapshotSequence;
     bool platformPrepare();
     bool platformPower();
@@ -140,6 +147,7 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     secureTables=scmMemory=zapMetadata=NULL;zapMemory=NULL;zapMap=NULL;
     secureRoot=scmPA=zapMetadataPA=0;platformEpoch=platformSnapshotSequence=0;
     platformPrepared=platformOwned=platformPoisoned=secureContextActive=zapAuthenticated=secureOwnershipReady=false;
+    devMappingsManaged=false;bzero(devUcode,sizeof(devUcode));
     bzero(devMemory,sizeof(devMemory));bzero(&devPool,sizeof(devPool));devPool.next=GGD_CACHE_BYTES;
     bzero(devPacket,sizeof(devPacket));bzero(devWritten,sizeof(devWritten));
     runtimeLock=NULL;workerRunning=stopping=terminalOwner=false;
@@ -564,6 +572,7 @@ void GiuliaGPU::hfiCommand(unsigned requests)
 
 #include "giulia_gpu_dev_impl.h"
 #include "giulia_gpu_platform_impl.h"
+#include "giulia_gpu_mapping_impl.h"
 void GiuliaGPU::worker(void *cookie,wait_result_t)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;

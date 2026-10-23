@@ -28,6 +28,7 @@ fixture = r'''
 #include "giulia_gpu_cache.h"
 #include "giulia_gpu_hfi.h"
 #include "giulia_gpu_dev.h"
+#include "giulia_gpu_mapping.h"
 #include "vendor/ArmSmmu4K/ArmSmmu4K.h"
 using IOByteCount=uint64_t;
 static unsigned long gPhysBase=0x880000000ULL,gPhysSize=0x100000000ULL;
@@ -84,6 +85,7 @@ public:
     IOBufferMemoryDescriptor *devMemory[GGD_CHUNKS]={},*gpuTableMemory=nullptr;
     uint64_t gmuRoot=0,gpuRoot=0;
     struct ggd_pool devPool={};bool manualMemoryPinned=true;
+    bool devMappingsManaged=false,devUcode[GGD_MAX]={};
     uint32_t devPacket[255]={};bool devWritten[255]={};
     IOBufferMemoryDescriptor *firmwareMemory=nullptr;
     struct Map {uintptr_t getVirtualAddress(){return 0;}} *firmwareMap=nullptr;
@@ -92,6 +94,8 @@ public:
     int secureAllocate(uint32_t,uint32_t,uint32_t,uint32_t){return 6;}
     int platformWatch(unsigned,unsigned){return 6;}
     int platformSnapshot(unsigned){return 6;}
+    int mapDevAllocation(unsigned){return 6;}
+    int auditDevMappings(){return 6;}
     bool prepareDevMemory(ArmSmmu4KRange *,size_t *);
     bool prepareMemory(const gg_pack *);
     void setProperty(const char *,unsigned long long,unsigned){}

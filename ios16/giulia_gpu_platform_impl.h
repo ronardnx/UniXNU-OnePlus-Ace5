@@ -31,7 +31,7 @@ bool GiuliaGPU::platformPrepare()
     ArmSmmu4KRange *ranges=(ArmSmmu4KRange *)IOMalloc(sizeof(*ranges)*GGS_SEC_SEGMENTS);
     if(!ranges)return false;
     for(unsigned i=0;i<GGS_SEC_SEGMENTS;i++)
-        ranges[i]={GGS_SEC_BASE+(uint64_t)i*GGS_SEC_GRANULE,securePA[i],GGS_SEC_GRANULE,15,0,2};
+        ranges[i]={GGS_SEC_BASE+(uint64_t)i*GGS_SEC_GRANULE,securePA[i],GGS_SEC_GRANULE,11,0,2};
     ArmSmmu4KConfig config={32,36,secureRoot,GGS_SEC_CHUNKS*GGS_SEC_CHUNK/4096};ArmSmmu4KResult built;
     bzero(secureTables->getBytesNoCopy(),GGS_SEC_TABLE_BYTES);
     int build=ArmSmmu4KBuild(&config,ranges,GGS_SEC_SEGMENTS,(uint64_t *)secureTables->getBytesNoCopy(),GGS_SEC_TABLE_BYTES/4096,&built);
@@ -45,7 +45,7 @@ bool GiuliaGPU::platformPrepare()
         if(!platformMaps[i])return false;
     }
     gpuHfiBarrier(NULL);platformPrepared=true;platformPoisoned=false;
-    IOLog("GIULIA GPU PLATFORM: abi=2 secure_root=%#llx slots=%u slot_bytes=%#x secure_base=%#x bank=3 sid=2 cpu_access_after_assign=0 gmu_alias=0 user_gpu_alias=0\n",
+    IOLog("GIULIA GPU PLATFORM: abi=3 secure_root=%#llx slots=%u slot_bytes=%#x secure_base=%#x bank=3 sid=2 cpu_access_after_assign=0 gmu_alias=0 user_gpu_alias=0 watch_ram_only=1\n",
         (unsigned long long)secureRoot,GGS_SEC_CHUNKS,GGS_SEC_CHUNK,GGS_SEC_BASE);
     return true;
 }
@@ -133,12 +133,13 @@ int GiuliaGPU::platformAssignBatch(unsigned first,unsigned count)
 int GiuliaGPU::platformCommand(unsigned action)
 {
     if(action==0) {
-        IOLog("GIULIA GPU PLATFORM: abi=2 prepared=%u secure_owned=%u secure_ready=%u active=%u poisoned=%u scm_quarantined=%u cx_call=%u zap=%u secure_root=%#llx slots=%u used=",
+        IOLog("GIULIA GPU PLATFORM: abi=3 prepared=%u secure_owned=%u secure_ready=%u active=%u poisoned=%u scm_quarantined=%u cx_call=%u zap=%u secure_root=%#llx slots=%u used=",
             platformPrepared,platformOwned,secureOwnershipReady,secureContextActive,platformPoisoned,scmState.quarantined,scmState.init_succeeded,zapAuthenticated,(unsigned long long)secureRoot,GGS_SEC_CHUNKS);
         unsigned used=0;for(unsigned i=0;i<GGS_SEC_CHUNKS;i++)used+=secureSlots[i].used!=0;IOLog("%u\n",used);return 0;
     }
     if(action==6 && !secureContextActive)return 0;
     if(!platformPrepare() || !platformPower())return 8;
+    if(action==9)return configureDevMappings();
     if(action==6) {
         if(!secureContextActive)return 0;
         if(platformRead(0x3d7e000)!=1)return 8;
@@ -214,53 +215,94 @@ int GiuliaGPU::secureAllocate(uint32_t bytes,uint32_t alignment,uint32_t flags,u
 }
 int GiuliaGPU::platformSnapshot(unsigned reason)
 {
-    if(!platformPrepared || !platformPower())return 8;
     unsigned sequence=++platformSnapshotSequence;
+    /* Console breadcrumbs reach USB asynchronously. A missing line alone is
+     * never proof that the following read was not executed. Host checkpoints
+     * and an explicit OP14 completion provide the independent boundary. */
+    IOLog("GIULIA GPU SNAPSHOT: sequence=%u reason=%u stage=preflight_begin gx_reads=0\n",sequence,reason);
+    if(!platformPrepared || !platformPower())return 8;
+    auto read32=[&](uint64_t address)->uint32_t {
+        IOLog("GIULIA GPU SNAPSHOT: sequence=%u stage=read_begin address=%#llx width=32\n",sequence,(unsigned long long)address);
+        uint32_t value=platformRead(address);
+        IOLog("GIULIA GPU SNAPSHOT: sequence=%u stage=read_done address=%#llx width=32 value=%#x\n",sequence,(unsigned long long)address,value);
+        return value;
+    };
     const uint64_t ao[]={0x3d7e340,0x3d8ec40,0x3d7e648,0x3d8ec14,0x3d8ec4c,0x3d8ec54,0x3d8ec30,
-        0x3da0048,0x3dc0058,0x3dc0060,0x3dc0064,0x3dc0068,0x3dc2058,0x3dc2060,0x3dc2064,0x3dc2068,
-        0x3dc3058,0x3dc3060,0x3dc3064,0x3dc3068,0x3da1400,0x3da1408,0x3da140c};
+        0x3da0048,0x3dc0058,0x3dc2058,0x3dc3058};
     uint32_t values[sizeof(ao)/sizeof(ao[0])];
-    for(unsigned i=0;i<sizeof(ao)/sizeof(ao[0]);i++)values[i]=platformRead(ao[i]);
-    IOLog("GIULIA GPU SNAPSHOT: sequence=%u reason=%u polling=1 irq_handler=0\n",sequence,reason);
-    for(unsigned i=0;i<sizeof(ao)/sizeof(ao[0]);i++)IOLog("GIULIA GPU SNAPSHOT: address=%#llx value=%#x\n",(unsigned long long)ao[i],values[i]);
-    /* Read no GX register unless the caller holds acknowledged OOB. Its ACK
-     * was cleared by host, so confirm power/fence at each read; no INT0_STATUS. */
-    if(reason && (values[0]&3)==0 && values[1]==0) {
-        const uint64_t gx[]={0x3d000e0,0x3d02084,0x3d0208c,0x3d02090,0x3d3d000};
-        for(unsigned i=0;i<5;i++) {
-            if((platformRead(0x3d7e340)&3) || platformRead(0x3d8ec40))break;
-            IOLog("GIULIA GPU SNAPSHOT: address=%#llx value=%#x\n",(unsigned long long)gx[i],platformRead(gx[i]));
+    for(unsigned i=0;i<sizeof(ao)/sizeof(ao[0]);i++)values[i]=read32(ao[i]);
+    const unsigned banks[]={0,2,3};
+    for(unsigned i=0;i<3;i++) {
+        uint32_t fsr=values[8+i];
+        if(fsr==0xffffffffu)return 8;
+        if(!(fsr&0xc00001feu)) {
+            IOLog("GIULIA GPU SNAPSHOT: sequence=%u bank=%u fault_valid=0 syndrome_reads=0\n",sequence,banks[i]);
+            continue;
         }
+        /* FAR is one aligned 64-bit register, not two independent 32-bit
+         * transactions. platformPrepare owns the complete SMMU map (index 3).
+         * Never read stale syndrome registers when FSR has no valid fault. */
+        uint64_t base=0x3dc0000+(uint64_t)banks[i]*4096,address=base+0x60;
+        if(!platformMaps[3])return 8;
+        IOLog("GIULIA GPU SNAPSHOT: sequence=%u stage=read_begin address=%#llx width=64\n",sequence,(unsigned long long)address);
+        gpuHfiBarrier(NULL);
+        uint64_t far=*(volatile uint64_t *)(platformMaps[3]->getVirtualAddress()+address-0x3da0000);
+        gpuHfiBarrier(NULL);
+        IOLog("GIULIA GPU SNAPSHOT: sequence=%u stage=read_done address=%#llx width=64 value=%#llx\n",sequence,(unsigned long long)address,(unsigned long long)far);
+        read32(base+0x68);read32(base+0x6c);read32(0x3da1400+4*banks[i]);
     }
+    IOLog("GIULIA GPU SNAPSHOT: sequence=%u stage=complete gx_reads=0 irq_handler=0\n",sequence);
     return 0;
 }
 int GiuliaGPU::platformWatch(unsigned count,unsigned milliseconds)
 {
-    if(!platformPrepared || platformPoisoned || !secureContextActive || !scmState.init_succeeded ||
+    IOLog("GIULIA GPU WATCH: stage=preflight_begin header=%#x count=%u timeout_ms=%u\n",devPacket[0],count,milliseconds);
+    if(!platformPrepared || platformPoisoned || !devMappingsManaged || !secureContextActive || !scmState.init_succeeded ||
        !milliseconds || milliseconds>1000 || !count || count>255 || ((devPacket[0]>>8)&255)!=count)return 4;
-    if((devPacket[0]&255)!=131 || !platformPower() || (platformRead(0x3d7e340)&3) || platformRead(0x3d8ec40))return 8;
+    if((devPacket[0]&255)!=131 || !platformPower())return 8;
+    IOLog("GIULIA GPU WATCH: stage=gx_power_read_begin\n");
+    uint32_t power=platformRead(0x3d7e340);
+    IOLog("GIULIA GPU WATCH: stage=gx_power_read_done value=%#x\n",power);
+    if(power&3)return 8;
+    IOLog("GIULIA GPU WATCH: stage=fence_read_begin\n");
+    uint32_t fence=platformRead(0x3d8ec40);
+    IOLog("GIULIA GPU WATCH: stage=fence_read_done value=%#x\n",fence);
+    if(fence)return 8;
     for(unsigned i=0;i<count;i++)if(!devWritten[i])return 5;
     struct ggh_io io={(volatile uint32_t *)allocations[hfiIndex]->getBytesNoCopy(),GGH_BYTES,GGH_IOVA,NULL,gpuHfiBarrier};
-    volatile uint32_t *qh,*ring;unsigned r=0,w=0;
-    if(ggh_queue(&io,1,&qh,&ring,&r,&w) || r!=w)return 8;
-    if(platformSnapshot(1))return 8;
-    int code=ggh_send(&io,devPacket,count);if(code)return code;
+    volatile uint32_t *commandHeader,*commandRing,*qh,*ring;unsigned cr=0,cw=0,r=0,w=0;
+    if(ggh_queue(&io,0,&commandHeader,&commandRing,&cr,&cw) || cr!=cw ||
+       ggh_queue(&io,1,&qh,&ring,&r,&w) || r!=w)return 8;
+    IOLog("GIULIA GPU WATCH: stage=queue_before header=%#x cmd_read=%u cmd_write=%u msg_read=%u msg_write=%u\n",devPacket[0],cr,cw,r,w);
+    /* Publication itself can let firmware consume the command before a
+     * doorbell. Never describe this as private packet staging or retry it. */
+    int code=ggh_send(&io,devPacket,count);
+    if(code){IOLog("GIULIA GPU WATCH: stage=queue_not_committed code=%d\n",code);return code;}
     bzero(devWritten,sizeof(devWritten));
-    IOLog("GIULIA GPU WATCH: dispatch header=%#x timeout_ms=%u\n",devPacket[0],milliseconds);
+    gpuHfiBarrier(NULL);
+    IOLog("GIULIA GPU WATCH: stage=queue_committed header=%#x cmd_read=%u cmd_write=%u ack_verified=0\n",devPacket[0],commandHeader[10],commandHeader[11]);
+    IOLog("GIULIA GPU WATCH: stage=doorbell_before header=%#x\n",devPacket[0]);
     platformWrite(0x3d7e650,1);
-    unsigned reason=0;
+    IOLog("GIULIA GPU WATCH: stage=doorbell_after header=%#x write_returned=1 ack_verified=0\n",devPacket[0]);
+    /* From this point onwards inspect only owned HFI RAM. No automatic
+     * MMIO snapshots, even on timeout/failure; the host must request OP14
+     * separately when its power and transport prerequisites remain known. */
+    unsigned reason=0,nr=r,nw=w,firstHeader=0;
     for(unsigned i=0;i<milliseconds;i++) {
-        gpuHfiBarrier(NULL);unsigned nr=0,nw=0;
+        gpuHfiBarrier(NULL);
         if(ggh_queue(&io,1,&qh,&ring,&nr,&nw)){reason=4;break;}
-        if(nw!=w){reason=1;break;}
-        if((platformRead(0x3d7e648)&0x8000) || (platformRead(0x3d8ec14)&0x29) ||
-           platformRead(0x3da0048) || (platformRead(0x3dc0058)&0xc00001fe) ||
-           (platformRead(0x3dc2058)&0xc00001fe) || (platformRead(0x3dc3058)&0xc00001fe)){reason=2;break;}
+        if(nr!=nw){reason=1;firstHeader=ring[nr];break;}
         IOSleep(1);
     }
-    platformSnapshot(reason+10);
-    IOLog("GIULIA GPU WATCH: end reason=%u header=%#x\n",reason,devPacket[0]);
-    if(reason!=1){platformPoisoned=true;return 8;}return 0;
+    gpuHfiBarrier(NULL);
+    IOLog("GIULIA GPU WATCH: stage=wait_end reason=%u header=%#x cmd_read=%u cmd_write=%u msg_read=%u msg_write=%u first_header=%#x\n",reason,devPacket[0],commandHeader[10],commandHeader[11],nr,nw,firstHeader);
+    if(reason!=1) {
+        platformPoisoned=true;
+        IOLog("GIULIA GPU WATCH: outcome=%s quarantined=1 ack_verified=0 automatic_mmio=0\n",reason==4?"queue_invalid":"timeout");
+        return 8;
+    }
+    IOLog("GIULIA GPU WATCH: outcome=packet_arrived queue_consumed=0 ack_verified=0 host_validation_required=1\n");
+    return 0;
 }
 int GiuliaGPU::platformZap()
 {
