@@ -1,0 +1,52 @@
+{
+  "date_local": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "status": "UEFI automatic clocks and secure pool fixed; full GPU/Metal blocked by USB900E during CP-init OP13",
+  "kernel_commit": "d0c6e92",
+  "kernel_run": 39942035365,
+  "kernel_run_url": "https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/39942035365",
+  "image": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\uefi-auto-r4\\giulia-gui-touch-keys-gpu.img",
+  "image_sha256": "2f90a6deb9afb6675c3c9c1c8d4aebaa327cf48e69374afa98385b03edcf6eab",
+  "temporary_boot": true,
+  "partitions_flashed": false,
+  "uefi_automatic_clocks_verified": true,
+  "firmware_power_prepared": true,
+  "gmu_configured_hz": 260000000,
+  "hub_configured_hz": 200000000,
+  "clock_frequency_measured": false,
+  "secure_pool_normalized_by_kernel": true,
+  "secure_pool_owned_bytes": 33554432,
+  "stock_fw_ready": true,
+  "hfi_ready": true,
+  "hwsched_start_accepted": true,
+  "gx_oob_ack": true,
+  "cp_firmware_full_readback": true,
+  "kernel_snapshot_op14_passed": true,
+  "prepare_cleanup": {
+    "reset_held": true,
+    "stream_faulted": true,
+    "context_disabled": true,
+    "tlb_synced": true,
+    "stock_tcm_retained": true,
+    "owned_ram_pinned_until_reboot": true
+  },
+  "cp_init_completion_verified": false,
+  "queue_publication_confirmed": false,
+  "doorbell_confirmed": false,
+  "gpu_memory_write_verified": false,
+  "metal_verified": false,
+  "device_state": "Qualcomm HS-USB Diagnostics 900E (COM15)",
+  "device_io_stopped": true,
+  "recovery_or_replay_attempted": false,
+  "raw_submission_attempts": [
+    {
+      "header": "0x91600b83",
+      "status": "pending",
+      "queue_publication_confirmed": false
+    }
+  ],
+  "raw_cp_submitted": null,
+  "prepare_evidence": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\ios16\\gpu-native-hwsched-terminal\\20261023-190250-397191",
+  "failure_evidence": "E:\\uniunx\\UniXNU-gmu-fix-20261023\\out\\ios16\\gpu-native-hwsched-terminal\\20261023-190601-004014",
+  "next_required_action": "Physical reboot to Fastboot; do not replay OP13 before isolating dispatch/publication boundary"
+}

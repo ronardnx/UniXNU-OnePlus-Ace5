@@ -18,13 +18,15 @@ parser.add_argument('--platform',action='store_true',help='Required: use ABI3 al
 parser.add_argument('--without-aqe',action='store_true',help='Register-only baseline without AQE; incomplete vendor startup, never for CP submission')
 parser.add_argument('--watch-read-audit',action='store_true',help='Checkpoint individual watch preflight MMIO reads; never submits RAW')
 parser.add_argument('--kernel-snapshot-audit',action='store_true',help='After successful host read audit, invoke snapshot-only OP14 (no HFI submission)')
+parser.add_argument('--prepare-cp-only',action='store_true',help='Configure and verify SQE/AQE, then request fault-gated OP14; never submit RAW')
 args=parser.parse_args()
 if not args.platform:parser.error('Native HWSCHED requires --platform and ABI3 allocation mapping policy')
-if args.stage in ('cp','cpv2','nop','cp-secure'):parser.error('CP experiment disabled after 900E; isolate pre-dispatch diagnostics before any replay')
+if args.stage in ('cp','cpv2','nop','cp-secure','cp-mapped'):parser.error('CP experiment disabled after 900E, including 2026-10-23 OP13 with a passing OP14 snapshot; queue/doorbell completion remains unconfirmed')
 if args.stage=='cp-secure' and (not args.platform or args.without_aqe):parser.error('cp-secure requires --platform and AQE')
 if args.stage=='cp-mapped' and (not args.platform or args.without_aqe):parser.error('cp-mapped requires --platform and AQE')
 if args.watch_read_audit and (args.stage!='configure' or not args.platform or args.without_aqe):parser.error('Watch audit requires configure --platform with AQE')
 if args.kernel_snapshot_audit and not args.watch_read_audit:parser.error('Kernel snapshot audit requires --watch-read-audit')
+if args.prepare_cp_only and (args.stage!='configure' or args.watch_read_audit):parser.error('CP preparation requires configure without the legacy read audit')
 if not args.execute:parser.error('Use --execute after binding the current boot; no hardware accessed')
 fw=(ROOT/'out/ios16/gpu-stock-firmware/gmu_gen70900.bin').read_bytes()
 assert hashlib.sha256(fw).hexdigest()=='9685f62c42543befcaee68d25355e16bf55cdb0d573bddcc9f6633f59eec3f72'
@@ -211,7 +213,12 @@ with Live('gpu-native-hwsched-terminal') as live:
                         report['cp_sqe_control']=live.read(reg(0x808))
                         print('GX READY '+str({k:report[k] for k in ('gx_after','rbbm_status','cp_sqe_control')}),flush=True)
                         if args.stage=='configure':
-                            if args.watch_read_audit:
+                            if args.prepare_cp_only:
+                                from gpu_terminal_cp_secure import prepare
+                                prepare(live,transport,report)
+                                report['pre_dispatch_kernel_snapshot']=transport.dev(14)
+                                print('CP firmware and fault-gated kernel snapshot passed; no RAW submitted',flush=True)
+                            elif args.watch_read_audit:
                                 from gpu_terminal_cp_secure import prepare
                                 prepare(live,transport,report)
                                 from gpu_terminal_watch_audit import audit_watch_reads

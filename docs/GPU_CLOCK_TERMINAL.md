@@ -4,6 +4,40 @@ Tested 2026-10-23 with the GUI/touch/physical-key/GPU kernel from build
 39932744814 and a temporary boot image with `giulia_gpu=3 giulia_mmio=1`.
 No partitions were flashed.
 
+## Automatic integration and subsequent CP boundary
+
+The later r4 image uses kernel build
+[39942035365](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/39942035365)
+at `d0c6e92`. `GpuColdClocks.h` now runs in UEFI after native CX/AOP
+preparation. The matching kernel recognizes `GPP_DIRECT_CLOCKS` and checks
+the 260/200 MHz configuration and the observed always-on branch semantics.
+The running kernel reported `firmware_power_prepared=1 code=0`; a separate
+read-only terminal check verified the PLL/RCG/gate registers without writes.
+
+The secure-pool failure was an unused CB3 SCTLR retaining values such as
+`0x35fd6114` with M=0. The kernel now proves idle contexts, fault-routed
+streams and an idle TLB, initializes SCTLR to zero and checks its readback
+before publishing secure tables. The r4 test passed this without terminal
+normalization, including all SCM grants for the 32 MiB pool.
+
+GX power/OOB, HWSCHED START, SQE/AQE full readback, mapping audits and OP14
+pre-dispatch snapshot passed in `20261023-190250-397191`; cleanup completed.
+On a fresh boot, the CP-init test `20261023-190601-004014` lost USB during
+OP13 and the device enumerated as Qualcomm 900E on COM15. No OP13 completion,
+queue publication, doorbell confirmation, CP-init ACK or GPU memory-write
+result was observed. This does not establish whether the failure precedes
+actual hardware submission. No recovery or replay was attempted. `cp-mapped`
+is now also blocked before any device access; `--prepare-cp-only` remains a
+separate no-RAW diagnostic mode.
+
+Full GPU rendering and Metal remain unverified. The next hardware run needs
+a physical reboot to Fastboot and isolation of OP13 dispatch/publication;
+passing OP14 alone is insufficient. The machine-readable evidence and image
+digest are in [gpu-uefi-auto-20261023.json](../hardware/gpu-uefi-auto-20261023.json).
+
+The remaining sections describe the earlier terminal bring-up, before this
+automatic integration.
+
 ## Upstream comparison
 
 [UniXNU-sheng at 251b291](https://github.com/UniXNU/UniXNU-sheng/tree/251b291adf941b9953fe3ae66a808b9b626e164d)
