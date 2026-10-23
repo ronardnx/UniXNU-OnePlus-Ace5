@@ -1,4 +1,24 @@
 static void network_test_sync(void *,size_t offset,size_t bytes,int) {assert(bytes && offset<=GWD_BYTES-bytes);}
+static void network_dma_mapping() {
+    giulia_wifi_runtime r={};uintptr_t cpu=0;uint64_t physical=0,iova=0;
+    assert(gwmap_dma_init(&r.dma,0x10000000,UINT64_C(0x8d0000000),GW_IOVA,GW_ARENA_BYTES));
+    // Firmware owns the preceding dynamic allocation. The data path's sync
+    // callback must confine even malformed relative ranges to its own block.
+    assert(gwmap_dma_allocate(&r.dma,17,0x4000,&cpu,&physical,&iova));
+    assert(gwmap_dma_allocate(&r.dma,GWD_BYTES,0x4000,&cpu,&physical,&iova));
+    const size_t start=(size_t)(iova-r.dma.iova);r.dp_offset=start;
+    gd_sync(&r,0,GWD_BYTES,1);assert(!r.mapping_error);
+    gd_sync(&r,GWD_BYTES-1,1,0);assert(!r.mapping_error);
+    const gwmap_dma saved=r.dma;
+    for(auto range:{std::make_pair(size_t(0),size_t(0)),std::make_pair(size_t(GWD_BYTES),size_t(1)),
+                    std::make_pair(size_t(GWD_BYTES-1),size_t(2)),std::make_pair(SIZE_MAX,size_t(1))}) {
+        r.mapping_error=0;gd_sync(&r,range.first,range.second,1);assert(r.mapping_error);
+    }
+    for(size_t invalid:{GW_ALLOC_START-GWD_BYTES,start+0x4000,SIZE_MAX-size_t(0x3fff)}) {
+        r.mapping_error=0;r.dp_offset=invalid;gd_sync(&r,0x4000,1,1);assert(r.mapping_error);
+    }
+    assert(!memcmp(&saved,&r.dma,sizeof(saved)));
+}
 static void network_setup(Fixture &f,FakeIfnet &net) {
     auto &r=f.runtime;net.softc=&r;r.interface=&net;r.network_available=1;r.mac[0]=2;r.mac[5]=1;
     r.wio={&r,gw_send,gw_pump,gw_now,nullptr};
@@ -21,6 +41,7 @@ static void network_queries() {
         auto query=envelope(false,type,gwi_scalar(type)?0:expected);
         uint8_t initial[64];memset(initial,0xa5,sizeof(initial));size_t count=sizeof(initial);
         assert(f.call(query,initial,count)==kIOReturnSuccess && count==expected);
+        if(type==GWI_CAPABILITIES)assert(initial[0]==8 && initial[1]==64 && initial[9]==8);
         if(type==GWI_STATE)assert(!gwq_u32(initial));
         if(type==GWI_PHY_MODE)assert(gwq_u32(initial)==1 && !gwq_u32(initial+8));
         assert(initial[expected]==0xa5);
@@ -49,6 +70,10 @@ static void network_queries() {
     r.station.request.bss=r.wmi.bss[0];r.station.vdev_up=1;r.station.phase=GWT_RUN;
     r.dp.active=r.dp.peer_mapped=r.dp.authorized=1;r.dp.queues=0x1ffff;
     bytes=sizeof(output);assert(f.call(bssid,output,bytes)==0 && bytes==6 && output[5]==2);
+    auto phy=envelope(false,GWI_PHY_MODE,12);bytes=sizeof(output);
+    assert(!f.call(phy,output,bytes) && bytes==12 && gwq_u32(output+8)==4);
+    r.station.request.bss.rate_count=2;r.station.request.bss.rates[1]=0x8c;bytes=sizeof(output);
+    assert(!f.call(phy,output,bytes) && gwq_u32(output+8)==8);
     auto power=envelope(true,GWI_POWER,GWI_POWER_BYTES);
     gwq_w32(power.data()+8,1);gwq_w32(power.data()+12,1);bytes=0;
     assert(f.call(power,nullptr,bytes)==0 && !r.powered && !r.dp.authorized && r.disconnect_pending==3);
@@ -99,6 +124,61 @@ static void network_shutdown() {
     assert(!r.network_available && !r.dp.authorized && !r.join_pending && !r.rsn_started);
     assert(!gwn_nonzero((uint8_t *)&r.join,sizeof(r.join)) && !gwn_nonzero((uint8_t *)&r.rsn,sizeof(r.rsn)));
     assert(!r.tx_queue.count && !r.rx_queue.count && !r.eapol_queue.count && r.link_pending);
+}
+static void network_ioctls() {
+    Fixture f;FakeIfnet net{};network_setup(f,net);auto &r=f.runtime;
+    networkFlags=0;networkMtu=1500;networkMtuCalls=0;
+    struct ifreq request={};
+    assert(!gn_ioctl(&net,SIOCSIFADDR,&request));
+    assert((networkFlags&IFF_UP) && !(networkFlags&IFF_RUNNING) && !r.dp.authorized);
+    for(int mtu:{int(IF_MINMTU),1492,1500}) {
+        request.ifr_mtu=mtu;assert(!gn_ioctl(&net,SIOCSIFMTU,&request));
+        assert(networkMtu==(unsigned)mtu);
+    }
+    unsigned calls=networkMtuCalls;
+    for(int mtu:{-1,0,IF_MINMTU-1,1501,65535}) {
+        request.ifr_mtu=mtu;assert(gn_ioctl(&net,SIOCSIFMTU,&request)==EINVAL && networkMtu==1500);
+    }
+    assert(networkMtuCalls==calls);
+    networkMtuError=ENOMEM;request.ifr_mtu=1492;
+    assert(gn_ioctl(&net,SIOCSIFMTU,&request)==ENOMEM && networkMtu==1500);networkMtuError=0;
+    assert(!gn_ioctl(&net,SIOCGIFDEVMTU,&request));
+    assert(request.ifr_devmtu.ifdm_min==IF_MINMTU && request.ifr_devmtu.ifdm_max==1500 && request.ifr_devmtu.ifdm_current==1500);
+    for(unsigned command:{SIOCADDMULTI,SIOCDELMULTI})assert(!gn_ioctl(&net,command,&request));
+    for(unsigned command:{SIOCGIFMEDIA32,SIOCGIFMEDIA64}) {
+        struct ifmediareq media;memset(&media,0xa5,sizeof(media));
+        assert(!gn_ioctl(&net,command,&media) && media.ifm_status==IFM_AVALID && !media.ifm_mask && !media.ifm_count);
+        assert(media.ifm_current==(IFM_IEEE80211|IFM_AUTO) && media.ifm_active==media.ifm_current);
+        r.dp.authorized=1;assert(!gn_ioctl(&net,command,&media) && media.ifm_status==(IFM_AVALID|IFM_ACTIVE));r.dp.authorized=0;
+    }
+    request.ifr_media=IFM_IEEE80211|IFM_AUTO;assert(!gn_ioctl(&net,SIOCSIFMEDIA,&request));
+    request.ifr_media|=1;assert(gn_ioctl(&net,SIOCSIFMEDIA,&request)==EOPNOTSUPP);
+    for(unsigned command:{SIOCSIFMTU,SIOCGIFDEVMTU,SIOCGIFMEDIA32,SIOCGIFMEDIA64,SIOCSIFMEDIA})assert(gn_ioctl(&net,command,nullptr)==EINVAL);
+    assert(gn_ioctl(&net,0xffffffffu,&request)==EOPNOTSUPP);
+    r.dp.active=r.dp.peer_mapped=r.dp.authorized=1;networkFlags=IFF_RUNNING;
+    assert(!gn_ioctl(&net,SIOCSIFFLAGS,&request) && r.disconnect_pending==3 && !r.dp.authorized);
+    assert(!(networkFlags&IFF_RUNNING));
+}
+static void network_extended_queries() {
+    Fixture f;FakeIfnet net{};network_setup(f,net);auto &r=f.runtime;
+    auto current=envelope(false,GWI_CURRENT_NETWORK,GWI_SCAN_RESULT_BYTES);
+    std::vector<uint8_t> result(GWI_SCAN_RESULT_BYTES+1,0xa5);size_t bytes=result.size();
+    assert(f.call(current,result.data(),bytes)==kIOReturnNotReady && !bytes && result[0]==0xa5);
+    r.station.request.bss=r.wmi.bss[0];r.station.request.bss.timestamp=runtimeNow-100;
+    r.station.phase=GWT_RUN;r.station.vdev_up=1;r.dp.active=r.dp.peer_mapped=r.dp.authorized=1;
+    r.wmi.scanning=1;bytes=result.size();
+    assert(!f.call(current,result.data(),bytes) && bytes==GWI_SCAN_RESULT_BYTES);
+    assert(result[0x60]==3 && !memcmp(result.data()+0x61,"lab",3) && gwq_u32(result.data()+0x84)==100 && result[bytes]==0xa5);
+    // Reading the current peer must not consume or depend on scan iteration.
+    r.wmi.scanning=0;r.wmi.bss[0].ssid[0]='X';bytes=result.size();
+    assert(!f.call(current,result.data(),bytes) && result[0x61]=='l');
+    auto scan=envelope(false,GWI_SCAN_RESULT,GWI_SCAN_RESULT_BYTES);bytes=result.size();
+    assert(!f.call(scan,result.data(),bytes) && result[0x61]=='X');
+    auto leave=envelope(true,GWN_DISASSOCIATE,8);gwq_w32(leave.data()+8,0xaaaaaaaa);gwq_w32(leave.data()+12,70000);
+    bytes=0;assert(f.call(leave,nullptr,bytes)==kIOReturnBadArgument && r.dp.authorized && !r.disconnect_pending);
+    gwq_w32(leave.data()+12,7);bytes=0;
+    assert(!f.call(leave,nullptr,bytes) && r.disconnect_pending==7 && !r.dp.authorized);
+    bytes=result.size();assert(f.call(current,result.data(),bytes)==kIOReturnNotReady && !bytes);
 }
 static void network_native_abi() {
     Fixture f;FakeIfnet net{};network_setup(f,net);auto &r=f.runtime;

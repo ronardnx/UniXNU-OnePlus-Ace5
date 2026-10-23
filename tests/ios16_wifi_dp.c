@@ -15,6 +15,8 @@ _Static_assert(sizeof(struct hal_tcl_data_cmd)==32,"upstream TCL size");
 _Static_assert(sizeof(struct hal_reo_dest_ring)==32,"upstream REO size");
 _Static_assert(sizeof(struct hal_rx_msdu_link)==128,"upstream link size");
 _Static_assert(sizeof(struct hal_rx_desc_wcn7850)==GWD_RX_DESC_BYTES,"upstream RX size");
+_Static_assert(AT(hal_wbm_completion_ring_tx,rate_stats.info0)==20,"upstream TX rate offset");
+_Static_assert(AT(hal_rx_desc_wcn7850,msdu_end.info12)==96,"upstream RX rate offset");
 _Static_assert(GWD_QUEUES+GWD_QUEUE_BANK_BYTES<=GWD_MGMT,"queue/mgmt separation");
 _Static_assert(sizeof(struct hal_tlv_64_hdr)+sizeof(struct hal_reo_get_queue_stats)==48,"upstream REO command stride");
 _Static_assert(sizeof(struct hal_tlv_64_hdr)+sizeof(struct hal_reo_get_queue_stats_status)==112,"upstream REO status stride");
@@ -22,7 +24,7 @@ struct reg {uint32_t address,value;};
 struct fixture {
     struct gwd_state s;struct gwd_io io;struct reg regs[256];unsigned reg_count;
     unsigned writes,write_fail,deny,not_idle,wire_pending,wire_calls,setup_calls,filter_calls;
-    unsigned received,completed,peer_events,last_token,last_status,wire_fail,version_major,misc_status;
+    unsigned received,completed,peer_events,last_token,last_status,wire_fail,version_major,misc_status,receive_fail;
     unsigned reo_commands,reo_cycle_cmd,reo_fault,reo_fault_at,reo_defer_tail,reo_deferred,reo_mask;
     uint8_t reo_cached[17];uint64_t reo_invalidated_at;
     uint64_t now;uint8_t *ram;
@@ -65,6 +67,9 @@ static int sendwire(void *v,unsigned pipe,const void *buffer,size_t n) {
             assert(gwq_u64(p+32)>=f->io.dma && gwq_u64(p+32)<f->io.dma+1024);f->setup_calls++;
         } else {
             assert(type==0xc && n==76 && (p[9]==1 || p[9]==2) && gwq_u32(p+12)==2048);
+            uint32_t subscribed=gwq_u32(p+8+AT(htt_rx_ring_selection_cfg_cmd,pkt_type_en_flags3));
+            assert(subscribed==(HTT_RX_FP_DATA_PKT_FILTER_TLV_FLASG3_MCAST|
+                HTT_RX_FP_DATA_PKT_FILTER_TLV_FLASG3_UCAST|HTT_RX_FP_DATA_PKT_FILTER_TLV_FLASG3_NULL_DATA));
             assert(gwq_u32(p+32)==13 && gwq_u32(p+36)==(400u|(272u<<16)));
             assert(gwq_u32(p+40)==144u<<16 && gwq_u32(p+44)==0);f->filter_calls++;
         }
@@ -84,7 +89,7 @@ static int pump(void *v,unsigned us) {
 static uint64_t now(void *v){return ((struct fixture *)v)->now;}
 static int idle(void *v){return !((struct fixture *)v)->not_idle;}
 static int receive(void *v,const void *p,size_t n) {
-    struct fixture *f=v;assert(n==60 && ((const uint8_t *)p)[6]==2);f->received++;return 0;
+    struct fixture *f=v;assert(n==60 && ((const uint8_t *)p)[6]==2);if(f->receive_fail)return 1;f->received++;return 0;
 }
 static void complete(void *v,uint32_t token,unsigned status) {
     struct fixture *f=v;f->completed++;f->last_token=token;f->last_status=status;
@@ -174,6 +179,88 @@ static unsigned device_rx(struct fixture *f,int encrypted,uint64_t pn,int eapol,
     gwq_w32(out+AT(hal_reo_dest_ring,info0),field(HAL_REO_DEST_RING_INFO0_PUSH_REASON,1));
     gwq_w32(f->ram+r->remote,((tail+1)%r->count)*2);gwq_w32(f->ram+c->remote,((head+1)%c->count)*8);return slot;
 }
+static uint32_t device_tx_rate(struct fixture *f,unsigned reason,unsigned source,unsigned type,unsigned code,unsigned bw,int valid) {
+    struct gwd_ring *r=&f->s.ring[GWD_TX_COMPLETE];unsigned head=gwq_u32(f->ram+r->remote)/r->entry;
+    device_tx(f,reason);uint8_t *d=f->ram+r->desc+head*sizeof(struct hal_wbm_completion_ring_tx);
+    uint32_t raw=field(HAL_TX_RATE_STATS_INFO0_PKT_TYPE,type)|field(HAL_TX_RATE_STATS_INFO0_MCS,code)|
+        field(HAL_TX_RATE_STATS_INFO0_BW,bw)|field(HAL_TX_RATE_STATS_INFO0_SGI,HAL_TX_RATE_STATS_SGI_32US)|
+        (valid?HAL_TX_RATE_STATS_INFO0_VALID:0);
+    gwq_w32(d+AT(hal_wbm_completion_ring_tx,rate_stats.info0),raw);
+    gwq_w32(d+AT(hal_wbm_completion_ring_tx,info0),field(HAL_WBM_COMPL_TX_INFO0_REL_SRC_MODULE,source)|
+        field(HTT_TX_WBM_COMP_INFO0_STATUS,reason));return raw;
+}
+static uint32_t device_rx_rate(struct fixture *f,unsigned slot,unsigned type,unsigned code,unsigned bw) {
+    uint8_t *p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+    uint32_t raw=0x5a|field(RX_MSDU_END_INFO12_PKT_TYPE,type)|field(RX_MSDU_END_INFO12_RATE_MCS,code)|
+        field(RX_MSDU_END_INFO12_RECV_BW,bw)|field(RX_MSDU_END_INFO12_SGI,RX_MSDU_START_SGI_3_2_US)|
+        field(RX_MSDU_END_WCN7850_INFO12_MIMO_SS_BITMAP,0x80);
+    gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info12),raw);
+    gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.ppdu_start_timestamp_31_0),0xdeadbeef);return raw;
+}
+static void observed_rates(void) {
+    for(unsigned type=0;type<16;type++)for(unsigned code=0;code<16;code++)for(unsigned bw=0;bw<8;bw++)
+        assert(gwd_legacy_rate_kbps(type,code,bw)==(bw?0:oracle_legacy_rate_kbps(type,code)));
+    struct fixture *f=make();start(f,0);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;
+    assert(!f->s.tx_rate.valid && !f->s.rx_rate.valid);
+    for(unsigned i=0;i<sizeof(oracle_legacy_rates)/sizeof(oracle_legacy_rates[0]);i++) {
+        const struct oracle_legacy_rate *rate=&oracle_legacy_rates[i];f->now+=7;
+        assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),i));
+        uint32_t raw=device_tx_rate(f,HAL_WBM_TQM_REL_REASON_FRAME_ACKED,HAL_WBM_REL_SRC_MODULE_TQM,
+            rate->packet_type,rate->code,HAL_TX_RATE_STATS_BW_20,1);
+        assert(!gwd_poll(&f->s,&f->io,64));
+        assert(f->s.tx_rate.valid && f->s.tx_rate.kbps==rate->kbps && f->s.tx_rate.raw==raw && f->s.tx_rate.observed_ms==f->now);
+        assert(!f->s.rx_rate.valid);
+    }
+    f->now++;assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),50));
+    uint32_t raw=device_tx_rate(f,HAL_WBM_TQM_REL_REASON_CMD_REMOVE_TX,HAL_WBM_REL_SRC_MODULE_TQM,
+        HAL_TX_RATE_STATS_PKT_TYPE_11B,ATH12K_HW_RATE_CCK_SP_2M,HAL_TX_RATE_STATS_BW_20,1);
+    assert(!gwd_poll(&f->s,&f->io,64) && f->s.tx_rate.kbps==2000 && f->s.tx_rate.raw==raw);
+    uint64_t observed=f->s.tx_rate.observed_ms;
+    /* Missing VALID, FW-overlay words and unsent/drop TQM statuses cannot
+     * replace the last measured transmit rate, even with plausible bits. */
+    for(unsigned reason=0;reason<15;reason++) {
+        f->now++;assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),51+reason));
+        device_tx_rate(f,reason,HAL_WBM_REL_SRC_MODULE_TQM,HAL_TX_RATE_STATS_PKT_TYPE_11A,
+            ATH12K_HW_RATE_OFDM_54M,HAL_TX_RATE_STATS_BW_20,reason!=0 && reason!=2);
+        assert(!gwd_poll(&f->s,&f->io,64) && f->s.tx_rate.kbps==2000 && f->s.tx_rate.observed_ms==observed);
+    }
+    f->now++;assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),70));
+    device_tx_rate(f,HAL_WBM_REL_HTT_TX_COMP_STATUS_OK,HAL_WBM_REL_SRC_MODULE_FW,
+        HAL_TX_RATE_STATS_PKT_TYPE_11A,ATH12K_HW_RATE_OFDM_54M,HAL_TX_RATE_STATS_BW_20,1);
+    assert(!gwd_poll(&f->s,&f->io,64) && f->s.tx_rate.kbps==2000 && f->s.tx_rate.observed_ms==observed);
+    /* Real but unsupported PHY samples are unknown, never a fabricated rate
+     * from an MCS without NSS or the BSS's maximum supported legacy rate. */
+    f->now++;assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),71));
+    raw=device_tx_rate(f,HAL_WBM_TQM_REL_REASON_FRAME_ACKED,HAL_WBM_REL_SRC_MODULE_TQM,
+        HAL_TX_RATE_STATS_PKT_TYPE_11N,7,HAL_TX_RATE_STATS_BW_40,1);
+    assert(!gwd_poll(&f->s,&f->io,64) && !f->s.tx_rate.valid && !f->s.tx_rate.kbps);
+    assert(f->s.tx_rate.raw==raw && f->s.tx_rate.observed_ms==f->now);
+    for(unsigned i=0;i<sizeof(oracle_legacy_rates)/sizeof(oracle_legacy_rates[0]);i++) {
+        const struct oracle_legacy_rate *rate=&oracle_legacy_rates[i];f->now+=3;
+        unsigned slot=device_rx(f,0,0,0,0);raw=device_rx_rate(f,slot,rate->packet_type,rate->code,RX_MSDU_START_RECV_BW_20MHZ);
+        assert(!gwd_poll(&f->s,&f->io,64));
+        assert(f->s.rx_rate.valid && f->s.rx_rate.kbps==rate->kbps && f->s.rx_rate.raw==raw && f->s.rx_rate.observed_ms==f->now);
+        assert(!f->s.tx_rate.valid);
+    }
+    observed=f->s.rx_rate.observed_ms;
+    for(unsigned fault=0;fault<6;fault++) {
+        f->now++;unsigned slot=device_rx(f,0,0,0,0);uint8_t *p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+        device_rx_rate(f,slot,RX_MSDU_START_PKT_TYPE_11B,ATH12K_HW_RATE_CCK_LP_1M,RX_MSDU_START_RECV_BW_20MHZ);
+        if(fault==0)gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info14),0);
+        if(fault==1)gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info13),RX_MSDU_END_INFO13_FCS_ERR);
+        if(fault==2)gwq_w16(p+AT(hal_rx_desc_wcn7850,mpdu_start.sw_peer_id),8);
+        if(fault==3)gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info10),59);
+        if(fault==4)f->s.authorized=0;
+        if(fault==5)f->receive_fail=1;
+        assert(!gwd_poll(&f->s,&f->io,64) && f->s.rx_rate.kbps==54000 && f->s.rx_rate.observed_ms==observed);
+        f->s.authorized=1;f->receive_fail=0;
+    }
+    f->now++;unsigned slot=device_rx(f,0,0,0,0);
+    raw=device_rx_rate(f,slot,RX_MSDU_START_PKT_TYPE_11AX,11,RX_MSDU_START_RECV_BW_80MHZ);
+    assert(!gwd_poll(&f->s,&f->io,64) && !f->s.rx_rate.valid && !f->s.rx_rate.kbps);
+    assert(f->s.rx_rate.raw==raw && f->s.rx_rate.observed_ms==f->now);
+    destroy(f);
+}
 static void normal(void) {
     struct fixture *f=make();start(f,0);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;
     for(unsigned i=0;i<63;i++)assert(!gwd_send(&f->s,&f->io,frame,60,i));
@@ -184,6 +271,47 @@ static void normal(void) {
         assert(!gwd_poll(&f->s,&f->io,64));assert(f->last_token==i && f->last_status==(i&1));
     }
     assert(f->received==2000 && !f->s.tx_pending);destroy(f);
+}
+static void firmware_completions(void) {
+    for(unsigned status=0;status<16;status++) {
+        struct fixture *f=make();start(f,0);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;
+        assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),status+1));
+        struct gwd_ring *r=&f->s.ring[GWD_TX_COMPLETE];
+        unsigned head=gwq_u32(f->ram+r->remote)/r->entry;device_tx(f,status);
+        uint8_t *d=f->ram+r->desc+head*sizeof(struct hal_wbm_release_ring);
+        gwq_w32(d+AT(hal_wbm_release_ring,info0),
+            field(HAL_WBM_COMPL_TX_INFO0_REL_SRC_MODULE,HAL_WBM_REL_SRC_MODULE_FW)|
+            field(HTT_TX_WBM_COMP_INFO0_STATUS,status));
+        int error=gwd_poll(&f->s,&f->io,64);
+        if(oracle_htt_tx_releases_dma(status)) {
+            assert(!error && f->completed==1 && f->last_token==status+1 && f->last_status==status);
+            assert(!f->s.tx_owned[0] && !f->s.tx_pending && !f->s.quarantine);
+        } else {
+            /* A notification/unknown event is not a completion even when it
+             * happens to carry the address and cookie of an outstanding TX. */
+            assert(error==GWD_FIRMWARE && !f->completed && f->s.tx_owned[0] && f->s.tx_pending==1);
+            assert(f->s.quarantine && !r->tail);
+            f->not_idle=1;assert(!gwd_stop(&f->s,&f->io));
+            assert(f->s.prepared && f->s.tx_owned[0] && f->s.tx_pending==1);f->not_idle=0;
+        }
+        destroy(f);
+    }
+    /* The same numeric status is a normal TQM queue-removal completion. */
+    struct fixture *f=make();start(f,0);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;
+    assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),77));device_tx(f,5);
+    assert(!gwd_poll(&f->s,&f->io,64) && f->completed==1 && f->last_status==5 && !f->s.tx_pending);
+    destroy(f);
+}
+static void open_mcbc(void) {
+    struct fixture *f=make();start(f,0);
+    for(unsigned broadcast=0;broadcast<2;broadcast++) {
+        unsigned slot=device_rx(f,0,0,0,0);uint8_t *p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+        uint8_t *frame=p+AT(hal_rx_desc_wcn7850,msdu_payload);
+        if(broadcast)memset(frame,0xff,6);else frame[0]=1;
+        gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info13),RX_MSDU_END_INFO13_MCAST_BCAST);
+        assert(!gwd_poll(&f->s,&f->io,64) && f->received==broadcast+1 && !f->s.rx_dropped);
+    }
+    destroy(f);
 }
 static void security(void) {
     struct fixture *f=make();start(f,1);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;
@@ -201,6 +329,68 @@ static void security(void) {
     device_rx(f,1,7,0,0);assert(!gwd_poll(&f->s,&f->io,64) && f->received==3);
     uint8_t unmap[4];gwq_w32(unmap,4|(7u<<16));assert(!gwd_receive_htt(&f->s,&f->io,7,unmap,4));
     assert(!f->s.peer_mapped && !f->s.authorized && f->peer_events==2);destroy(f);
+}
+static unsigned device_group_rx(struct fixture *f,unsigned key,uint64_t pn,unsigned tid) {
+    unsigned slot=device_rx(f,1,pn,0,0);uint8_t *p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+    /* Follow ath12k_hw_wcn7850_rx_desc_get_crypto_hdr(), not the ambiguous
+     * rx_desc.h comment: hardware KEY_ID is the index before IV conversion. */
+    static const uint8_t iv_key_id[4]={0x20,0x60,0xa0,0xe0};assert(key<4);
+    gwq_w32(p+AT(hal_rx_desc_wcn7850,mpdu_start.info5),field(RX_MPDU_START_INFO5_KEY_ID,key));
+    const struct hal_rx_desc_wcn7850 *rx=(const struct hal_rx_desc_wcn7850 *)p;
+    assert(oracle_wcn7850_ccmp_key_id_octet(rx)==iv_key_id[key]);
+    /* WCN7850 RX_MSDU_END_INFO13_MCAST_BCAST records addr1/RA, which
+     * selects group encryption independently of the decapsulated Ethernet DA. */
+    gwq_w32(p+AT(hal_rx_desc_wcn7850,msdu_end.info13),RX_MSDU_END_INFO13_MCAST_BCAST);
+    assert(oracle_wcn7850_is_da_mcbc(rx));
+    p[AT(hal_rx_desc_wcn7850,msdu_payload)]=1;
+    if(tid<16) {
+        gwq_w32(p+AT(hal_rx_desc_wcn7850,mpdu_start.info4),
+            gwq_u32(p+AT(hal_rx_desc_wcn7850,mpdu_start.info4))|RX_MPDU_START_INFO4_MPDU_QOS_CTRL_VALID);
+        gwq_w32(p+AT(hal_rx_desc_wcn7850,mpdu_start.info2),field(RX_MPDU_START_INFO2_ENC_TYPE,6)|field(RX_MPDU_START_INFO2_TID,tid));
+    }
+    return slot;
+}
+static void group_keys(void) {
+    struct fixture *f=make();start(f,1);assert(!gwd_key_ready(&f->s,0,1,5));
+    assert(!gwd_key_ready(&f->s,0,0,500));
+    for(unsigned key=1;key<4;key++)assert(!gwd_key_ready(&f->s,key,0,key*10));
+    assert(!gwd_authorize(&f->s,1));
+    for(unsigned key=1;key<4;key++) {
+        device_group_rx(f,key,key*10+1,16);assert(!gwd_poll(&f->s,&f->io,64));
+        assert(f->received==key && f->s.pn[key][16]==key*10+1 && f->s.pn[0][16]==500);
+        device_group_rx(f,key,key*10+1,16);assert(!gwd_poll(&f->s,&f->io,64));
+        assert(f->received==key && f->s.rx_dropped==key);
+    }
+    /* A different TID has its own replay counter under the same GTK. */
+    device_group_rx(f,2,21,7);assert(!gwd_poll(&f->s,&f->io,64));
+    assert(f->received==4 && f->s.pn[2][7]==21 && f->s.pn[2][16]==21);
+    device_group_rx(f,2,21,7);assert(!gwd_poll(&f->s,&f->io,64) && f->received==4);
+    device_group_rx(f,0,501,16);assert(!gwd_poll(&f->s,&f->io,64));
+    assert(f->received==5 && f->s.pn[0][16]==501 && f->s.pn[4][16]==5);
+    /* A missing GTK must not borrow another installed GTK or its counter. */
+    f->s.key_valid[3]=0;device_group_rx(f,3,32,16);
+    assert(!gwd_poll(&f->s,&f->io,64) && f->received==5 && f->s.pn[3][16]==31);
+    /* An AP may use a unicast receiver for an Ethernet multicast MSDU.
+     * Its protected MPDU uses the PTK, regardless of Ethernet DA bit 0. */
+    unsigned slot=device_rx(f,1,6,0,0);uint8_t *p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+    p[AT(hal_rx_desc_wcn7850,msdu_payload)]=1;
+    gwq_w32(p+AT(hal_rx_desc_wcn7850,mpdu_start.info5),field(RX_MPDU_START_INFO5_KEY_ID,1));
+    assert(!oracle_wcn7850_is_da_mcbc((const struct hal_rx_desc_wcn7850 *)p));
+    assert(!gwd_poll(&f->s,&f->io,64));
+    assert(f->received==6 && f->s.pn[4][16]==6 && f->s.pn[1][16]==11);
+    /* The inverse descriptor/DA combination must still use its GTK. */
+    slot=device_group_rx(f,2,22,16);p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+    p[AT(hal_rx_desc_wcn7850,msdu_payload)]=2;
+    assert(!gwd_poll(&f->s,&f->io,64));
+    assert(f->received==7 && f->s.pn[2][16]==22 && f->s.pn[4][16]==6);
+    /* Neither mismatched Ethernet destination can borrow the other key. */
+    f->s.key_valid[4]=0;slot=device_rx(f,1,7,0,0);p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;
+    p[AT(hal_rx_desc_wcn7850,msdu_payload)]=1;
+    assert(!gwd_poll(&f->s,&f->io,64) && f->received==7 && f->s.pn[4][16]==6);
+    f->s.key_valid[4]=1;f->s.key_valid[2]=0;slot=device_group_rx(f,2,23,16);
+    p=f->ram+GWD_RX_BUFFERS+slot*GWD_BUFFER;p[AT(hal_rx_desc_wcn7850,msdu_payload)]=2;
+    assert(!gwd_poll(&f->s,&f->io,64) && f->received==7 && f->s.pn[2][16]==22 && f->s.pn[4][16]==6);
+    destroy(f);
 }
 static void failures(void) {
     struct fixture *f=make();f->deny=1;assert(gwd_prepare(&f->s,&f->io)==GWD_DMA && !f->writes);destroy(f);
@@ -242,6 +432,32 @@ static void lifetime(void) {
 }
 static void device_unmap(struct fixture *f) {
     uint8_t unmap[4];gwq_w32(unmap,4|(7u<<16));assert(!gwd_receive_htt(&f->s,&f->io,7,unmap,sizeof(unmap)));
+}
+static void observed_rate_lifetime(void) {
+    struct fixture *f=make();start(f,0);uint8_t frame[60]={0};frame[6]=2;frame[12]=8;f->now+=10;
+    assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),80));
+    device_tx_rate(f,HAL_WBM_TQM_REL_REASON_FRAME_ACKED,HAL_WBM_REL_SRC_MODULE_TQM,
+        HAL_TX_RATE_STATS_PKT_TYPE_11A,ATH12K_HW_RATE_OFDM_54M,HAL_TX_RATE_STATS_BW_20,1);
+    unsigned slot=device_rx(f,0,0,0,0);
+    device_rx_rate(f,slot,RX_MSDU_START_PKT_TYPE_11B,ATH12K_HW_RATE_CCK_LP_11M,RX_MSDU_START_RECV_BW_20MHZ);
+    assert(!gwd_poll(&f->s,&f->io,64) && f->s.tx_rate.valid && f->s.rx_rate.valid);
+    struct gwd_rate_sample tx=f->s.tx_rate,rx=f->s.rx_rate;
+    assert(gwd_select_peer(&f->s,0,0,0,ap,0)==GWD_ARGUMENT);
+    assert(f->s.tx_rate.kbps==54000 && f->s.rx_rate.kbps==11000);
+    assert(!gwd_send(&f->s,&f->io,frame,sizeof(frame),81));device_unmap(f);
+    assert(!f->s.tx_rate.valid && !f->s.rx_rate.valid && !f->s.tx_rate.observed_ms && !f->s.rx_rate.observed_ms);
+    device_tx_rate(f,HAL_WBM_TQM_REL_REASON_FRAME_ACKED,HAL_WBM_REL_SRC_MODULE_TQM,
+        HAL_TX_RATE_STATS_PKT_TYPE_11A,ATH12K_HW_RATE_OFDM_6M,HAL_TX_RATE_STATS_BW_20,1);
+    assert(!gwd_poll(&f->s,&f->io,64) && !f->s.tx_pending && !f->s.tx_rate.valid && !f->s.rx_rate.valid);
+    destroy(f);
+    /* A successful selection and stop independently clear any retained sample
+     * snapshot. Failed selections above must preserve the current peer's rate. */
+    f=make();assert(!gwd_prepare(&f->s,&f->io) && !gwd_connect(&f->s,&f->io) && !gwd_start(&f->s,&f->io));
+    f->s.tx_rate=tx;f->s.rx_rate=rx;assert(!gwd_select_peer(&f->s,0,0,0,ap,0));
+    assert(!f->s.tx_rate.valid && !f->s.rx_rate.valid && !f->s.tx_rate.raw && !f->s.rx_rate.raw);
+    f->s.tx_rate=tx;f->s.rx_rate=rx;assert(gwd_stop(&f->s,&f->io));
+    assert(!f->s.tx_rate.valid && !f->s.rx_rate.valid && !f->s.tx_rate.kbps && !f->s.rx_rate.kbps);
+    destroy(f);
 }
 static void device_remap(struct fixture *f) {
     uint8_t map[16]={0};gwq_w32(map,0x1e|(7u<<16));memcpy(map+4,ap,6);
@@ -552,7 +768,7 @@ static void encapsulation(void) {
     assert(!memcmp(f->ram+(gwq_u32(d)-f->io.dma),frame,sizeof(frame)));destroy(f);
 }
 int main(void) {
-    normal();security();failures();lifetime();queue_banks();reclaim_failures();reclaim_visibility();error_recycling();reclaim_lifecycle();registers();encapsulation();
-    printf("Wi-Fi DP: %u initialization/failure cases, upstream layout oracle, 2000 TCL/WBM + RXDMA/REO recycles, 300 REO invalidate/flush/reconnect cycles, error-link recycling, native EAPOL, controlled port and CCMP replay checks passed\n",checks);
+    normal();observed_rates();observed_rate_lifetime();firmware_completions();open_mcbc();security();group_keys();failures();lifetime();queue_banks();reclaim_failures();reclaim_visibility();error_recycling();reclaim_lifecycle();registers();encapsulation();
+    printf("Wi-Fi DP: %u initialization/failure cases, upstream layout/HAL/rate oracle, observed TX/RX rates, 2000 TCL/WBM + RXDMA/REO recycles, 300 REO invalidate/flush/reconnect cycles, FW TX ownership, MCBC, error-link recycling, native EAPOL, controlled port and per-GTK/TID CCMP replay checks passed\n",checks);
     return 0;
 }

@@ -170,10 +170,11 @@ static void network_rsn_bridge() {
         h.key_ack(1,0);h.work();
         assert(r.rsn.phase==GWR_RUN && r.station.phase==GWT_RUN && r.dp.authorized && r.station.authorized);
         assert(r.dp.tx_pending==2 && r.dp.pn[1][16]==9 && r.net_result==GWN_RESULT_SUCCESS);network_rsn_reply(r.rsn,0x030a,2);
+        gn_deliver(&r);assert(!r.assoc_notice);
         h.receive(network_rsn_key(r.rsn,3,0,2,0x66));h.work();
         assert(h.installs==3 && !r.dp.authorized && !r.rsn.authorized && r.station.key_pending);
         h.receive(network_rsn_key(r.rsn,4,0,2,0x66));h.work();assert(h.installs==3 && r.rsn.replay==4);
-        h.key_ack(2,0);h.work();assert(r.dp.authorized && r.station.authorized && r.rsn.authorized);
+        h.key_ack(2,0);h.work();assert(r.dp.authorized && r.station.authorized && r.rsn.authorized && !r.assoc_notice);
         network_rsn_reply(r.rsn,0x0302,4);assert(r.dp.tx_pending==3);
         /* Same PTK and GTK in a renewed exchange exercise station's no-op
          * install plus gr_authorize/gt_port reopening, not a fake RSN callback. */

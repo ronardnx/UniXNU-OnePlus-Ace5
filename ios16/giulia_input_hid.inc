@@ -36,6 +36,24 @@ extern "C" int giulia_physical_button(unsigned usage, unsigned down)
     return service && service->sourceKey(usage, down != 0, false);
 }
 
+bool SweetHIDButtons::sliderRing(bool enabled)
+{
+    if (!fButtonLock) return false;
+    IOLockLock(fButtonLock);
+    if (fSliderRing != (UInt32)enabled) {
+        IOHIDEvent *event = IOHIDEvent::keyboardEvent(mach_absolute_time(), 0x0b, 0x2d, enabled);
+        if (!event) { IOLockUnlock(fButtonLock); return false; }
+        fSliderRing = enabled; dispatchEvent(event); event->release();
+    }
+    IOLockUnlock(fButtonLock); return true;
+}
+extern "C" int giulia_slider_ring(unsigned enabled)
+{
+    if (enabled > 1) return 0;
+    SweetHIDButtons *service = os_atomic_load(&gSweetButtons, acquire);
+    return service && service->sliderRing(enabled != 0);
+}
+
 extern "C" unsigned giulia_remote_ready(void)
 {
     return (os_atomic_load(&gSweetTouch, acquire) ? 1u : 0u) |

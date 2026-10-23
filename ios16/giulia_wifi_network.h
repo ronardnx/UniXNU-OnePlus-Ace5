@@ -14,6 +14,7 @@
 #define GWN_CIPHER_KEY 3u
 #define GWN_AUTH_TYPE 2u
 #define GWN_ASSOCIATE_BYTES 0x250u
+#define GWN_DISASSOCIATE_BYTES 8u
 #define GWN_KEY_BYTES 0x94u
 /* __waitForJoinResult (20H392 0x1d3ed670c) keeps polling result 0;
  * __errorForAssociateResult (0x1d3ec1744, table 0x1d3ef90d0) maps 1 to success. */
@@ -28,6 +29,9 @@ struct gwn_join {
 struct gwn_view {
     unsigned available,phase,associated,authorized,security,result,status;
     const struct gww_bss *peer;
+    uint64_t now;
+    unsigned active_policy;
+    uint32_t tx_kbps;unsigned tx_rate_valid;
 };
 #define GWN_QUEUE_COUNT 32u
 #define GWN_FRAME_BYTES 1518u
@@ -59,6 +63,17 @@ static inline unsigned gwn_nonzero(const uint8_t *p,size_t n) {
 static inline int gwn_mac(const uint8_t *p) {
     return p && !(p[0]&1) && gwn_nonzero(p,6);
 }
+/* Apple80211Disassociate uses scalar req_val. DisassociateExt's SET22
+ * dispatch at 20H392 0x1d3ece8e0..0x1d3ece928 instead supplies 8 bytes,
+ * with the reason at +4. Its first word is stack initialization, not a
+ * version field (the framework explicitly fills it with 0xaaaaaaaa). */
+static inline int gwn_disassociate_decode(const struct gwi_request *q,unsigned *reason) {
+    if(!q || !reason || q->set!=1 || q->type!=GWN_DISASSOCIATE ||
+       (q->bytes && (q->bytes!=GWN_DISASSOCIATE_BYTES || !q->data)))return GWI_ARGUMENT;
+    unsigned value=q->bytes?gwq_u32(q->data+4):q->value;
+    if(value>65535)return GWI_ARGUMENT;
+    *reason=value;return GWI_OK;
+}
 /* Actual __getScanData in 20H392: primary SSID +0x10/+0x14,
  * channels +0x44/+0x48 (400 records, stride 12), optional ten network
  * SSIDs +0x1314/+0x1318 (stride 56, version/length/bytes). */
@@ -71,8 +86,16 @@ static inline int gwn_scan_decode(const struct gwi_request *q,struct gww_scan_re
     if(ssid){scan.ssid_count=1;scan.ssids[0].length=(uint8_t)ssid;gwq_copy(scan.ssids[0].bytes,p+0x14,ssid);}
     else for(unsigned i=0;i<networks;i++) {
         const uint8_t *v=p+0x1318+56*i;unsigned n=gwq_u32(v+4);
-        if(gwq_u32(v)!=1 || !n || n>32)return GWI_ARGUMENT;
-        scan.ssids[i].length=(uint8_t)n;gwq_copy(scan.ssids[i].bytes,v+8,n);scan.ssid_count++;
+        /* __getScanData emits length zero for an empty network SSID. Keep
+         * that wildcard and merge repeated entries before the WMI worker,
+         * whose scan validator requires each SSID to be unique. */
+        if(gwq_u32(v)!=1 || n>32)return GWI_ARGUMENT;
+        unsigned duplicate=0;
+        for(unsigned j=0;j<scan.ssid_count;j++)if(scan.ssids[j].length==n &&
+            gww_same_bytes(scan.ssids[j].bytes,v+8,n))duplicate=1;
+        if(duplicate)continue;
+        struct gww_scan_ssid *entry=&scan.ssids[scan.ssid_count++];
+        entry->length=(uint8_t)n;gwq_copy(entry->bytes,v+8,n);
     }
     if(gwn_nonzero(p+8,6)) {
         unsigned broadcast=1;for(unsigned i=0;i<6;i++)broadcast&=p[8+i]==255;
@@ -186,23 +209,61 @@ static inline int gwn_get(const struct gwn_view *s,const struct gwi_request *q,v
     switch(q->type) {
     case GWI_CAPABILITIES:case GWI_STATE:case GWI_PHY_MODE:case GWI_SSID:
     case GWI_CHANNEL:case GWI_BSSID:case GWI_RSSI:case GWI_NOISE:
-    case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:case GWN_AUTH_TYPE:break;
+    case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:case GWN_AUTH_TYPE:case GWI_CURRENT_NETWORK:
+    case GWI_ASSOCIATE_RESULT_EXTENDED:case GWI_POWERSAVE:case GWI_RATE:case GWI_MCS:break;
     default:return GWI_UNSUPPORTED;
     }
     if(!s->available)return GWI_UNSUPPORTED;
     *handled=1;size_t capacity=*bytes;*bytes=0;
     size_t n=q->type==GWN_AUTH_TYPE?16:gwi_get_bytes(q->type);
-    if(!output || q->bytes!=(gwi_scalar(q->type)?0:n) || capacity<n || capacity>GWI_GET_CAPACITY)return GWI_ARGUMENT;
+    if(!output || (q->bytes && !q->data) || q->bytes!=(gwi_scalar(q->type)?0:n) || capacity<n || capacity>GWI_GET_CAPACITY)return GWI_ARGUMENT;
+    /* MHI wakefulness alone is not an 802.11 powersave policy. The platform
+     * marks this only after submitting firmware's explicit active-mode
+     * command; until then GET5 must not invent a disabled state. */
+    if(q->type==GWI_POWERSAVE && !s->active_policy)return GWI_NOT_READY;
     unsigned peer_query=q->type==GWI_SSID || q->type==GWI_CHANNEL || q->type==GWI_BSSID ||
-        q->type==GWI_RSSI || q->type==GWI_NOISE || q->type==GWN_AUTH_TYPE;
+        q->type==GWI_RSSI || q->type==GWI_NOISE || q->type==GWN_AUTH_TYPE || q->type==GWI_CURRENT_NETWORK ||
+        q->type==GWI_RATE || q->type==GWI_MCS ||
+        (q->type==GWI_PHY_MODE && s->associated);
     if(peer_query && (!s->associated || !s->peer))return GWI_NOT_READY;
-    if(s->peer && (s->peer->ssid_len>32 || !gww_channel(s->peer->frequency)))return GWI_ARGUMENT;
+    /* The runtime supplies its station BSS before any association. Global
+     * state/capability/result replies must work while that BSS is empty. */
+    if(peer_query && (s->peer->ssid_len>32 || !gww_channel(s->peer->frequency)))return GWI_ARGUMENT;
+    if(q->type==GWI_RATE && (!s->tx_rate_valid || !s->tx_kbps))return GWI_NOT_READY;
+    /* Apple80211CopyCurrentNetwork issues GET103. Its dispatch at
+     * 0x1d3ec6328..0x1d3ec638c requests the same 0x48c-byte BSS layout as
+     * SCAN_RESULT, then calls __addScanResultToList. Use the confirmed peer
+     * directly; querying it must never consume a client's scan cursor. */
+    if(q->type==GWI_CURRENT_NETWORK) {
+        if(!gwi_result(output,n,s->peer,s->now))return GWI_ARGUMENT;
+        *bytes=n;return GWI_OK;
+    }
+    if(q->type==GWI_PHY_MODE && s->associated && (!s->peer->rate_count || s->peer->rate_count>16))return GWI_ARGUMENT;
     uint8_t *p=(uint8_t *)output;for(size_t i=0;i<n;i++)p[i]=0;
     switch(q->type) {
-    case GWI_CAPABILITIES:p[0]=1u<<3;p[1]=1u<<6;break; /* CCMP + WPA2, no WPA1/SAE/TKIP */
+    case GWI_CAPABILITIES:
+        /* 20H392 checks capability 75 (handle +0x59, bit 3) before it
+         * can emit SAE auth 0x1000. The live network backend supplies
+         * CCMP, WPA2 and SAE/PMF; no WPA1, TKIP or enterprise bits. */
+        p[0]=1u<<3;p[1]=1u<<6;p[9]=1u<<3;break;
     case GWI_STATE:gwq_w32(p,s->phase);break;
-    case GWI_PHY_MODE:gwq_w32(p,1);gwq_w32(p+4,0x1e);
-        if(s->associated && s->peer)gwq_w32(p+8,s->peer->frequency<3000?8:2);break;
+    case GWI_POWERSAVE:break; /* APPLE80211_POWERSAVE_MODE_DISABLED = 0 */
+    case GWI_RATE:
+        /* Stock GET8: BC WLAN producer divides its kbps cache by 1000 and
+         * Family copies that integer rate to the scalar result. */
+        gwq_w32(p,s->tx_kbps/1000u);break;
+    case GWI_MCS:
+        /* Current negotiated PHY is always legacy 11a/b/g. Stock getMCS
+         * succeeds without filling its scratch field for legacy; Family
+         * zero-initializes that field and returns 0. This compatibility
+         * default does not claim a valid HT MCS0 or invent a sentinel. */
+        break;
+    case GWI_PHY_MODE:gwq_w32(p,1);gwq_w32(p+4,0x0e); /* legacy 11a/b/g; no HT rates */
+        if(s->associated && s->peer) {
+            unsigned mode=s->peer->frequency<3000?(gwt_rates_have_ofdm(s->peer->rates,s->peer->rate_count)?8:4):2;
+            gwq_w32(p+8,mode);
+        }
+        break;
     case GWI_SSID:gwq_copy(p,s->peer->ssid,s->peer->ssid_len);break;
     case GWI_BSSID:gwq_copy(p,s->peer->bssid,6);break;
     case GWI_CHANNEL:gwq_w32(p,1);gwq_w32(p+4,1);gwq_w32(p+8,gww_channel(s->peer->frequency));
@@ -213,7 +274,10 @@ static inline int gwn_get(const struct gwn_view *s,const struct gwi_request *q,v
         gwq_w32(p+12,value);gwq_w32(p+28,value);gwq_w32(p+32,value);gwq_w32(p+48,value);break;
     }
     case GWN_AUTH_TYPE:gwq_w32(p,1);gwq_w32(p+4,1);gwq_w32(p+8,s->security==GWT_WPA3_SAE?0x1000:s->security?8:0);break;
-    case GWI_ASSOCIATE_RESULT:gwq_w32(p,s->result);break;
+    /* GET371's public consumer (20H392 0x1d3ec16e4..0x1d3ec16f8) uses
+     * __errorForAssociateResult, exactly like the GET21 join waiter at
+     * 0x1d3ed6728. Both report Apple association results, not IEEE/WMI status. */
+    case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATE_RESULT_EXTENDED:gwq_w32(p,s->result);break;
     case GWI_ASSOCIATION_STATUS:gwq_w32(p,s->status);break;
     default:return GWI_UNSUPPORTED;
     }

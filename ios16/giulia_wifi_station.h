@@ -18,6 +18,16 @@ enum { GWT_IDLE,GWT_PEER_WAIT,GWT_START_WAIT,GWT_AUTH_WAIT,GWT_ASSOC_WAIT,
 enum { GWT_OK,GWT_ARGUMENT,GWT_UNSUPPORTED,GWT_UNAVAILABLE,GWT_BUSY,
        GWT_TRANSPORT,GWT_TIMEOUT,GWT_REJECTED,GWT_PROTOCOL,GWT_DATAPATH };
 struct gwt_channel { unsigned max_power,max_reg_power,max_antenna_gain; };
+/* Shared by WMI peer setup and the current iOS PHY report. Rates are in
+ * 500 kbit/s units; unknown optional rate codes do not establish OFDM. */
+static inline int gwt_rates_have_ofdm(const uint8_t *rates,unsigned count) {
+    if(!rates || count>16)return 0;
+    for(unsigned i=0;i<count;i++) {
+        unsigned rate=rates[i]&0x7f;
+        if(rate==12 || rate==18 || rate==24 || rate==36 || rate==48 || rate==72 || rate==96 || rate==108)return 1;
+    }
+    return 0;
+}
 static inline int gwt_channel_allowed(const struct gww_state *wmi,unsigned frequency,struct gwt_channel *out) {
     unsigned power=0,gain=0;
     if(!wmi || !out || !gwreg_channel(&wmi->regulatory,frequency,&power,&gain))return GWT_UNAVAILABLE;
@@ -60,6 +70,7 @@ struct gwt_state {
     unsigned start_confirm,auth_confirm,assoc_confirm,peer_confirm,aid,capability;
     unsigned stop_stage,stop_confirm,delete_confirm,reason,seq,authorized,installed;
     unsigned tx_pending,tx_failed,key_pending,key_confirm,key_index,key_pairwise;
+    unsigned active_policy; /* ACTIVE WMI policy submitted, not a firmware readback. */
     uint32_t cookie,tx_cookie;uint64_t deadline,tx_deadline,key_deadline,key_rsc;
     uint8_t rates[16],rate_count,key_hash[32],installed_hash[5][32];
 };
@@ -89,6 +100,23 @@ static inline int gwt_send(struct gwt_state *s,const uint8_t *p,size_t n) {
 }
 static inline size_t gwt_command(uint8_t *p,size_t n,unsigned id,unsigned tag) {
     for(size_t i=0;i<n;i++)p[i]=0;gwq_w32(p,id);gww_tlv(p+4,tag,(unsigned)n-8);return n;
+}
+/* Keep the non-QoS station awake: no UAPSD, wake for RX/TX, no PS-Poll
+ * limit, and STA PS disabled. These are ath12k's STA initialization policy
+ * plus an explicit UAPSD reset. WMI supplies no completion for these commands;
+ * the flag records successful submission only. Sleep/TIM offload is not used. */
+static inline int gwt_active_policy(struct gwt_state *s) {
+    if(!s)return GWT_ARGUMENT;s->active_policy=0;
+    if(!s->wmi || !s->io || !s->wmi->vdev || !s->wmi->fw_ready || s->wmi->error)return GWT_UNAVAILABLE;
+    static const unsigned parameters[4]={4,0,1,2},values[4]={0,0,1,0};
+    for(unsigned i=0;i<4;i++) {
+        uint8_t p[20];gwt_command(p,sizeof(p),0x9002,109);
+        gwq_w32(p+12,parameters[i]);gwq_w32(p+16,values[i]);
+        if(gwt_send(s,p,sizeof(p)))return GWT_TRANSPORT;
+    }
+    uint8_t p[16];gwt_command(p,sizeof(p),0x9001,108);
+    if(gwt_send(s,p,sizeof(p)))return GWT_TRANSPORT;
+    s->active_policy=1;return GWT_OK;
 }
 static inline int gwt_vdev_command(struct gwt_state *s,unsigned id,unsigned tag) {
     uint8_t p[12];gwt_command(p,sizeof(p),id,tag);return gwt_send(s,p,sizeof(p));
@@ -126,9 +154,12 @@ static inline int gwt_peer_assoc(struct gwt_state *s) {
     /* 248-byte v6.12 fixed structure, legacy rate array, empty HT array,
      * 24-byte VHT rate TLV, then HE/MLO/EHT/partner arrays (all empty). */
     uint8_t p[320]={0};gwq_w32(p,0x6005);gww_tlv(p+4,101,244);uint8_t *c=p+4;
+    /* ath12k_peer_assoc_h_phymode uses 11B for a CCK-only 2.4 GHz peer.
+     * Validated OFDM rates select mixed 11b/g; the 5 GHz peer stays 11A. */
+    unsigned phymode=s->request.bss.frequency<3000?(gwt_rates_have_ofdm(s->rates,s->rate_count)?1u:2u):0u;
     gwq_copy(c+4,s->request.bss.bssid,6);gwq_w32(c+16,1);gwq_w32(c+20,s->aid);
     gwq_w32(c+24,(s->request.security==GWT_OPEN?1:4)|(s->request.pmf?0x08000000u:0));gwq_w32(c+28,s->capability);
-    gwq_w32(c+32,1);gwq_w32(c+52,1);gwq_w32(c+60,s->request.bss.frequency<3000?1:0);
+    gwq_w32(c+32,1);gwq_w32(c+52,1);gwq_w32(c+60,phymode);
     gwq_w32(c+72,s->rate_count);gwq_w32(c+180,0xffffffffu);
     size_t aligned=(s->rate_count+3u)&~3u,at=252;gww_tlv(p+at,17,(unsigned)aligned);at+=4;
     /* WMI rates are 500 kbit/s values, not the on-air basic-rate bitmap. */
@@ -223,7 +254,7 @@ static inline int gwt_request_valid(const struct gwt_request *q,uint8_t rates[16
     *count=0;
     for(unsigned i=0;i<q->bss.rate_count;i++) {
         unsigned rate=q->bss.rates[i]&0x7f;
-        unsigned supported=rate==12||rate==18||rate==24||rate==36||rate==48||rate==72||rate==96||rate==108;
+        unsigned supported=gwt_rates_have_ofdm(q->bss.rates+i,1);
         if(q->bss.frequency<3000)supported|=rate==2||rate==4||rate==11||rate==22;
         if(!supported){if(q->bss.rates[i]&0x80)return 0;continue;}
         unsigned duplicate=0;for(unsigned j=0;j<*count;j++)duplicate|=(rates[j]&0x7f)==rate;
@@ -345,6 +376,7 @@ static inline int gwt_connect(struct gwt_state *s,const struct gwt_request *requ
         uint8_t p[20];gwt_command(p,sizeof(p),0x4003,82);gwq_w32(p+8,s->wmi->pdev);
         gwq_w32(p+12,0x22);gwq_w32(p+16,1);if(gwt_send(s,p,sizeof(p)))return GWT_TRANSPORT;
     }
+    if(gwt_active_policy(s))return GWT_TRANSPORT;
     s->peer_created=1;
     return gwt_peer_command(s,0x6001,97);
 }

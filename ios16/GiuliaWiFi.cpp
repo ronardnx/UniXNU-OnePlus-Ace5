@@ -785,16 +785,43 @@ static errno_t gn_output(ifnet_t interface,mbuf_t packet) {
     mbuf_freem(packet);return error;
 }
 static errno_t gn_ioctl(ifnet_t interface,unsigned long command,void *data) {
+    if(!interface)return ENXIO;
     giulia_wifi_runtime *r=(giulia_wifi_runtime *)ifnet_softc(interface);
-    if(command==SIOCGIFMEDIA){struct ifmediareq *m=(struct ifmediareq *)data;
-        if(!m)return EINVAL;
-        IOLockLock(r->lock);unsigned active=r->ready && r->dp.authorized;IOLockUnlock(r->lock);
-        m->ifm_current=IFM_IEEE80211|IFM_AUTO;m->ifm_active=m->ifm_current;
-        m->ifm_status=IFM_AVALID|(active?IFM_ACTIVE:0);m->ifm_count=0;return 0;}
-    if(command==SIOCSIFFLAGS) {
-        if(!(ifnet_flags(interface)&IFF_UP)){IOLockLock(r->lock);r->disconnect_pending=3;IOLockUnlock(r->lock);}return 0;
+    if(!r || !r->lock)return ENXIO;
+    /* ether_ioctl is an EOPNOTSUPP stub in this XNU version. The driver
+     * must implement the address/MTU/multicast callbacks used by IP setup. */
+    if(command==SIOCSIFADDR)return ifnet_set_flags(interface,IFF_UP,IFF_UP);
+    if(command==SIOCSIFMTU || command==SIOCGIFDEVMTU) {
+        if(!data)return EINVAL;struct ifreq *request=(struct ifreq *)data;
+        if(command==SIOCSIFMTU) {
+            if(request->ifr_mtu<IF_MINMTU || request->ifr_mtu>1500)return EINVAL;
+            return ifnet_set_mtu(interface,(unsigned)request->ifr_mtu);
+        }
+        request->ifr_devmtu.ifdm_current=(int)ifnet_mtu(interface);
+        request->ifr_devmtu.ifdm_min=IF_MINMTU;request->ifr_devmtu.ifdm_max=1500;return 0;
     }
-    return ether_ioctl(interface,(u_int32_t)command,data);
+    /* The configured RX filter admits all multicast/broadcast data. BSD
+     * owns group membership and Ethernet protocol demux; no FW list to edit. */
+    if(command==SIOCADDMULTI || command==SIOCDELMULTI)return 0;
+    if(command==SIOCGIFMEDIA32 || command==SIOCGIFMEDIA64){struct ifmediareq *m=(struct ifmediareq *)data;
+        if(!m)return EINVAL;
+        IOLockLock(r->lock);unsigned active=r->ready && r->powered && r->network_available && r->dp.authorized &&
+            !r->disconnect_pending && !__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE);IOLockUnlock(r->lock);
+        m->ifm_current=IFM_IEEE80211|IFM_AUTO;m->ifm_active=m->ifm_current;
+        m->ifm_mask=0;m->ifm_status=IFM_AVALID|(active?IFM_ACTIVE:0);m->ifm_count=0;return 0;}
+    if(command==SIOCSIFMEDIA) {
+        if(!data)return EINVAL;
+        return ((struct ifreq *)data)->ifr_media==(IFM_IEEE80211|IFM_AUTO)?0:EOPNOTSUPP;
+    }
+    if(command==SIOCSIFFLAGS) {
+        if(!(ifnet_flags(interface)&IFF_UP)) {
+            IOLockLock(r->lock);r->disconnect_pending=3;(void)gt_port(r,r->dp.peer_id,0);
+            gn_forget_profile(r);gwn_clear(&r->tx_queue,sizeof(r->tx_queue));IOLockUnlock(r->lock);
+            return ifnet_set_flags(interface,0,IFF_RUNNING);
+        }
+        return 0;
+    }
+    return EOPNOTSUPP;
 }
 bool IO80211Controller::publishInterface() {
     static const uint8_t broadcast[6]={255,255,255,255,255,255};struct ifnet_init_eparams p;bzero(&p,sizeof(p));

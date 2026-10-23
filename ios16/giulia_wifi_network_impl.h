@@ -4,9 +4,10 @@
  * current ring entry has been retired, avoiding recursive polling of a ring.
  */
 static void gd_sync(void *v,size_t offset,size_t bytes,int) {
-    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;
-    if(!bytes || bytes>GWD_BYTES || offset>GWD_BYTES-bytes ||
-       !gwmap_dma_at(&r->dma,r->dp_offset+offset,bytes,NULL,NULL,NULL)){r->mapping_error=1;return;}
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)v;size_t absolute=0;
+    if(!gwmap_dma_allocated_offset(&r->dma,r->dp_offset,GWD_BYTES,offset,bytes,&absolute)) {
+        r->mapping_error=1;return;
+    }
     __asm__ volatile("dsb sy" ::: "memory");
 }
 static int gd_receive(void *v,const void *data,size_t bytes) {
@@ -76,8 +77,9 @@ static void gt_notify(void *v,unsigned phase,unsigned error) {
         phase,error,r->station.status,r->station.peer_mapped,r->station.authorized);
     /* RUN can recur for the current AP during GTK rekey while a replacement
      * request is still selecting/scanning/leaving. Only the connection which
-     * has actually entered the station state machine can complete its join. */
-    if(phase==GWT_RUN && !r->join_pending){r->net_result=GWN_RESULT_SUCCESS;r->net_status=0;r->assoc_notice=1;
+     * has actually entered the station state machine can complete its join.
+     * A late rekey after a failed replacement must preserve that failure. */
+    if(phase==GWT_RUN && !r->join_pending && r->net_result==GWN_RESULT_PENDING){r->net_result=GWN_RESULT_SUCCESS;r->net_status=0;r->assoc_notice=1;
         r->profile_connected=r->profile_valid;r->retry_count=0;r->retry_at=0;r->next_roam_scan=gw_now(r)+30000;}
     else if(phase==GWT_STOPPING || phase==GWT_FAILED) {
         if(!r->join_pending){
@@ -137,7 +139,7 @@ static int gr_authorize(void *v,unsigned open) {
 static int gn_prepare(giulia_wifi_runtime *r) {
     uintptr_t cpu=0;uint64_t physical=0,iova=0;
     if(!gwmap_dma_allocate(&r->dma,GWD_BYTES,0x4000,&cpu,&physical,&iova))return GWD_DMA;
-    r->dp_offset=(size_t)(iova-GW_IOVA);
+    r->dp_offset=(size_t)(iova-r->dma.iova);
     r->dio=(struct gwd_io){r,gc_read,gc_write,gm_ready,gd_sync,gw_send,gw_pump,gw_now,gs_idle,
         gd_receive,gd_complete,gd_peer,(uint8_t *)cpu,iova};
     struct gwt_ops ops={r,gt_ready,gt_channel,gt_hold,gt_done,gt_queue,gt_key,gt_port,gt_notify};
@@ -150,7 +152,11 @@ static int gn_prepare(giulia_wifi_runtime *r) {
 static int gn_start(giulia_wifi_runtime *r) {
     if(!r->wmi.hw_valid || !r->wmi.regulatory.valid)return GWD_NOT_READY;
     int error=gwd_start(&r->dp,&r->dio);if(error)return error;
+    r->error_domain="WMI_STATION";r->operation="station-active-policy";
+    error=gwt_active_policy(&r->station);if(error)return error;
+    r->error_domain="DATA";r->operation="datapath-ready";
     r->network_available=1;r->net_result=GWN_RESULT_PENDING;
+    IOLog("GIULIA WIFI PROFILE: 20H392; station=1; legacy20=1; security=open,wpa2,sae-pmf; data=htt-tcl-reo\n");
     IOLog("GIULIA WIFI NETWORK: datapath prepared; association and keys await requests\n");return 0;
 }
 static void gn_disable(giulia_wifi_runtime *r) {
@@ -296,8 +302,8 @@ static int gn_query(giulia_wifi_runtime *r,const struct gwi_request &q,void *out
             if(peer)(void)gwn_station_request(&r->join_request,&join,peer);
             gwn_clear(&join,sizeof(join));
         } else {
-            if(q.bytes || q.value>65535)return GWI_ARGUMENT;
-            r->disconnect_pending=q.value?q.value:3;
+            unsigned reason=0;int error=gwn_disassociate_decode(&q,&reason);if(error)return error;
+            r->disconnect_pending=reason?reason:3;
             gn_forget_profile(r);
             (void)gt_port(r,r->dp.peer_id,0);gwn_clear(&r->tx_queue,sizeof(r->tx_queue));
         }
@@ -318,6 +324,7 @@ static int gn_query(giulia_wifi_runtime *r,const struct gwi_request &q,void *out
     if((r->scan_pending || r->wmi.scanning) && r->station.phase!=GWT_RUN)phase=1;
     if(!r->powered || r->disconnect_pending)phase=0;
     struct gwn_view view={r->network_available,phase,r->powered && !r->disconnect_pending && r->station.vdev_up,r->dp.authorized,r->station.request.security,
-        r->net_result,r->net_status,&r->station.request.bss};
+        r->net_result,r->net_status,&r->station.request.bss,gw_now(r),r->station.active_policy,
+        r->dp.tx_rate.kbps,r->dp.tx_rate.valid};
     return gwn_get(&view,&q,output,bytes,handled);
 }

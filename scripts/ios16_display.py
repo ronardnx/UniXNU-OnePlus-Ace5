@@ -104,10 +104,12 @@ def native_display_patch(profile: Path, repository: Path):
                   '\tvoid key(UInt32 usage, bool down);\n'
                   '\tbool remoteKey(UInt32 page, UInt32 usage, bool down);\n'
                   '\tbool sourceKey(UInt32 usage, bool down, bool remote);\n'
+                  '\tbool sliderRing(bool enabled);\n\tUInt32 fSliderRing;\n'
                   '\tIOLock *fButtonLock;\n\tUInt32 fPhysicalButtons, fRemoteButtons;')
     hid = replace(hid, '\tif (PE_parse_boot_argn("sweethidtest",',
                   '\tfButtonLock = IOLockAlloc();\n\tif (!fButtonLock) return false;\n'
                   '\tfPhysicalButtons = fRemoteButtons = 0;\n'
+                  '\tfSliderRing = 2;\n'
                   '\tif (PE_parse_boot_argn("sweethidtest",')
     key_begin = hid.index('SweetHIDButtons::key(UInt32 usage, bool down)\n{')
     key_end = hid.index('\nvoid\nSweetHIDButtons::testFired', key_begin)

@@ -34,6 +34,27 @@ class Terminal(unittest.TestCase):
             with self.assertRaises(ValueError):
                 terminal.wire_command(command)
 
+    def test_keys_status_is_exact_read_only_query_and_can_be_watched(self):
+        self.assertEqual(terminal.wire_command('keys.status'), b'keys.status\n')
+        for command in ('keys.status now', 'keys.status;ping', 'keys.status\nping', 'keys.start'):
+            with self.assertRaises(ValueError): terminal.wire_command(command)
+        with tempfile.TemporaryDirectory() as directory:
+            capture = terminal.Capture(Path(directory))
+            try:
+                commands = terminal.Commands(capture, 'fake')
+                self.assertEqual(commands.accept('watch keys.status 2'), 'Polling enabled.')
+                self.assertEqual(commands.watch, ('keys.status', 2))
+            finally:
+                capture.close()
+
+    def test_slider_commands_require_explicit_positions_and_bounds(self):
+        for command in ('slider.status','slider.stop','slider.calibrate up 1',
+                        'slider.calibrate middle 32767','slider.calibrate down 100','slider.hid 0','slider.hid 1'):
+            self.assertEqual(terminal.wire_command(command),(command+'\n').encode())
+        for command in ('slider.start','slider.calibrate up 0','slider.calibrate down 32768',
+                        'slider.calibrate top 100','slider.hid 2','slider.status\nping','slider.hid 1;ping'):
+            with self.assertRaises(ValueError): terminal.wire_command(command)
+
     def test_split_utf8_and_historical_topic_export(self):
         with tempfile.TemporaryDirectory() as directory:
             capture = terminal.Capture(Path(directory))

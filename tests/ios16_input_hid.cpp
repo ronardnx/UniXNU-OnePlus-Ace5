@@ -39,9 +39,11 @@ static const bool kOSBooleanFalse=false;
 struct SweetHIDButtons {
     IOLock lock; IOLock *fButtonLock = &lock;
     UInt32 fPhysicalButtons = 0, fRemoteButtons = 0;
+    UInt32 fSliderRing = 2;
     IOHIDEvent last = {}; unsigned count = 0;
     bool remoteKey(UInt32, UInt32, bool);
     bool sourceKey(UInt32, bool, bool);
+    bool sliderRing(bool);
     void dispatchEvent(IOHIDEvent *event) { last = *event; count++; }
 };
 struct SweetHIDTouch {
@@ -81,5 +83,10 @@ int main()
     failEvent=false;
     assert(giulia_remote_hid(12,0x30,0) && buttons.count==5 && !buttons.last.down);
     assert(!giulia_physical_button(0x40,1) && !giulia_physical_button(0xea,2));
+    assert(!giulia_slider_ring(2));
+    assert(giulia_slider_ring(1) && buttons.count==6 && buttons.last.page==0x0b && buttons.last.usage==0x2d && buttons.last.down);
+    assert(giulia_slider_ring(1) && buttons.count==6);
+    failEvent=true;assert(!giulia_slider_ring(0) && buttons.fSliderRing==1);
+    failEvent=false;assert(giulia_slider_ring(0) && buttons.count==7 && !buttons.last.down);
     puts("Remote HID provider: service readiness, native endpoint transform, isolated contact slot and page/usage validation passed");
 }

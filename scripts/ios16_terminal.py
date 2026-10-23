@@ -43,6 +43,18 @@ def gpu_terminal_source(gpu=False):
             '    return 1;\n}\n')
 
 
+def keys_terminal_source(gui=False):
+    if gui:
+        return ('#define GIULIA_KEYS_INCLUDED 1\nextern void giulia_keys_debug(void);\n'
+                'extern int giulia_slider_terminal(const char *);\n')
+    return ('#define GIULIA_KEYS_INCLUDED 0\n'
+            'static void giulia_keys_debug(void) {\n'
+            '    printf("GIULIA KEYS: compiled=0 service=unavailable stage=not-compiled\\n");\n}\n'
+            'static int giulia_slider_terminal(const char *cmd) {\n'
+            '    if(strncmp(cmd,"slider.",7))return 0;\n'
+            '    printf("GIULIA SLIDER: compiled=0 service=unavailable\\n");return 1;\n}\n')
+
+
 def audio_terminal_source(audio=False):
     """Embed board metadata queries without acquiring audio hardware resources."""
     root = Path(__file__).resolve().parents[1]
@@ -79,7 +91,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          'static int giulia_remote_touch(unsigned d,unsigned x,unsigned y) {(void)d;(void)x;(void)y;return 0;}\n'
          'static int giulia_remote_hid(unsigned p,unsigned u,unsigned d) {(void)p;(void)u;(void)d;return 0;}'))
     screen = screen.replace('/* GIULIA_INPUT_CORE is embedded here by the profile generator. */', remote)
-    code = (gpu_terminal_source(gpu) + 'extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
+    code = (keys_terminal_source(gui) + gpu_terminal_source(gpu) + 'extern unsigned long gPhysBase, gPhysSize;\n' + shell + '\n' +
             (root/'ios16/giulia_mmio.inc').read_text() + '\n' +
             reboot + '\n' + screen + '\n' + audio_terminal_source(audio) + '\n' +
             (root / 'ios16/giulia_terminal.inc').read_text())
@@ -98,6 +110,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '    else if (!strcmp(u.command,"ping"))')
     edit(usb, 'commands help status ping replay',
          'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
+         + ' keys.status slider.status slider.calibrate slider.hid slider.stop'
          + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')

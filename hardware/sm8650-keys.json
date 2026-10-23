@@ -1,0 +1,112 @@
+{
+  "date": "2026-10-23",
+  "board": "OnePlus Ace 5 PKG110 / SM8650",
+  "scope": "USB observer register measurements, operator-confirmed physical button sequence and local device-tree evidence; iOS HID delivery is not yet hardware validated",
+  "evidence": {
+    "transcript": "out/buttons-probe/probe-transcript.log",
+    "transcript_sha256": "d3661d760a5ad3800a2bf54906babfe457106059d76dc5839d9a257c8b03de25",
+    "mapping": "out/buttons-probe/mapping.json",
+    "mapping_sha256": "f967c5c7b5f4acc559cf86fbdf46c0ec3efafbcd9bbd35e4364a6a63a9be3aba",
+    "probe_source": "out/buttons-probe/probe.py",
+    "device_tree": "ace5-analysis/running-device.dts (workspace sibling of this repository)",
+    "device_tree_sha256": "a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1",
+    "availability": "Raw logs and DT are local artifacts, not committed firmware"
+  },
+  "spmi_observations": {
+    "core": "0x0c400000",
+    "version": "0x70010000",
+    "features": "0x80060380",
+    "channel_count": 896,
+    "observer": "0x0c440000",
+    "observer_stride": "0x20",
+    "pon": {
+      "ppid": "0x013",
+      "apid_observed": 533,
+      "mapping": "0x01001300",
+      "type": "0x01",
+      "subtype": "0x09"
+    },
+    "pmic_gpio6": {
+      "ppid": "0x18d",
+      "apid_observed": 559,
+      "mapping": "0x01018d00",
+      "type": "0x10",
+      "subtype": "0x13"
+    },
+    "apid_policy": "Driver resolves unique PPIDs at each boot and checks the mapping before every read; observed APIDs are evidence, not fixed assignments",
+    "operations": "EXT_READL observer commands for type/subtype and RT_STS offset 0x10; no PMIC register writes"
+  },
+  "state_sequence_observed": [
+    {"pon_rt_sts": "0x10", "gpio6_rt_sts": "0x01"},
+    {"pon_rt_sts": "0x50", "gpio6_rt_sts": "0x01"},
+    {"pon_rt_sts": "0x10", "gpio6_rt_sts": "0x01"},
+    {"pon_rt_sts": "0x10", "gpio6_rt_sts": "0x00"},
+    {"pon_rt_sts": "0x10", "gpio6_rt_sts": "0x01"},
+    {"pon_rt_sts": "0x90", "gpio6_rt_sts": "0x01"},
+    {"pon_rt_sts": "0x10", "gpio6_rt_sts": "0x01"}
+  ],
+  "device_tree_mapping": [
+    {"key": "power", "node": "pon_hlos@1300/pwrkey", "interrupt_bit": 7, "linux_code": 116, "hid_consumer_usage": "0x30"},
+    {"key": "volume_up", "node": "pon_hlos@1300/resin", "interrupt_bit": 6, "linux_code": 115, "hid_consumer_usage": "0xe9"},
+    {"key": "volume_down", "node": "gpio_keys/vol_up", "gpio": 6, "active_low": true, "linux_code": 114, "hid_consumer_usage": "0xea", "note": "DT label volume_up conflicts with linux,code 114; use the input code"}
+  ],
+  "validation": {
+    "register_observations_available": true,
+    "operator_labeled_press_sequence_available": true,
+    "physical_button_register_mapping_verified": true,
+    "physical_key_to_hid_on_device_verified": false,
+    "ios_lock_or_volume_response_verified": false,
+    "limitation": "The earlier transcript was unlabelled; the current session confirms the exact volume-up twice, volume-down twice, power twice sequence. The running older r2 kernel does not expose the new physical-key/HID service diagnostics, so register verification must not be reported as iOS key-action validation"
+  },
+  "operator_confirmed_session": {
+    "date_local": "2026-10-23",
+    "timezone": "Asia/Shanghai",
+    "temporary_boot": {
+      "image": "out/ios16/gpu-platform-boot-20261023-r2/giulia-ios16-wifi-pcie.img",
+      "sha256": "57bf4871f7bd268ece074fc7be981b6b613b9d4de829d847a44873ac4da350e0",
+      "temporary_boot_accepted": true,
+      "flash_performed": false
+    },
+    "files": {
+      "boot": "out/buttons-slider-session-20261023/boot.json",
+      "boot_sha256": "bf088555276cf6ec79ed5526e953646be34cad6f44d5d2445e93478a862c900e",
+      "preflight": "out/buttons-slider-session-20261023/preflight.json",
+      "preflight_sha256": "b8a5a968ce219aacfb046059bce93cc8199361b5f688f3f813a623ca321bc5a9",
+      "observations": "out/buttons-slider-session-20261023/button-observation-host.log",
+      "observations_sha256": "b18b7a87b212e3f1de1d01f3ef5e0fa8b1c13b333c73ba35777bf9b679a835a5",
+      "raw_capture": "out/ios16/buttons-slider-preflight/20261023-152250-865197"
+    },
+    "operator_confirmation_source": "Direct user response in this chat confirms volume up twice, volume down twice, power twice, in that order",
+    "capture_completed": true,
+    "poll_duration_seconds": 180,
+    "sample_basis": "Only changed states are retained. Each entry has a host monotonic timestamp; it is not an interrupt timestamp",
+    "observed_press_order": ["volume_up", "volume_up", "volume_down", "volume_down", "power", "power"],
+    "press_pairs": [
+      {"key": "volume_up", "down_host_monotonic": 132382.5380735, "up_host_monotonic": 132382.5993935, "pon_down": "0x50", "gpio6_down": "0x01"},
+      {"key": "volume_up", "down_host_monotonic": 132382.7221051, "up_host_monotonic": 132382.8425701, "pon_down": "0x50", "gpio6_down": "0x01"},
+      {"key": "volume_down", "down_host_monotonic": 132383.6327036, "up_host_monotonic": 132383.756223, "pon_down": "0x10", "gpio6_down": "0x00"},
+      {"key": "volume_down", "down_host_monotonic": 132383.8782339, "up_host_monotonic": 132384.0007966, "pon_down": "0x10", "gpio6_down": "0x00"},
+      {"key": "power", "down_host_monotonic": 132384.6697664, "up_host_monotonic": 132384.8008794, "pon_down": "0x90", "gpio6_down": "0x01"},
+      {"key": "power", "down_host_monotonic": 132384.9229271, "up_host_monotonic": 132385.0442515, "pon_down": "0x90", "gpio6_down": "0x01"}
+    ],
+    "spmi_version": "0x70010000",
+    "spmi_features": "0x80060380",
+    "pon_apid": 533,
+    "gpio6_apid": 559,
+    "pmic_register_writes": false,
+    "pin_configuration_writes": false,
+    "observer_command_writes": true,
+    "writes_explanation": "Only observer EXT_READL command registers are written to read PMIC bytes; no PMIC register data or pin configuration is written",
+    "hid_service_validation": "Unavailable in the running older r2 image; no iOS key-action claim"
+  },
+  "alert_slider": {
+    "device_tree_node": "i2c@9a0000/magnachip@10",
+    "compatible": "oplus,dhall-ak09970",
+    "i2c_address": "0x10",
+    "threeaxis_hall_support": true,
+    "interrupt_gpio": 99,
+    "hardware_verified": false,
+    "ios_integration_verified": false,
+    "limitation": "GPIO99 is a Hall-sensor interrupt, not a three-position value; sensor transactions and calibrated position classification are still required"
+  }
+}

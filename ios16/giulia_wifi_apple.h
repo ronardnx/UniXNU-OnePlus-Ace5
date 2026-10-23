@@ -20,11 +20,12 @@
 #define GWI_CAPABILITIES_BYTES 13u
 #define GWI_VERSION_BYTES 256u
 enum gwi_type {
-    GWI_SSID=1,GWI_CHANNEL=4,GWI_BSSID=9,GWI_SCAN_REQUEST=10,GWI_SCAN_RESULT=11,
+    GWI_SSID=1,GWI_CHANNEL=4,GWI_POWERSAVE=5,GWI_RATE=8,GWI_BSSID=9,GWI_SCAN_REQUEST=10,GWI_SCAN_RESULT=11,
     GWI_CAPABILITIES=12,GWI_STATE=13,GWI_PHY_MODE=14,GWI_OP_MODE=15,
-    GWI_RSSI=16,GWI_NOISE=17,GWI_POWER=19,GWI_ASSOCIATE_RESULT=21,
+    GWI_RSSI=16,GWI_NOISE=17,GWI_INT_MIT=18,GWI_POWER=19,GWI_ASSOCIATE_RESULT=21,
     GWI_DEVICE_NAME=23,GWI_CHANNELS=27,GWI_DRIVER_VERSION=43,GWI_HARDWARE_VERSION=44,
-    GWI_ASSOCIATION_STATUS=50,GWI_COUNTRY=51,GWI_RADIO_INFO=54
+    GWI_ASSOCIATION_STATUS=50,GWI_COUNTRY=51,GWI_RADIO_INFO=54,GWI_MCS=57,GWI_CURRENT_NETWORK=103,
+    GWI_ASSOCIATE_RESULT_EXTENDED=371
 };
 enum gwi_status { GWI_OK,GWI_ARGUMENT,GWI_UNSUPPORTED,GWI_NOT_READY,GWI_BUSY,GWI_END };
 struct gwi_cursor { unsigned index;uint32_t generation; };
@@ -72,7 +73,10 @@ static inline int gwi_result(void *out,size_t bytes,const struct gww_bss *b,uint
     gwq_w32(p+12,2|(b->frequency<3000?8:16));
     gwq_w16(p+0x12,(uint16_t)b->noise);gwq_w16(p+0x14,0);gwq_w16(p+0x16,(uint16_t)b->rssi);
     gwq_w16(p+0x18,b->beacon);gwq_w16(p+0x1a,b->capability);gwq_copy(p+0x1c,b->bssid,6);
-    p[0x22]=b->rate_count>15?15:b->rate_count;for(unsigned i=0;i<p[0x22];i++)gwq_w32(p+0x24+4*i,b->rates[i]);
+    /* 20H392's BSS consumer classifies these words as integer Mbps. Keep
+     * on-air 500 kbps/basic-bit encoding in the BSS/IEs, convert only here. */
+    p[0x22]=b->rate_count>15?15:b->rate_count;
+    for(unsigned i=0;i<p[0x22];i++)gwq_w32(p+0x24+4*i,(b->rates[i]&0x7fu)/2u);
     p[0x60]=b->ssid_len;gwq_copy(p+0x61,b->ssid,b->ssid_len);
     uint64_t age=now>=b->timestamp?now-b->timestamp:0;gwq_w32(p+0x84,age>0xffffffffu?0xffffffffu:(uint32_t)age);
     gwq_w16(p+0x8a,b->ie_bytes);gwq_copy(p+0x8c,b->ie,b->ie_bytes);return 1;
@@ -88,9 +92,10 @@ static inline size_t gwi_get_bytes(unsigned type) {
     case GWI_SSID:return 32;
     case GWI_CHANNEL:return 16;
     case GWI_BSSID:return 6;
-    case GWI_SCAN_RESULT:return GWI_SCAN_RESULT_BYTES;
+    case GWI_SCAN_RESULT:case GWI_CURRENT_NETWORK:return GWI_SCAN_RESULT_BYTES;
     case GWI_CAPABILITIES:return GWI_CAPABILITIES_BYTES;
-    case GWI_STATE:case GWI_OP_MODE:case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:return 4;
+    case GWI_STATE:case GWI_OP_MODE:case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:
+    case GWI_ASSOCIATE_RESULT_EXTENDED:case GWI_POWERSAVE:case GWI_RATE:case GWI_INT_MIT:case GWI_MCS:return 4;
     case GWI_PHY_MODE:return 12;
     case GWI_RSSI:case GWI_NOISE:return 52;
     case GWI_POWER:return GWI_POWER_BYTES;
@@ -103,7 +108,8 @@ static inline size_t gwi_get_bytes(unsigned type) {
 }
 static inline int gwi_scalar(unsigned type) {
     return type==GWI_STATE || type==GWI_OP_MODE ||
-        type==GWI_ASSOCIATE_RESULT || type==GWI_ASSOCIATION_STATUS;
+        type==GWI_ASSOCIATE_RESULT || type==GWI_ASSOCIATION_STATUS || type==GWI_ASSOCIATE_RESULT_EXTENDED || type==GWI_POWERSAVE ||
+        type==GWI_RATE || type==GWI_INT_MIT || type==GWI_MCS;
 }
 static inline void gwi_string(uint8_t *out,size_t bytes,const char *text) {
     size_t i=0;while(i+1<bytes && text[i]){out[i]=(uint8_t)text[i];i++;}
@@ -121,6 +127,9 @@ static inline int gwi_query(struct gwi_state *s,const struct gwi_request *q,
        (q->bytes && !q->data) || capacity>GWI_SET_CAPACITY || (capacity && !output))return GWI_ARGUMENT;
     if(!s->ready)return GWI_NOT_READY;
     if(s->wmi->bss_count>GWW_BSS_MAX || s->wmi->chains>2)return GWI_ARGUMENT;
+    /* The pinned stock 20H392 Core dispatch has no GET/SET18 handler: both
+     * go directly to Unsupported. IRQ polling does not define INT_MIT. */
+    if(q->type==GWI_INT_MIT)return GWI_UNSUPPORTED;
     unsigned busy=s->scan_pending || s->wmi->scanning;
     uint8_t *out=(uint8_t *)output;
     if(q->set) {
@@ -150,11 +159,16 @@ static inline int gwi_query(struct gwi_state *s,const struct gwi_request *q,
      * Apple80211Get's table and does not imply an association capability. */
     if(q->type==GWI_DEVICE_NAME && q->bytes && q->bytes<=1024)required=q->bytes;
     if(!required)return GWI_UNSUPPORTED;
+    /* Apple80211Bind builds its first DRIVER_VERSION GET directly with an
+     * empty payload and 256-byte output (20H392 0x1d3ed4ef8..0x1d3ed4f7c).
+     * The generic GET path supplies the 256-byte payload instead. */
+    unsigned bind_version=q->type==GWI_DRIVER_VERSION && !q->bytes;
     if(capacity>GWI_GET_CAPACITY || capacity<required || !out ||
-       q->bytes!=(gwi_scalar(q->type)?0:required))return GWI_ARGUMENT;
+       (!bind_version && q->bytes!=(gwi_scalar(q->type)?0:required)))return GWI_ARGUMENT;
     switch(q->type) {
     case GWI_SSID:case GWI_CHANNEL:case GWI_BSSID:case GWI_RSSI:case GWI_NOISE:
-    case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:
+    case GWI_ASSOCIATE_RESULT:case GWI_ASSOCIATION_STATUS:case GWI_CURRENT_NETWORK:case GWI_ASSOCIATE_RESULT_EXTENDED:case GWI_POWERSAVE:
+    case GWI_RATE:case GWI_MCS:
         /* Cached scan BSSes are not the currently associated peer. */
         return GWI_NOT_READY;
     case GWI_SCAN_RESULT: {
@@ -175,7 +189,7 @@ static inline int gwi_query(struct gwi_state *s,const struct gwi_request *q,
     case GWI_PHY_MODE:
         /* +4 is supported modes, +8 is active mode (not the reverse).
          * No PHY mode is active while the station has no association. */
-        gwq_w32(out,1);gwq_w32(out+4,0x1e);break;
+        gwq_w32(out,1);gwq_w32(out+4,0x0e);break; /* legacy 11a/b/g; no HT rates */
     case GWI_OP_MODE:gwq_w32(out,1);break;
     case GWI_POWER:gwq_w32(out,1);gwq_w32(out+4,1);gwq_w32(out+8,s->powered);break;
     case GWI_DEVICE_NAME:gwi_string(out,required,"OnePlus Ace 5 WCN7850");break;

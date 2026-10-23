@@ -149,10 +149,12 @@ def main():
             data=data.replace('#include <stdint.h>\n','').replace('#include <stddef.h>\n','')
             patch+=''.join(difflib.unified_diff([],data.splitlines(True),fromfile='/dev/null',tofile='b/bsd/dev/'+name))
         (a.out/'0069-giulia-touch.patch').write_text(patch)
-        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
-                        a.out/'0070-giulia-service-images.patch')
     capture=(a.reference/'tools/capture-debug.ps1').read_text().replace('K70DBG004','ACE5DBG001')
     if a.gui:
+        # Complete GUI logging consumes the service-image sampler even when
+        # the optional physical touch driver is omitted.
+        shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0070-giulia-service-images.patch',
+                        a.out/'0070-giulia-service-images.patch')
         shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/0071-giulia-on-demand-samples.patch',
                         a.out/'0071-giulia-on-demand-samples.patch')
         patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
@@ -189,6 +191,8 @@ def main():
         native_display_patch(a.out, Path(__file__).resolve().parents[1])
         from ios16_keys import keys_patch
         keys_patch(a.out, Path(__file__).resolve().parents[1])
+        from ios16_slider import slider_patch
+        slider_patch(a.out, Path(__file__).resolve().parents[1])
         if a.wifi:
             patch = ('--- a/iokit/conf/files.arm64\n+++ b/iokit/conf/files.arm64\n'
                      '@@ -15,2 +15,3 @@\n'

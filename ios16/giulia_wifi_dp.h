@@ -47,6 +47,10 @@ struct gwd_io {
 };
 struct gwd_ring {uint32_t reg,ptr,desc,remote,host,count,entry,head,tail;unsigned dst,id,lmac,active;};
 struct gwd_saved {uint32_t address,value,mask;};
+/* Last observed packet rate, never an AP capability or a configured maximum.
+ * raw is TX rate_stats.info0 or RX MSDU_END.info12 respectively. kbps is
+ * known only for the legacy 20 MHz modes this station negotiates. */
+struct gwd_rate_sample {uint64_t observed_ms;uint32_t raw,kbps;unsigned valid;};
 struct gwd_state {
     unsigned prepared,active,quarantine,error,stage,endpoint,max_message,connecting,version,seq;
     unsigned peer_selected,peer_mapped,peer_id,vdev,pmac,pdev,ast_index,ast_hash,encrypted,authorized,queues;
@@ -57,6 +61,7 @@ struct gwd_state {
     uint8_t bssid[6],tx_owned[GWD_TX_COUNT],rx_owned[GWD_RX_COUNT];
     uint32_t tx_cookie[GWD_TX_COUNT],rx_cookie[GWD_RX_COUNT],tx_token[GWD_TX_COUNT];
     uint8_t key_valid[5];uint64_t pn[5][17];
+    struct gwd_rate_sample tx_rate,rx_rate;
     struct gwd_ring ring[GWD_RINGS];struct gwd_saved saved[160];
 };
 static inline int gwd_fail(struct gwd_state *s,unsigned e) {
@@ -69,6 +74,24 @@ static inline int gwd_valid(const struct gwd_io *io) {
         (uintptr_t)io->memory<=UINTPTR_MAX-GWD_BYTES;
 }
 static inline void gwd_zero(void *out,size_t n) {uint8_t *p=(uint8_t *)out;while(n--)*p++=0;}
+static inline uint32_t gwd_legacy_rate_kbps(unsigned packet_type,unsigned code,unsigned bw) {
+    /* Linux hw.h enum ath12k_hw_rate_{ofdm,cck}, resolved through mac.c's
+     * ath12k_legacy_rates. CCK codes 4..6 select the short preamble. */
+    static const uint16_t ofdm[8]={48000,24000,12000,6000,54000,36000,18000,9000};
+    static const uint16_t cck[7]={11000,5500,2000,1000,11000,5500,2000};
+    if(bw)return 0;
+    if(packet_type==0 && code<8)return ofdm[code];
+    if(packet_type==1 && code<7)return cck[code];
+    return 0; /* HT/VHT/HE need information this completion does not provide. */
+}
+static inline void gwd_rate_observe(struct gwd_rate_sample *sample,const struct gwd_io *io,
+                                   uint32_t raw,unsigned packet_type,unsigned code,unsigned bw) {
+    sample->raw=raw;sample->kbps=gwd_legacy_rate_kbps(packet_type,code,bw);
+    sample->valid=sample->kbps!=0;sample->observed_ms=io->now_ms(io->context);
+}
+static inline void gwd_rate_reset(struct gwd_state *s) {
+    gwd_zero(&s->tx_rate,sizeof(s->tx_rate));gwd_zero(&s->rx_rate,sizeof(s->rx_rate));
+}
 static inline int gwd_same(const uint8_t *a,const uint8_t *b) {
     unsigned different=0;for(unsigned i=0;i<6;i++)different|=a[i]^b[i];return !different;
 }
@@ -188,6 +211,7 @@ static inline int gwd_select_peer(struct gwd_state *s,unsigned vdev,unsigned pma
     unsigned nz=0;for(unsigned i=0;i<6;i++)nz|=mac[i];if(!nz)return GWD_ARGUMENT;
     /* Peer unmap alone does not flush the REO descriptor cache. */
     if(s->queues || s->reclaim_phase || s->next_queue_bank)return GWD_NOT_READY;
+    gwd_rate_reset(s);
     s->vdev=vdev;s->pmac=pmac;s->pdev=pdev;s->encrypted=(unsigned)encrypted;s->authorized=0;s->queues=0;
     gwd_zero(s->key_valid,sizeof(s->key_valid));gwd_zero(s->pn,sizeof(s->pn));gwq_copy(s->bssid,mac,6);
     s->peer_selected=1;return 0;
@@ -210,6 +234,7 @@ static inline int gwd_receive_htt(struct gwd_state *s,const struct gwd_io *io,un
     if(type==4 || type==0x1f) {
         if(s->peer_mapped && s->peer_id==word>>16) {
             s->peer_mapped=s->peer_selected=s->authorized=0;
+            gwd_rate_reset(s);
             gwd_zero(s->key_valid,sizeof(s->key_valid));gwd_zero(s->pn,sizeof(s->pn));
             if(io->peer)io->peer(io->context,s->vdev,s->bssid,s->peer_id,0);
         }
@@ -331,14 +356,21 @@ static inline int gwd_rx_frame(struct gwd_state *s,const struct gwd_io *io,unsig
     const uint8_t *frame=p+GWD_RX_DESC_BYTES+pad;int eapol=frame[12]==0x88 && frame[13]==0x8e;
     if(!s->authorized && !eapol)return 0;
     if(s->encrypted && (mpdu&(1u<<18))) {
-        unsigned tid=(gwq_u32(p+180)>>15)&15,group=frame[0]&1,key=group?(gwq_u32(p+200)&3):4;
+        /* WCN7850 hal.c reconstructs the IV as 0x20 | (KEY_ID << 6):
+         * descriptor KEY_ID already contains the GTK index in its low bits.
+         * Its MSDU_END MCBC flag describes the protected addr1/RA; Ethernet
+         * DA may differ after decapsulation and cannot select the cipher key. */
+        unsigned tid=(gwq_u32(p+180)>>15)&15,group=(errors>>2)&1,key=group?(gwq_u32(p+200)&3):4;
         if(!(mpdu&(1u<<7)))tid=16;
         uint64_t pn=(uint64_t)gwq_u32(p+164)|((uint64_t)(gwq_u32(p+168)&0xffff)<<32);
         if(!(mpdu&(1u<<9)) || ((gwq_u32(p+180)>>2)&15)!=6 || ((done>>10)&7) ||
            !s->key_valid[key] || pn<=s->pn[key][tid])return 0;
         s->pn[key][tid]=pn;
     } else if(s->encrypted && !eapol)return 0;
-    return io->receive(io->context,frame,length)==0;
+    uint32_t rate=gwq_u32(p+96); /* WCN7850 MSDU_END.info12, not PPDU timestamp */
+    if(io->receive(io->context,frame,length))return 0;
+    gwd_rate_observe(&s->rx_rate,io,rate,(rate>>8)&15,(rate>>14)&15,(rate>>18)&7);
+    return 1;
 }
 static inline int gwd_rx_slot(struct gwd_state *s,const struct gwd_io *io,const uint8_t *d,unsigned *slot) {
     uint32_t hi=gwq_u32(d+4),cookie=hi>>12;*slot=cookie&(GWD_RX_COUNT-1);
@@ -516,6 +548,17 @@ static inline int gwd_poll(struct gwd_state *s,const struct gwd_io *io,unsigned 
                    (gwq_u32(d+4)&0xfff)!=0x500 ||
                    gwq_u32(d)!=(uint32_t)(io->dma+GWD_TX_BUFFERS+slot*GWD_BUFFER) ||
                    !s->tx_owned[slot] || s->tx_cookie[slot]!=cookie)return gwd_fail(s,GWD_COOKIE);
+                /* dp_tx.c frees FW buffers only for OK/DROP/TTL/REINJ/INSPECT
+                 * (0..4). MEC_NOTIFY (5) is a WDS event; unknown statuses do
+                 * not establish DMA completion, even with a matching cookie. */
+                if((info&7)==3 && ((info>>13)&15)>4)return gwd_fail(s,GWD_FIRMWARE);
+                /* TQM ACKED(0) and REMOVE_TX(2) establish an actual transmit.
+                 * FW completions overlay these words with HTT data. VALID
+                 * qualifies rate_stats; drops/unsent buffers cannot set rate. */
+                if((info&7)==0 && (((info>>13)&15)==0 || ((info>>13)&15)==2) && s->peer_mapped) {
+                    uint32_t rate=gwq_u32(d+20);
+                    if(rate&1)gwd_rate_observe(&s->tx_rate,io,rate,(rate>>4)&15,(rate>>12)&15,(rate>>1)&7);
+                }
                 s->tx_owned[slot]=0;s->tx_pending--;s->tx_packets++;
                 if(io->complete)io->complete(io->context,s->tx_token[slot],(info>>13)&15);
             } else {
@@ -557,6 +600,7 @@ static inline int gwd_poll(struct gwd_state *s,const struct gwd_io *io,unsigned 
 }
 static inline int gwd_stop(struct gwd_state *s,const struct gwd_io *io) {
     if(!s || !gwd_valid(io))return 0;s->active=s->authorized=0;
+    gwd_rate_reset(s);
     for(unsigned i=GWD_RINGS;i>0;i--) {
         struct gwd_ring *r=&s->ring[i-1];if(!r->active || r->lmac)continue;
         io->write(io->context,r->reg+0x10,0);

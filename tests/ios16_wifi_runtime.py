@@ -54,6 +54,7 @@ mapping = "".join(function(signature) for signature in [
     "static void gw_unpublish(", "void IO80211Controller::stop(",
     "static void gn_detached(",
     "static errno_t gn_output(",
+    "static errno_t gn_ioctl(",
     "static void gw_notice(",
 ])
 # Host RAM-only barrier substitution; address validation and loads/stores stay

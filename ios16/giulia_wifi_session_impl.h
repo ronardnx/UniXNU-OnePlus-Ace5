@@ -60,6 +60,12 @@ static void gn_consider_roam(giulia_wifi_runtime *r) {
 static void gn_session_tick(giulia_wifi_runtime *r) {
     uint64_t now=gw_now(r);
     if(r->disconnect_pending) {
+        /* Cancelling a queued/scanning join can leave the station IDLE, so
+         * no station STOPPING notification will complete that request. End
+         * its result now while still waiting for scan ownership to return. */
+        if(r->join_pending && r->net_result==GWN_RESULT_PENDING) {
+            r->net_result=GWN_RESULT_FAILURE;r->net_status=0;r->assoc_notice=1;
+        }
         gn_forget_profile(r);r->join_pending=0;r->join_automatic=0;r->scan_pending=0;
         gwn_clear(&r->join,sizeof(r->join));gwr_clear(&r->rsn);r->rsn_started=0;
         gwn_clear(&r->tx_queue,sizeof(r->tx_queue));gwn_clear(&r->rx_queue,sizeof(r->rx_queue));

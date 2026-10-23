@@ -12,7 +12,8 @@ struct fixture {
     struct gww_state wmi;struct gww_io io;struct gwt_state sta;
     struct gwt_request request;
     uint64_t now;unsigned sent,mgmt_holds,mgmt_releases,reo_count,key_ready,port_open,port_error,ready_error;
-    unsigned fail_send,pmf_qos,auth_started,auth_rx_bytes,protected_ready;uint32_t lease_cookie;
+    unsigned fail_send,fail_send_at,pmf_qos,auth_started,auth_rx_bytes,protected_ready,expected_phymode;
+    unsigned ps_parameters,ps_modes;uint32_t lease_cookie;
     uint8_t command[512],frame[GWT_MGMT_MAX];size_t command_bytes,frame_bytes;
 };
 #define CMD32(f,type,member) gwq_u32((f)->command+4+offsetof(struct type,member))
@@ -22,6 +23,27 @@ static int sendmsg(void *p,unsigned pipe,const void *data,size_t n) {
     struct fixture *f=p;const uint8_t *b=data;
     assert(pipe==3 && b[0]==1 && n>=12 && n-8<=sizeof(f->command));
     assert(gwq_u16(b+2)==n-8);memcpy(f->command,b+8,n-8);f->command_bytes=n-8;f->sent++;
+    if(gwq_u32(f->command)==WMI_STA_POWERSAVE_PARAM_CMDID) {
+        static const unsigned parameters[]={WMI_STA_PS_PARAM_UAPSD,WMI_STA_PS_PARAM_RX_WAKE_POLICY,
+            WMI_STA_PS_PARAM_TX_WAKE_THRESHOLD,WMI_STA_PS_PARAM_PSPOLL_COUNT};
+        static const unsigned values[]={0,WMI_STA_PS_RX_WAKE_POLICY_WAKE,
+            WMI_STA_PS_TX_WAKE_THRESHOLD_ALWAYS,WMI_STA_PS_PSPOLL_COUNT_NO_MAX};
+        unsigned index=f->ps_parameters++%4;
+        assert(f->command_bytes==4+sizeof(struct wmi_sta_powersave_param_cmd));
+        assert(gwq_u16(f->command+4)==sizeof(struct wmi_sta_powersave_param_cmd)-4);
+        assert(gwq_u16(f->command+6)==WMI_TAG_STA_POWERSAVE_PARAM_CMD);
+        assert(!CMD32(f,wmi_sta_powersave_param_cmd,vdev_id));
+        assert(CMD32(f,wmi_sta_powersave_param_cmd,param)==parameters[index]);
+        assert(CMD32(f,wmi_sta_powersave_param_cmd,value)==values[index]);
+    }
+    if(gwq_u32(f->command)==WMI_STA_POWERSAVE_MODE_CMDID) {
+        assert(f->ps_parameters && !(f->ps_parameters%4));f->ps_modes++;
+        assert(f->command_bytes==4+sizeof(struct wmi_pdev_set_ps_mode_cmd));
+        assert(gwq_u16(f->command+4)==sizeof(struct wmi_pdev_set_ps_mode_cmd)-4);
+        assert(gwq_u16(f->command+6)==WMI_TAG_STA_POWERSAVE_MODE_CMD);
+        assert(!CMD32(f,wmi_pdev_set_ps_mode_cmd,vdev_id));
+        assert(CMD32(f,wmi_pdev_set_ps_mode_cmd,sta_ps_mode)==WMI_STA_PS_MODE_DISABLED);
+    }
     if(gwq_u32(f->command)==WMI_PEER_REORDER_QUEUE_SETUP_CMDID) {
         assert(gwq_u16(f->command+4)==sizeof(struct wmi_peer_reorder_queue_setup_cmd)-4);
         assert(gwq_u16(f->command+6)==WMI_TAG_REORDER_QUEUE_SETUP_CMD);
@@ -38,8 +60,9 @@ static int sendmsg(void *p,unsigned pipe,const void *data,size_t n) {
     }
     /* Credit replenishment is irrelevant to station ownership; no event or
      * command completion is synthesized by this transport fixture. */
-    if(!f->fail_send)f->wmi.credits=f->wmi.credit_total;
-    return f->fail_send;
+    unsigned failed=f->fail_send || (f->fail_send_at && f->sent==f->fail_send_at);
+    if(!failed)f->wmi.credits=f->wmi.credit_total;
+    return (int)failed;
 }
 static int ready(void *p,unsigned encrypted){(void)encrypted;return ((struct fixture *)p)->ready_error;}
 static int channel(void *p,unsigned freq,struct gwt_channel *c){return gwt_channel_allowed(&((struct fixture *)p)->wmi,freq,c);}
@@ -71,7 +94,7 @@ static void tx_done(struct fixture *f,uint32_t cookie,unsigned status) {
 }
 static void mgmt_rx(struct fixture *f,const uint8_t *frame,size_t n,unsigned status) {
     uint8_t payload[512]={0};struct ath12k_wmi_mgmt_rx_params header={0};
-    header.buf_len=(uint32_t)n;header.chan_freq=2412;header.pdev_id=2;header.status=status;
+    header.buf_len=(uint32_t)n;header.chan_freq=f->request.bss.frequency;header.pdev_id=2;header.status=status;
     gww_tlv(payload,WMI_TAG_MGMT_RX_HDR,sizeof(header));memcpy(payload+4,&header,sizeof(header));
     size_t at=4+sizeof(header);gww_tlv(payload+at,WMI_TAG_ARRAY_BYTE,(unsigned)n);memcpy(payload+at+4,frame,n);
     receive(f,WMI_MGMT_RX_EVENTID,payload,at+4+n);
@@ -91,7 +114,7 @@ static void regulatory(struct fixture *f,unsigned flags,unsigned phy,unsigned co
     receive(f,WMI_REG_CHAN_LIST_CC_EXT_EVENTID,payload,sizeof(payload));
 }
 static struct fixture *make(unsigned security) {
-    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->now=100;
+    struct fixture *f=calloc(1,sizeof(*f));assert(f);f->now=100;f->expected_phymode=MODE_11B;
     f->io=(struct gww_io){f,sendmsg,pump,now_ms,NULL};
     f->wmi.endpoint=1;f->wmi.credit_size=256;f->wmi.credits=f->wmi.credit_total=255;f->wmi.max_message=2048;
     f->wmi.fw_ready=f->wmi.hw_valid=f->wmi.vdev=f->wmi.services_valid=1;
@@ -111,7 +134,8 @@ static void begin(struct fixture *f) {
     assert(gwq_u32(f->command)==WMI_PEER_CREATE_CMDID && f->command_bytes==4+sizeof(struct wmi_peer_create_cmd));
     assert(gwq_u16(f->command+6)==WMI_TAG_PEER_CREATE_CMD && !CMD32(f,wmi_peer_create_cmd,peer_type));
     assert(!memcmp(f->command+4+offsetof(struct wmi_peer_create_cmd,peer_macaddr),f->request.bss.bssid,6));
-    gwt_tick(&f->sta);assert(f->sent==1 && f->sta.phase==GWT_PEER_WAIT);
+    assert(f->sta.active_policy && f->ps_parameters==4 && f->ps_modes==1);
+    gwt_tick(&f->sta);assert(f->sent==6 && f->sta.phase==GWT_PEER_WAIT);
     gwt_peer_map(&f->sta,1,f->request.bss.bssid,7,1);assert(!f->sta.peer_mapped);
     gwt_peer_map(&f->sta,0,f->request.bss.bssid,7,1);gwt_tick(&f->sta);
     assert(f->sta.phase==GWT_START_WAIT && f->reo_count==17);
@@ -139,18 +163,19 @@ static void associated(struct fixture *f) {
     gwt_tick(&f->sta);assert(f->sta.phase==GWT_AUTH_WAIT);
     tx_done(f,f->lease_cookie+1,0);assert(f->lease_cookie);
     tx_done(f,f->lease_cookie,0);gwt_tick(&f->sta);assert(f->sta.phase==GWT_ASSOC_WAIT && f->frame[0]==0);
-    assert(!memcmp(f->frame+30,"lab",3) && f->frame[33]==1 && f->frame[35]==0x82);
+    assert(!memcmp(f->frame+30,"lab",3) && f->frame[33]==1 && f->frame[35]==f->sta.rates[0]);
     response(f,0x10,frame);gwq_w16(frame+24,f->request.bss.capability);gwq_w16(frame+28,0xc025);
-    frame[30]=1;frame[31]=2;frame[32]=0x82;frame[33]=0x84;
+    frame[30]=1;frame[31]=2;frame[32]=f->sta.rates[0];frame[33]=f->sta.rates[1];
     mgmt_rx(f,frame,33,0);assert(!f->sta.assoc_confirm);mgmt_rx(f,frame,34,0);
     tx_done(f,f->lease_cookie,0);gwt_tick(&f->sta);assert(f->sta.phase==GWT_ASSOC_CONFIRM);
     assert(gwq_u32(f->command)==WMI_PEER_ASSOC_CMDID);
     assert(gwq_u16(f->command+4)==sizeof(struct wmi_peer_assoc_complete_cmd)-4);
     assert(CMD32(f,wmi_peer_assoc_complete_cmd,peer_associd)==37);
     assert(CMD32(f,wmi_peer_assoc_complete_cmd,peer_flags)==(f->request.security?4u:1u));
+    assert(CMD32(f,wmi_peer_assoc_complete_cmd,peer_phymode)==f->expected_phymode);
     assert(CMD32(f,wmi_peer_assoc_complete_cmd,punct_bitmap)==UINT32_MAX);
     size_t at=4+sizeof(struct wmi_peer_assoc_complete_cmd);
-    assert(gwq_u16(f->command+at+2)==WMI_TAG_ARRAY_BYTE && f->command[at+4]==2);
+    assert(gwq_u16(f->command+at+2)==WMI_TAG_ARRAY_BYTE && f->command[at+4]==(f->sta.rates[0]&0x7f));
     struct wmi_peer_assoc_conf_event peer={0};memcpy(peer.peer_macaddr.addr,f->request.bss.bssid,6);peer.vdev_id=1;
     event(f,WMI_PEER_ASSOC_CONF_EVENTID,WMI_TAG_PEER_ASSOC_CONF_EVENT,&peer,sizeof(peer));
     gwt_tick(&f->sta);assert(f->sta.phase==GWT_ASSOC_CONFIRM);
@@ -206,6 +231,36 @@ static void keys(void) {
     key.data[0]++;f->port_error=1;sent=f->sent;
     assert(gwt_install_key(&f->sta,&key)==GWT_DATAPATH && f->sta.phase==GWT_STOPPING && f->sent==sent);
     assert(!f->sta.key_pending);gwt_quiesced(&f->sta);free(f);
+}
+static void legacy_phy_modes(void) {
+    for(unsigned kind=0;kind<3;kind++) {
+        struct fixture *f=make(GWT_OPEN);f->expected_phymode=kind==2?MODE_11A:MODE_11G;
+        if(kind==0)f->request.bss.rates[f->request.bss.rate_count++]=0x8c; /* mixed CCK/OFDM */
+        else {f->request.bss.rate_count=2;f->request.bss.rates[0]=0x8c;f->request.bss.rates[1]=0x98;}
+        if(kind==2) {
+            f->request.bss.frequency=5180;f->wmi.regulatory.count=2;
+            f->wmi.regulatory.min_bw[1]=f->wmi.regulatory.max_bw[1]=20;
+            f->wmi.regulatory.rules[1]=(struct gwreg_rule){5170,5190,20,20,6,0};
+        }
+        associated(f);assert(f->port_open && f->sta.phase==GWT_RUN);gwt_quiesced(&f->sta);free(f);
+    }
+}
+static void active_policy(void) {
+    struct fixture *f=make(GWT_OPEN);
+    assert(gwt_active_policy(&f->sta)==GWT_OK && f->sta.active_policy && f->sent==5);
+    assert(f->ps_parameters==4 && f->ps_modes==1 && !f->sta.peer_created && f->sta.phase==GWT_IDLE);
+    f->wmi.fw_ready=0;
+    assert(gwt_active_policy(&f->sta)==GWT_UNAVAILABLE && !f->sta.active_policy && f->sent==5);
+    gwt_quiesced(&f->sta);free(f);
+    for(unsigned failed=1;failed<=5;failed++) {
+        f=make(GWT_OPEN);f->fail_send_at=failed;f->sta.active_policy=1;
+        assert(gwt_active_policy(&f->sta)==GWT_TRANSPORT && !f->sta.active_policy && f->sent==failed);
+        assert(!f->sta.peer_created && !f->sta.tx_pending);gwt_quiesced(&f->sta);free(f);
+        f=make(GWT_OPEN);f->fail_send_at=failed;
+        assert(gwt_connect(&f->sta,&f->request)==GWT_TRANSPORT && !f->sta.active_policy);
+        assert(!f->sta.peer_created && !f->sta.tx_pending && f->sent==failed);
+        assert(f->sta.phase==GWT_STOPPING);gwt_quiesced(&f->sta);free(f);
+    }
 }
 static void ownership_and_regulatory(void) {
     struct fixture *f=make(0);begin(f);unsigned cookie=f->lease_cookie;
@@ -292,7 +347,7 @@ static void sae_and_loss_events(void){
     gwt_quiesced(&f->sta);free(f);
 }
 int main(void) {
-    stop_and_reconnect();keys();ownership_and_regulatory();rejected_and_malformed();sae_and_loss_events();
-    puts("Station: Linux v6.12 WMI wire oracle, actual HTC event routing, association/key completion, GTK rekey, DMA leases, teardown ordering and regulatory revocation passed");
+    stop_and_reconnect();keys();legacy_phy_modes();active_policy();ownership_and_regulatory();rejected_and_malformed();sae_and_loss_events();
+    puts("Station: Linux v6.12 WMI wire oracle, ACTIVE power policy, actual HTC event routing, association/key completion, GTK rekey, DMA leases, teardown ordering and regulatory revocation passed");
     return 0;
 }

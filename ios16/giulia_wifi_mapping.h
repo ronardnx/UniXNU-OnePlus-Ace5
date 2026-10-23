@@ -156,6 +156,18 @@ static inline int gwmap_dma_from_cpu(const struct gwmap_dma *m,uintptr_t address
     if(!offset || !gwmap_dma_valid(m) || !gwmap_range((uint64_t)m->cpu,m->bytes,(uint64_t)address,bytes))return 0;
     *offset=(size_t)(address-m->cpu);return 1;
 }
+/* Dynamic clients (including the DP arena) use subranges of the allocated
+ * tail. Validate the complete client range before adding its relative offset,
+ * so a wrapped offset cannot alias MHI/CE or an unallocated arena address. */
+static inline int gwmap_dma_allocated_offset(const struct gwmap_dma *m,size_t start,
+                                             size_t length,size_t relative,size_t bytes,
+                                             size_t *absolute)
+{
+    if(!absolute || !gwmap_dma_valid(m) || !length || !bytes ||
+       start<GWMAP_ALLOC_START || length>m->allocated || start>m->allocated-length ||
+       bytes>length || relative>length-bytes)return 0;
+    *absolute=start+relative;return 1;
+}
 /* QMI allocations cannot encroach on MHI/firmware or CE memory. Alignment is
  * enforced for all three address spaces, with no mutation on any failure. */
 static inline int gwmap_dma_allocate(struct gwmap_dma *m,size_t bytes,size_t alignment,

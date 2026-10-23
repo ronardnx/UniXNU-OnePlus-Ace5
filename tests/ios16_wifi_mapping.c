@@ -6,6 +6,7 @@
 #include "../ios16/giulia_wifi_mhi.h"
 #include "../ios16/giulia_wifi_ce.h"
 #include "../ios16/giulia_wifi_qmp.h"
+#include "../ios16/giulia_wifi_dp.h"
 
 static struct gwmap_dma arena(void)
 {
@@ -102,6 +103,31 @@ int main(void)
     assert(!memcmp(&m,&saved,sizeof(m)));
     m=arena();assert(gwmap_dma_allocate(&m,m.bytes-GWMAP_ALLOC_START,0x4000,&cpu,&pa,&iova));
     assert(m.allocated==m.bytes && !gwmap_dma_allocate(&m,1,0x4000,&cpu,&pa,&iova));cases+=10;
+    /* DP is allocated from the dynamic tail after QMI, not at a fixed arena
+     * offset. An in-arena access alone does not prove that DP owns its block. */
+    m=arena();offset=SIZE_MAX;
+    assert(!gwmap_dma_allocated_offset(&m,GWMAP_ALLOC_START,GWD_BYTES,0,1,&offset));
+    assert(offset==SIZE_MAX);
+    assert(gwmap_dma_allocate(&m,0x4321,0x4000,&cpu,&pa,&iova));
+    assert(gwmap_dma_allocate(&m,GWD_BYTES,0x4000,&cpu,&pa,&iova));
+    size_t dp_start=(size_t)(iova-m.iova);
+    assert(dp_start>GWMAP_ALLOC_START);
+    assert(gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,0,GWD_BYTES,&offset) && offset==dp_start);
+    assert(gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,GWD_BYTES-1,1,&offset) && offset==m.allocated-1);
+    offset=SIZE_MAX;saved=m;
+    assert(!gwmap_dma_allocated_offset(&m,0,GWD_BYTES,0,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,GWMAP_CE_OFFSET,GWD_BYTES,0,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES+1,0,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,m.allocated,1,0,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,SIZE_MAX-3,GWD_BYTES,4,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,GWD_BYTES,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,GWD_BYTES-1,2,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,SIZE_MAX,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,0,0,1,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,0,0,&offset));
+    assert(!gwmap_dma_allocated_offset(&m,dp_start,GWD_BYTES,0,1,NULL));
+    assert(!gwmap_dma_allocated_offset(NULL,dp_start,GWD_BYTES,0,1,&offset));
+    assert(offset==SIZE_MAX && !memcmp(&m,&saved,sizeof(m)));cases+=18;
     printf("Wi-Fi mappings: %u resource, BAR window, DMA translation, partition and allocation cases passed\n",cases);
     return 0;
 }

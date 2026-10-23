@@ -13,6 +13,7 @@ python3 tests/ios16_wifi_sae.py
 python3 tests/ios16_wifi_pmf.py
 python3 tests/ios16_wifi_dma_bytes.py
 python3 tests/ios16_wifi_runtime.py
+python3 -m unittest discover -s tests -p test_wifi_runtime_metadata.py
 clang -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-sanitize-recover=all \
   tests/ios16_display.c -o "$test_dir/display"
 "$test_dir/display"

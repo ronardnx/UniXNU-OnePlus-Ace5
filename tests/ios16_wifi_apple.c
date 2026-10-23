@@ -4,6 +4,57 @@
 #include <string.h>
 #include "../ios16/giulia_wifi_apple.h"
 
+static void scan_rate_mapping(void) {
+    /* 20H392 __addScanResultToList compares the raw words at +0x24 with
+     * integer Mbps sets {1,2,5,11} and {6,9,12,18,24,36,48,54}. They are
+     * neither the on-air 500 kbps codes nor basic-rate flag bitmaps. */
+    static const uint8_t air[]={0x82,0x84,0x8b,0x96,0x8c,18,24,36,48,72,96,108};
+    static const unsigned mbps[]={1,2,5,11,6,9,12,18,24,36,48,54};
+    struct gww_bss b={0};b.frequency=2412;b.rate_count=sizeof(air);b.ssid_len=3;
+    memcpy(b.ssid,"lab",3);memcpy(b.rates,air,sizeof(air));
+    b.ie[0]=1;b.ie[1]=sizeof(air);memcpy(b.ie+2,air,sizeof(air));b.ie_bytes=sizeof(air)+2;
+    struct gww_bss before=b;uint8_t out[GWI_SCAN_RESULT_BYTES+1];memset(out,0xa5,sizeof(out));
+    assert(gwi_result(out,GWI_SCAN_RESULT_BYTES,&b,100));
+    assert(out[0x22]==sizeof(air) && out[0x60]==3 && out[GWI_SCAN_RESULT_BYTES]==0xa5);
+    for(unsigned i=0;i<sizeof(air);i++)assert(gwq_u32(out+0x24+4*i)==mbps[i]);
+    assert(!memcmp(out+0x8c,b.ie,b.ie_bytes) && !memcmp(&b,&before,sizeof(b)));
+}
+
+static void stock_int_mit_unsupported(void) {
+    struct gww_state wmi={0};struct gwi_state state={1,1,0,&wmi};struct gwi_cursor cursor={3,7};
+    struct gwi_request q={0,GWI_INT_MIT,0,NULL,0};uint8_t out[5];
+    assert(gwi_scalar(GWI_INT_MIT) && gwi_get_bytes(GWI_INT_MIT)==4);
+    for(unsigned set=0;set<2;set++)for(unsigned value=0;value<3;value++) {
+        q.set=set;q.value=value;size_t bytes=sizeof(out);memset(out,0xa5,sizeof(out));
+        assert(gwi_query(&state,&q,out,&bytes,&cursor,0)==GWI_UNSUPPORTED && !bytes && out[0]==0xa5);
+        assert(state.powered && !state.scan_pending && cursor.index==3 && cursor.generation==7);
+    }
+}
+static void bind_driver_version(void) {
+    /* Apple80211Bind 20H392 clears the GET envelope, writes only command,
+     * en0 and type 43, and asks IOConnectCallStructMethod for 256 output
+     * bytes. It leaves the payload length at zero (0x1d3ed4ef8..4f7c). */
+    uint8_t *wire=calloc(1,GWI_GET_BYTES);assert(wire);
+    gwq_w32(wire,GWI_GET);memcpy(wire+0x3c08,"en0",4);gwq_w32(wire+0x3c18,GWI_DRIVER_VERSION);
+    gwq_w64(wire+0x3c28,~(uint64_t)0);
+    struct gwi_request q;assert(gwi_decode(wire,GWI_GET_BYTES,&q) && !q.set && !q.bytes);
+    struct gww_state wmi={0};struct gwi_state state={1,1,0,&wmi};
+    struct gwi_cursor cursor={3,7};uint8_t output[GWI_VERSION_BYTES+1],version[GWI_VERSION_BYTES];
+    memset(output,0xa5,sizeof(output));size_t used=GWI_VERSION_BYTES-1;
+    assert(gwi_query(&state,&q,output,&used,&cursor,0)==GWI_ARGUMENT && !used && output[0]==0xa5);
+    used=sizeof(output);
+    assert(gwi_query(&state,&q,output,&used,&cursor,0)==GWI_OK && used==GWI_VERSION_BYTES);
+    assert(!strcmp((const char *)output,"Giulia WCN7850 iOS16 passive-scan 1") && output[used]==0xa5);
+    assert(cursor.index==3 && cursor.generation==7 && state.powered && !state.scan_pending);
+    memcpy(version,output,sizeof(version));q.bytes=GWI_VERSION_BYTES;used=sizeof(output);
+    assert(gwi_query(&state,&q,output,&used,&cursor,0)==GWI_OK && !memcmp(output,version,sizeof(version)));
+    q.bytes=1;used=sizeof(output);memset(output,0xa5,sizeof(output));
+    assert(gwi_query(&state,&q,output,&used,&cursor,0)==GWI_ARGUMENT && !used && output[0]==0xa5);
+    q.type=GWI_HARDWARE_VERSION;q.bytes=0;used=sizeof(output);
+    assert(gwi_query(&state,&q,output,&used,&cursor,0)==GWI_ARGUMENT && !used && output[0]==0xa5);
+    free(wire);
+}
+
 static void query_mapping(void) {
     struct gww_state wmi={0};wmi.chains=2;wmi.scan_id=7;
     struct gwi_state state={1,1,0,&wmi};struct gwi_cursor cursor={0,7};
@@ -34,7 +85,7 @@ static void query_mapping(void) {
         assert(gwi_query(&state,&q,output,&used,&cursor,100)==GWI_OK && used==size && output[size]==0xaa);
         switch(q.type) {
         case GWI_CAPABILITIES:for(size_t j=0;j<used;j++)assert(!output[j]);break;
-        case GWI_PHY_MODE:assert(gwq_u32(output)==1 && gwq_u32(output+4)==0x1e && !gwq_u32(output+8));break;
+        case GWI_PHY_MODE:assert(gwq_u32(output)==1 && gwq_u32(output+4)==0x0e && !gwq_u32(output+8));break;
         case GWI_POWER:assert(gwq_u32(output)==1 && gwq_u32(output+4)==1 && gwq_u32(output+8)==1);break;
         case GWI_CHANNELS:assert(gwq_u32(output+4)==GWW_SCAN_CHANNELS);break;
         case GWI_COUNTRY:assert(!memcmp(output,"CN",3));break;
@@ -43,7 +94,7 @@ static void query_mapping(void) {
         }
     }
     static const unsigned unassociated[]={GWI_SSID,GWI_CHANNEL,GWI_BSSID,GWI_RSSI,GWI_NOISE,
-        GWI_ASSOCIATE_RESULT,GWI_ASSOCIATION_STATUS};
+        GWI_ASSOCIATE_RESULT,GWI_ASSOCIATION_STATUS,GWI_CURRENT_NETWORK,GWI_ASSOCIATE_RESULT_EXTENDED,GWI_POWERSAVE,GWI_RATE,GWI_MCS};
     for(unsigned i=0;i<sizeof(unassociated)/sizeof(unassociated[0]);i++) {
         q.type=unassociated[i];q.bytes=gwi_scalar(q.type)?0:gwi_get_bytes(q.type);q.data=input;
         used=sizeof(output);memset(output,0xaa,sizeof(output));
@@ -103,6 +154,8 @@ static void query_mapping(void) {
     assert(gwi_query(&state,&q,output,&used,&cursor,100)==GWI_ARGUMENT && !used);
 }
 int main(void){
+    scan_rate_mapping();
+    stock_int_mit_unsupported();
     uint8_t *p=calloc(1,GWI_SET_BYTES);assert(p);struct gwi_request r;
     gwq_w32(p,GWI_GET);memcpy(p+0x3c08,"en0",4);gwq_w32(p+0x3c18,11);gwq_w32(p+4,0x48c);
     /* Poison the unused embedded pointer: decoding must not follow it. */
@@ -121,6 +174,6 @@ int main(void){
     assert(gwi_channels(p,0x12d8));assert(gwq_u32(p+4)==22&&gwq_u32(p+12)==1&&gwq_u32(p+8+21*12+4)==165);
     assert(!(gwq_u32(p+16)&0x80));assert(!gwi_channels(p,0x12d7));free(p);
     assert(!gwi_scan_request(NULL));r.data=NULL;assert(!gwi_scan_request(&r));
-    query_mapping();
+    bind_driver_version();query_mapping();
     puts("iOS16 IO80211 ABI: envelopes, scalar GET, payload bounds, power/scan states, per-client scan generations and disconnected queries passed");return 0;
 }
