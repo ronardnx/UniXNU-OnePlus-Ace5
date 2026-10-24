@@ -331,4 +331,8 @@ NLH2 接受位置无关 C 模块，最多 16 个命名模块、每模块 8 项�
 
 完整调度器、VM、VFS 及 Wi-Fi、GPU、触控等内建驱动仍需继续迁移。示例 counter／client 不访问硬件。[Actions 40027302307](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40027302307) 已完成完整 GUI 目标内核编译、真实链接入口／调用核验及 15 个策略模块构建。2026-10-24 首次实机测试已完成上传，但 commit 在 PROBE 前返回 `EACCES`（13），活动版本／generation／state 均为 0，原生模块没有执行；之后调度器记录到 617277 次常驻回退、0 次策略调用，终端仍可响应。本地证据位于 `reports/hotload-device-20261024.json`。源码审查定位普通堆上级 PXN 阻止执行映射，但旧镜像没有阶段诊断，不能由该错误码单独确定拒绝分支。
 
-修复已实现私有静态子映射：`kmem_init` 先保留原本空闲的静态地址区域，早期 VM map 重定位后于 `ZALLOC/LAST` 创建子映射，不放宽已有父表权限；逐阶段诊断由 `hl.memory` 提供。[Actions 40035230392](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40035230392) 已完成本轮完整目标内核与 15 个模块的编译，核对全部 20 个 kit 源文件及真实链接的 VM 启动调用。本地打包与镜像核验已完成；仍待临时启动，再验收原生执行、状态迁移、回滚及隔离。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。
+修复已实现私有静态子映射：`kmem_init` 先保留原本空闲的静态地址区域，早期 VM map 重定位后于 `ZALLOC/LAST` 创建子映射，不放宽已有父表权限；逐阶段诊断由 `hl.memory` 提供。[Actions 40035230392](https://github.com/tycykp/UniXNU-OnePlus-Ace5/actions/runs/40035230392) 已完成本轮完整目标内核与 15 个模块的编译，核对全部 20 个 kit 源文件及真实链接的 VM 启动调用。该镜像已临时启动，通过三域真实调用、升级状态迁移、六项 START／IMPORT 失败回滚、正常卸载及 STOP 失败隔离。卸载、隔离后的后续快照均确认原生调用数冻结、常驻回退数增长、拒绝数为 0。[脱敏实机记录](../hardware/sm8650-hotload-core.json)及本地报告 `reports/hotload-device-memory-20261024.json` 记录 184 条 CLI 命令、15 个模块场景、21 次生命周期变更和 23 份内存快照，`error`、`kr`、`rollback_error` 均为 0。
+
+调度与 VFS 已观察到改变结果计数增长；VM 改变结果分支本轮未覆盖，VFS MAX_IO／PREFETCH 改变未分别归因，不宣称完整分支覆盖。实测范围为这三个策略适配器及模块生命周期，不代表完整核心子系统或内建硬件驱动均可替换。故障注入后再次临时启动同一镜像，已确认 `token=0 busy=0 slots=0`，arena 就绪、阶段为 1、错误为 0。
+
+本轮首次上传曾因控制台文本与 ACK 无空白拼接而在 commit 前中止。主机 CLI 已接受这类前缀后的完整协议记录，继续核对标记、字段、行尾及 token／nonce／received；已下载 Actions 产物中的内核及配套源码快照保持原样。停止／清理／回滚失败会隔离目标并关闭其依赖方入口，保留相关资源，核心路径继续使用原算法，不能强制卸载。完整接口、构建命令和核心／硬件迁移要求见公共仓库 `docs/zh/drivers/hotload.md`（英文 `docs/drivers/hotload.md`）。

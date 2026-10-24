@@ -38,15 +38,16 @@ class Wire:
                 raw, _, rest = self.buffer.partition(b'\n')
                 self.buffer = bytearray(rest)
                 line = raw.decode('ascii', errors='replace').strip()
-                module = re.search(r'(?<!\S)NLH module (slot=[0-9]+ name=[a-z0-9_-]+ .+)$', line)
+                module = re.search(r'NLH module (slot=[0-9]+ name=[a-z0-9_-]+ .+)$', line)
                 if module:
                     self.modules.append(dict(re.findall(r'([a-z_]+)=([a-z0-9_-]+)', module[1])))
-                core = re.search(r'(?<!\S)NLH core (.+)$', line)
+                core = re.search(r'NLH core (.+)$', line)
                 if core:
                     self.core.append(dict(re.findall(r'([a-z_]+)=([a-z0-9_,.-]+)', core[1])))
-                # Boot logs may prefix console timestamps. Match the protocol
-                # marker, never module-controlled "NLH module:" text.
-                match = re.search(r'(?<!\S)NLH (ack|done|status|memory) ((?:[a-z_]+=-?[0-9]+ ?)+)$', line)
+                # Concurrent console output may leave a partial prefix without
+                # whitespace before NLH. Keep the exact marker, numeric record,
+                # line end and token/nonce checks; "NLH module:" is not a reply.
+                match = re.search(r'NLH (ack|done|status|memory) ((?:[a-z_]+=-?[0-9]+ ?)+)$', line)
                 if 'NLH disabled ' in line:
                     raise RuntimeError('Hotload is disabled or not supported by this kernel')
                 if match and match[1] == kind:

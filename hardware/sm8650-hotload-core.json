@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "board": "giulia",
+  "actions_run": 40035230392,
+  "kernel_source_commit": "390e5e788bbf212d90e7a17234d0abdb3cd6185e",
+  "image_sha256": "ce6997f4d4c13878db9e41c5ecf0f02ffbfda9126caa190ea0ece6c44cab0300",
+  "scope": "scheduler quantum, VM sequential tracking, VFS sizing/prefetch policy adapters and native module lifecycle",
+  "whole_xnu_core_converted": false,
+  "device_verified": true,
+  "automatically_rebooted_to_fastboot": true,
+  "automatically_temporary_booted": true,
+  "partitions_flashed": false,
+  "userdata_reflashed": false,
+  "module_scenarios": 15,
+  "lifecycle_mutations": 21,
+  "ledger_commands": 184,
+  "checked_memory_snapshots": 23,
+  "all_memory_errors_zero": true,
+  "all_core_rejected_zero": true,
+  "uptime_continuous_during_acceptance": true,
+  "baseline_telemetry": {
+    "xnu-sched": {
+      "calls": 162917,
+      "changes": 0,
+      "imports": 0
+    },
+    "xnu-vm": {
+      "calls": 2455,
+      "changes": 0,
+      "imports": 0
+    },
+    "xnu-vfs": {
+      "calls": 398,
+      "changes": 0,
+      "imports": 0
+    }
+  },
+  "upgraded_telemetry": {
+    "xnu-sched": {
+      "calls": 504293,
+      "changes": 8715,
+      "imports": 1
+    },
+    "xnu-vm": {
+      "calls": 76838,
+      "changes": 0,
+      "imports": 1
+    },
+    "xnu-vfs": {
+      "calls": 12213,
+      "changes": 0,
+      "imports": 1
+    }
+  },
+  "unload_and_quarantine_followup": {
+    "unload": {
+      "xnu-sched": {
+        "native_calls_frozen": 1709426,
+        "fallback_delta": 14876,
+        "rejected": 0
+      },
+      "xnu-vm": {
+        "native_calls_frozen": 143534,
+        "fallback_delta": 7841,
+        "rejected": 0
+      },
+      "xnu-vfs": {
+        "native_calls_frozen": 20945,
+        "fallback_delta": 902,
+        "rejected": 0
+      }
+    },
+    "quarantine": {
+      "xnu-sched": {
+        "native_calls_frozen": 1714934,
+        "fallback_delta": 324159,
+        "rejected": 0
+      },
+      "xnu-vm": {
+        "native_calls_frozen": 149120,
+        "fallback_delta": 40016,
+        "rejected": 0
+      },
+      "xnu-vfs": {
+        "native_calls_frozen": 21368,
+        "fallback_delta": 2046,
+        "rejected": 0
+      }
+    }
+  },
+  "host_client_sha256": "ba565a0d88bcfeb8398a5d3ed82b7db005f7c0f2e503287eb7b476cfdba89cde",
+  "host_client_correction": "accept complete numeric NLH records after non-whitespace console prefixes; keep token, nonce, received, state and version validation",
+  "limits": [
+    "VM changed-result branch was not exercised by observed workloads",
+    "VFS changed decisions were observed, but MAX_IO/PREFETCH branches were not individually attributed or fully covered",
+    "No claim of complete scheduler, VM, VFS subsystem or built-in hardware-driver hot replacement"
+  ],
+  "arena_bytes": 33554432,
+  "evidence_report": "reports/hotload-device-memory-20261024.json",
+  "maximum_observed_policy_changes": {
+    "xnu-sched": 351905,
+    "xnu-vm": 0,
+    "xnu-vfs": 1889
+  },
+  "final_state": {
+    "clean_temporary_boot": true,
+    "named_slots": 0,
+    "busy": 0,
+    "arena_ready": true,
+    "arena_kr": 0
+  },
+  "automatic_temporary_boot_count": 2
+}

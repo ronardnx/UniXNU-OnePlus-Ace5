@@ -10,7 +10,7 @@
     "native_hotload_vm.h": "0db1b7e2d4924a35b7af9ad93ea23704334d04a54c399b7e71b64e5eaa2f1a2c",
     "native_hotload_boot.inc": "9d146c66c6e343cef9f8df033978712342e8ac0453186b65bc6db352d99fbd7d",
     "emit_patch.py": "9be51bce63a48f072ff080dadc630ecdd86ed1b9337477959106050e22b436ff",
-    "hotload.py": "4e4d368a6b1ccc130c740b780bb546be305368423ab638f8e5fe26080738587e",
+    "hotload.py": "ba565a0d88bcfeb8398a5d3ed82b7db005f7c0f2e503287eb7b476cfdba89cde",
     "build-module.py": "bad90a60bdf451a5219f12537ab48bf1d40022f4477ff5465d2988fca3f17e18",
     "build-core.py": "147bc5cebb2615812f78ec0b26a2109e1f298ea5790f31ce95e0fa06936238d5",
     "module.ld": "d4670afd0647fa0a9171ec0f7f15a30e28427080ab76428cfb1d03d5a6f481a0",
