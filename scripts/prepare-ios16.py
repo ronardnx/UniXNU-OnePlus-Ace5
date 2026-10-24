@@ -40,6 +40,13 @@ def main():
     if a.modem and not a.gui:p.error('--modem requires --gui')
     if a.debug_userland and not a.gui:p.error('--debug-userland requires --gui')
     debug_trust=debug_trust_source(a.debug_userland) if a.debug_userland else None
+    if a.hotload_source:
+        from ios16_hotload import device_sources
+        mutex_source = Path(__file__).resolve().parent/'serial_mutex.py'
+        if mutex_source.read_bytes() != (a.hotload_source/'serial_mutex.py').read_bytes():
+            raise ValueError('Device client mutex differs from the reviewed common kit snapshot')
+        hotload_selected = [name for name in ('wifi', 'gpu', 'audio', 'modem') if getattr(a, name)]
+        hotload_sources_before = device_sources(Path(__file__).resolve().parents[1], sorted(hotload_selected))
     revision = subprocess.check_output(['git', '-C', str(a.reference), 'rev-parse', 'HEAD'], text=True).strip()
     if revision != 'd68e05df683f863f054b0f9c063c54d2b1342b2a':
         raise RuntimeError('Unpinned reference checkout')
@@ -191,9 +198,11 @@ def main():
         capture=capture.replace("[ValidateSet('help','status','ping','replay')]","[ValidateSet('help','status','ping','replay','sample')]")
     if a.hotload_source:
         from ios16_modules import emit_hotload_module
-        emit_hotload_module(a.out, a.hotload_source)
+        declaration = emit_hotload_module(a.out, a.hotload_source, selected=hotload_selected)
+        if declaration['device_files'] != hotload_sources_before:
+            raise ValueError('Resident driver source changed during profile generation; discard this profile')
     (a.out/'capture-debug.ps1').write_text(capture)
-    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'ios16_screen.py', 'ios16_screen_viewer.html', 'terminal-requirements.txt'):
+    for name in ('debug-terminal.cmd', 'debug_terminal.py', 'serial_mutex.py', 'ios16_screen.py', 'ios16_screen_viewer.html', 'terminal-requirements.txt'):
         shutil.copyfile(Path(__file__).resolve().parents[1]/'scripts'/name, a.out/name)
     shutil.copytree(Path(__file__).resolve().parents[1]/'ios16/userland',a.out/'userland')
     shutil.copyfile(Path(__file__).resolve().parents[1]/'ios16/common/giulia_debug_abi.h',a.out/'giulia_debug_abi.h')
@@ -216,6 +225,9 @@ def main():
         'usb_terminal_protocol':2,
         'native_hotload_included':bool(a.hotload_source),
         'native_hotload_abi':2 if a.hotload_source else None,
+        'native_hotload_platform_abi':1 if a.hotload_source else None,
+        'native_hotload_gateway_abi':1 if a.hotload_source else None,
+        'native_hotload_gateway_interface_abi':0x47480001 if a.hotload_source else None,
         'native_hotload_core_interface_abi':0x434f0001 if a.hotload_source else None,
         'native_hotload_core_policy_adapters':['sched_quantum','vm_sequential','vfs_max_io','vfs_prefetch'] if a.hotload_source else [],
         'high_physical_cache_sync_fix':True,

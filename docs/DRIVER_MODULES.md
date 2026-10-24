@@ -46,6 +46,45 @@ Wi-Fi 和音频通过平台资源 API 获取 IPCC/QMP 资源，不要求 GPU 或
 
 ## 新增与修改模块
 
+### 常驻协议热加载桥 / Resident protocol hotload bridge
+
+`common/giulia_hotload.h` 定义 GH ABI1；`terminal/giulia_hotload_bridge.c`
+实现一次注册、四域有界按值邮箱。装配生成 `0093-giulia-hotload-bridge.patch`，
+并在接受首个上传前调用 `giulia_hotload_init`。NLH2 镜像 ABI2 保持不变，
+新的 resident platform ABI1 对每次调用提供真实 image/cookie/generation/
+activation epoch/phase/origin。USB 普通 CALL、依赖 CALL 和生命周期回调不能
+访问常驻邮箱。未选择 hotload 时同一公头返回 unavailable，保留原算法。
+
+The GH ABI1 contract and resident bridge use bounded by-value mailboxes in
+four independent domains. Registration precedes upload; the NLH2 image ABI
+remains 2. Authenticated resident calls have distinct image, invocation,
+generation and phase identities. USB/dependency/lifecycle calls cannot access
+the mailboxes. Builds without hotload retain the resident baseline.
+
+四路模块分别为 `giulia-gpu-proto`、`giulia-wifi-proto`、`giulia-audio-proto`、
+`giulia-modem-proto`，interface=`0x47480001`、state ABI1、kind=service、无依赖。
+它们只能处理复制后的纯协议输入和私有状态。真实业务切口须调用本路的
+`extern "C"`、`noinline` `giulia_<domain>_hotload_decide`，由其调用公共 select；
+产物核验逐域检查入站与出站的真实 ARM64 B/BL，不接受未使用的 adapter。
+完整驱动/DMA/IRQ/worker/固件和资源账本保持常驻；缺 native provider 的硬件
+验收仍为 blocked。不得把桥注册、模块上传或协议执行计作硬件功能通过。
+
+Each selected domain must link its real protocol boundary through a resident
+`giulia_<domain>_hotload_decide` adapter. Linked ARM64 inbound and outbound calls
+are checked per domain. Protocol modules own no hardware resources; missing
+native providers remain blockers for device acceptance.
+
+`hotload-module.json` 绑定公共 kit、实际驱动、公头、构建脚本和固定输入清单，
+内核中的 `NLH gateway source_sha256=...` 必须匹配。模块构建记录编译器实际
+头依赖闭包并在编译前后核对；CI 源码快照与模块/内核须来自同一组输入。
+固件、最终内核和临时启动镜像另按真实产物摘要绑定，不由源码摘要替代。
+
+The manifest binds the kit, selected resident drivers, public contracts and
+composition scripts to an embedded source marker. Module builds record the
+actual compiler dependency closure and reject changes during compilation.
+Firmware, final kernel and temporary boot image identities remain separate
+artifact checks.
+
 1. 在对应目录放置源码，在 `ios16_sources.py` 声明新命名或新模块的归属。
 2. 共享机制先定义 `common`／`platform` 接口；禁止向业务驱动添加跨设备协调职责。
 3. 由装配层连接注册和生命周期，不在驱动生成器中探测另一个驱动的补丁文件。

@@ -276,6 +276,11 @@ static inline int gsipa_stop(struct gsipa *s)
     unsigned ch;
     int ret = 0, r;
     if (!s || !s->valid) return GSIPA_EINVAL;
+    /* A failed shutdown/reset leaves the physical state uncertain. Do not
+     * replay a partially completed shutdown or erase its first failure with
+     * another reset attempt. The owner must retain the clocked graph/lease
+     * and reconcile the whole hardware epoch after reset/reboot. */
+    if (s->cleanup_error) return s->cleanup_error;
     for (ch = 0; ch < 2; ch++) {
         if (s->probed) {
             r = gsipa_proc(s, ch, 22);
@@ -285,16 +290,25 @@ static inline int gsipa_stop(struct gsipa *s)
         r = s->ops.reset(s->ops.opaque, ch, 1);
         if (r && !ret) ret = GSIPA_EIO;
     }
-    s->started = 0; s->probed = 0;
+    /* Pinned BSP sipa_91xx.c mute failure waits 5000-6000 us after reset=1;
+     * sipa.c power-off also requires this hold before removing I2S clocks. */
+    r = gsipa_delay(s, 5000);
+    if (r && !ret) ret = r;
+    /* These flags describe confirmed transitions. In particular a failed
+     * stop cannot turn a previously active/probed PA into a stopped one. */
+    if (!ret) { s->started = 0; s->probed = 0; }
     s->cleanup_error = ret;
     return ret;
 }
+static inline int gsipa_quiesced(const struct gsipa *s)
+{ return s && !s->started && !s->probed && !s->cleanup_error; }
 static inline int gsipa_probe(struct gsipa *s)
 {
     unsigned ch;
     int ret = 0;
     if (!s || !s->valid || s->started) return GSIPA_EINVAL;
-    s->probed = 0; s->cleanup_error = 0;
+    if (s->cleanup_error) return s->cleanup_error;
+    s->probed = 0;
     for (ch = 0; ch < 2; ch++)
         if (s->ops.reset(s->ops.opaque, ch, 1)) { ret = GSIPA_EIO; goto fail; }
     if ((ret = gsipa_delay(s, 5000))) goto fail;
@@ -313,6 +327,7 @@ static inline int gsipa_start(struct gsipa *s, unsigned prerequisites)
     unsigned ch, i, tries;
     int ret = 0;
     if (!s || !s->valid) return GSIPA_EINVAL;
+    if (s->cleanup_error) return s->cleanup_error;
     if ((prerequisites & GSIPA_REQUIRED) != GSIPA_REQUIRED || !s->probed) {
         /* A lost DSP/clock/graph prerequisite invalidates an already running
          * PA too. Do not leave the last stream amplified after SSR/underrun. */

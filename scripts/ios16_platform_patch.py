@@ -14,7 +14,8 @@ def platform_patch(out, root):
              + ''.join('+' + line for line in added)
              + ' iokit/Kernel/arm/SweetWatchdog.cpp                               optional iokitcpp\n')
     names = (*UNITS, 'giulia_platform_resources.h', 'giulia_platform_power.h',
-             'giulia_scm.h', 'giulia_sha256.h', 'giulia_platform_qmp.h')
+             'giulia_scm.h', 'giulia_sha256.h', 'giulia_platform_qmp.h',
+             'giulia_hotload.h')
     sources = {name: source_path(root, name).read_text() for name in names}
     sources['giulia_platform_power_report.h'] = (root /
         'uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/GpuPowerReport.h').read_text()

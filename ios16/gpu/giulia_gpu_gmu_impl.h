@@ -2,11 +2,10 @@
  * GMU boot adapter: the only place where gg_gmu_load()/gg_gmu_start() reach
  * real hardware. Included from GiuliaGPU.cpp after the class definition.
  *
- * The adapter maps the GMU window read/write (Normal NC), translates vendor
- * word offsets, and implements the vendor register preparation and HFI table
- * handoff from giulia_gpu_gmu_boot.h. It never releases the CM3 reset, writes
- * TCM outside the state machine, starts HFI without a verified queue table or
- * publishes an accelerator.
+ * The adapter maps the GMU register window as Device memory and translates
+ * vendor word offsets. The register subset in giulia_gpu_gmu_boot.h is not a
+ * complete HWSCHED startup provider. Both load/start require the stack's device
+ * grant and entered prerequisites; the preparation-only service grants none.
  */
 #ifndef GIULIA_GPU_GMU_IMPL_H
 #define GIULIA_GPU_GMU_IMPL_H
@@ -74,6 +73,8 @@ int GiuliaGPU::gmuPreconditions(void *cookie)
     if(!self)return 0;
     if(self->mode<3 || self->firmwarePowerState!=GGPH_PREPARED)return 0;
     if(!self->hostPrepared || !self->firmwareVerified)return 0;
+    if(!self->manualMemoryPinned || !self->powerLeaseHeld || !self->smmuLeaseHeld ||
+       !self->smmuState.active || self->smmuState.quarantined || self->platformPoisoned)return 0;
     if(!self->gmuEnsureWindow())return 0;
     if(!self->smmuActive || self->gmuFaulted)return 0;
     return 1;
@@ -163,6 +164,18 @@ int GiuliaGPU::gmuCommand(unsigned action)
 {
     struct gg_gmu_ops ops=gmuOps();
     if(action==0) { gmuReport(); return 0; }
+    if(action==1 || action==2) {
+        const struct ggsk_desc *stage=ggsk_desc_of(action==1?GGSK_GMU_LOAD:GGSK_GMU_START);
+        if(!stackReady || !stackState.policy.allow_device_writes || stackState.quarantined ||
+           (stackState.entered_mask&stage->prereq)!=stage->prereq) {
+            /* USB and the stage enter use the same grant. A refusal must not
+             * consume the load attempt or change reset/TCM/state diagnostics. */
+            IOLog("GIULIA GPU GMU: command=%s rejected reason=stack-device-grant-or-prerequisite policy=%u quarantine=%u missing=%#x writes=0\n",
+                action==1?"load":"start",stackState.policy.allow_device_writes,
+                stackState.quarantined,stage->prereq&~stackState.entered_mask);
+            return 1;
+        }
+    }
     if(action==1) {
         struct gg_pack pack;struct gg_fw_block *scratch;int result;
         if(!firmwareMap || !firmwareVerified || !hostPrepared) {
@@ -187,8 +200,10 @@ int GiuliaGPU::gmuCommand(unsigned action)
             IOLog("GIULIA GPU GMU: command=load rejected reason=scratch-allocation\n");
             return 1;
         }
-        result=giulia_gpu_gmu_load(&ops,&gmuState,pack.asset[0].data,
-            (size_t)pack.asset[0].size,scratch,64);
+        /* The exported loader authenticates the complete pinned container,
+         * then selects its GMU asset. A raw member is not a pack. */
+        result=giulia_gpu_gmu_load(&ops,&gmuState,
+            (const void *)firmwareMap->getVirtualAddress(),GG_FIRMWARE_PACK_BYTES,scratch,64);
         IOFree(scratch,sizeof(*scratch)*64);
         if(result)gmuFaulted=true;
         gmuLoadCalls++;

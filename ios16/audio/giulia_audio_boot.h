@@ -16,10 +16,11 @@
 
 enum { GAB_OK, GAB_ARGUMENT, GAB_PACK, GAB_PIN, GAB_PREREQUISITE,
     GAB_METADATA, GAB_PREPARE, GAB_PAS, GAB_WRITE, GAB_SYNC, GAB_READY,
-    GAB_QUARANTINED, GAB_ALREADY_RUNNING, GAB_NOT_RUNNING };
+    GAB_QUARANTINED, GAB_ALREADY_RUNNING, GAB_NOT_RUNNING, GAB_RELEASE };
 enum { GAB_PHASE_NONE, GAB_PHASE_VALIDATE, GAB_PHASE_METADATA,
     GAB_PHASE_PREPARE, GAB_PHASE_INIT, GAB_PHASE_MEM_SETUP, GAB_PHASE_LOAD,
-    GAB_PHASE_AUTH, GAB_PHASE_READY, GAB_PHASE_RUNNING, GAB_PHASE_SHUTDOWN };
+    GAB_PHASE_AUTH, GAB_PHASE_READY, GAB_PHASE_RUNNING, GAB_PHASE_SHUTDOWN,
+    GAB_PHASE_RELEASE_METADATA, GAB_PHASE_UNPREPARE };
 enum { GAB_PAS_INIT=1, GAB_PAS_MEM_SETUP=2, GAB_PAS_AUTH=5, GAB_PAS_SHUTDOWN=6 };
 enum { GAB_IMAGES=2, GAB_MAX_SEGMENTS=100, GAB_PAGE=4096,
     GAB_MAX_PACK_BYTES=128*1024*1024, GAB_READY_TIMEOUT_MS=5000 };
@@ -42,6 +43,7 @@ struct gab_plan {
     struct gab_image images[GAB_IMAGES];
     struct gab_segment segments[GAB_MAX_SEGMENTS];
 };
+struct gab_state;
 struct gab_ops {
     void *cookie;
     /* Read-only, exact compiled SHA256 pin comparison; return 1 on match. */
@@ -54,7 +56,9 @@ struct gab_ops {
      * copy the provided blob and complete required cache/barrier work.
      * Failure must leave no allocation for this image. Return 0 on success. */
     int (*metadata_alloc)(void *,unsigned,const void *,size_t,uint64_t *);
-    void (*metadata_release)(void *,unsigned);
+    /* Return 0 only when this allocation is actually released. Failure must
+     * retain the allocation/owner and leave it available for diagnosis. */
+    int (*metadata_release)(void *,unsigned);
     /* Establish IRQ baseline and hold power, XO, AOP load state and bandwidth.
      * All prerequisites must remain held through stop or quarantine. */
     int (*prepare)(void *);
@@ -69,13 +73,16 @@ struct gab_ops {
     /* Observe a fresh ready event for this boot epoch, reject fatal/watchdog.
      * A stale SMEM bit or SCM auth success alone is not ready. */
     int (*wait_ready)(void *,unsigned);
-    void (*unprepare)(void *);
+    /* After both PAS shutdowns, drain IRQ/work and release held resources.
+     * Return 0 only after completion; retain uncertain ownership on failure. */
+    int (*unprepare)(void *,const struct gab_state *);
 };
 struct gab_state {
     unsigned phase,result,image,segment,prepared,running,quarantined;
     unsigned metadata_mask,init_attempted_mask,authenticated_mask;
     unsigned pas_calls,last_pas_command,last_pas_id;
-    int backend_result;
+    int backend_result,cleanup_result;
+    unsigned cleanup_phase,cleanup_image;
     uint64_t metadata_physical[GAB_IMAGES];
     uint64_t copied_bytes,zeroed_bytes;
 };
@@ -202,14 +209,33 @@ static inline int gab_ops_valid(const struct gab_ops *o)
         o->pas && o->wait_ready && o->unprepare;
 }
 static inline int gab_quarantine(struct gab_state *s,unsigned result,int backend)
-{ s->quarantined=1;s->backend_result=backend;return (int)(s->result=result); }
-static inline void gab_release_metadata(const struct gab_ops *o,struct gab_state *s)
+{
+    if(s->quarantined)return (int)s->result;
+    s->quarantined=1;s->backend_result=backend;return (int)(s->result=result);
+}
+static inline int gab_release_metadata(const struct gab_ops *o,struct gab_state *s)
 {
     unsigned i;
+    if(s->cleanup_result)return s->cleanup_result;
     for(i=GAB_IMAGES;i--;)if(s->metadata_mask&(1u<<i)) {
-        o->metadata_release(o->cookie,i);s->metadata_mask&=~(1u<<i);
-        s->metadata_physical[i]=0;
+        int ret=o->metadata_release(o->cookie,i);
+        if(ret) {
+            if(!s->cleanup_result) {
+                s->cleanup_result=ret;s->cleanup_phase=GAB_PHASE_RELEASE_METADATA;s->cleanup_image=i;
+            }
+        } else {
+            s->metadata_mask&=~(1u<<i);s->metadata_physical[i]=0;
+        }
     }
+    return s->cleanup_result;
+}
+/* Preserve the allocation/validation failure separately from rollback. Both
+ * metadata allocations are independent once no PAS call has been attempted. */
+static inline int gab_metadata_failure(const struct gab_ops *o,struct gab_state *s,
+    unsigned result,int backend)
+{
+    if(gab_release_metadata(o,s))return gab_quarantine(s,result,backend);
+    s->backend_result=backend;return (int)(s->result=result);
 }
 static inline int gab_pas(const struct gab_ops *o,struct gab_state *s,
     unsigned command,unsigned id,uint64_t a,uint64_t b)
@@ -230,11 +256,13 @@ static inline int gab_start(const struct gab_ops *o,struct gab_state *s,
     unsigned i,j;
     int ret;
     if(!s)return GAB_ARGUMENT;
+    if(s->quarantined)return GAB_QUARANTINED;
     if(!gab_ops_valid(o))return (int)(s->result=GAB_ARGUMENT);
-    if(s->quarantined)return (int)(s->result=GAB_QUARANTINED);
     if(s->running)return (int)(s->result=GAB_ALREADY_RUNNING);
-    if(s->prepared || s->metadata_mask || s->init_attempted_mask)
+    if(s->prepared || s->metadata_mask || s->init_attempted_mask || s->authenticated_mask ||
+       s->metadata_physical[0] || s->metadata_physical[1] || s->cleanup_result)
         return gab_quarantine(s,GAB_QUARANTINED,0);
+    s->backend_result=0;
     s->phase=GAB_PHASE_VALIDATE;
     if(gab_validate(pack,bytes,&plan))return (int)(s->result=GAB_PACK);
     if(o->verify_pack(o->cookie,pack,bytes)!=1)return (int)(s->result=GAB_PIN);
@@ -245,18 +273,18 @@ static inline int gab_start(const struct gab_ops *o,struct gab_state *s,
         uint64_t pa=0,n=gab_align(im->metadata_bytes);
         s->image=i;
         ret=o->metadata_alloc(o->cookie,i,plan.pack+im->metadata_offset,im->metadata_bytes,&pa);
-        if(ret) {s->backend_result=ret;gab_release_metadata(o,s);return (int)(s->result=GAB_METADATA);}
+        if(ret)return gab_metadata_failure(o,s,GAB_METADATA,ret);
         s->metadata_mask|=1u<<i;s->metadata_physical[i]=pa;
         if(!pa || (pa&(GAB_PAGE-1)) || pa>UINT64_MAX-n ||
            gab_overlap(pa,n,GAB_DTB_PHYSICAL,GAB_DTB_BYTES) ||
            gab_overlap(pa,n,GAB_ADSP_PHYSICAL,GAB_ADSP_BYTES) ||
            (i && gab_overlap(pa,n,s->metadata_physical[0],gab_align(plan.images[0].metadata_bytes)))) {
-            gab_release_metadata(o,s);return (int)(s->result=GAB_METADATA);
+            return gab_metadata_failure(o,s,GAB_METADATA,0);
         }
     }
     /* Recheck before the first hardware effect, after potentially blocking allocations. */
     if(o->prerequisites(o->cookie)!=1) {
-        gab_release_metadata(o,s);return (int)(s->result=GAB_PREREQUISITE);
+        return gab_metadata_failure(o,s,GAB_PREREQUISITE,0);
     }
     s->phase=GAB_PHASE_PREPARE;s->prepared=1;
     ret=o->prepare(o->cookie);
@@ -306,8 +334,8 @@ static inline int gab_stop(const struct gab_ops *o,struct gab_state *s)
     unsigned i;
     int ret;
     if(!s)return GAB_ARGUMENT;
+    if(s->quarantined)return GAB_QUARANTINED;
     if(!gab_ops_valid(o))return (int)(s->result=GAB_ARGUMENT);
-    if(s->quarantined)return (int)(s->result=GAB_QUARANTINED);
     if(!s->running)return (int)(s->result=GAB_NOT_RUNNING);
     s->phase=GAB_PHASE_SHUTDOWN;
     for(i=GAB_IMAGES;i--;) {
@@ -316,7 +344,16 @@ static inline int gab_stop(const struct gab_ops *o,struct gab_state *s)
         if(ret)return gab_quarantine(s,GAB_PAS,ret);
         s->authenticated_mask&=~(1u<<i);s->init_attempted_mask&=~(1u<<i);
     }
-    s->running=0;gab_release_metadata(o,s);o->unprepare(o->cookie);s->prepared=0;
+    s->running=0;s->phase=GAB_PHASE_RELEASE_METADATA;
+    ret=gab_release_metadata(o,s);
+    if(ret)return gab_quarantine(s,GAB_RELEASE,ret);
+    s->phase=GAB_PHASE_UNPREPARE;
+    ret=o->unprepare(o->cookie,s);
+    if(ret) {
+        s->cleanup_result=ret;s->cleanup_phase=GAB_PHASE_UNPREPARE;s->cleanup_image=GAB_IMAGES;
+        return gab_quarantine(s,GAB_RELEASE,ret);
+    }
+    s->prepared=0;
     s->phase=GAB_PHASE_NONE;
     return (int)(s->result=GAB_OK);
 }

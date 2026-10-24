@@ -31,7 +31,7 @@ on:
         type: boolean
         default: false
       hotload:
-        description: Compile NLH2 runtime and 15 core-policy modules for terminal validation (no UEFI image)
+        description: Compile NLH2, 15 core policies and selected real protocol-module scenarios (no UEFI image)
         type: boolean
         default: false
 permissions:
@@ -50,6 +50,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Verify the committed common-kit snapshot
+        env:
+          GPU: ${{ inputs.gpu }}
+          WIFI: ${{ inputs.wifi }}
+          AUDIO: ${{ inputs.audio }}
+          MODEM: ${{ inputs.modem }}
         run: |
           python3 - <<'PY'
           import hashlib
@@ -68,7 +73,11 @@ jobs:
           (out / 'native-hotload-source.json').write_text(json.dumps(snapshot, indent=2) + '\n')
           build = {'schema': 1, 'repository': os.environ['GITHUB_REPOSITORY'],
                    'commit': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
-                   'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'hardware_tested': False}
+                   'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'], 'hardware_tested': False,
+                   'requested_domains': sorted(name for name in ('gpu', 'wifi', 'audio', 'modem')
+                                               if os.environ[name.upper()] == 'true'),
+                   'hardware_validated': False}
+          build['hardware_protocol_suite_requested'] = bool(build['requested_domains'])
           (out / 'hotload-build.json').write_text(json.dumps(build, indent=2) + '\n')
           PY
       - name: Install ARM64 module compiler and linker
@@ -81,15 +90,27 @@ jobs:
           clang --version
           ld.lld --version
           python3 ci-source/NativeHotload/build-core.py --out out/hotload-core 2>&1 | tee out/hotload-modules.log
+      - name: Build selected real hardware protocol scenarios
+        if: ${{ inputs.gpu || inputs.wifi || inputs.audio || inputs.modem }}
+        run: |
+          set -o pipefail
+          domains=()
+          if [ '${{ inputs.gpu }}' = true ]; then domains+=(gpu); fi
+          if [ '${{ inputs.wifi }}' = true ]; then domains+=(wifi); fi
+          if [ '${{ inputs.audio }}' = true ]; then domains+=(audio); fi
+          if [ '${{ inputs.modem }}' = true ]; then domains+=(modem); fi
+          python3 scripts/build-hotload-protocols.py --kit ci-source/NativeHotload --out out/hotload-protocols --source-snapshot ci-source/native-hotload-source.json --domains "${domains[@]}" 2>&1 | tee out/hotload-protocols.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ace5-ios16-hotload-modules
           path: |
             out/hotload-core/
+            out/hotload-protocols/
             out/native-hotload-source.json
             out/hotload-build.json
             out/hotload-modules.log
+            out/hotload-protocols.log
           retention-days: 14
   build:
     needs: hotload-modules
@@ -193,6 +214,33 @@ jobs:
           Path('profile/hotload-module-check.json').write_text(json.dumps(report, indent=2) + '\n')
           print(json.dumps(report, indent=2))
           PY
+      - name: Verify real protocol artifacts against the resident gateway
+        if: ${{ inputs.hotload }}
+        run: |
+          domains=()
+          if [ '${{ inputs.gpu }}' = true ]; then domains+=(gpu); fi
+          if [ '${{ inputs.wifi }}' = true ]; then domains+=(wifi); fi
+          if [ '${{ inputs.audio }}' = true ]; then domains+=(audio); fi
+          if [ '${{ inputs.modem }}' = true ]; then domains+=(modem); fi
+          if [ "${#domains[@]}" -gt 0 ]; then
+            python3 scripts/build-hotload-protocols.py --kit ci-source/NativeHotload --resident-manifest profile/hotload-module.json --verify-suite hotload-artifact/hotload-protocols/protocol-suite.json --domains "${domains[@]}" --report profile/hotload-protocol-check.json
+          else
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          build = json.loads(Path('hotload-artifact/hotload-build.json').read_text())
+          runtime = json.loads(Path('profile/hotload-module.json').read_text())
+          if (runtime.get('gateway_selected') != [] or build.get('requested_domains') != []
+                  or build.get('hardware_protocol_suite_requested') is not False
+                  or build.get('hardware_validated') is not False):
+              raise ValueError('Core-only build must not claim a hardware protocol suite')
+          report = {'schema': 1, 'status': 'not-requested', 'requested_domains': [],
+                    'module_images': 0, 'hardware_protocol_suite_requested': False,
+                    'hardware_tested': False, 'hardware_validated': False}
+          Path('profile/hotload-protocol-check.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+          fi
       - name: Select compatible Xcode and dependencies
         run: |
           brew install jq gum bash cmake ninja

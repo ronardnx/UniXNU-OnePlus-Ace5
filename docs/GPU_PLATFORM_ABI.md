@@ -1,5 +1,8 @@
 # GPU platform development ABI 3
 
+The [GPU hotload integration notes](GPU_HOTLOAD.en.md) describe the 2026-10-24
+GMU/SMMU/HFI corrections, resident resource boundary and pending device checks.
+
 The existing `gpu.dev TOKEN OP A B C D` worker protocol is extended without
 changing the initial ABI 1 pool/status fields. `OP=0` additionally advertises
 `resources_abi=1 memstore=1 secure_allocation_mappings=1`.

@@ -98,16 +98,29 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
             kernel_source((root / 'ios16/terminal/giulia_terminal.inc').read_text()))
     if hotload:
         code = ('extern int nlh_command(const char *);\n'
-                'extern void nlh_disconnect(void);\n' + code)
+                'extern void nlh_disconnect(void);\n'
+                'extern int giulia_hotload_init(void);\n'
+                'extern void giulia_hotload_status(void);\n' + code)
         hooks = {
             '    if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;':
-                '    if(nlh_command(cmd)) return 1;\n'
+                '    if(!strcmp(cmd,"hl.gateway") || !strncmp(cmd,"hl.gateway ",11)) {\n'
+                '        unsigned nonce=0; const char *p=cmd+10; int invalid=0;\n'
+                '        if(*p) { p++; if(!*p)invalid=1;\n'
+                '            for(;*p;p++) { if(*p<\'0\' || *p>\'9\' || nonce>429496729u || (nonce==429496729u && *p>\'5\')) { invalid=1; break; } nonce=nonce*10u+(unsigned)(*p-\'0\'); } }\n'
+                '        if(!invalid)giulia_hotload_status();\n'
+                '        printf("NLH ack nonce=%u token=0 error=%u busy=0\\n",nonce,invalid?22u:0u); return 1;\n'
+                '    }\n'
+                '    if(!strncmp(cmd,"hl.",3)) {\n'
+                '        int error=giulia_hotload_init();\n'
+                '        if(error) { printf("NLH disabled resident-gateway-init-required error=%d\\n",error); return 1; }\n'
+                '        if(nlh_command(cmd)) return 1;\n'
+                '    }\n'
                 '    if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;',
             'static void gs_disconnect(void)\n{':
                 'static void gs_disconnect(void)\n{\n    nlh_disconnect();',
             '    } else if (!strcmp(cmd,"features")) {':
                 '    } else if (!strcmp(cmd,"features")) {\n'
-                '        printf("GIULIA TERM: hotload=NLH2 hl.status hl.list hl.core hl.memory native-module-abi=2 requires=unixnu_hotload1\\n");',
+                '        printf("GIULIA TERM: hotload=NLH2 hl.status hl.list hl.core hl.memory hl.gateway native-module-abi=2 platform-abi=1 gateway-abi=1 requires=unixnu_hotload1\\n");',
         }
         for old, new in hooks.items():
             if code.count(old) != 1:
@@ -115,7 +128,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
             code = code.replace(old, new)
     if audio:
         code = code.replace('audio=audio.status,audio.map stage=board-mapping-only hardware_ready=0 playback=0 recording=0',
-                            'audio=audio.status,audio.map,audio.preflight,audio.start,audio.stop,audio.test runtime=1 provider_required=1 hardware_verified=0')
+                            'audio=audio.status,audio.map,audio.preflight,audio.start,audio.stop,audio.test,audio.proto runtime=1 provider_required=1 hardware_verified=0')
     if modem:
         code='extern int giulia_modem_terminal(const char *);\n'+code
         code=code.replace('    if(gaudio_command(cmd))return 1;',
@@ -123,7 +136,7 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
         anchor='        printf("GIULIA TERM: keys=keys.status compiled='
         if code.count(anchor)!=1:raise ValueError('Terminal feature anchor changed')
         code=code.replace(anchor,
-                          '        printf("GIULIA TERM: modem=modem.status,modem.start,modem.stop,modem.suspend,modem.resume runtime_abi=1\\n");\n'+anchor)
+                          '        printf("GIULIA TERM: modem=modem.status,modem.start,modem.stop,modem.suspend,modem.resume,modem.proto runtime_abi=1 synthetic_proto=1\\n");\n'+anchor)
     if wifi:
         code='extern int giulia_wifi_terminal(const char *);\n'+code
         code=code.replace('    if(gs_command(cmd) || gm_command(cmd) || gr_command(cmd)) return 1;',
@@ -137,11 +150,11 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
     edit(usb, 'commands help status ping replay',
          'commands help status ping replay info uptime memory ps bootargs display usb ufs features shell shell.size reg.* reboot.fastboot reboot.status screen.start screen.stop screen.snapshot screen.configure input.status input.touch input.key input.button input.release input.keepalive gpu.status gpu.observe audio.status audio.map'
          + ' keys.status slider.status slider.calibrate slider.hid slider.stop'
-         + (' hl.status hl.list hl.core hl.memory' if hotload else '')
-         + (' audio.preflight audio.start audio.stop audio.test' if audio else ''))
+         + (' hl.status hl.list hl.core hl.memory hl.gateway' if hotload else '')
+         + (' audio.preflight audio.start audio.stop audio.test audio.proto' if audio else ''))
     if modem:
         edit(usb, 'audio.status audio.map',
-             'audio.status audio.map modem.status modem.start modem.stop modem.suspend modem.resume')
+             'audio.status audio.map modem.status modem.start modem.stop modem.suspend modem.resume modem.proto')
     edit(usb, '; queries only', '; shell/MMIO require development boot args')
     edit(usb, '(read only)', '(development protocol 2)')
     edit(usb, 'RAM log and read-only commands', 'RAM log and protocol 2 terminal')
@@ -160,7 +173,9 @@ def terminal_sources(usb: Path, block: Path, edit, wifi=False, gui=False, gpu=Fa
          '        if(shell_n) { transfer(3,TX,shell_n,T_NORMAL);u.tx_bytes+=shell_n; }\n'
          '        return;\n    }\n'
          '    unsigned n=vermeer_debug_copy(&u.cursor,(char *)(u.dma+TX),TX_SIZE);')
-    edit(usb, '    while (!u.failed) {', '    gs_register();\n    while (!u.failed) {')
+    edit(usb, '    while (!u.failed) {',
+         ('    (void)giulia_hotload_init();\n' if hotload else '') +
+         '    gs_register();\n    while (!u.failed) {')
     edit(usb, '        transmit();',
          '        ginput_tick(gscreen_now());\n'
          '        if (!u.configured || !u.dtr) {gs_disconnect();gscreen_disconnect();}\n        transmit();')

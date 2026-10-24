@@ -9,6 +9,7 @@ from pathlib import Path
 import struct
 import gzip
 import subprocess
+import sys
 import tempfile
 import zlib
 from ios16_payload_budget import fat_geometry
@@ -42,8 +43,12 @@ def main():
                    help='Reject a complete Android image larger than this independently verified partition capacity')
     args = p.parse_args()
     require(args.output.resolve() not in (args.firmware.resolve(), args.payload.resolve()), 'Output must be a new path')
+    verification_output=args.output.with_suffix('.payload-verification.json')
+    require(not args.output.exists() and not args.output.with_suffix('.json').exists() and not verification_output.exists(),
+            'Android image, report and payload-verification outputs must all be new paths')
     firmware = args.firmware.read_bytes()
-    fw_report = json.loads(args.firmware_report.read_text())
+    firmware_report_bytes=args.firmware_report.read_bytes()
+    fw_report = json.loads(firmware_report_bytes)
     require(sha(firmware) == fw_report['sha256'], 'Firmware SHA256 mismatch')
     require(fw_report['status'] == 'offline-image-checks-passed', 'Firmware was not verified')
     require(len(firmware) >= 4096 and firmware[:8] == b'ANDROID!', 'Not an Android boot image')
@@ -56,15 +61,49 @@ def main():
     kernel_size = struct.unpack_from('<I',firmware,8)[0]
     require(0 < kernel_size <= len(firmware)-4096, 'Invalid kernel size')
     payload = args.payload.read_bytes()
-    pr = json.loads(args.payload_report.read_text())
+    payload_report_bytes=args.payload_report.read_bytes()
+    pr = json.loads(payload_report_bytes)
+    # Inspect the actual FAT and its extracted kernel/ADT/config, including
+    # the external source snapshot for hotload. A report marker is not proof.
+    with tempfile.TemporaryDirectory(prefix='giulia-payload-verify-') as directory:
+        verified_path=Path(directory)/'verified.json'
+        checked=subprocess.run([sys.executable,str(Path(__file__).with_name('verify-payload.py')),
+            str(args.payload_report.resolve().parent),'--payload',str(args.payload.resolve()),
+            '--payload-report',str(args.payload_report.resolve()),'--report',str(verified_path)],
+            stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        require(checked.returncode==0,'Actual FAT payload verification failed:\n'+checked.stdout[-4000:])
+        payload_verification_bytes=verified_path.read_bytes()
+        payload_verified=json.loads(payload_verification_bytes)
+    require(payload_verified.get('schema')==1 and payload_verified.get('status')=='pass' and
+            payload_verified.get('verified') is True and payload_verified.get('payload_verification') is True and
+            payload_verified.get('payload_sha256')==sha(payload) and
+            payload_verified.get('payload_report_sha256')==sha(payload_report_bytes) and
+            payload_verified.get('kernel_sha256')==pr.get('payload_kernel_sha256') and
+            payload_verified.get('debug_hotload_enabled')==pr.get('debug_hotload_enabled',False),
+            'Actual FAT verification does not identify these exact payload/report inputs')
+    require(args.payload.read_bytes()==payload and args.payload_report.read_bytes()==payload_report_bytes,
+            'Payload/report changed during independent verification')
+    if pr.get('debug_hotload_enabled'):
+        binding = pr.get('hotload_binding', {})
+        require(pr.get('debug_hotload_enabled') is True and payload_verified.get('hotload_binding')==binding and
+                binding.get('schema')==1 and binding.get('status')=='pass' and binding.get('verified') is True and
+                binding.get('kernel_sha256') == payload_verified['kernel_sha256'] and
+                binding.get('kernel_sha256') == pr.get('kernel_sha256') and
+                binding.get('platform_abi') == 1 and binding.get('gateway_abi') == 1 and
+                binding.get('linked_call_verification') is True and binding.get('source_verification') is True,
+                'Hotload payload lacks exact linked-kernel/source binding')
     if pr.get('hall_prepare_handoff'):
         require(pr.get('physical_slider_worker') is True and
                 fw_report.get('hall_prepare_handoff_available') is True,
                 'Slider requires matched native Hall preparation and bounded loader handoff')
     if pr.get('modem_contract'):
         mc=pr['modem_contract']
-        from ios16_modem import build_binding
-        require(mc.get('build_binding')==build_binding(),'Modem firmware/resource/Apple evidence binding mismatch')
+        if not pr.get('debug_hotload_enabled'):
+            from ios16_modem import build_binding
+            require(mc.get('build_binding')==build_binding(),'Modem firmware/resource/Apple evidence binding mismatch')
+        # Hotload's real FAT verifier already compared this exact report and
+        # kernel against the frozen modem source/resources. Do not replace
+        # that evidence with a second read from an unrelated local checkout.
         require(mc.get('schema')==1 and mc.get('runtime_abi')==1 and
                 mc.get('board')=='giulia' and mc.get('system_build')=='20H392' and
                 mc.get('platform_broker_included') is True,
@@ -128,24 +167,44 @@ def main():
         kernel = gzip.compress(raw,mtime=0)+dtb.read_bytes()
     struct.pack_into('<I',header,8,len(kernel))
     result = bytes(header)+kernel+bytes(-len(kernel)%4096)+payload+bytes(-len(payload)%4096)+bytes(signature_size)
+    payload_at=4096+len(kernel)+(-len(kernel)%4096)
+    require(result[payload_at:payload_at+len(payload)]==payload and
+            struct.unpack_from('<I',result,12)[0]==len(payload),
+            'Final Android image does not contain the exact independently verified FAT payload')
+    require(args.firmware.read_bytes()==firmware and args.firmware_report.read_bytes()==firmware_report_bytes and
+            args.payload.read_bytes()==payload and args.payload_report.read_bytes()==payload_report_bytes,
+            'Firmware/payload or their reports changed before Android image assembly')
     require(args.max_image_bytes is None or len(result) <= args.max_image_bytes,
             f'Complete Android image ({len(result)} bytes) exceeds the supplied partition capacity ({args.max_image_bytes} bytes)')
     args.output.parent.mkdir(parents=True,exist_ok=True)
     with args.output.open('xb') as f:
         f.write(result)
-    report = {'firmware_sha256': sha(firmware), 'payload_sha256': sha(payload),
+    with verification_output.open('xb') as stream:stream.write(payload_verification_bytes)
+    report = {'schema':1,'status':'pass','firmware_sha256': sha(firmware),
+              'firmware_report_sha256':sha(firmware_report_bytes),'payload_sha256': sha(payload),
+              'payload_report_sha256':sha(payload_report_bytes),
+              'kernel_sha256':payload_verified['kernel_sha256'],
+              'payload_kernel_sha256':payload_verified['kernel_sha256'],
+              'payload_verification':True,'payload_verification_report':verification_output.name,
+              'payload_verification_report_sha256':sha(payload_verification_bytes),
+              'debug_hotload_enabled':pr.get('debug_hotload_enabled',False),
               'sha256': sha(result), 'bytes': len(result), 'header_version': args.header_version,
               'payload_bytes':len(payload), 'payload_crc32':f'{crc:08x}',
               'payload_geometry':geometry, 'max_image_bytes':args.max_image_bytes,
               'image_capacity_checked':args.max_image_bytes is not None,
               'compiled_payload_identity_verified':False,
               'purpose': pr.get('purpose', 'XNU first entry; no system volume'), 'hardware_tested': False}
+    if pr.get('debug_hotload_enabled'):
+        report['hotload_binding']=pr['hotload_binding']
+        for key in ('source_manifest_sha256','linked_source_report_sha256','source_snapshot_sha256','gateway_source_sha256'):
+            report[key]=pr['hotload_binding'][key]
     if firmware_identity is not None:
         report['firmware_payload_identity']=firmware_identity
         report['firmware_payload_identity_source']='firmware report relink input manifest'
     if pr.get('loader_budget'):report['loader_budget']=pr['loader_budget']
     if pr.get('modem_contract'):report['modem_contract']=pr['modem_contract']
-    args.output.with_suffix('.json').write_text(json.dumps(report,indent=2)+'\n')
+    with args.output.with_suffix('.json').open('x',encoding='utf-8',newline='\n') as stream:
+        stream.write(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report,indent=2))
 
 if __name__ == '__main__':

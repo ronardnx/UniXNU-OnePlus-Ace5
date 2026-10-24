@@ -27,6 +27,20 @@ verify the kernel and 15 policy images; they skip UEFI/boot-image integration.
 Device execution and remaining whole-subsystem conversion require separate
 validation.
 
+The current snapshot includes 21 supported kit inputs, platform invocation
+ABI1 and the shared device mutex. GH ABI1 resident composition and selected
+driver sources live in the device repository and are bound separately to the
+embedded `NLH gateway source_sha256=...` marker. Use `--refresh` only for a
+snapshot whose existing files still match its previous manifest; local edits
+or unrecorded files are refused. Selected hardware protocol modules must exist
+and pass `build-hotload-protocols.py`; a missing implementation blocks CI.
+
 脚本只生成本地副本，提交、推送和运行 Actions 是独立操作。热加载 Actions
 编译并核验内核及 15 个策略镜像，跳过 UEFI／启动镜像集成。实机运行及其余
 完整子系统迁移仍需独立验证。
+
+当前快照含21个公共kit输入、可信invocation ABI1及统一设备互斥。GH ABI1桥与
+选中的驱动源码留在设备仓库，另行绑定内核源码marker。`--refresh`仅更新仍与
+原manifest完全一致的已有快照；本地修改或未记录文件会被拒绝。选中的硬件
+协议模块缺真实实现时，`build-hotload-protocols.py`明确阻塞CI，不能以core策略
+产物代替。

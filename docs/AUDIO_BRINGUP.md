@@ -93,6 +93,41 @@ python3 scripts/embed-audio-firmware.py \
 固件、DMA backing 和 lease 的生命周期；它本身不会授予资源所有权。
 原生 helpers 和 APM helpers 已实现，但**其完整 XNU provider 绑定仍未完成**。
 
+## 2026-10-24 停止与热加载边界修复
+
+真实 SPF/APM 分类调用点、纯协议 service、启动重试与自动化包验收入口已接入，
+见[音频协议热加载](AUDIO_HOTLOAD.md)（[English](AUDIO_HOTLOAD.en.md)）。
+这些新改动仍需第五热加载聊天统一完成目标构建和设备验收。
+
+本轮保留功放 probe/start 内部回滚的首次错误；失败的 shutdown/reset 不会经第二次
+stop 被覆盖或重放。两个独立 reset 都会尝试，随后执行固定一加 BSP 要求的 5ms
+等待；等待失败同样隔离。未确认功放停止时保留其 PCM/MI2S 图和 DMA backing。
+runtime 分别保存 `cause_result/backend` 与 `cleanup_backend`，SPF BASIC_RSP 拒绝
+也保留真实 DSP 错误，不能用零值的 SPF state 掩盖拒绝原因。
+
+平台契约提升至 `GA_PLATFORM_ABI=2`：`metadata_release(cookie, image)`、
+`unprepare(cookie, const gab_state *)` 和 native 的 `unmap_nc` 必须返回实际释放结果。
+只在成功后清除对应地址、mask 或 prepared 状态；失败保留所有权与首次清理错误，
+禁止重放失败释放。`cleanup_phase/cleanup_image` 区分 metadata 和资源撤销；
+后者的 image 值为 `GAB_IMAGES`，不表示某一固件映像。
+
+`gan_shutdown_complete` 不再清除已有故障，必须取得 resident boot 对象记录的
+PAS1→PAS36 成功停止、metadata 释放以及当前 lease 仍有效的证据。
+prepared 的 native 对象取得这项确认后才可释放映射；AUTH1 前不能直接释放。
+provider 必须核对传入 boot 对象确属自身绑定的 runtime 和 native epoch。
+这些均为内核内部契约，不允许通过 NLH_CALL 标量传递对象指针或伪造证明。
+
+`gar_quiesced` 检查本地 metadata、graph、PA、GLINK intent/ring/SPF 残留，
+只是热替换的必要条件。真实 provider 仍须关闭新入口并排空 worker/calls，完成
+同 epoch 的 SMP2P stop-ack/sysmon、IRQ/RX work、图 STOP/CLOSE ACK 与 DMA drain。
+现有 `gat` 没有完整主动 GLINK CLOSE/ACK 停止流程，清零结构不能代替实际停止。
+硬件资源、固件、IRQ、DMA backing 和运行时对象必须常驻，只可迁移已获准的模块
+私有数值状态；当前没有音频 native/PCM provider，纯协议 bridge 接入不能宣称支持播放或
+驱动整体热替换。
+
+本轮完成整组源码与固定上游对照，模块边界及文本检查结果记录于主控交接报告。
+未运行本地主机测试套件；新目标内核构建、终端实测及 UEFI 集成均尚未完成。
+
 ## 当前阻塞与验证边界
 
 已对原厂 PILDxe、PILProxyDxe、NpaDxe、ICBDxe、RpmhDxe 做版本固定的只读审计，

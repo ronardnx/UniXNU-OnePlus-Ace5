@@ -189,11 +189,14 @@ int GiuliaGPU::stackLeaveSmmu(void *cookie)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     if(!self)return 1;
-    if(!self->smmuActive)return 0;
+    if(!self->smmuActive && !self->smmuState.leased &&
+       !self->smmuState.retain_resources)return 0;
     /* Translation is retained to reboot: stopping the GPU domain here would
      * leave the GMU walking tables this service may no longer own. */
     IOLog("GIULIA GPU SMMU: active=1 retained_until_reboot=1 bank=%u slot=%u\n",
         self->smmuBank,self->smmuSlot);
-    return 0;
+    /* No master-stop/drain callback exists. Retention cannot acknowledge STOP;
+     * the stage machine must quarantine and keep earlier leases in place. */
+    return 1;
 }
 #endif

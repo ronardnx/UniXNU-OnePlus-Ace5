@@ -47,7 +47,8 @@ struct gan_ops {
      * callback must not clear hardware or return a constant success stub. */
     int (*latched_fault)(void *);
     volatile void *(*map_nc)(void *,uint64_t,size_t);
-    void (*unmap_nc)(void *,volatile void *,size_t);
+    /* 0 only after the mapping is released. Failure retains its owner. */
+    int (*unmap_nc)(void *,volatile void *,size_t);
     int (*read32)(void *,uint64_t,uint32_t *); /* 0 success */
     int (*write32)(void *,uint64_t,uint32_t);  /* 0 success */
     void (*barrier)(void *);                  /* full device/shared barrier */
@@ -63,12 +64,13 @@ struct gan_native {
     struct gat_transport transport;
     struct gat_transport *active_transport;
     uint64_t retired_epoch;
-    unsigned mapped,prepared,authenticated,ready,hwlock_owned;
+    unsigned mapped,prepared,authenticated,ready,hwlock_owned,shutdown_confirmed;
     uint32_t slave_state,slave_flags,fault_bits;
-    int error;
+    int error,cleanup_error;
 };
 static inline int gan_fail(struct gan_native *n,int error)
 {
+    if(n->error)return n->error;
     n->error=error;n->ready=0;n->transport.error=error;
     n->transport.spf_ready=0;n->transport.spf_pending=0;
     if(n->active_transport) {
@@ -113,7 +115,9 @@ static inline int gan_check_live(struct gan_native *n)
     int r;
     if(!n||!n->ops.latched_fault)return GAN_ARGUMENT;
     if(n->error)return n->error;
-    r=gan_check_lease(n);if(r)return r;
+    r=gan_check_lease(n);
+    if(r)return (n->mapped||n->prepared||n->authenticated||n->hwlock_owned||n->active_transport)?
+        gan_fail(n,r):r;
     r=n->ops.latched_fault(n->ops.cookie);
     if(r<0)return gan_fail(n,GAN_IO);
     if(r) {n->fault_bits|=(uint32_t)r;return gan_fail(n,GAN_FAULT);}
@@ -126,12 +130,24 @@ static inline int gan_init(struct gan_native *n,const struct gan_ops *o)
     /* Once per state lifetime, never reset a quarantined/active native state. */
     gat_zero(n,sizeof(*n));n->ops=*o;return GAN_OK;
 }
-static inline void gan_unmap(struct gan_native *n)
+static inline int gan_unmap(struct gan_native *n)
 {
-    if(n->adsp)n->ops.unmap_nc(n->ops.cookie,n->adsp,GAB_ADSP_BYTES);
-    if(n->dtb)n->ops.unmap_nc(n->ops.cookie,n->dtb,GAB_DTB_BYTES);
-    if(n->smem)n->ops.unmap_nc(n->ops.cookie,n->smem,GAN_SMEM_BYTES);
-    n->adsp=n->dtb=n->smem=0;n->mapped=0;
+    volatile uint8_t **maps[3]={&n->adsp,&n->dtb,&n->smem};
+    const size_t bytes[3]={GAB_ADSP_BYTES,GAB_DTB_BYTES,GAN_SMEM_BYTES};
+    if(n->cleanup_error)return n->cleanup_error;
+    for(unsigned i=0;i<3;i++)if(*maps[i]) {
+        int r=n->ops.unmap_nc(n->ops.cookie,*maps[i],bytes[i]);
+        if(r) {if(!n->cleanup_error)n->cleanup_error=r;}
+        else *maps[i]=0;
+    }
+    n->mapped=n->adsp||n->dtb||n->smem;
+    if(!n->smem)gat_zero(&n->partition,sizeof(n->partition));
+    return n->cleanup_error;
+}
+static inline int gan_map_failure(struct gan_native *n,int error)
+{
+    if(gan_unmap(n))return gan_fail(n,error);
+    return error;
 }
 static inline int gan_inspect_items(const struct gat_smem *part)
 {
@@ -159,7 +175,7 @@ static inline int gan_inspect_items(const struct gat_smem *part)
 static inline int gan_preflight(struct gan_native *n)
 {
     struct gat_smem part;int r;
-    if(!n||n->prepared||n->error)return GAN_STATE;
+    if(!n||n->prepared||n->error||n->cleanup_error)return GAN_STATE;
     r=gan_check_live(n);if(r)return r;
     if(!n->mapped) {
         n->smem=(volatile uint8_t *)n->ops.map_nc(n->ops.cookie,GAN_SMEM_PHYSICAL,GAN_SMEM_BYTES);
@@ -172,11 +188,11 @@ static inline int gan_preflight(struct gan_native *n)
     }
     n->ops.barrier(n->ops.cookie);
     r=gat_smem_resolve_partition(n->smem,GAN_SMEM_BYTES,2,&part);
-    if(r!=GAT_OK) { gan_unmap(n);return r==GAT_WAIT?GAN_MAP:r; }
-    r=gan_inspect_items(&part);if(r) {gan_unmap(n);return r;}
+    if(r!=GAT_OK)return gan_map_failure(n,r==GAT_WAIT?GAN_MAP:r);
+    r=gan_inspect_items(&part);if(r)return gan_map_failure(n,r);
     n->partition=part;return GAN_OK;
 failed_map:
-    gan_unmap(n);return GAN_MAP;
+    return gan_map_failure(n,GAN_MAP);
 }
 static inline void gan_barrier(void *cookie)
 { struct gan_native *n=(struct gan_native *)cookie;n->ops.barrier(n->ops.cookie); }
@@ -261,6 +277,7 @@ static inline int gan_prepare(struct gan_native *n)
     r=gan_check_live(n);if(r)goto out;
     r=gat_init(&n->transport,item[0],32,item[1],GAT_SMEM_TX_BYTES,0,0,&ops,n,1);
     if(r!=GAT_OK)goto out;
+    n->transport.epoch=n->lease.epoch;
     r=gan_check_live(n);if(r)goto out;
     r=gat_smp2p_init_outbound(item[2],GAT_SMP2P_BYTES,gan_barrier,n,1);
 out:
@@ -319,6 +336,7 @@ static inline int gan_transport_poll(struct gan_native *n,unsigned budget)
     if(!budget)return GAN_ARGUMENT;
     r=gan_ready_sample(n);if(r!=GAT_OK)return r;
     t=n->active_transport?n->active_transport:&n->transport;
+    if(t->epoch!=n->lease.epoch)return gan_fail(n,GAN_LEASE);
     if(!t->rx.fifo) {
         gan_barrier(n);r=gat_smem_get(&n->partition,GAT_SMEM_RX,&rx,&bytes);
         if(r<0)return gan_fail(n,r);
@@ -331,6 +349,7 @@ static inline int gan_transport_poll(struct gan_native *n,unsigned budget)
     r=gat_poll(t,budget);
     if(n->error)return n->error;
     if(r<0)return gan_fail(n,r);
+    int live=gan_check_live(n);if(live)return gan_fail(n,live);
     return r;
 }
 static inline volatile uint8_t *gan_destination(struct gan_native *n,uint64_t pa,size_t bytes)
@@ -363,17 +382,39 @@ static inline int gan_memory_sync(struct gan_native *n,uint64_t pa,size_t bytes)
 }
 /* Invoke only after both PAS SHUTDOWN(1) and SHUTDOWN(36) succeeded and IPC
  * clients are quiesced. A failed/uncertain shutdown must retain all mappings. */
-static inline int gan_shutdown_complete(struct gan_native *n)
+static inline int gan_shutdown_complete(struct gan_native *n,const struct gab_state *boot)
 {
-    if(!n||!n->authenticated||n->hwlock_owned)return GAN_STATE;
-    n->authenticated=0;n->ready=0;n->transport.spf_ready=0;n->error=0;
+    int r;
+    if(!n||!n->authenticated||n->hwlock_owned||n->error||n->cleanup_error||n->fault_bits)
+        return GAN_STATE;
+    /* The boot owner supplies its resident state during checked unprepare,
+     * after PAS1 then PAS36 and metadata release. Do not accept a standalone
+     * terminal flag as proof or release a merely prepared, pre-AUTH epoch. */
+    if(!boot||boot->quarantined||boot->running||!boot->prepared||boot->cleanup_result||
+       boot->phase!=GAB_PHASE_UNPREPARE||boot->authenticated_mask||boot->init_attempted_mask||
+       boot->metadata_mask||boot->metadata_physical[0]||boot->metadata_physical[1]||
+       boot->last_pas_command!=GAB_PAS_SHUTDOWN||boot->last_pas_id!=36)
+        return GAN_STATE;
+    r=gan_check_live(n);if(r)return gan_fail(n,r);
+    /* A provider must first prove all IPC clients/IRQ work are drained and
+     * both PAS acknowledgements completed in this epoch. This notification
+     * cannot reconcile a prior fatal, lease loss or uncertain operation. */
+    n->authenticated=0;n->ready=0;n->transport.spf_ready=0;n->shutdown_confirmed=1;
     if(n->active_transport)n->active_transport->spf_ready=0;
     return GAN_OK;
 }
 static inline int gan_release(struct gan_native *n)
 {
-    if(!n||n->authenticated||n->hwlock_owned||n->error)return GAN_STATE;
-    gan_unmap(n);n->retired_epoch=n->lease.epoch;n->lease.epoch=0;
-    n->prepared=0;n->ready=0;n->active_transport=0;return GAN_OK;
+    int r;
+    if(!n||n->authenticated||n->hwlock_owned||n->error||n->cleanup_error||n->fault_bits||
+       (n->prepared&&!n->shutdown_confirmed))
+        return GAN_STATE;
+    /* Release mappings before relinquishing the provider's lease/power/IRQ
+     * owner. An expired lease cannot authorize cleanup of an unknown epoch. */
+    r=gan_check_live(n);if(r)return gan_fail(n,r);
+    r=gan_unmap(n);if(r)return gan_fail(n,GAN_IO);
+    n->retired_epoch=n->lease.epoch;n->lease.epoch=0;
+    n->prepared=0;n->ready=0;n->active_transport=0;n->shutdown_confirmed=0;
+    gat_zero(&n->transport,sizeof(n->transport));return GAN_OK;
 }
 #endif

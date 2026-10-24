@@ -6,7 +6,9 @@ The 2026-10-24 [complete upstream mapping](WIFI_UPSTREAM_CHAIN.md) records the
 platform-to-firmware call chain, applicable branches, remaining lifecycle gaps,
 and new registration/pin-result diagnostics. `wifi.status` now reads a cached
 worker snapshot, including the exact QMI boot substep and the final stopped state.
-This follow-up has no new device capture.
+The 2026-10-24 13:06 control capture confirms only the pre-DMA wait
+(`waiting=1 active=1 stage=3 error=0 quarantine=0`); it has no post-release
+firmware result.
 
 ## Captures
 
@@ -85,3 +87,61 @@ do not promote M3's successful QMI response or AOP consumption to readiness.
 The QMI suite passes with ASan/UBSan, including all 13 defined memory types, partial allocation failure, malformed CMEM metadata and address overflow. Both XNU and UEFI QMP headers pass the same 86-case fault model, including the captured remote-open state, dropped ACK writes, changed remote state, inherited ownership and unconsumed-message retention. Portable headers compile as C++14.
 
 A new kernel/UEFI build and device run must still confirm successful QMP open, all seven PMU command consumption acknowledgements, M3 provisioning and `FW_INIT_DONE`. Passing these host tests does not establish firmware readiness or networking. Sleep-clock, TME and auxiliary-firmware policies are unchanged: the captured Kiwi node has no `qcom,sleep-clk-support`, and the reviewed CNSS TME/auxiliary paths apply to Peach rather than Kiwi.
+
+### 2026-10-24: readiness validation and shutdown evidence
+
+The next source revision validates optional `FW_INIT_DONE` TLVs `0x10/0x11/0x12`
+as u32/u16/u64 before setting readiness or its success timestamp, following the
+pinned WLANFW decoder schema. An empty indication remains valid. Memory request
+and allocation-failure diagnostics are now logged before returning an error.
+Neither correction establishes the cause of the older firmware timeout.
+
+Shutdown now follows the pinned OnePlus `mhi_pm_disable_transition`: request
+RESET, wait for it to clear, rewrite and read back BHI_INTVEC, check the execution
+environment, wait for READY when it is outside PBL/PTHRU/EDL, then disable and
+drain PCIe bus mastering. The 25000 argument is a 25 ms polling interval;
+each wait retains the 10000 ms CNSS budget. A failed step retains its first
+failure and quarantine even if PCIe subsequently drains; a second stop cannot
+convert that failure into successful retirement. The implementation has no
+fatal-link PM state or RDDM image permitting the vendor reset exceptions.
+See [pinned MHI PM](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/pm.c)
+and [polling implementation](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/main.c).
+
+`wifi.start` now releases only the currently published pre-DMA wait once;
+early, repeated and post-stop requests are rejected. Cached `wifi.status`
+adds MHI/CE/DP/SMMU ownership and reset/READY/master-stop evidence. A done
+phase alone does not prove successful shutdown. These source changes need the
+coordinated kernel build and device capture; they do not make the built-in
+Wi-Fi driver hot-reloadable or provide the missing cold-power/recovery cycle.
+UEFI integration remains after successful terminal/device validation.
+
+### Protocol module integration: source awaiting coordinated validation
+
+`giulia_wifi_protocol_module.c` implements `giulia-wifi-proto`, a GH domain 2
+NLH2 service with interface ABI `0x47480001` and state ABI 1. Real QMI responses
+and indications, plus known core WMI events, reach
+`giulia_wifi_hotload_decide → giulia_hotload_select`. The resident owner keeps
+hardware, deadlines, state transitions, DMA, keys and all callbacks.
+
+The 32-word request carries metadata and up to 29 TLV header shapes. No field
+values, serial numbers, addresses, MAC/SSID/IE or keys enter the module. Larger
+streams use the complete resident parser. Unknown WMI events retain their
+existing dispatch; repeated WMI arrays remain valid. A native result is adopted
+only in the same owner epoch when it matches the full resident validation.
+This permits equivalent parser implementation replacement within the current
+acceptance rules; it does not establish arbitrary protocol-behavior repair or
+whole-driver replacement.
+
+START runs six parser self-checks and opens private admission; STOP closes it
+and checks that private calls drained. Only an 80-byte counter format migrates
+from the 128-byte private state. `GWPR_FAIL_START/IMPORT/STOP` support explicit
+lifecycle fault builds. Driver `wifi.status` reports real receive calls, native
+adoptions, fallback, mismatch and per-QMI/WMI counts. Module scalar calls 0..6
+read counters only and never grant request access or issue hardware operations.
+
+The coordinated build and automation must validate linked incoming/outgoing
+calls, lifecycle/rollback, and real protocol input separately from module upload.
+Live scans can exercise WMI events after an upgrade; ordinary HTT traffic cannot.
+Pre-QMI hardware failure blocks real protocol coverage even when synthetic
+fixtures pass. Firmware readiness and networking retain their independent
+device acceptance requirements.

@@ -46,10 +46,30 @@ extern "C" { extern unsigned long gPhysBase, gPhysSize, gVirtBase; }
 #include "giulia_gpu_gunyah_owner.h"
 #include "giulia_gpu_hfi_alloc_pool.h"
 #include "giulia_gpu_hfi_pump.h"
+#include "giulia_gpu_proto_adapter.h"
+#include "../common/giulia_hotload.h"
 #include "giulia_gpu_stack.h"
 #include "giulia_gpu_share_runtime.h"
 #include "giulia_gpu_share_authority.h"
 #include "../vendor/ArmSmmu4K/ArmSmmu4K.h"
+
+static_assert(GG_PROTO_DOMAIN==GH_DOMAIN_GPU && GG_PROTO_INTERFACE==GH_INTERFACE_ABI &&
+    GG_PROTO_STATE_ABI==GH_STATE_ABI,"GPU protocol must match the resident GH contract");
+
+extern "C" __attribute__((noinline)) int giulia_gpu_hotload_decide(
+    struct gg_proto_resident *state,const uint32_t *words,unsigned count,struct gga_request *out)
+{
+    if(!state || !out)return GGA_ARGUMENT;
+    struct gg_proto_transaction transaction;
+    if(!gg_proto_prepare(state,words,count,&transaction))
+        return gg_proto_fallback(state,&transaction,out);
+    uint64_t response=transaction.expected;
+    /* These borrowed pointers stay resident. GH copies the wire data and
+     * delivers only its invocation-bound ticket to the replaceable parser. */
+    int error=giulia_hotload_select(GH_DOMAIN_GPU,transaction.epoch,GG_PROTO_OP_ALLOC_PLAN,
+        transaction.request,GG_PROTO_REQUEST_WORDS,&response,GG_PROTO_RESPONSE_WORDS);
+    return gg_proto_finish(state,&transaction,error,response,out);
+}
 
 static struct gg_terminal_mailbox gpuTerminal;
 static unsigned devState;
@@ -196,6 +216,9 @@ class GiuliaGPU : public IOService {
     struct ggpp_state *hfiPump;
     uint32_t hfiPumpScratch[64];
     bool hfiAllocReady;
+    /* Protocol instance epoch and counters never leave the resident service.
+     * The NLH generation changes independently of this boot-lifetime owner. */
+    struct gg_proto_resident gpuProto;
     void hfiAllocInit();
     int hfiPumpOnce(unsigned);
     void hfiAllocReport();
@@ -204,6 +227,9 @@ class GiuliaGPU : public IOService {
     static int hfiPoolUnmap(void *,unsigned,unsigned);
     static int hfiPoolPublish(void *,unsigned);
     static int hfiPoolBarrier(void *);
+    static int hfiPoolDecode(void *,const uint32_t *,unsigned,struct gga_request *);
+    static int hfiPumpReady(void *);
+    static int hfiPumpNotify(void *);
     /* Stage machine. Only the stages this service can actually observe are
      * registered; every later stage stays unbound so the plan reports where the
      * chain stops instead of skipping it. */
@@ -358,6 +384,7 @@ bool GiuliaGPU::init(OSDictionary *dictionary)
     bzero(&hfiAllocPool,sizeof(hfiAllocPool));bzero(&hfiAllocOps,sizeof(hfiAllocOps));
     hfiPump=NULL;bzero(hfiPumpScratch,sizeof(hfiPumpScratch));
     hfiAllocReady=false;
+    bzero(&gpuProto,sizeof(gpuProto));
     bzero(&stackState,sizeof(stackState));bzero(stackOps,sizeof(stackOps));stackReady=false;
     powerLeaseHeld=false;
     gunyahChannelAdopted=false;
@@ -723,6 +750,7 @@ bool GiuliaGPU::start(IOService *provider)
     setProperty("BringupStage","host-memory-prepared");
     /* Pool adapter only: it establishes no mapping and performs no device
      * write until the worker is pinned and the platform is healthy. */
+    gpuProto.epoch=mach_absolute_time(); /* Resident instance, not a hardware reset claim. */
     hfiAllocInit();
     stackInit();
     /* The worker retains this service and owns every post-start observation.
@@ -875,6 +903,13 @@ void GiuliaGPU::hfiCommand(unsigned requests)
     if(requests&GGT_HFI_POLL) {
         uint32_t msg[256];unsigned n=0;
         for(unsigned q=1;q<=2;++q)for(unsigned packet=0;packet<8;++packet) {
+            if(q==1 && hfiPumpReady(this)==1) {
+                uint32_t header=0;
+                int peek=ggh_peek(&io,q,&header);
+                if(!peek && (header&0xffu)==GGA_MSG_ID && ((header>>16)&0xfu)==0) {
+                    IOLog("GIULIA GPU HFI: allocation_pending=1 consumer=native-pump retained=1\n");break;
+                }
+            }
             int e=ggh_receive(&io,q,msg,256,&n);
             if(e){IOLog("GIULIA GPU HFI: poll queue=%u code=%d\n",q,e);break;}
             IOLog("GIULIA GPU HFI: received queue=%u words=%u header=%#x\n",q,n,msg[0]);

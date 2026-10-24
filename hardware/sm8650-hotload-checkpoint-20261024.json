@@ -1,0 +1,42 @@
+{
+  "schema": "giulia-hotload-source-checkpoint-v1",
+  "date": "2026-10-24",
+  "board": "giulia",
+  "status": "stopped_by_user_source_checkpoint",
+  "image_abi": 2,
+  "gateway_abi": 1,
+  "new_target_kernel_built": false,
+  "new_source_device_verified": false,
+  "scope": "Resident protocol bridge, GPU/Wi-Fi/audio/modem protocol modules, driver lifecycle corrections and automated acceptance tooling",
+  "offline_evidence": "Earlier snapshots passed module, assembly and host checks; subsequent source changes have not completed target-kernel and device acceptance",
+  "live_baseline": {
+    "executed_on_device": true,
+    "running_image_sha256_measured": false,
+    "new_source_acceptance": false,
+    "wifi_start_attempts": 1,
+    "capture_seconds_after_start": 90,
+    "pdc_defaults_consumed": 10,
+    "mhi_ee_reached": 2,
+    "failed_qmi_step": "memory",
+    "last_rpc": "0x36",
+    "last_indication": "0x35",
+    "qmi_error": 3,
+    "qmi_error_name": "GWQ_TRANSPORT",
+    "remote_qmi_error": 0,
+    "elapsed_ms": 167,
+    "later_mhi_status": "0x0",
+    "later_mhi_ee": "0x3",
+    "first_fault_register_preserved": false,
+    "firmware_ready": false,
+    "worker_active_final": false,
+    "partitions_flashed": false,
+    "userdata_modified_by_test": false
+  },
+  "remaining_work": [
+    "Build and link the current target kernel, verify each real driver adapter and bind kernel/module/firmware source identities",
+    "Complete per-domain fixture/native execution, output adoption, fallback and hardware-function evidence separation",
+    "Capture the first MHI fault before reset and resolve the observed Wi-Fi RESPOND_MEM transport failure; do not retry the stopped instance",
+    "Complete GPU power/GMU/HFI execution and native audio/PCM and MPSS/data providers before claiming hardware support"
+  ],
+  "notes_zh": "按用户要求保存源码并停止开发。新内核及本轮代码尚未实机验收；已有实机 Wi-Fi 内存响应阶段故障未修复完成，不宣称四类硬件或整驱动热替换可用。"
+}

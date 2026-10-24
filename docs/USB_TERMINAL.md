@@ -109,6 +109,28 @@ GPU 查询需包含 `--gpu` 的新 GUI 内核及本地固件，并通过 `giulia
 
 ## 电脑端调试命令
 
+新 GH ABI1 内核使用 `hl.gateway` 查询常驻协议桥的注册、源码摘要和四域
+执行/回退计数。脚本客户端使用 nonce 完成标记，不将旧日志当作本次响应。
+桥注册成功不代表 GPU/Wi-Fi/音频/蜂窝 native provider 存在。
+`scripts/verify-hotload-acceptance.py` 输出每步原始日志与 `result.json`，
+分别记录 host runtime、ARM64 产物和真实设备的 pass/fail/blocked。
+主机 harness 不计作实机；旧 provider=0 内核不能验收新桥或四路转换。
+
+GH ABI1 kernels expose `hl.gateway` for resident registration, source identity
+and per-domain execution/fallback counters. The client correlates completion
+with a nonce. Acceptance emits raw logs and machine-readable results, keeping
+host simulation, ARM64 artifacts and device evidence distinct. Missing native
+providers or a missing new kernel produce blocked results.
+
+`debug_terminal.py` 与 NativeHotload 客户端使用相同跨进程设备互斥；锁覆盖
+串口打开至关闭，设备命令按顺序执行。临时启动恢复同样必须持有设备锁。
+超时先读 status/list 查明结果，不重发 commit、unload 或硬件 start。
+自动化 STOP 失败隔离安排在最后；结果不确定时保留资源并停止后续操作。
+
+Both clients share one cross-process device mutex. Commands run serially;
+timeouts trigger status/list diagnosis without replaying mutations. Failed
+STOP isolation runs last and retains uncertain resources.
+
 | 命令 | 功能 |
 | --- | --- |
 | `:help` | 显示完整电脑端帮助 |

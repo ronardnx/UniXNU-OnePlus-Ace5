@@ -13,6 +13,7 @@
 #define GIULIA_AUDIO_TRANSPORT_H
 #include <stdint.h>
 #include <stddef.h>
+#include "giulia_audio_proto.h"
 
 #define GAT_PACKET_MAX 4096u
 #define GAT_INTENTS_MAX 16u
@@ -235,6 +236,9 @@ struct gat_transport {
     struct gat_intent remote[GAT_INTENTS_MAX];
     uint8_t packet[GAT_PACKET_MAX];size_t packet_bytes,remaining;
     uint32_t spf_token,spf_status,spf_error;unsigned spf_pending,spf_received,spf_ready;
+    uint32_t spf_queries,spf_basic_replies,spf_timeouts;
+    /* Set only by the resident provider from its current native lease. */
+    uint64_t epoch;
 };
 /* Atomic aligned little-endian index accesses. Supported targets are LE ARM64
  * and LE host tests. A byte-at-a-time read could tear an index at rollover. */
@@ -337,15 +341,18 @@ static inline int gat_send(struct gat_transport *t,const uint8_t *data,size_t by
 }
 static inline void gat_spf_receive(struct gat_transport *t,const uint8_t *b,size_t n)
 {
-    if(!t->spf_pending||n<24)return;
-    uint32_t h=gat_le32(b),hs=((h>>4)&15u)*4u,op=gat_le32(b+20);
-    if((h&15u)||hs!=24||h>>8!=n||b[4]!=3||b[5]!=2||gat_le32(b+8)!=1||
-       gat_le32(b+12)!=3||gat_le32(b+16)!=t->spf_token)return;
-    if(op==GAT_SPF_RESPONSE&&n==28) {
-        t->spf_status=gat_le32(b+24);t->spf_received=1;t->spf_pending=0;
-        t->spf_ready=t->spf_status==1;
-    } else if(op==GAT_GPR_BASIC_RESPONSE&&n==32&&gat_le32(b+24)==GAT_SPF_GET) {
-        t->spf_error=gat_le32(b+28);t->spf_received=1;t->spf_pending=0;t->spf_ready=0;
+    if(!t||!b||!t->spf_pending)return;
+    uint64_t epoch=t->epoch;uint32_t token=t->spf_token;
+    uint64_t selected=gapt_reply(epoch,GAPT_SPF_REPLY,1,token,3,1,GAT_SPF_GET,b,n);
+    if(t->epoch!=epoch||!t->spf_pending||t->spf_token!=token)return;
+    unsigned kind=(unsigned)selected;uint32_t status=(uint32_t)(selected>>32);
+    if(kind==GAPT_SPF_READY||kind==GAPT_SPF_STATE) {
+        t->spf_status=status;t->spf_received=1;t->spf_pending=0;
+        t->spf_ready=kind==GAPT_SPF_READY;
+    } else if(kind==GAPT_SPF_BASIC) {
+        /* GSL ignores bootstrap BASIC_RSP, including status=0, until this
+         * query times out; an unregistered APM service is not a fatal boot. */
+        t->spf_error=status;++t->spf_basic_replies;
     }
 }
 static inline int gat_spf_query(struct gat_transport *t,uint32_t token)
@@ -355,9 +362,13 @@ static inline int gat_spf_query(struct gat_transport *t,uint32_t token)
     gat_zero(b,sizeof(b));gat_put32(b,(24u<<8)|(6u<<4));b[4]=2;b[5]=3;
     gat_put32(b+8,3);gat_put32(b+12,1);gat_put32(b+16,token);gat_put32(b+20,GAT_SPF_GET);
     r=gat_send(t,b,sizeof(b));if(r==GAT_OK) {
-        t->spf_token=token;t->spf_pending=1;t->spf_received=0;t->spf_ready=0;t->spf_error=0;t->spf_status=0;
+        t->spf_token=token;t->spf_pending=1;t->spf_received=0;t->spf_ready=0;++t->spf_queries;
     }
     return r;
+}
+static inline void gat_spf_expire(struct gat_transport *t)
+{
+    t->spf_pending=0;t->spf_received=0;t->spf_ready=0;++t->spf_timeouts;
 }
 static inline void gat_peek(const struct gat_ring *r,size_t offset,uint8_t *b,size_t n)
 { size_t tail=*r->tail;for(size_t i=0;i<n;i++)b[i]=r->fifo[(tail+offset+i)%r->bytes]; }

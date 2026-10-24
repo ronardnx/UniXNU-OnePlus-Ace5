@@ -3,6 +3,7 @@
 #define GIULIA_MODEM_RUNTIME_H
 #include "giulia_modem_contract.h"
 #include "giulia_modem_ip.h"
+#include "giulia_modem_proto.h"
 
 /* One production state machine for IOKit and deterministic integration runs.
  * No provider can advance state by returning success from submit(). */
@@ -58,6 +59,10 @@ static inline int gmr_op_pending(const struct gmr_runtime *r,uint64_t opid) {
     unsigned i;for(i=0;i<GMR_PENDING;i++)if(r->pending[i].used &&
         r->pending[i].action.id.opid==opid)return 1;
     return 0;
+}
+static inline int gmr_sms_active(const struct gmr_slot *s) {
+    return s->sms==GMR_SMS_SUBMITTING || s->sms==GMR_SMS_ACCEPTED ||
+        s->sms==GMR_SMS_UNCERTAIN;
 }
 static inline uint64_t gmr_operation(struct gmr_runtime *r,uint64_t requested) {
     uint64_t id=requested;
@@ -129,9 +134,25 @@ static inline int gmr_emit(struct gmr_runtime *r,const struct gmr_action *a) {
     if(!r->dispatching && r->count)(void)gmr_drain(r);
     return GMR_OK;
 }
+/* A native queue rejection proves that this action was never accepted. It is
+ * not a hardware completion and must not manufacture uncertain effects. The
+ * existing failure policy still retains acquired resources and isolation. */
+static inline int gmr_reject(struct gmr_runtime *r,const struct gmr_action *a,int error) {
+    unsigned i;struct gmr_action rejected;
+    if(!r || !a || error<=GMR_OK || error>GMR_UNCERTAIN)return GMR_ARGUMENT;
+    if(r->dispatching)return GMR_BUSY;
+    for(i=0;i<GMR_PENDING;i++)if(r->pending[i].used &&
+        r->pending[i].action.kind==a->kind &&
+        gmr_identity_equal(&r->pending[i].action.id,&a->id))break;
+    if(i==GMR_PENDING)return GMR_STALE;
+    rejected=r->pending[i].action;r->pending[i].used=0;r->state.pending_count--;
+    gmr_failure(r,&rejected,error,0);gmr_notify(r);return error;
+}
 static inline int gmr_simple(struct gmr_runtime *r,uint32_t kind) {
     struct gmr_action a;uint64_t opid=gmr_operation(r,0);
-    gmr_action_init(r,&a,kind,opid,GMR_NO_SLOT,GMR_NO_BEARER);return gmr_emit(r,&a);
+    gmr_action_init(r,&a,kind,opid,GMR_NO_SLOT,GMR_NO_BEARER);
+    if(kind==GMR_ACT_DATA_DRAIN)a.object=GMR_REMOVE_COMPLETE;
+    return gmr_emit(r,&a);
 }
 static inline int gmr_storage_reply(struct gmr_runtime *r,struct gmr_storage_record *record,uint64_t opid) {
     struct gmr_action a;
@@ -217,7 +238,8 @@ static inline void gmr_invalidate(struct gmr_runtime *r) {
         r->state.slots[i].sim=GMR_SIM_UNKNOWN;r->state.slots[i].registration=GMR_REG_UNKNOWN;
         r->state.slots[i].packet_attached=0;r->state.slots[i].roaming_known=0;r->state.slots[i].ims=GMR_IMS_OFF;
         if(r->state.slots[i].call!=GMR_CALL_IDLE)r->state.slots[i].call=GMR_CALL_UNCERTAIN;
-        if(r->state.slots[i].sms==GMR_SMS_SUBMITTING)r->state.slots[i].sms=GMR_SMS_UNCERTAIN;
+        if(r->state.slots[i].sms==GMR_SMS_SUBMITTING || r->state.slots[i].sms==GMR_SMS_ACCEPTED)
+            r->state.slots[i].sms=GMR_SMS_UNCERTAIN;
     }
     for(i=0;i<GMR_BEARERS;i++)if(r->state.bearers[i].state!=GMR_BEARER_DOWN)
         r->state.bearers[i].state=GMR_BEARER_UNCERTAIN;
@@ -358,6 +380,11 @@ static inline int gmr_submit(struct gmr_runtime *r,const struct gmr_command *c) 
     if(c->kind!=GMR_CMD_STORAGE_WRITE && c->kind!=GMR_CMD_STORAGE_FLUSH && c->slot>=GMR_SLOTS)
         return GMR_ARGUMENT;
     if(c->kind<GMR_CMD_QUERY_SIM || c->kind>GMR_CMD_RF_MODE)return GMR_ARGUMENT;
+    /* These global operations change subscription/RF state at completion.
+     * Do not issue new slot work while their old state is still observable. */
+    if(c->kind!=GMR_CMD_STORAGE_WRITE && c->kind!=GMR_CMD_STORAGE_FLUSH &&
+        (gmr_action_pending(r,GMR_ACT_SELECT_SLOT) || gmr_action_pending(r,GMR_ACT_RF_MODE)))
+        return GMR_BUSY;
     opid=gmr_operation(r,c->opid);if(!opid)return GMR_BUSY;
     s=c->slot<GMR_SLOTS?&r->state.slots[c->slot]:NULL;
     switch(c->kind) {
@@ -407,15 +434,15 @@ static inline int gmr_submit(struct gmr_runtime *r,const struct gmr_command *c) 
         gmr_action_init(r,&a,GMR_ACT_VOICE_STOP,opid,c->slot,GMR_NO_BEARER);
         a.handle=s->call_id;s->call=GMR_CALL_STOPPING;break;
     case GMR_CMD_SMS_SEND:
-        if(s->sms==GMR_SMS_SUBMITTING || s->sms==GMR_SMS_ACCEPTED ||
-            s->sms==GMR_SMS_UNCERTAIN)return GMR_BUSY;
+        if(gmr_sms_active(s))return GMR_BUSY;
         if(s->sim!=GMR_SIM_READY || s->registration!=GMR_REG_REGISTERED ||
             !c->bytes)return GMR_STATE;
         gmr_action_init(r,&a,GMR_ACT_SMS_SEND,opid,c->slot,GMR_NO_BEARER);
         s->sms=GMR_SMS_SUBMITTING;a.bytes=c->bytes;gmq_copy(a.payload,c->payload,c->bytes);break;
     case GMR_CMD_SELECT_SLOT:
         if(r->state.pending_count || gmr_slot_has_bearer(r,0) || gmr_slot_has_bearer(r,1) ||
-            r->state.slots[0].call!=GMR_CALL_IDLE || r->state.slots[1].call!=GMR_CALL_IDLE)return GMR_BUSY;
+            r->state.slots[0].call!=GMR_CALL_IDLE || r->state.slots[1].call!=GMR_CALL_IDLE ||
+            gmr_sms_active(&r->state.slots[0]) || gmr_sms_active(&r->state.slots[1]))return GMR_BUSY;
         gmr_action_init(r,&a,GMR_ACT_SELECT_SLOT,opid,c->slot,GMR_NO_BEARER);break;
     case GMR_CMD_PACKET_TX:
         if(c->bearer>=GMR_BEARERS)return GMR_ARGUMENT;
@@ -433,7 +460,9 @@ static inline int gmr_submit(struct gmr_runtime *r,const struct gmr_command *c) 
     case GMR_CMD_RF_MODE:
         if(c->object>1)return GMR_ARGUMENT;
         if(r->state.pending_count || gmr_slot_has_bearer(r,0) || gmr_slot_has_bearer(r,1) ||
-            r->state.slots[0].call!=GMR_CALL_IDLE || r->state.slots[1].call!=GMR_CALL_IDLE)return GMR_BUSY;
+            r->state.slots[0].call!=GMR_CALL_IDLE || r->state.slots[1].call!=GMR_CALL_IDLE ||
+            (!c->object && (gmr_sms_active(&r->state.slots[0]) ||
+                           gmr_sms_active(&r->state.slots[1]))))return GMR_BUSY;
         gmr_action_init(r,&a,GMR_ACT_RF_MODE,opid,GMR_NO_SLOT,GMR_NO_BEARER);
         a.object=c->object;break;
     default:return GMR_UNSUPPORTED;
@@ -456,6 +485,15 @@ static inline int gmr_qmi_complete(struct gmr_runtime *r,const struct gmr_action
     struct gmr_slot *s=&r->state.slots[a->id.slot];
     struct gmr_bearer *b=a->id.bearer<GMR_BEARERS?&r->state.bearers[a->id.bearer]:NULL;
     int e=GMQ_UNSUPPORTED;
+    uint64_t verdict=r->ops.qmi_check?r->ops.qmi_check(r->ops.ctx,a,v):
+        gmr_proto_check(a->qmi_kind,a->id.txn,v->payload,v->bytes);
+    if(!gmr_proto_result_valid(verdict))
+        verdict=gmr_proto_check(a->qmi_kind,a->id.txn,v->payload,v->bytes);
+    e=(int)(verdict&255u);
+    if(e) {
+        e=e==GMQ_REMOTE?GMR_REMOTE:GMR_PROTOCOL;
+        gmr_failure(r,a,e,e!=GMR_REMOTE);return e;
+    }
     switch(a->qmi_kind) {
     case GMR_QMI_SIM: {
         struct gmq_sim_status sim;uint16_t ix;unsigned pin;
@@ -473,7 +511,7 @@ static inline int gmr_qmi_complete(struct gmr_runtime *r,const struct gmr_action
             else s->sim=GMR_SIM_LOCKED;
         }
         if(s->sim!=GMR_SIM_READY && (gmr_slot_has_bearer(r,a->id.slot) ||
-            s->call!=GMR_CALL_IDLE || s->sms==GMR_SMS_SUBMITTING || s->ims==GMR_IMS_REGISTERED))
+            s->call!=GMR_CALL_IDLE || gmr_sms_active(s) || s->ims==GMR_IMS_REGISTERED))
             return gmr_begin_stop(r,1);
         return GMR_OK;
     }
@@ -622,6 +660,9 @@ static inline int gmr_complete(struct gmr_runtime *r,const struct gmr_action *a,
         for(i=0;i<GMR_SLOTS;i++){r->state.slots[i].call=GMR_CALL_IDLE;r->state.slots[i].call_id=0;}
         break;
     case GMR_ACT_DATA_DRAIN:
+        if((v->value&GMR_REMOVE_COMPLETE)!=GMR_REMOVE_COMPLETE) {
+            gmr_failure(r,a,GMR_PROTOCOL,1);return GMR_PROTOCOL;
+        }
         for(i=0;i<GMR_BEARERS;i++)gmr_bearer_clear(&r->state.bearers[i]);
         break;
     case GMR_ACT_IPC_STOP:r->state.ipc_running=0;r->state.ipc_prepared=0;break;
@@ -697,7 +738,8 @@ static inline int gmr_process_event(struct gmr_runtime *r,const struct gmr_event
         i=(unsigned)gmr_begin_stop(r,1);r->state.slots[v->id.slot].sim=GMR_SIM_ABSENT;return (int)i;
     case GMR_EV_SIM_CHANGED:
         if(v->id.service!=GMQ_SERVICE_UIM)return GMR_PROTOCOL;
-        if(gmr_slot_has_bearer(r,v->id.slot) || slot->call!=GMR_CALL_IDLE)return gmr_begin_stop(r,1);
+        if(gmr_slot_has_bearer(r,v->id.slot) || slot->call!=GMR_CALL_IDLE ||
+            gmr_sms_active(slot))return gmr_begin_stop(r,1);
         for(i=0;i<GMR_PENDING;i++)if(r->pending[i].used && r->pending[i].action.id.slot==v->id.slot) {
             if(r->pending[i].action.kind!=GMR_ACT_QMI)return gmr_begin_stop(r,1);
             r->pending[i].used=0;r->state.pending_count--;
@@ -732,6 +774,7 @@ static inline int gmr_process_event(struct gmr_runtime *r,const struct gmr_event
         slot->call=GMR_CALL_STOPPING;a.handle=v->value;return gmr_emit(r,&a);
     case GMR_EV_DATA_RX: {
         struct gmr_bearer *b;int e;unsigned free_index=GMR_EVENTS;
+        if(r->state.lifecycle!=GMR_ONLINE)return GMR_STATE;
         if(v->id.service!=GMQ_SERVICE_WDS || v->id.bearer>=GMR_BEARERS)return GMR_PROTOCOL;
         b=&r->state.bearers[v->id.bearer];
         if(b->state!=GMR_BEARER_UP || b->slot!=v->id.slot || b->slot_generation!=v->id.slot_generation ||

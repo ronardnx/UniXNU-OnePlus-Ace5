@@ -340,7 +340,7 @@ M1 之后每一步都必须同时更新 `hardware/ios16-gpu-*.json` 与对应 `r
 
 | 上游（固定提交） | 关键函数 / 结构 | 本地对应 | 差异 |
 | --- | --- | --- | --- |
-| `adreno_gen7_hwsched_hfi.c` @ `453d8875` | HFI 队列与 `F2H_MSG_MEM_ALLOC` 处理 | `giulia_gpu_hfi_alloc.h`、`_pool.h`、`_pump.h`、`_alloc_impl.h` | 只派发 MEM_ALLOC，其余消息计数丢弃；块分配是 append-only，不回收 |
+| `adreno_gen7_hwsched_hfi.c` @ `453d8875` | HFI 队列与 `F2H_MSG_MEM_ALLOC` 处理 | `giulia_gpu_hfi_alloc.h`、`_pool.h`、`_pump.h`、`_alloc_impl.h` | 只在原生 HFI client 活动时派发 MEM_ALLOC；其他消息保留给明确消费者；块分配是 append-only，不回收 |
 | `adreno_hwsched.c` @ `453d8875` | `adreno_hwsched_register_hw_fence_client()`、CTX0 与 context queue | 无 | `GGSK_CONTROLLER`/`GGSK_FENCE` 没有 provider |
 | `msm_hw_fence.c`、`hw_fence_drv_{ipc,utils,priv}.c` @ `453d8875` | carveout 布局、队列、IPC 方向 | `giulia_gpu_fence*.h`（只读模型/导入）、`giulia_gpu_gunyah_share*.h`（RM/SCM 事务） | 没有控制器映射，也没有完成中断 |
 | `pineapple-hw-fence.dtsi` @ `453d8875` | carveout 物理地址/大小、SID | `GGF_CARVEOUT_PHYSICAL/BYTES`、SID 5 | 常量一致；运行时未接触 |

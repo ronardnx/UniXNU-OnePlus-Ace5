@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "abi": 2,
+  "gateway_abi": 1,
+  "interface_abi": "0x47480001",
+  "state_abi": 1,
+  "kind": "service",
+  "dependencies": [],
+  "modules": [
+    {
+      "driver": "gpu",
+      "domain": 1,
+      "name": "giulia-gpu-proto",
+      "source": "ios16/gpu/hotload/giulia_gpu_proto_module.c"
+    },
+    {
+      "driver": "wifi",
+      "domain": 2,
+      "name": "giulia-wifi-proto",
+      "source": "ios16/wifi/giulia_wifi_protocol_module.c"
+    },
+    {
+      "driver": "audio",
+      "domain": 3,
+      "name": "giulia-audio-proto",
+      "source": "ios16/audio/giulia_audio_hotload_module.c"
+    },
+    {
+      "driver": "modem",
+      "domain": 4,
+      "name": "giulia-modem-proto",
+      "source": "ios16/modem/giulia_modem_proto_module.c"
+    }
+  ],
+  "variants": [
+    {
+      "variant": "baseline",
+      "version": 1,
+      "defines": {
+        "GH_MODULE_VERSION": "1",
+        "GH_FAIL_START": "0",
+        "GH_FAIL_IMPORT": "0",
+        "GH_FAIL_STOP": "0",
+        "GG_PROTO_FAIL_START": "0",
+        "GG_PROTO_FAIL_IMPORT": "0",
+        "GG_PROTO_FAIL_STOP": "0",
+        "GWPR_FAIL_START": "0",
+        "GWPR_FAIL_IMPORT": "0",
+        "GWPR_FAIL_STOP": "0",
+        "NLH_FAIL_START": "0",
+        "NLH_FAIL_IMPORT": "0",
+        "NLH_FAIL_STOP": "0"
+      }
+    },
+    {
+      "variant": "upgrade",
+      "version": 2,
+      "defines": {
+        "GH_MODULE_VERSION": "2",
+        "GH_FAIL_START": "0",
+        "GH_FAIL_IMPORT": "0",
+        "GH_FAIL_STOP": "0",
+        "GG_PROTO_FAIL_START": "0",
+        "GG_PROTO_FAIL_IMPORT": "0",
+        "GG_PROTO_FAIL_STOP": "0",
+        "GWPR_FAIL_START": "0",
+        "GWPR_FAIL_IMPORT": "0",
+        "GWPR_FAIL_STOP": "0",
+        "NLH_FAIL_START": "0",
+        "NLH_FAIL_IMPORT": "0",
+        "NLH_FAIL_STOP": "0"
+      }
+    },
+    {
+      "variant": "fail-start",
+      "version": 2,
+      "defines": {
+        "GH_MODULE_VERSION": "2",
+        "GH_FAIL_START": "1",
+        "GH_FAIL_IMPORT": "0",
+        "GH_FAIL_STOP": "0",
+        "GG_PROTO_FAIL_START": "1",
+        "GG_PROTO_FAIL_IMPORT": "0",
+        "GG_PROTO_FAIL_STOP": "0",
+        "GWPR_FAIL_START": "1",
+        "GWPR_FAIL_IMPORT": "0",
+        "GWPR_FAIL_STOP": "0",
+        "NLH_FAIL_START": "1",
+        "NLH_FAIL_IMPORT": "0",
+        "NLH_FAIL_STOP": "0"
+      }
+    },
+    {
+      "variant": "fail-import",
+      "version": 2,
+      "defines": {
+        "GH_MODULE_VERSION": "2",
+        "GH_FAIL_START": "0",
+        "GH_FAIL_IMPORT": "1",
+        "GH_FAIL_STOP": "0",
+        "GG_PROTO_FAIL_START": "0",
+        "GG_PROTO_FAIL_IMPORT": "1",
+        "GG_PROTO_FAIL_STOP": "0",
+        "GWPR_FAIL_START": "0",
+        "GWPR_FAIL_IMPORT": "1",
+        "GWPR_FAIL_STOP": "0",
+        "NLH_FAIL_START": "0",
+        "NLH_FAIL_IMPORT": "1",
+        "NLH_FAIL_STOP": "0"
+      }
+    },
+    {
+      "variant": "fail-stop",
+      "version": 2,
+      "defines": {
+        "GH_MODULE_VERSION": "2",
+        "GH_FAIL_START": "0",
+        "GH_FAIL_IMPORT": "0",
+        "GH_FAIL_STOP": "1",
+        "GG_PROTO_FAIL_START": "0",
+        "GG_PROTO_FAIL_IMPORT": "0",
+        "GG_PROTO_FAIL_STOP": "1",
+        "GWPR_FAIL_START": "0",
+        "GWPR_FAIL_IMPORT": "0",
+        "GWPR_FAIL_STOP": "1",
+        "NLH_FAIL_START": "0",
+        "NLH_FAIL_IMPORT": "0",
+        "NLH_FAIL_STOP": "1"
+      }
+    }
+  ]
+}

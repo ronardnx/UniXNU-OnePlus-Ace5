@@ -75,4 +75,16 @@ static inline int ggh_receive(const struct ggh_io *io,unsigned q,uint32_t *out,
     io->barrier(io->cookie);h[10]=(r+padded)&1023;io->barrier(io->cookie);
     *count=n;return GGH_OK;
 }
+/* Inspect one complete packet without advancing the consumer. The caller owns
+ * queue consumption; a producer may append but cannot alter this live packet. */
+static inline int ggh_peek(const struct ggh_io *io,unsigned q,uint32_t *header)
+{
+    volatile uint32_t *h,*ring;unsigned r,w,n,padded;int e;
+    if(!header || (q!=1 && q!=2))return GGH_INVALID;
+    e=ggh_queue(io,q,&h,&ring,&r,&w);if(e)return e;
+    if(r==w)return GGH_EMPTY;
+    *header=ring[r];n=(*header>>8)&255;padded=(n+3)&~3u;
+    if(!n || padded>((w-r)&1023))return GGH_CORRUPT;
+    return GGH_OK;
+}
 #endif

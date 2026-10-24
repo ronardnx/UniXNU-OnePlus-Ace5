@@ -3,7 +3,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import tempfile
@@ -23,6 +23,45 @@ from ios16_payload_budget import MIB, fat_geometry, file_budget, loader_budget
 def sha(p):
     with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def stage_hotload_sources(a, binding):
+    """Keep only recorded text sources beside the FAT, never firmware packs."""
+    root=Path(__file__).resolve().parents[1]
+    target=a.out/'hotload-binding'
+    target.mkdir()
+    manifest=json.loads(a.hotload_manifest.read_text(encoding='utf-8'))
+    files={}
+    def copy(source,name,expected=None):
+        relative=PurePosixPath(name)
+        if (relative.is_absolute() or '..' in relative.parts or str(relative)!=name or
+                '\\' in name or ':' in name or source.is_symlink()):
+            raise ValueError('Unsafe hotload snapshot source: '+name)
+        if relative.suffix not in ('.h','.c','.cpp','.inc','.py','.json','.ld','.md','.sh') and relative.name!='LICENSE':
+            raise ValueError('Hotload snapshot accepts pure source files only: '+name)
+        data=source.read_bytes();digest=hashlib.sha256(data).hexdigest()
+        if expected is not None and digest!=expected:
+            raise ValueError('Hotload source changed while making the snapshot: '+name)
+        if b'\0' in data:
+            raise ValueError('Binary input is forbidden in hotload source snapshot: '+name)
+        data.decode('utf-8')
+        destination=target/name;destination.parent.mkdir(parents=True,exist_ok=True)
+        with destination.open('xb') as stream:stream.write(data)
+        files[name]=digest
+    copy(a.hotload_manifest,'source-manifest.json',binding['source_manifest_sha256'])
+    copy(a.hotload_check,'linked-report.json',binding['linked_source_report_sha256'])
+    for name,digest in manifest['files'].items():copy(a.hotload_source/name,'kit/'+name,digest)
+    for name,digest in manifest['device_files'].items():copy(root/name,'device/'+name,digest)
+    copy(root/'scripts/check-ios16-hotload-kernel.py','verifier/check-ios16-hotload-kernel.py',binding['verifier_sha256'])
+    for name in ('make-ios16-payload.py','verify-payload.py','pack-payload.py','build-ios16-wifi-bringup.sh'):
+        copy(root/'scripts'/name,'tooling/'+name)
+    snapshot={'schema':1,'status':'pass','kernel_sha256':binding['kernel_sha256'],
+              'gateway_source_sha256':binding['gateway_source_sha256'],
+              'gateway_selected':binding['gateway_selected'],'source_manifest':'source-manifest.json',
+              'linked_report':'linked-report.json','kit_root':'kit','device_root':'device',
+              'proprietary_firmware_included':False,'files':dict(sorted(files.items()))}
+    (target/'snapshot.json').write_text(json.dumps(snapshot,indent=2)+'\n',encoding='utf-8',newline='\n')
+    binding.update(source_snapshot='hotload-binding/snapshot.json',source_snapshot_sha256=sha(target/'snapshot.json'))
+    return target
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--kernel',type=Path,required=True)
@@ -36,6 +75,9 @@ def main():
     p.add_argument('--debug-terminal',action='store_true',help='Enable root USB PTY device; requires separately staged debug daemon/shell')
     p.add_argument('--debug-mmio',action='store_true',help='Enable explicit low peripheral MMIO commands; requires --debug-terminal')
     p.add_argument('--debug-hotload',action='store_true',help='Enable NLH2 native module updates over USB; requires --debug-terminal and matching kernel')
+    p.add_argument('--hotload-check',type=Path,help='Passing source/linked report for this exact final embedded kernel')
+    p.add_argument('--hotload-manifest',type=Path,help='Exact reviewed resident profile/hotload-module.json')
+    p.add_argument('--hotload-source',type=Path,help='Exact reviewed NativeHotload pure-source directory')
     p.add_argument('--wifi-terminal-wait',action='store_true',help='Wait for wifi.start before DMA initialization so USB captures failures')
     p.add_argument('--trace-services',action='store_true',help='Sample GUI and first-boot migration services')
     p.add_argument('--trace-launch-services',action='store_true',help='Sample lsd and container services with their blocked clients')
@@ -53,6 +95,10 @@ def main():
     if a.default_root and not a.root_report: p.error('Default root requires a root report')
     if a.debug_mmio and not a.debug_terminal:p.error('--debug-mmio requires --debug-terminal')
     if a.debug_hotload and not a.debug_terminal:p.error('--debug-hotload requires --debug-terminal')
+    if a.debug_hotload and not all((a.hotload_check,a.hotload_manifest,a.hotload_source)):
+        p.error('--debug-hotload requires --hotload-check, --hotload-manifest and --hotload-source for the final kernel')
+    if not a.debug_hotload and any((a.hotload_check,a.hotload_manifest,a.hotload_source)):
+        p.error('Hotload identity inputs require --debug-hotload')
     if a.wifi_terminal_wait and (not a.debug_terminal or not a.wifi_pcie):
         p.error('--wifi-terminal-wait requires --debug-terminal and --wifi-pcie')
     if a.out.exists():raise ValueError('Refusing to overwrite output')
@@ -107,7 +153,10 @@ def main():
     if a.debug_mmio:args+=' giulia_mmio=1'
     if a.debug_hotload:
         from ios16_hotload import check_hotload_kernel
-        check_hotload_kernel(a.kernel.read_bytes())
+        hotload_check = json.loads(a.hotload_check.read_text(encoding='utf-8'))
+        hotload_binding = check_hotload_kernel(a.kernel.read_bytes(), hotload_check,
+            manifest=a.hotload_manifest,source=a.hotload_source)
+        hotload_binding['linked_source_report_sha256'] = sha(a.hotload_check)
         args+=' unixnu_hotload=1'
     if a.wifi_terminal_wait:
         if b'GIULIA WIFI: awaiting wifi.start before DMA setup' not in a.kernel.read_bytes():
@@ -176,6 +225,8 @@ def main():
     capacity=a.payload_mib*MIB
     file_budget(files,capacity)
     a.out.mkdir(parents=True)
+    if a.debug_hotload:
+        hotload_snapshot=stage_hotload_sources(a,hotload_binding)
     image=a.out/'payload.img'
     env=dict(os.environ,MTOOLS_SKIP_CHECK='1',TZ='UTC')
     with tempfile.TemporaryDirectory() as td:
@@ -189,9 +240,18 @@ def main():
         geometry=fat_geometry(image.read_bytes())
         allocation=file_budget(files,capacity,geometry)
         subprocess.run(['mcopy','-i',str(image),'-s','-Q','-m',str(stage/'EFI'),'::/'],env=env,check=True)
+        if a.debug_hotload:
+            embedded=stage/'embedded-kernel.macho'
+            subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/Payloads/kernel.macho',str(embedded)],env=env,check=True)
+            final=check_hotload_kernel(embedded.read_bytes(),
+                json.loads((hotload_snapshot/'linked-report.json').read_text(encoding='utf-8')),
+                manifest=hotload_snapshot/'source-manifest.json',source=hotload_snapshot/'kit',
+                device_root=hotload_snapshot/'device')
+            if any(hotload_binding.get(key)!=value for key,value in final.items()):
+                raise ValueError('FAT embedded hotload kernel differs from its real source/link binding')
     data=image.read_bytes()
     if fat_geometry(data)!=geometry:raise ValueError('FAT geometry changed while copying payload files')
-    result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
+    result={'schema':1,'status':'pass','payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
             'payload_mib':a.payload_mib,'payload_geometry':geometry,
             'payload_file_budget':allocation,'loader_budget':loader,
             'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
@@ -200,6 +260,8 @@ def main():
             'debug_terminal_enabled':a.debug_terminal,'debug_mmio_enabled':a.debug_mmio,
             'debug_hotload_enabled':a.debug_hotload,
             'wifi_terminal_wait':a.wifi_terminal_wait}
+    if a.debug_hotload:
+        result['hotload_binding'] = hotload_binding
     if a.root_report:
         result.update(root_sha256=root['sha256'],root_finder_id=ident,default_entry='ios16' if a.default_root else 'xnu',
                       root_kernel_args=root_args,ios_platform_launch_compat=True,launchd_job_cache_compat=True,

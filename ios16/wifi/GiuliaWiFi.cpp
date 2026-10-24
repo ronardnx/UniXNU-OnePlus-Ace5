@@ -44,6 +44,7 @@ extern unsigned long gPhysBase,gPhysSize,gVirtBase;
 #include "giulia_wifi_firmware.h"
 #include "giulia_wifi_firmware_pin.h"
 #include "../platform/giulia_platform_qmp.h"
+#include "../common/giulia_hotload.h"
 #include "giulia_wifi_pmu.h"
 #include "giulia_wifi_boot_status.h"
 #include "giulia_wifi_mapping.h"
@@ -97,7 +98,9 @@ struct giulia_wifi_runtime {
     ifnet_t interface;uint8_t mac[6];unsigned ready,powered,scan_pending,stage,error,quarantine,qmp_retained;
     unsigned pdc_configured,pdc_commands_consumed,pmu_commands_consumed;
     uint64_t status_published_ms;
-    IO80211Interface *service;unsigned stopping,worker_running;
+    uint64_t protocol_epoch,protocol_calls,protocol_native,protocol_fallback,protocol_rejected;
+    uint64_t protocol_mismatch,protocol_oversize,protocol_qmi,protocol_wmi;
+    IO80211Interface *service;unsigned stopping,worker_running,terminal_wait_owned;
     const char *error_domain,*operation;unsigned pci_trace,smmu_last_offset,smmu_last_value,smmu_seen,debug_wait;
     unsigned mhi_last_offset,mhi_last_value,mhi_seen;
 };
@@ -114,15 +117,29 @@ static struct {
     giulia_wifi_runtime *owner;
     struct qpt_state state;
 } gw_qmp;
-static unsigned gw_terminal_go,gw_terminal_waiting;
+enum gw_terminal_gate_state { GW_GATE_CLOSED,GW_GATE_WAITING,GW_GATE_RELEASED,GW_GATE_CANCELLED };
+static unsigned gw_terminal_gate;
+static uint64_t gw_protocol_next_epoch;
+static uint64_t gw_protocol_epoch_allocate(void) {
+    uint64_t value=__atomic_load_n(&gw_protocol_next_epoch,__ATOMIC_RELAXED);
+    for(;;) {
+        if(value==UINT64_MAX)return 0;
+        if(__atomic_compare_exchange_n(&gw_protocol_next_epoch,&value,value+1u,0,__ATOMIC_RELAXED,__ATOMIC_RELAXED))return value+1u;
+    }
+}
 static struct gwb_mailbox gw_terminal_snapshot;
 extern "C" int giulia_wifi_terminal(const char *command) {
     if(strcmp(command,"wifi.start") && strcmp(command,"wifi.status"))return 0;
     int enabled=0;PE_parse_boot_argn("giulia_debug",&enabled,sizeof(enabled));
     if(enabled!=1){IOLog("GIULIA WIFI: terminal control requires giulia_debug=1\n");return 1;}
-    if(!strcmp(command,"wifi.start"))__atomic_store_n(&gw_terminal_go,1u,__ATOMIC_RELEASE);
-    IOLog("GIULIA WIFI: terminal command=%s start_requested=%u waiting=%u\n",command,
-        __atomic_load_n(&gw_terminal_go,__ATOMIC_ACQUIRE),__atomic_load_n(&gw_terminal_waiting,__ATOMIC_ACQUIRE));
+    if(!strcmp(command,"wifi.start")) {
+        unsigned expected=GW_GATE_WAITING;
+        if(!__atomic_compare_exchange_n(&gw_terminal_gate,&expected,(unsigned)GW_GATE_RELEASED,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE))
+            IOLog("GIULIA WIFI: start rejected gate=%u; only the current pre-DMA wait can be released once\n",expected);
+    }
+    unsigned gate=__atomic_load_n(&gw_terminal_gate,__ATOMIC_ACQUIRE);
+    IOLog("GIULIA WIFI: terminal command=%s start_requested=%u waiting=%u gate=%u\n",command,
+        (unsigned)(gate==GW_GATE_RELEASED),(unsigned)(gate==GW_GATE_WAITING),gate);
     struct gwb_snapshot snapshot;
     if(!gwb_read(&gw_terminal_snapshot,&snapshot)) {
         IOLog("GIULIA WIFI: boot snapshot unavailable; worker has not published or is updating\n");return 1;
@@ -142,6 +159,19 @@ extern "C" int giulia_wifi_terminal(const char *command) {
     IOLog("GIULIA WIFI: boot pdc_configured=%u defaults_consumed=%u overrides_consumed=%u qmp_phase=%u qmp_pending=%u qmp_retained=%u\n",
         (unsigned)s[GWB_PDC_CONFIGURED],(unsigned)s[GWB_PDC_CONSUMED],(unsigned)s[GWB_PMU_CONSUMED],
         (unsigned)s[GWB_QMP_PHASE],(unsigned)s[GWB_QMP_PENDING],(unsigned)s[GWB_QMP_RETAINED]);
+    IOLog("GIULIA WIFI: ownership mhi_master=%u mhi_running=%u ce_active=%u dp_prepared=%u dp_active=%u dp_quarantine=%u smmu_active=%u smmu_changed=%u\n",
+        (unsigned)s[GWB_MHI_MASTER],(unsigned)s[GWB_MHI_RUNNING],(unsigned)s[GWB_CE_ACTIVE],
+        (unsigned)s[GWB_DP_PREPARED],(unsigned)s[GWB_DP_ACTIVE],(unsigned)s[GWB_DP_QUARANTINE],
+        (unsigned)s[GWB_SMMU_ACTIVE],(unsigned)s[GWB_SMMU_CHANGED]);
+    IOLog("GIULIA WIFI: shutdown mhi_phase=%u mhi_error=%u reset_complete=%u ready_complete=%u master_stopped=%u post_reset_ee=0x%x\n",
+        (unsigned)s[GWB_MHI_STOP_PHASE],(unsigned)s[GWB_MHI_STOP_ERROR],(unsigned)s[GWB_MHI_RESET_COMPLETE],
+        (unsigned)s[GWB_MHI_READY_COMPLETE],(unsigned)s[GWB_MHI_MASTER_STOPPED],(unsigned)s[GWB_MHI_STOP_EE]);
+    IOLog("GIULIA WIFI: hotload epoch=%llu calls=%llu native=%llu fallback=%llu rejected=%llu mismatch=%llu oversize=%llu qmi=%llu wmi=%llu\n",
+        (unsigned long long)s[GWB_PROTOCOL_EPOCH],(unsigned long long)s[GWB_PROTOCOL_CALLS],
+        (unsigned long long)s[GWB_PROTOCOL_NATIVE],(unsigned long long)s[GWB_PROTOCOL_FALLBACK],
+        (unsigned long long)s[GWB_PROTOCOL_REJECTED],(unsigned long long)s[GWB_PROTOCOL_MISMATCH],
+        (unsigned long long)s[GWB_PROTOCOL_OVERSIZE],(unsigned long long)s[GWB_PROTOCOL_QMI],
+        (unsigned long long)s[GWB_PROTOCOL_WMI]);
     return 1;
 }
 class IONetworkController : public IOService { OSDeclareDefaultStructors(IONetworkController); };
@@ -227,6 +257,31 @@ static void gw_write_region(giulia_wifi_runtime *r,unsigned id,size_t offset,uin
 }
 static void gw_delay(void *,unsigned us) {if(us>=1000)IOSleep((us+999)/1000);else if(us)IODelay(us);}
 static uint64_t gw_now(void *) {uint64_t ns=0;absolutetime_to_nanoseconds(mach_absolute_time(),&ns);return ns/1000000;}
+/* The worker owns the packet and epoch for this synchronous call. The bridge
+ * copies only TLV shapes; module STOP never takes this driver's lock or owns
+ * its hardware. A native answer must preserve the full resident validator. */
+extern "C" __attribute__((noinline)) uint64_t giulia_wifi_hotload_decide(void *context,unsigned operation,unsigned message,unsigned flag,const void *data,size_t bytes) {
+    giulia_wifi_runtime *r=(giulia_wifi_runtime *)context;
+    uint64_t baseline=gwpr_baseline(operation,message,flag,data,bytes),response=baseline;
+    uint64_t request[GWPR_MAX_WORDS]={},epoch=r->protocol_epoch;
+    r->protocol_calls++;if(operation==GWPR_QMI)r->protocol_qmi++;else if(operation==GWPR_WMI)r->protocol_wmi++;
+    unsigned words=gwpr_request(request,operation,message,flag,data,bytes);
+    int error=GH_UNAVAILABLE;
+    if(words && epoch && !__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE))
+        error=giulia_hotload_select(GH_DOMAIN_WIFI,epoch,operation,request,words,&response,1);
+    if(!error && epoch==r->protocol_epoch && !__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE) && response==baseline)
+        r->protocol_native++;
+    else {
+        if(!error && response!=baseline)r->protocol_mismatch++;
+        if(!words)r->protocol_oversize++;
+        r->protocol_fallback++;response=baseline;
+    }
+    if(gwpr_status(response)!=GWPR_VALID && gwpr_status(response)!=GWPR_BYPASS)r->protocol_rejected++;
+    return response;
+}
+static __attribute__((noinline)) uint64_t gw_protocol_select(void *context,unsigned operation,unsigned message,unsigned flag,const void *data,size_t bytes) {
+    return giulia_wifi_hotload_decide(context,operation,message,flag,data,bytes);
+}
 /* Called only by the hardware worker, including its synchronous callbacks.
  * mode=0 throttles polling; 1 forces a checkpoint; 2 publishes final state. */
 static void gw_publish_status(giulia_wifi_runtime *r,unsigned mode) {
@@ -241,10 +296,21 @@ static void gw_publish_status(giulia_wifi_runtime *r,unsigned mode) {
     s[GWB_MEMORY_READY]=r->qmi.mem_ready;s[GWB_PROVISIONED]=r->qmi.provisioned;s[GWB_FW_READY]=r->qmi.fw_ready;
     s[GWB_PDC_CONFIGURED]=r->pdc_configured;s[GWB_PDC_CONSUMED]=r->pdc_commands_consumed;s[GWB_PMU_CONSUMED]=r->pmu_commands_consumed;
     s[GWB_QMP_PHASE]=gw_qmp.state.phase;s[GWB_QMP_PENDING]=gw_qmp.state.pending;s[GWB_QMP_RETAINED]=r->qmp_retained;
-    s[GWB_QUARANTINE]=r->quarantine||r->mhi.quarantined||r->translation.quarantined;
+    s[GWB_QUARANTINE]=r->quarantine||r->mhi.quarantined||r->translation.quarantined||r->ce.quarantine||r->dp.quarantine;
     s[GWB_INTERFACE_READY]=r->ready && r->service!=NULL;
     s[GWB_PIN_VALID]=r->qmi.pin_valid;s[GWB_PIN_POWER]=r->qmi.pin_result[0];
     s[GWB_PIN_PHY]=r->qmi.pin_result[1];s[GWB_PIN_RF]=r->qmi.pin_result[2];
+    s[GWB_MHI_MASTER]=r->mhi.bus_master;s[GWB_MHI_RUNNING]=r->mhi.running;
+    s[GWB_MHI_STOP_PHASE]=r->mhi.stop_phase;s[GWB_MHI_STOP_ERROR]=r->mhi.stop_error;
+    s[GWB_MHI_RESET_COMPLETE]=r->mhi.reset_complete;s[GWB_MHI_READY_COMPLETE]=r->mhi.ready_complete;
+    s[GWB_MHI_MASTER_STOPPED]=r->mhi.master_stopped;s[GWB_MHI_STOP_EE]=r->mhi.stop_ee;
+    s[GWB_CE_ACTIVE]=r->ce.active;s[GWB_DP_PREPARED]=r->dp.prepared;
+    s[GWB_DP_ACTIVE]=r->dp.active;s[GWB_DP_QUARANTINE]=r->dp.quarantine;
+    s[GWB_SMMU_ACTIVE]=r->translation.active;s[GWB_SMMU_CHANGED]=r->translation.changed;
+    s[GWB_PROTOCOL_EPOCH]=r->protocol_epoch;s[GWB_PROTOCOL_CALLS]=r->protocol_calls;
+    s[GWB_PROTOCOL_NATIVE]=r->protocol_native;s[GWB_PROTOCOL_FALLBACK]=r->protocol_fallback;
+    s[GWB_PROTOCOL_REJECTED]=r->protocol_rejected;s[GWB_PROTOCOL_MISMATCH]=r->protocol_mismatch;
+    s[GWB_PROTOCOL_OVERSIZE]=r->protocol_oversize;s[GWB_PROTOCOL_QMI]=r->protocol_qmi;s[GWB_PROTOCOL_WMI]=r->protocol_wmi;
     gwb_publish(&gw_terminal_snapshot,&snapshot);r->status_published_ms=now;
 }
 static uint32_t gl_read(void *v,unsigned region,unsigned offset) {
@@ -688,12 +754,19 @@ static int gw_bringup(giulia_wifi_runtime *r) {
     int wait=0;PE_parse_boot_argn("giulia_wifi_wait",&wait,sizeof(wait));
     if(wait==1) {
         r->operation="await-terminal-start";r->debug_wait=1;
-        __atomic_store_n(&gw_terminal_waiting,1u,__ATOMIC_RELEASE);
+        /* Publish this worker's pre-DMA checkpoint before accepting a command.
+         * A command issued before the wait or after release cannot pre-arm it. */
+        gw_publish_status(r,1);
+        unsigned expected=GW_GATE_CLOSED;
+        if(!__atomic_compare_exchange_n(&gw_terminal_gate,&expected,(unsigned)GW_GATE_WAITING,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE))return 10;
+        __atomic_store_n(&r->terminal_wait_owned,1u,__ATOMIC_RELEASE);
         IOLog("GIULIA WIFI: awaiting wifi.start before DMA setup\n");
-        while(!__atomic_load_n(&gw_terminal_go,__ATOMIC_ACQUIRE) &&
+        while(__atomic_load_n(&gw_terminal_gate,__ATOMIC_ACQUIRE)==GW_GATE_WAITING &&
               !__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE)){gw_publish_status(r,0);IOSleep(25);}
-        __atomic_store_n(&gw_terminal_waiting,0u,__ATOMIC_RELEASE);
-        if(__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE))return 10;
+        if(__atomic_load_n(&r->stopping,__ATOMIC_ACQUIRE)) {
+            __atomic_store_n(&gw_terminal_gate,(unsigned)GW_GATE_CANCELLED,__ATOMIC_RELEASE);return 10;
+        }
+        if(__atomic_load_n(&gw_terminal_gate,__ATOMIC_ACQUIRE)!=GW_GATE_RELEASED)return 10;
         IOLog("GIULIA WIFI: terminal released DMA setup\n");
     }
     /* CNSS configures the board PDC table when opening its AOP interface,
@@ -715,9 +788,9 @@ static int gw_bringup(giulia_wifi_runtime *r) {
     r->error_domain="WIFI_SETUP";r->operation="msi-sink";
     if(!gwp_msi_sink(&r->pio,&r->pci,&r->msi,GW_IOVA,GW_ARENA_BYTES,GW_IOVA+GWM_MSI_SINK))return 7;
     r->mio=(struct gwm_io){r,gm_read,gm_write,gw_delay,gm_ready,gm_master,gm_verify,gm_sync,gm_receive,r->memory,GW_IOVA,GW_ARENA_BYTES,GWMAP_BAR_DIRECT_BYTES};
-    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START,gw_now,gq_power,GW_IOVA,GW_ARENA_BYTES};
+    r->qio=(struct gwq_io){r,gq_send,gq_pump,gq_allocate,gq_clean,gq_asset,GW_IOVA+GW_ALLOC_START,GW_ARENA_BYTES-GW_ALLOC_START,gw_now,gq_power,GW_IOVA,GW_ARENA_BYTES,gw_protocol_select};
     r->cio=(struct gwc_io){r,gc_read,gc_write,gm_ready,gc_sync,gc_receive,r->memory+GW_CE_OFFSET,GW_IOVA+GW_CE_OFFSET};
-    r->wio=(struct gww_io){r,gw_send,gw_pump,gw_now,gw_notice};
+    r->wio=(struct gww_io){r,gw_send,gw_pump,gw_now,gw_notice,gw_protocol_select};
     r->stage=4;r->error_domain="MHI";r->operation="mhi-probe";
     e=gwm_probe(&r->mio,&r->mhi);
     IOLog("GIULIA MHI: probe result=%d soc=0x%x major=%u bhi=0x%x bhie=0x%x ee=%u\n",
@@ -769,10 +842,10 @@ static int gw_bringup(giulia_wifi_runtime *r) {
         gwq_boot_name(r->qmi.boot_step),r->qmi.registration_status_present,(unsigned long long)r->qmi.registration_status,
         r->qmi.pin_indications,r->qmi.pin_valid,r->qmi.pin_result[0],r->qmi.pin_result[1],r->qmi.pin_result[2]);
     gw_dma_snapshot(r,"after-qmi-initialize");
-    if(e)return e;
     IOLog("GIULIA QMI: requested_memory count=%u bytes=%llu failed_index=%u failed_type=%u\n",
         r->qmi.mem_request_count,(unsigned long long)r->qmi.mem_requested_bytes,
         r->qmi.mem_failure_index,r->qmi.mem_failure_type);
+    if(e)return e;
     r->error_domain="CE";r->operation="ce-initialize";
     r->stage=6;e=gwc_init(&r->ce,&r->cio);if(e)return e;
     uint8_t pipes[180],services[168];gwc_qmi_tables(pipes,services);
@@ -795,6 +868,9 @@ static void gw_shutdown(giulia_wifi_runtime *r) {
     r->firmware.valid=0;OSSafeReleaseNULL(r->firmware_map);OSSafeReleaseNULL(r->firmware_memory);
     if(r->ce.active && !gwc_stop(&r->ce,&r->cio))r->quarantine=1;
     if(r->mhi.bus_master && !gwm_stop(&r->mio,&r->mhi))r->quarantine=1;
+    if(r->mhi.stop_phase)IOLog("GIULIA MHI: shutdown phase=%u error_phase=%u reset_complete=%u ready_complete=%u master_stopped=%u post_reset_ee=0x%x quarantined=%u\n",
+        r->mhi.stop_phase,r->mhi.stop_error,r->mhi.reset_complete,r->mhi.ready_complete,
+        r->mhi.master_stopped,r->mhi.stop_ee,r->mhi.quarantined);
     if(r->pci.ready && !gwp_master(&r->pio,&r->pci,0,0))r->quarantine=1;
     if(r->quarantine || r->mhi.quarantined || r->translation.quarantined)return; /* Never free/retarget outstanding DMA. */
     if((r->dp.prepared || r->dp.saved_count) && !gwd_stop(&r->dp,&r->dio)){r->quarantine=1;return;}
@@ -852,6 +928,8 @@ bool IO80211Controller::start(IOService *provider) {
     unsigned handoff=(unsigned)gw_handoff();
     if(!handoff){IOLog("GIULIA WIFI: no valid enumerated/prepared handoff; PCIe resource ownership unavailable\n");return false;}
     r=(giulia_wifi_runtime *)IOMallocZero(sizeof(*r));if(!r)return false;r->owner=this;r->lock=IOLockAlloc();if(!r->lock)return false;
+    r->protocol_epoch=gw_protocol_epoch_allocate();
+    if(!r->protocol_epoch)return false; /* Never reuse a wrapped owner epoch. */
     r->handoff_mode=handoff;
     IORegistryEntry *chosen=IORegistryEntry::fromPath("/chosen",gIODTPlane);if(!chosen)return false;
     OSData *mac=OSDynamicCast(OSData,chosen->getProperty("mac-address-wifi0"));
@@ -863,6 +941,10 @@ bool IO80211Controller::start(IOService *provider) {
 }
 void IO80211Controller::stop(IOService *provider) {
     if(r){__atomic_store_n(&r->stopping,1u,__ATOMIC_RELEASE);
+        if(__atomic_load_n(&r->terminal_wait_owned,__ATOMIC_ACQUIRE)) {
+            unsigned expected=GW_GATE_WAITING;
+            (void)__atomic_compare_exchange_n(&gw_terminal_gate,&expected,(unsigned)GW_GATE_CANCELLED,0,__ATOMIC_ACQ_REL,__ATOMIC_ACQUIRE);
+        }
         while(__atomic_load_n(&r->worker_running,__ATOMIC_ACQUIRE))IOSleep(5);}
     IONetworkController::stop(provider);
 }

@@ -14,7 +14,8 @@
   [qmi.c](https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/blob/453d8875f815bf9dfad9035982861226a4823a6c/vendor/qcom/opensource/wlan/platform/cnss2/qmi.c)、`qmi.h`、`Kconfig`，以及 `cnss_utils/wlan_firmware_service_v01.{c,h}`。
 - 内核总线：一加 Ace 5 分支已固定的 `66305c56af1fcd7299c906c3257e585be93d93ed`，
   [MHI boot.c](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/boot.c)、
-  [MHI pm.c](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/pm.c)、`init.c`。
+  [MHI pm.c](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/pm.c)、
+  [MHI main.c](https://github.com/OnePlusOSS/android_kernel_oneplus_sm8650/blob/66305c56af1fcd7299c906c3257e585be93d93ed/drivers/bus/mhi/host/main.c)、`internal.h`、`init.c`、`include/linux/mhi.h`。
   PCIe RC 的同版来源及与 ROM 模块的有限对照见 `hardware/sm8650-wifi-stock-init.json`。
 - 实机设备树：`/soc/qcom,cnss-kiwi@b0000000`，DTS SHA-256
   `a23d858906208fcd7f9567aa6d6d7847e9e03fd5da448dd8e3b9a298a81de0a1`，
@@ -56,7 +57,7 @@
 | `FW_INIT_DONE (0x38)` → driver probe | `gwq_initialize` 同时要求 `provisioned` 和真实 indication；随后 CE、WLAN_CFG/MODE、WMI | 原厂也是 ready 后再 probe；不前移 WLAN_MODE，也不接受 legacy 0x21 代替 ready |
 | 冷启动校准：`CNSS_IN_COLD_BOOT_CAL`、CAL_REPORT、CALIBRATION mode | 当前只实现 mission，`cal_done` 不伪造为 1 | **缺少完整 CBC、校准文件装载、完成通知和重启流程**；该分支在 FW_INIT_DONE 后，不解释此前未收到 ready |
 | 异常：timeout、server exit、SYS_ERR/RDDM | 有界超时／错误、诊断快照、停止 DMA、隔离不确定资源 | **缺少原厂 RDDM vector/dump 与 SSR/断电重试闭环**；不自动重试已停止实例 |
-| 退出与释放：MHI poweroff → bus disable → SMMU teardown | `gw_shutdown` 停 DP/CE/MHI、关闭并排空 BME、确认后恢复 MSI/SID/SMMU/PCI；保留不确定 QMP | UEFI 供电票据继续保留，XNU 无完整原厂 power-off。释放 host backing 不等于关闭所有硬件电源 |
+| 退出与释放：MHI poweroff → bus disable → SMMU teardown | `gw_shutdown` 关闭数据端口、停 CE；`gwm_stop` 等 RESET 清零、重写 BHI_INTVEC、读 EE，非 PBL 类等待 READY，再关闭并排空 BME；确认后停 DP 并恢复 MSI/SID/SMMU/PCI；保留不确定 QMP | reset/READY/PCI 停止任一步失败都隔离；UEFI 供电票据继续保留，XNU 无完整原厂 power-off。释放 host backing 不等于关闭所有硬件电源 |
 | suspend/resume：CNSS PM domain、MHI M3、PCI runtime PM | 当前持续轮询／保持活动状态 | **缺少完整休眠恢复、wake IRQ、恢复次序**；不把软件接口 DOWN 当硬件 suspend |
 
 ## 条件分支核对
@@ -109,7 +110,9 @@ CAP 覆盖消费 7（仅针对已捕获的那份 CAP）、REGDB/BDF/M3，然后�
 RPC/indication、QMP pending、SMMU/AER 与原始启动日志。单独的 `M3-info` 或
 `commands consumed` 不能作为固件完成证据。
 
-本轮主机枚举结果为 **no ports found**，尚不能执行终端实机操作。
+上一轮主机枚举为 **no ports found**，没有执行启动采集。2026-10-24 13:06，
+主控已在唯一串口会话取得 `waiting=1 active=1 stage=3 error=0 quarantine=0` 的
+启动前快照；其时 MHI/QMI 尚未运行。这只确认等待门，未确认固件完成启动。
 依工作区规定，待终端验证参数、时序与失败处理成功后，再推进本轮流程的 UEFI 集成；
 本轮没有改写 UEFI 上电顺序、刷写分区或伪造实机完成记录。
 
@@ -131,3 +134,72 @@ RPC/indication、QMP pending、SMMU/AER 与原始启动日志。单独的 `M3-in
 - 本地产物位于 `.cache/wifi-chain-review-20261024/`，包括两个 profile、
   生成源码、`boot-compile.o` 和 `artifact-report.json`。未构建可启动内核／镜像、
   未触发远程 CI，`FW_INIT_DONE` 和引脚报告仍需新内核实机验证。
+
+## 2026-10-24 热加载边界续审
+
+本轮 owned 源码修复尚待主控统一构建与实采，不更改上述历史验证结果：
+
+- `FW_INIT_DONE` 在置 ready 前校验固定 WLANFW schema 的可选字段：
+  `0x10=u32`、`0x11=u16`、`0x12=u64`。合法空通知仍可接受；畸形已知字段不能
+  产生 `fw_ready` 或成功时间。内存请求的 count/bytes/failure index/type 在错误
+  返回前输出，便于保留分配失败证据。这些是边界修复，没有证明其为旧超时根因。
+- `mhi_pm_disable_transition` → `gwm_stop`：RESET 清零、BHI_INTVEC 清零读回、
+  EE 有效性和按需 READY 等待。`mhi_poll_reg_field` 的 `25000` 是 25 ms 轮询间隔，
+  每一等待沿用 CNSS 的 10000 ms 预算；PBL/PTHRU/EDL（EE 0/5/6）不等待 READY。
+  当前没有 fatal-link PM 状态或 `rddm_image`，不能冒用上游 skip-reset 条件。
+  失败仍尝试 BME 关闭／排空，但保留首个失败阶段与 quarantine；再次调用不将
+  已失败的停止变为成功。该改动也不提供完整断电／复位后重新启动能力。
+- `wifi.start` 仅以 CAS 释放已发布的 pre-DMA WAITING 门一次。提前、重复、
+  停止后的请求会明确拒绝，不保存一个可在稍后实例触发的全局 go 标志。
+  `wifi.status` 新增 MHI bus-master/running、CE/DP/SMMU 所有权及停止证据，
+  所有字段仍来自 worker 发布的原子快照，终端不会读取运行时指针或设备寄存器。
+
+新增停止阶段为 `0=none, 1=reset, 2=wait-reset, 3=intvec, 4=execenv,
+5=wait-ready, 6=master, 7=done`；`mhi_error` 是首个失败阶段。
+`phase=7` 只说明该停止序列已走到尾端，需同时核对 error=0、quarantine=0、
+reset_complete、按 EE 要求的 ready_complete 以及 master_stopped。
+从未启用 DMA 时这些完成字段为零；不能因此判断停止失败，也不能反过来将
+`fw_ready=0` 解释为没有 DMA。waiting gate 为 `0=closed, 1=waiting, 2=released,
+3=cancelled`，没有 reload/reset/unload 语义。
+
+当前实机旧镜像的 NativeHotload 平台 provider 未接入 Wi-Fi。硬件热替换仍需要受信模块身份、
+owner epoch、typed resource handles、常驻回调与完整停止／回滚契约；不通过
+普通 `NLH_CALL` 标量传内核指针。完成终端实机链路后才推进 UEFI 集成。
+
+## 真实协议算法热替换接入（源码，待统一验证）
+
+`giulia_wifi_protocol.h` 提供完整常驻回退和无指针 TLV shape parser，
+`giulia_wifi_protocol_module.c` 是独立 NLH2 service 源码，名称
+`giulia-wifi-proto`、interface ABI `0x47480001`、state ABI 1、GH domain 2。
+公共调用契约为 `common/giulia_hotload.h`；构建未启用 `GIULIA_HOTLOAD_ENABLED`
+时使用同一完整常驻解析，不产生公共桥未解析符号。
+
+真实入口为 `gm_receive → gwq_receive` 的响应／通知协议验证，以及
+`gc_receive → gww_receive → gww_wmi_receive` 的已知 core WMI 事件。
+两者通过 `gw_protocol_select → giulia_wifi_hotload_decide → giulia_hotload_select`
+读取有界请求并采用经验证的回复。QMI 的来源、transaction、完整 wire framing、
+mission 截止时间、ready/pin 状态与实际收发保持常驻；WMI 内部字段、扫描／peer／
+密钥和监管状态也保持常驻。未知 WMI 事件不新增通用 TLV 限制，重复数组仍合法。
+
+32 个 u64 邮箱包含 3 项 metadata 和最多 29 项 `{tag,length,offset,header_bytes}`
+结构，完全不复制字段值、MAC/SSID/IE、序列号、密钥或设备地址。超容量走完整
+常驻回退。模块返回 status/count/failure-offset/presence 标量；常驻只在同 epoch、
+未停止且回复与完整 baseline 一致时采用。因此当前支持在既有协议验收规则内替换
+解析实现，不能宣称任意改变协议判定或整体驱动重载。epoch 用饱和 CAS 发号，
+耗尽后永久拒绝，模块升级不改变硬件 epoch。
+
+模块私有状态 128 字节，START 执行六组真实解析自检后打开 admission，STOP
+关闭私有入口并检查在途调用为零，EXPORT/IMPORT 仅迁移固定 80 字节计数格式。
+没有设备资源或异步事件迁出常驻层；模块 STOP=0 只证明该纯解析模块已停止。
+故障 variant 为 `GWPR_FAIL_START/IMPORT/STOP=1`，由统一自动化构建，不改变硬件参数。
+
+`wifi.status` 的 `hotload` 行分别记录 epoch、真实接收调用 calls、已采用的 native、
+fallback、rejected、mismatch、oversize 和 QMI/WMI 调用数。模块标量 `hl.call`
+参数 0..6 依次只读 calls/accepts/rejects/imports/starts/stops/bridge_errors，
+不读取当前请求或触发硬件；普通 scalar 无权冒充 resident ticket。
+模块 calls 或公共 dispatches 增长不能单独替代驱动 native adoption 证据。
+
+需要新常驻内核统一编入桥、模块入口与上述修复，再由唯一设备会话装载、升级、
+回滚、卸载及验证真实调用。运行期覆盖依赖真实扫描的 `0x3001/0x7001`，
+普通 HTT 数据包不证明 WMI 切口被调用。若 QMP/MHI 在 QMI 前失败，协议 fixture
+通过也不能算真实协议调用通过；FW_INIT_DONE 与联网验收仍独立记账。

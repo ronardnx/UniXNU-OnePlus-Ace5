@@ -3,7 +3,7 @@
 #define GIULIA_AUDIO_PLATFORM_H
 #include "giulia_audio_runtime.h"
 
-#define GA_PLATFORM_ABI 1u
+#define GA_PLATFORM_ABI 2u
 /* A native platform owner may publish this only after it implements the
  * complete ops contract. Registration is not an ownership grant. Every
  * prerequisites()/pcm_available() call must validate the current epoch.
@@ -15,6 +15,12 @@
  * IPCC map/access and GAN_PROOF_IPCC assertion must additionally validate
  * gpr_global_legacy_ipcc_owns(2u, platform)==1. Registration does not prove the other
  * power, clock, memory-reservation, SMEM or fresh-epoch requirements.
+ * ABI 2 requires checked metadata_release/unprepare completion; a provider
+ * built for ABI 1 cannot prove teardown and must not register unchanged.
+ * unprepare(cookie, boot) receives resident boot evidence. Its provider must
+ * verify boot belongs to its own bound runtime and current native epoch;
+ * copying a stopped boot struct cannot establish ownership. The native
+ * unmap_nc callback likewise reports actual release completion.
  * No producer is currently included: do not claim hardware is connected.
  */
 struct ga_platform {

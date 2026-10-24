@@ -30,6 +30,21 @@ if [ -n "${GIULIA_GPU_MODE:-}" ] && [ -z "$gpu_pack" ]; then
   echo 'GIULIA_GPU_MODE requires explicit GIULIA_GPU_PACK opt-in' >&2
   exit 2
 fi
+# Check the actual input kernel and current reviewed sources before any
+# firmware embedding, loader edits, UEFI work or final image assembly.
+if [ "${GIULIA_DEBUG_HOTLOAD:-0}" = 1 ]; then
+  : "${GIULIA_HOTLOAD_MANIFEST:?Hotload requires the reviewed profile/hotload-module.json}"
+  : "${GIULIA_HOTLOAD_SOURCE:?Hotload requires the exact reviewed NativeHotload source snapshot}"
+  if [ "${GIULIA_DEBUG_TERMINAL:-0}" != 1 ]; then
+    echo 'GIULIA_DEBUG_HOTLOAD requires GIULIA_DEBUG_TERMINAL=1' >&2
+    exit 2
+  fi
+  GIULIA_HOTLOAD_MANIFEST="$(realpath "$GIULIA_HOTLOAD_MANIFEST")"
+  GIULIA_HOTLOAD_SOURCE="$(realpath "$GIULIA_HOTLOAD_SOURCE")"
+  python3 "$port_root/scripts/check-ios16-hotload-kernel.py" "$kernel_input" \
+    --manifest "$GIULIA_HOTLOAD_MANIFEST" --source "$GIULIA_HOTLOAD_SOURCE" \
+    --device-source "$port_root" >/dev/null
+fi
 driver_dir="$uefi_root/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver"
 board_driver="$uefi_root/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe"
 python3 - "$port_root" "$kernel_input" "$runtime_pack" "$gpu_pack" <<'PY'
@@ -94,7 +109,12 @@ gpu_args=()
 if [ -n "$gpu_pack" ]; then gpu_args=(--gpu-mode "$gpu_mode"); fi
 if [ "${GIULIA_DEBUG_TERMINAL:-0}" = 1 ]; then terminal_args+=(--debug-terminal); fi
 if [ "${GIULIA_DEBUG_MMIO:-0}" = 1 ]; then terminal_args+=(--debug-mmio); fi
-if [ "${GIULIA_DEBUG_HOTLOAD:-0}" = 1 ]; then terminal_args+=(--debug-hotload); fi
+if [ "${GIULIA_DEBUG_HOTLOAD:-0}" = 1 ]; then
+  : "${GIULIA_HOTLOAD_MANIFEST:?Hotload requires the reviewed profile/hotload-module.json}"
+  : "${GIULIA_HOTLOAD_SOURCE:?Hotload requires the exact reviewed NativeHotload source snapshot}"
+  terminal_args+=(--debug-hotload --hotload-check "$output_dir/hotload-final-kernel-check.json"
+                  --hotload-manifest "$GIULIA_HOTLOAD_MANIFEST" --hotload-source "$GIULIA_HOTLOAD_SOURCE")
+fi
 if [ "${GIULIA_WIFI_TERMINAL_WAIT:-0}" = 1 ]; then terminal_args+=(--wifi-terminal-wait); fi
 if [ -n "$runtime_pack" ]; then
   wifi_kernel="$output_dir/kernel.macho"
@@ -118,6 +138,12 @@ else
   cp "$adt_input" "$output_dir/giulia-ios16.adt"
 fi
 cp "$dts_input" "$output_dir/captured-board.dts"
+if [ "${GIULIA_DEBUG_HOTLOAD:-0}" = 1 ]; then
+  python3 scripts/check-ios16-hotload-kernel.py "$output_dir/kernel.macho" \
+    --manifest "$GIULIA_HOTLOAD_MANIFEST" --source "$GIULIA_HOTLOAD_SOURCE" \
+    --device-source "$port_root" \
+    --report "$output_dir/hotload-final-kernel-check.json"
+fi
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe/. "$board_driver/"
 cp -a uefi-overlay/Platforms/OnePlus/giuliaPkg/Drivers/GiuliaInitrdDxe "$output_dir/driver-source"
 python3 scripts/enable-touch-diagnostics.py "$driver_dir"
@@ -230,6 +256,30 @@ report={'repository_head':subprocess.check_output(['git','rev-parse','HEAD'],tex
         'firmware_digests':{'wifi':runtime['firmware']['sha256'] if runtime else None,
                             'gpu':gpu_runtime['firmware']['sha256'] if gpu_runtime else None},
         'device_commands_executed':False}
+if payload.get('debug_hotload_enabled'):
+    image=out/'giulia-ios16-wifi-pcie.img'
+    packed=json.loads(image.with_suffix('.json').read_text())
+    def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
+    chain={'boot_image_sha256':sha(image),'kernel_sha256':sha(out/'kernel.macho'),
+           'payload_sha256':sha(out/'payload/payload.img'),
+           'payload_report_sha256':sha(out/'payload/payload.json'),
+           'firmware_sha256':sha(out/'firmware.img'),'firmware_report_sha256':sha(out/'firmware.json')}
+    if (packed.get('schema')!=1 or packed.get('status')!='pass' or
+            packed.get('payload_verification') is not True or packed.get('debug_hotload_enabled') is not True or
+            packed.get('sha256')!=chain['boot_image_sha256'] or
+            any(packed.get(key)!=value for key,value in chain.items() if key!='boot_image_sha256') or
+            packed.get('hotload_binding')!=payload.get('hotload_binding')):
+        raise SystemExit('Final Android image does not retain the exact hotload kernel/payload/firmware identity chain')
+    hotload_files=[*sorted((out/'payload/hotload-binding').rglob('*')),
+                   out/'hotload-final-kernel-check.json',out/'payload/payload.img',
+                   out/'payload/payload.json',out/'payload/identity.json',out/'firmware.img',out/'firmware.json',
+                   image,image.with_suffix('.json'),image.with_suffix('.payload-verification.json'),
+                   Path('scripts/ios16_hotload.py'),Path('scripts/check-ios16-hotload-kernel.py'),
+                   Path('scripts/verify-payload.py'),out/'build-script.sh']
+    report['source_files'] += [{'path':str(p.resolve()),'sha256':sha(p)} for p in hotload_files if p.is_file()]
+    report.update(schema=1,status='pass',debug_hotload_enabled=True,hotload_binding=payload['hotload_binding'],
+                  artifact_chain=chain,pack_report_sha256=sha(image.with_suffix('.json')),
+                  payload_verification=True,hardware_verified=False)
 (out/'source-manifest.json').write_text(json.dumps(report,indent=2)+'\n')
 PY
 echo 'Integrated Wi-Fi/GPU bring-up image built; selected runtimes are recorded in source-manifest.json.'

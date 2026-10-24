@@ -15,6 +15,8 @@ SPECIAL = {
     'giulia_sha256.h': 'common', 'giulia_debug_abi.h': 'common',
     'giulia_log_bytes.h': 'common', 'giulia_scm.h': 'platform',
     'giulia_input_provider.h': 'common',
+    'giulia_hotload.h': 'common',
+    'giulia_hotload_bridge.c': 'terminal',
     'giulia_smmu.h': 'storage',
     'giulia_input_hid.inc': 'display', 'giulia_input_keyboard.inc': 'display',
     'giulia_screen_framebuffer.inc': 'display',

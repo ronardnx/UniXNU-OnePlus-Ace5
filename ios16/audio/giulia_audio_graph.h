@@ -10,6 +10,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include "giulia_audio_proto.h"
 
 #define GAG_MAX_PACKET 4096u
 #define GAG_MAX_PAYLOAD (GAG_MAX_PACKET-40u)
@@ -48,8 +49,11 @@ struct gag_graph {
     uint32_t src_port, next_token, pending_token, pending_opcode, remote_status;
     size_t cal_offset, pending_advance;
     uint64_t deadline, last_time;
+    uint64_t epoch;
     unsigned valid, state, pending_state, open_possible;
-    int error;
+    int error,first_error;
+    unsigned first_failure_state;
+    uint32_t first_remote_status;
 };
 static inline uint32_t gag_u32(const uint8_t *p)
 { return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
@@ -77,7 +81,12 @@ static inline int gag_parameters(const uint8_t *p,size_t n,size_t max_record)
     return GAG_OK;
 }
 static inline int gag_fail(struct gag_graph *g,int error)
-{ g->state=GAG_FAILED;g->error=error;g->pending_token=0;return error; }
+{
+    if(!g->first_error) {
+        g->first_error=error;g->first_failure_state=g->state;g->first_remote_status=g->remote_status;
+    }
+    g->state=GAG_FAILED;g->error=error;g->pending_token=0;return error;
+}
 static inline int gag_init(struct gag_graph *g,const struct gag_bundle *b,
                            const struct gag_ops *ops,uint32_t src_port,uint32_t first_token)
 {
@@ -118,17 +127,33 @@ static inline int gag_poll(struct gag_graph *g)
 static inline void gag_invalidate(struct gag_graph *g)
 { if(g&&g->valid)(void)gag_fail(g,GAG_EIO); }
 
+/* Provider binds this to the native lease before opening a graph. Changing a
+ * live epoch requires actual SSR/shutdown reconciliation and a fresh graph. */
+static inline int gag_bind_epoch(struct gag_graph *g,uint64_t epoch)
+{
+    if(!g||!g->valid||!epoch||g->state!=GAG_CLOSED||g->open_possible||g->pending_token||
+       (g->epoch&&g->epoch!=epoch))return GAG_ESTATE;
+    g->epoch=epoch;return GAG_OK;
+}
+static inline uint64_t gag_timeout_us(uint32_t opcode)
+{
+    /* Fixed GSL Linux defaults, gsl_spf_timeout.h; no module controls time. */
+    return opcode==GAG_OPEN?4000000u:opcode==GAG_PREPARE?2000000u:
+        (opcode==GAG_START||opcode==GAG_STOP)?5500000u:GAG_TIMEOUT_US;
+}
+
 static inline int gag_submit(struct gag_graph *g,uint32_t opcode,size_t bytes,
                              unsigned next_state,size_t advance)
 {
-    if(!g||!g->valid||g->pending_token)return GAG_ESTATE;
+    if(!g||!g->valid||!g->epoch||g->pending_token)return GAG_ESTATE;
     if(bytes>GAG_MAX_PAYLOAD||!bytes)return GAG_ELIMIT;
     if(!g->next_token||g->next_token==UINT32_MAX)return GAG_ELIMIT;
     uint32_t token=g->next_token++;
     uint64_t now=g->ops.now_us(g->ops.ctx);
     if(now<g->last_time)return gag_fail(g,GAG_ETIMEOUT);
     g->last_time=now;
-    if(now>UINT64_MAX-GAG_TIMEOUT_US)return gag_fail(g,GAG_ETIMEOUT);
+    uint64_t timeout=gag_timeout_us(opcode);
+    if(now>UINT64_MAX-timeout)return gag_fail(g,GAG_ETIMEOUT);
     gag_zero(g->packet,40);
     gag_put(g->packet,(uint32_t)((40+bytes)<<8)|(6u<<4));
     g->packet[4]=2;g->packet[5]=3;
@@ -140,7 +165,7 @@ static inline int gag_submit(struct gag_graph *g,uint32_t opcode,size_t bytes,
     if(r==0)return GAG_WAIT;
     if(r!=GAG_OK)return gag_fail(g,GAG_EIO);
     g->pending_token=token;g->pending_opcode=opcode;g->pending_state=next_state;
-    g->pending_advance=advance;g->deadline=now+GAG_TIMEOUT_US;
+    g->pending_advance=advance;g->deadline=now+timeout;
     if(opcode==GAG_OPEN)g->open_possible=1;
     return GAG_OK;
 }
@@ -212,11 +237,13 @@ static inline int gag_receive(struct gag_graph *g,const uint8_t *p,size_t bytes)
     if(!g||!g->valid||!p)return GAG_EINVAL;
     if(!g->pending_token)return GAG_WAIT;
     if(gag_poll(g)!=GAG_WAIT)return g->error;
-    if(bytes!=32||gag_u32(p)!=((32u<<8)|(6u<<4))||p[4]!=3||p[5]!=2||p[6]||p[7]||
-       gag_u32(p+8)!=1||gag_u32(p+12)!=g->src_port||
-       gag_u32(p+16)!=g->pending_token||gag_u32(p+20)!=GAG_BASIC_RSP||
-       gag_u32(p+24)!=g->pending_opcode)return GAG_WAIT;
-    g->remote_status=gag_u32(p+28);
+    uint64_t epoch=g->epoch;uint32_t token=g->pending_token,opcode=g->pending_opcode;
+    uint64_t selected=gapt_reply(epoch,GAPT_APM_REPLY,1,token,g->src_port,1,opcode,p,bytes);
+    if(g->epoch!=epoch||g->pending_token!=token||g->pending_opcode!=opcode)return GAG_WAIT;
+    if(gag_poll(g)!=GAG_WAIT)return g->error;
+    unsigned kind=(unsigned)selected;
+    if(kind!=GAPT_APM_ACK&&kind!=GAPT_APM_ERROR)return GAG_WAIT;
+    g->remote_status=(uint32_t)(selected>>32);
     if(g->remote_status)return gag_fail(g,GAG_EREMOTE);
     g->state=g->pending_state;g->cal_offset+=g->pending_advance;
     g->pending_token=0;g->error=0;

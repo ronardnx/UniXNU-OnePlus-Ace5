@@ -14,16 +14,17 @@ import sys
 import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ios16_screen import ScreenWire, ScreenStore, ScreenViewer, ScreenControl
+from serial_mutex import DeviceMutex
 
 DEVICE_COMMANDS = ('help', 'ping', 'status', 'replay', 'sample', 'features',
-                   'hl.status', 'hl.list',
+                   'hl.status', 'hl.list', 'hl.core', 'hl.memory', 'hl.gateway',
                    'info', 'uptime', 'memory', 'ps', 'bootargs', 'display', 'usb', 'ufs', 'shell',
                    'wifi.start','wifi.status','reboot.fastboot','reboot.status',
                    'gpu.status','gpu.observe','gpu.stack','gpu.share','gpu.fence',
                    'keys.status',
                    'slider.status','slider.stop',
-                   'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test',
-                   'modem.status','modem.start','modem.stop','modem.suspend','modem.resume',
+                   'audio.status','audio.map','audio.preflight','audio.start','audio.stop','audio.test','audio.proto',
+                   'modem.status','modem.start','modem.stop','modem.suspend','modem.resume','modem.proto',
                    'gpu.hfi.pin','gpu.hfi.status','gpu.hfi.query','gpu.hfi.poll','gpu.hfi.log',
                    'gpu.gmu.load','gpu.gmu.start','gpu.gmu.status',
                    'screen.start','screen.stop','screen.snapshot',
@@ -508,7 +509,7 @@ def run(args, serial_module, ports):
     commands = None
     try:
         # pySerial defaults to DTR/RTS asserted; CDC transmits only while DTR is set.
-        with serial_module.Serial(port, 115200, timeout=0, write_timeout=2) as serial, \
+        with DeviceMutex(), serial_module.Serial(port, 115200, timeout=0, write_timeout=2) as serial, \
                 stop_screen_session(serial, lambda: commands is not None and commands.screen_started, capture.screen_control):
             commands = Commands(capture, port)
             print(f'Connected {port}. Logs: {capture.root}\n' + HELP)

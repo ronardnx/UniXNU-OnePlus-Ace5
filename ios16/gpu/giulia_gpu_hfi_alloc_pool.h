@@ -87,7 +87,7 @@ static inline uint32_t gga_pool_flags(const struct gga_request *request)
 {
     /* The pool keeps permission bits in 0x3ff; bit 0x80 also selects its
      * cacheable window, which matches HFI_MEMFLAG_GMU_CACHEABLE. */
-    return gga_effective_flags(request->flags,request->kind)&0x3ffu;
+    return gga_request_flags(request)&0x3ffu;
 }
 
 static inline void gga_pool_unmap(struct gga_pool *p,unsigned index,unsigned space)
@@ -113,7 +113,7 @@ static inline int gga_pool_reserve(void *cookie,const struct gga_request *reques
     }
     block.backing=gga_pool_token((unsigned)index);
     block.bytes=p->pool->allocations[index].bytes;
-    block.effective_flags=gga_effective_flags(request->flags,request->kind);
+    block.effective_flags=gga_request_flags(request);
     if (gga_needs_gfx(request)) {
         if (p->io.map(p->io.cookie,(unsigned)index,0)) {
             ++p->failures;
@@ -207,6 +207,7 @@ static inline struct gga_ops gga_pool_ops(struct gga_pool *p)
     ops.release=gga_pool_release;
     ops.barrier=gga_pool_barrier;
     ops.reserved=p && p->io.reserved?gga_pool_reserved:0;
+    ops.decode=0;
     return ops;
 }
 #endif

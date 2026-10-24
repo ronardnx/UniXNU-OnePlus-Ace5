@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
- * Gen7 GMU register preparation from the pinned OnePlus adreno_gen7_gmu.c:
- * gen7_gmu_register_config() plus the HFI queue-table handoff. Register numbers
+ * Subset of gen7_gmu_register_config() and the HFI queue-table handoff from
+ * pinned OnePlus adreno_gen7_gmu.c. This does not implement the HWSCHED first
+ * boot's PDC/RSC, secure CX, IRQ/fault and bandwidth providers. Register numbers
  * are word offsets in the vendor GPU register namespace (giulia_gpu_gmu.h), all
  * inside the GMU window. Every write is read back; no reset release, TCM write,
  * HFI submission or DMA is performed here.
@@ -14,12 +15,13 @@ enum {
     GGB_CM3_CFG = 0x1f82d, GGB_FAL_INTF = 0x1f8f0, GGB_FALNEXT_INTF = 0x1f8f1,
     GGB_HFI_STATUS = 0x1f980, GGB_QTBL_INFO = 0x1f984,
     GGB_QTBL_ADDR = 0x1f985, GGB_HFI_INIT = 0x1f986,
+    GGB_HOST2GMU_INTR_SET = 0x1f994,
     GGB_GENERAL_8 = 0x1f9cd, GGB_GENERAL_9 = 0x1f9ce,
     GGB_GENERAL_10 = 0x1f9cf, GGB_GENERAL_11 = 0x1f9d0,
     GGB_AHB_FENCE_RANGE = 0x23b11,
     GGB_CM3_CFG_RESET = 0x4052,        /* vendor reset value without NMI */
     GGB_BOOT_CONFIG_VALUE = 0x2,
-    GGB_AHB_FENCE_VALUE = 0x8008a32  /* BIT(31) | 0x32 << 18 | 0x8a0 */
+    GGB_AHB_FENCE_VALUE = 0x80c808a0u /* BIT(31) | (0x32 << 18) | 0x8a0 */
 };
 struct ggb_config {
     uint32_t hfi_iova, vrb_iova, log_iova, log_bytes, chip_rev;
@@ -59,8 +61,8 @@ static inline int ggb_configure(const struct gg_gmu_ops *o,
     if (s->quarantined || !s->attempted) return GGM_BUSY;
     s->phase = 6;
     log_reg = (c->log_iova & ~4095u) | ((c->log_bytes / 4096u - 1u) & 0xffu);
-    if (!ggb_verify_write(o, s, GGB_FAL_INTF, 1, ~0u) ||
-        !ggb_verify_write(o, s, GGB_FALNEXT_INTF, 1, ~0u) ||
+    if (!ggb_verify_write(o, s, GGB_FALNEXT_INTF, 1, ~0u) ||
+        !ggb_verify_write(o, s, GGB_FAL_INTF, 1, ~0u) ||
         gg_gmu_write(o, s, GGB_FW_INIT_RESULT, 0, 0) ||
         !ggb_verify_write(o, s, GGB_BOOT_CONFIG, GGB_BOOT_CONFIG_VALUE, ~0u) ||
         !ggb_verify_write(o, s, GGB_QTBL_ADDR, c->hfi_iova, ~0u) ||
@@ -68,9 +70,9 @@ static inline int ggb_configure(const struct gg_gmu_ops *o,
         !ggb_verify_write(o, s, GGB_AHB_FENCE_RANGE, GGB_AHB_FENCE_VALUE, ~0u) ||
         !ggb_verify_write(o, s, GGB_CM3_CFG, GGB_CM3_CFG_RESET, ~0u) ||
         !ggb_verify_write(o, s, GGB_GENERAL_11, c->vrb_iova, ~0u) ||
+        !ggb_verify_write(o, s, GGB_GENERAL_9, 0, ~0u) ||
         !ggb_verify_write(o, s, GGB_GENERAL_10, c->chip_rev, ~0u) ||
-        !ggb_verify_write(o, s, GGB_GENERAL_8, log_reg, ~0u) ||
-        !ggb_verify_write(o, s, GGB_GENERAL_9, 0, ~0u)) {
+        !ggb_verify_write(o, s, GGB_GENERAL_8, log_reg, ~0u)) {
         return GGM_READBACK;
     }
     return GGM_OK;

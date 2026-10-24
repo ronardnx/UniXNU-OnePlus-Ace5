@@ -9,6 +9,7 @@
 #define GIULIA_WIFI_QMI_H
 #include <stdint.h>
 #include <stddef.h>
+#include "giulia_wifi_protocol.h"
 #define GWQ_PACKET 8192u
 #define GWQ_CTRL 0xfffffffeu
 #define GWQ_SEGMENTS 52u
@@ -60,6 +61,7 @@ struct gwq_io {
     /* Complete active SMMU aperture, distinct from the QMI allocation pool
      * above: MHI/CE rings and later data-path buffers must also be covered. */
     uint64_t host_iova_base,host_iova_bytes;
+    gwpr_select_fn protocol;
 };
 struct gwq_span { uint64_t address; uint32_t bytes,type; };
 struct gwq_device_memory {uint64_t start,bytes;};
@@ -130,14 +132,7 @@ static inline uint64_t gwq_reply_ms(const struct gwq_state *s)
 {return s->rpc_started_ms+s->rpc_elapsed_ms-s->mission_started_ms;}
 /* Validate complete TLV framing and uniqueness before interpreting any field. */
 static inline int gwq_tlvs(const uint8_t *p,size_t n) {
-    uint8_t seen[32]={0};size_t o=0;
-    while(o<n) {
-        if(n-o<3)return 0;
-        unsigned t=p[o];size_t z=gwq_u16(p+o+1);
-        if((seen[t/8]&(1u<<(t%8))) || z>n-o-3)return 0;
-        seen[t/8]|=(uint8_t)(1u<<(t%8));o+=3+z;
-    }
-    return 1;
+    return gwpr_status(gwpr_baseline(GWPR_QMI,0,0,p,n))==GWPR_VALID;
 }
 static inline const uint8_t *gwq_field(const uint8_t *p,size_t n,unsigned t,size_t *bytes) {
     size_t o=0;*bytes=0;
@@ -198,6 +193,9 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
     if(z<7 || gwq_u16(p+5)!=z-7 || !gwq_tlvs(p+7,z-7))return gwq_fail(s,GWQ_WIRE);
     uint16_t txn=gwq_u16(p+1),msg=gwq_u16(p+3);unsigned flag=p[0];p+=7;z-=7;
     if(flag==2) {
+        uint64_t verdict=io->protocol?io->protocol(io->context,GWPR_QMI,msg,flag,p,z):
+            gwpr_baseline(GWPR_QMI,msg,flag,p,z);
+        if(gwpr_status(verdict)!=GWPR_VALID)return gwq_fail(s,GWQ_WIRE);
         if(!s->waiting || txn!=s->pending_transaction || msg!=s->pending_message)return 0;
         if(gwq_rpc_check(s,io))return (int)s->error;
         size_t bytes;const uint8_t *r=gwq_field(p,z,2,&bytes);
@@ -210,17 +208,29 @@ static inline int gwq_receive(struct gwq_state *s,const struct gwq_io *io,const 
         if(msg<64)s->indication_mask|=1ull<<msg;
         uint64_t now=io->now(io->context),arrived=now-s->mission_started_ms;
         if(msg==0x37)s->memory_ready_ms=arrived;
-        if(msg==0x38 && !s->fw_ready)s->fw_ready_ms=arrived;
         /* Record a late indication, but never promote it to readiness after
          * the mission deadline. The packet's arrival time is authoritative. */
         if(gwq_mission_at(s,now))return (int)s->error;
+        uint64_t verdict=io->protocol?io->protocol(io->context,GWPR_QMI,msg,flag,p,z):
+            gwpr_baseline(GWPR_QMI,msg,flag,p,z);
+        if(gwpr_status(verdict)!=GWPR_VALID)return gwq_fail(s,GWQ_WIRE);
         if(msg==0x35) {
             if(!s->host_cap || s->mem_pending || s->provisioned || z>sizeof(s->mem_request))return gwq_fail(s,GWQ_STATE);
             gwq_copy(s->mem_request,p,z);s->mem_bytes=z;s->mem_pending=1;
         } else if(msg==0x37) {
             if(!s->mem_response_sent || s->mem_pending)return gwq_fail(s,GWQ_STATE);s->mem_ready=1;
         } else if(msg==0x38) {
-            if(!s->mem_ready)return gwq_fail(s,GWQ_STATE);s->fw_ready=1;
+            /* The pinned vendor decoder validates these optional scalar
+             * fields before invoking FW_INIT_DONE. Framed TLVs alone do not
+             * establish that a known field contains its complete value. */
+            static const unsigned width[3]={4,2,8};
+            for(unsigned i=0;i<3;i++) {
+                size_t bytes;const uint8_t *value=gwq_field(p,z,0x10+i,&bytes);
+                if(value && bytes!=width[i])return gwq_fail(s,GWQ_WIRE);
+            }
+            if(!s->mem_ready)return gwq_fail(s,GWQ_STATE);
+            if(!s->fw_ready)s->fw_ready_ms=arrived;
+            s->fw_ready=1;
         } else if(msg==0x2c) {
             /* Vendor PIN_CONNECT_RESULT: optional u32 TLVs 0x10..0x12.
              * Validate the entire indication before updating diagnostics.

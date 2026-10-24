@@ -9,17 +9,9 @@ import re
 import struct
 import sys
 
-from ios16_hotload import MARKERS
+from ios16_hotload import MARKERS, SOURCE_FILES, GATEWAY_MODULES, device_sources, source_digest
 
 
-SOURCE_FILES = (
-    'native_hotload.c', 'native_hotload.h', 'native_hotload_core.h',
-    'native_hotload_memory.inc', 'native_hotload_vm.h', 'native_hotload_boot.inc',
-    'emit_patch.py', 'hotload.py',
-    'build-module.py', 'build-core.py', 'module.ld', 'nlh_format.py',
-    'core/native_core_algorithms.h', 'core/policy.c', 'core/emit_core_patch.py', 'core/emit_vm_patch.py',
-    'core/LICENSE', 'core/UPSTREAM.md', 'examples/counter.c', 'examples/client.c',
-)
 CORE_MODULES = {'xnu-sched': 1, 'xnu-vm': 2, 'xnu-vfs': 3}
 CORE_INTERFACE = 0x434f0001
 SYMBOLS = (
@@ -28,8 +20,11 @@ SYMBOLS = (
     '_nlh_memory_address', '_nlh_memory_destroy', '_nlh_memory_enabled',
     '_nlh_memory_status', '_nlh_memory_code_map',
     '_thread_quantum_init', '_cluster_max_io_size',
+    '_nlh_register_platform_v2', '_nlh_dispatch_resident',
+    '_giulia_hotload_init', '_giulia_hotload_select', '_giulia_hotload_status',
 )
 CORE_CALLERS = ('_thread_quantum_init', '_cluster_max_io_size')
+DRIVER_SYMBOLS = tuple('_giulia_' + name + '_hotload_decide' for name in GATEWAY_MODULES)
 BOOT_SYMBOLS = ('_kmem_init', '_nlh_memory_boot_reserve',
                 '_nlh_memory_map_init', '_kmem_suballoc')
 
@@ -38,7 +33,7 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def check_source(source, manifest_path):
+def check_source(source, manifest_path, device_root=None):
     raw = manifest_path.read_bytes()
     manifest = json.loads(raw)
     if not isinstance(manifest, dict):
@@ -51,6 +46,8 @@ def check_source(source, manifest_path):
         'core_policies_converted': True, 'resident_core_objects': True,
         'code_memory': 'private-static-submap', 'memory_diagnostics': True,
         'built_in_drivers_reloadable': False, 'xnu_core_converted': False,
+        'platform_abi': 1, 'gateway_abi': 1, 'gateway_interface_abi': 0x47480001,
+        'gateway_state_abi': 1,
     }
     for name, value in expected.items():
         if type(manifest.get(name)) is not type(value) or manifest[name] != value:
@@ -78,6 +75,7 @@ def check_source(source, manifest_path):
         raise ValueError('Staged module builder disagrees with the supported core contract')
     for filename, name, expected_value in (
             ('native_hotload.h', 'NLH_ABI', 2),
+            ('native_hotload.h', 'NLH_PLATFORM_ABI', 1),
             ('native_hotload_core.h', 'NLH_CORE_INTERFACE', CORE_INTERFACE),
             ('native_hotload_core.h', 'NLH_CORE_STATE_ABI', 1),
             ('native_hotload_core.h', 'NLH_CORE_SCHED', 1),
@@ -89,11 +87,35 @@ def check_source(source, manifest_path):
         if len(values) != 1 or int(values[0], 0) != expected_value:
             raise ValueError('Staged C header disagrees with the core contract: ' + name)
     digest_input = json.dumps(hashes, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    selected = manifest.get('gateway_selected')
+    if (not isinstance(selected, list) or selected != sorted(set(selected)) or
+            set(selected) - {'gpu', 'wifi', 'audio', 'modem'}):
+        raise ValueError('Invalid gateway driver selection')
+    device_root = device_root or Path(__file__).resolve().parents[1]
+    resident = device_sources(device_root, selected)
+    if manifest.get('device_files') != resident:
+        raise ValueError('Resident driver/composition source differs from the kernel manifest')
+    binding = source_digest({'kit': hashes, 'device': resident, 'selected': selected})
+    if manifest.get('gateway_source_sha256') != binding:
+        raise ValueError('Invalid resident gateway source binding')
+    if manifest.get('gateway_module_names') != {name: GATEWAY_MODULES[name] for name in selected}:
+        raise ValueError('Resident protocol module names disagree with the fixed domain contract')
+    if manifest.get('gateway_driver_callers') != {
+            name: '_giulia_' + name + '_hotload_decide' for name in selected}:
+        raise ValueError('Missing explicit per-driver resident call attribution')
+    public_header = (Path(device_root) / 'ios16/common/giulia_hotload.h').read_text(encoding='utf-8')
+    for name, value in (('GH_ABI', 1), ('GH_INTERFACE_ABI', 0x47480001), ('GH_STATE_ABI', 1)):
+        found = re.findall(r'^#define\s+' + name + r'\s+(0x[0-9a-fA-F]+|[0-9]+)[uU]?\s*$',
+                           public_header, re.M)
+        if len(found) != 1 or int(found[0], 0) != value:
+            raise ValueError('Device public header ABI differs from build contract: ' + name)
     return {'manifest_sha256': sha256(raw), 'source_sha256': sha256(digest_input),
             'source_sha256_format': 'SHA256 of sorted compact JSON source_files_sha256',
             'source_files_sha256': hashes, 'abi': 2,
             'core_interface_abi': CORE_INTERFACE, 'core_state_abi': 1,
-            'core_modules': CORE_MODULES}
+            'core_modules': CORE_MODULES, 'gateway_selected': selected,
+            'gateway_source_sha256': binding, 'device_files_sha256': resident,
+            'platform_abi': 1, 'gateway_abi': 1}
 
 
 class MachO:
@@ -203,7 +225,7 @@ class MachO:
             # Retain every definition as a boundary, but require unique public
             # names only for the implementation whose identity we verify.
             self.code_symbols.append(row)
-            if name not in SYMBOLS + BOOT_SYMBOLS:
+            if name not in SYMBOLS + BOOT_SYMBOLS + DRIVER_SYMBOLS:
                 continue
             if name in self.symbols and self.symbols[name] != row:
                 raise ValueError('Ambiguous Mach-O code definition: ' + name)
@@ -281,7 +303,58 @@ class MachO:
         return calls
 
 
-def check_kernel(kernel):
+def check_adapter_integration(macho, driver_calls, selected_drivers):
+    """Check linked adapters without assigning an input or execution source.
+
+    Audio/modem fixtures and native callbacks can share the same adapter.
+    An arbitrary inbound branch therefore proves integration only. A future
+    production-caller extension must consume exact source-bound declarations;
+    symbol spelling or a call outside the adapter is not such a declaration.
+    """
+    selected_drivers = tuple(selected_drivers)
+    if (any(not isinstance(domain, str) or domain not in GATEWAY_MODULES
+            for domain in selected_drivers) or len(set(selected_drivers)) != len(selected_drivers)):
+        raise ValueError('Unknown or duplicate selected protocol domain')
+    attribution, ranges = {}, {}
+    for domain in selected_drivers:
+        name = '_giulia_' + domain + '_hotload_decide'
+        if (name not in macho.symbols or not macho.symbols[name]['external'] or
+            macho.sections[macho.symbols[name]['section'] - 1]['name'] != b'__text'):
+            raise ValueError('Selected driver has no permanent external protocol adapter: ' + domain)
+        address = macho.symbols[name]['address']
+        if any(other != name and other in macho.symbols and
+               macho.symbols[other]['address'] == address for other in DRIVER_SYMBOLS):
+            raise ValueError('Selected protocol adapter aliases another domain: ' + domain)
+        start, end, evidence = macho.function_range(name)
+        if any(start < previous_end and previous_start < end
+               for previous_start, previous_end in ranges.values()):
+            raise ValueError('Selected protocol adapter ranges overlap across domains: ' + domain)
+        ranges[domain] = (start, end)
+        selected = [call for call in driver_calls if start <= call['address'] < end]
+        inbound = [call for call in macho.gateway_calls(address)
+                   if not start <= call['address'] < end]
+        if not selected or not inbound:
+            raise ValueError('Selected protocol adapter lacks its own inbound/gateway integration: ' + domain)
+        blocked = {
+            'production_path': 'No exact source-bound production caller declaration was verified; inbound source is unclassified.',
+            'native_input': 'Static B/BL references do not establish a native input or runtime execution.',
+            'output_adoption': 'Static adapter calls do not prove that a production consumer adopts the module response.',
+            'hardware_function': 'No native provider/resource/firmware epoch or complete hardware function is verified here.',
+        }
+        attribution[domain] = {
+            'scope': 'adapter-integration-only', 'status': 'pass', 'adapter_integration': True,
+            'symbol': name, 'start': start, 'end': end, 'range_evidence': evidence,
+            'gateway_calls': selected, 'inbound_calls': inbound,
+            'inbound_source': 'unclassified', 'production_callers': [],
+            'production_path': False, 'native_input': False,
+            'output_adoption': False, 'hardware_function': False,
+            'evidence': {field: {'status': 'blocked', 'verified': False, 'reason': reason}
+                         for field, reason in blocked.items()},
+        }
+    return attribution
+
+
+def check_kernel(kernel, binding=None, selected_drivers=()):
     macho = MachO(kernel)
     missing = [m.decode('utf-8') for m in MARKERS if m not in kernel]
     missing += [name for name in SYMBOLS if name not in macho.symbols or
@@ -292,6 +365,8 @@ def check_kernel(kernel):
     missing += [name for name in BOOT_SYMBOLS if name not in macho.symbols]
     if missing:
         raise ValueError('Hotload kernel lacks linked implementation: ' + ', '.join(missing))
+    if binding and ('NLH gateway source_sha256=' + binding).encode('ascii') not in kernel:
+        raise ValueError('Kernel resident gateway source binding differs from this source snapshot')
     calls = macho.gateway_calls(macho.symbols['_nlh_core_select']['address'])
     if len(calls) < 4:
         raise ValueError('Expected at least four direct ARM64 B/BL references to '
@@ -316,13 +391,46 @@ def check_kernel(kernel):
             raise ValueError('Missing linked VM bootstrap call: ' + caller + ' -> ' + callee)
         bootstrap[caller] = {'callee': callee, 'range_evidence': evidence,
                              'calls': selected}
+    resident_calls = {}
+    for caller, callee in (('_giulia_hotload_init', '_nlh_register_platform_v2'),
+                           ('_giulia_hotload_select', '_nlh_dispatch_resident')):
+        start, end, evidence = macho.function_range(caller)
+        branches = macho.gateway_calls(macho.symbols[callee]['address'])
+        selected = [call for call in branches if start <= call['address'] < end]
+        if not selected:
+            raise ValueError('Missing real resident gateway call: ' + caller + ' -> ' + callee)
+        resident_calls[caller] = {'callee': callee, 'range_evidence': evidence, 'calls': selected}
+    driver_calls = macho.gateway_calls(macho.symbols['_giulia_hotload_select']['address'])
+    driver_attribution = check_adapter_integration(macho, driver_calls, selected_drivers)
+    domain_evidence = {}
+    for domain in GATEWAY_MODULES:
+        adapter = driver_attribution.get(domain)
+        domain_evidence[domain] = {
+            'scope': 'adapter-integration-only', 'status': 'blocked',
+            'selected': adapter is not None, 'adapter_integration': adapter is not None,
+            'production_path': False, 'native_input': False,
+            'output_adoption': False, 'hardware_function': False,
+            'evidence': adapter['evidence'] if adapter else {
+                field: {'status': 'blocked', 'verified': False,
+                        'reason': 'Domain not selected; no production/native/adoption/hardware evidence gathered.'}
+                for field in ('production_path', 'native_input', 'output_adoption', 'hardware_function')},
+        }
     return {'kernel_sha256': sha256(kernel), 'kernel_format': 'ARM64 Mach-O executable',
             'linked_symbols': {name: macho.symbols[name]['address'] for name in SYMBOLS},
             'markers': [marker.decode('utf-8') for marker in MARKERS],
             'gateway': '_nlh_core_select', 'direct_gateway_calls': calls,
             'direct_gateway_call_count': len(calls), 'required_callers': callers,
             'vm_bootstrap_calls': bootstrap,
-            'scope': 'linked runtime and resident policy adapters; core objects remain resident'}
+            'resident_gateway_calls': resident_calls,
+            'hardware_protocol_calls': driver_calls,
+            'hardware_protocol_scope': 'adapter-integration-only',
+            'hardware_protocol_call_attribution': driver_attribution,
+            'hardware_protocol_domain_evidence': domain_evidence,
+            'hardware_protocol_conversion': 'adapter integration only; production provenance, native execution, output adoption and hardware remain unverified',
+            'hardware_tested': False, 'hardware_verified': False,
+            'production_path_verified': False, 'native_input_verified': False,
+            'output_adoption_verified': False,
+            'scope': 'linked-code-verification'}
 
 
 def main():
@@ -330,15 +438,17 @@ def main():
     parser.add_argument('kernel', type=Path)
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--device-source', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--report', type=Path)
     args = parser.parse_args()
-    report = {'schema': 1, 'verified': False, 'device_verified': False}
+    report = {'schema': 1, 'status': 'fail', 'verified': False, 'device_verified': False}
     try:
-        report.update(check_source(args.source, args.manifest))
+        report.update(check_source(args.source, args.manifest, args.device_source))
         kernel = args.kernel.read_bytes()
         report['kernel_sha256'] = sha256(kernel)
-        report.update(check_kernel(kernel))
+        report.update(check_kernel(kernel, report['gateway_source_sha256'], report['gateway_selected']))
         report['verified'] = True
+        report['status'] = 'pass'
     except (ValueError, OSError, SyntaxError, struct.error) as error:
         report['error'] = str(error)
     rendered = json.dumps(report, indent=2) + '\n'
@@ -347,7 +457,7 @@ def main():
             args.report.parent.mkdir(parents=True, exist_ok=True)
             args.report.write_text(rendered, encoding='utf-8', newline='\n')
         except OSError as error:
-            report['verified'], report['error'] = False, 'Cannot write report: ' + str(error)
+            report['verified'], report['status'], report['error'] = False, 'fail', 'Cannot write report: ' + str(error)
             rendered = json.dumps(report, indent=2) + '\n'
     print(rendered, end='')
     return 0 if report['verified'] else 1

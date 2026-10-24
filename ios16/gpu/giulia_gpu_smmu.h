@@ -45,7 +45,8 @@ static inline int gg_smmu_access(struct gg_smmu_view *v,size_t at,uint64_t *valu
     const ArmSmmu4KIo *io=&v->ops->io;
     struct gg_smmu_state *s=v->state;
     unsigned valid=GGD_ADDRESS,cleanup=v->cleanup || !!s->diag.failure.sequence,i;
-    uint64_t expected=0; int error,native_error;
+    uint64_t expected=0,mask=width==32?UINT64_C(0xffffffff):~UINT64_C(0);
+    int error,native_error;
     if (write) {
         if (width==64) error=io->write64(io->cookie,at,*value);
         else error=io->write32(io->cookie,at,(uint32_t)*value);
@@ -62,7 +63,17 @@ static inline int gg_smmu_access(struct gg_smmu_view *v,size_t at,uint64_t *valu
         if(!error) valid|=GGD_OBSERVED;
         for(i=0;i<v->count;++i) if(v->expected[i].at==at && v->expected[i].width==width) {
             expected=v->expected[i].value;valid|=GGD_EXPECTED;
-            if(!error && expected!=*value) error=ArmSmmu4KStateMismatch;
+            /* Preserve the library's documented, one-way hardware readback
+             * rules. Do not reject TBI becoming 1 or ASIDPNE reading 0 before
+             * ArmSmmu4KValidateContextReadback can validate the whole image.
+             * These exceptions apply only to this owned bank and 32-bit access;
+             * reverse changes and every other configuration bit stay exact. */
+            size_t cb=(size_t)s->context.context_offset;
+            if(width==32 && cb) {
+                if(at==cb+0x10)mask&=~(*value&~expected&UINT64_C(0x60));
+                if(at==cb)mask&=~(expected&~*value&UINT64_C(0x1000));
+            }
+            if(!error && ((expected^*value)&mask)) error=ArmSmmu4KStateMismatch;
             break;
         }
         if(!error && at>=0x2000 && (at&0xfff)==0x58 && (*value&0xc00001feu)) {
@@ -73,7 +84,7 @@ static inline int gg_smmu_access(struct gg_smmu_view *v,size_t at,uint64_t *valu
         } else v->polls=0;
     }
     gg_record_full(&s->diag,v->ops->trace,io->cookie,GGD_SMMU,s->phase,write?GGD_WRITE:GGD_READ,
-        0x03da0000ull+at,expected,write?0:*value,valid|GGD_NATIVE,width==32?0xffffffffu:~(uint64_t)0,error,native_error,cleanup);
+        0x03da0000ull+at,expected,write?0:*value,valid|GGD_NATIVE,mask,error,native_error,cleanup);
     return error;
 }
 static inline int gg_smmu_r32(void *p,size_t at,uint32_t *out) {uint64_t v=0;int e=gg_smmu_access((struct gg_smmu_view *)p,at,&v,32,0);*out=(uint32_t)v;return e;}

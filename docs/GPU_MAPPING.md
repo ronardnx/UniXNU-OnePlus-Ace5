@@ -1,5 +1,8 @@
 # GPU 映射层
 
+2026-10-24 的 SMMU 回读、HFI 应答与跨 CPU 映射发布修正，以及热替换的
+常驻资源边界见 [GPU 热加载接入](GPU_HOTLOAD.md)；尚待新镜像统一实测。
+
 本文对应 `GiuliaGPU.cpp`、`giulia_gpu_dev.h`、`giulia_gpu_mapping.h`、
 `giulia_gpu_mapping_impl.h`、`giulia_gpu_memstore.h`、
 `giulia_gpu_memstore_mapping.h`、`giulia_gpu_secure_mapping.h`、

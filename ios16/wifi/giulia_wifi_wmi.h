@@ -30,6 +30,7 @@ struct gww_io {
     void *context;int (*send)(void *,unsigned,const void *,size_t); /* 0 sent, 2 retry, other failure */
     int (*pump)(void *,unsigned);uint64_t (*now_ms)(void *);
     void (*scan_done)(void *,unsigned,uint32_t);
+    gwpr_select_fn protocol;
 };
 struct gww_state {
     unsigned error,htc_ready,connecting,endpoint,credits,credit_total,credit_size,max_message,seq;
@@ -160,6 +161,13 @@ static inline void gww_beacon(struct gww_state *s,const struct gww_io *io,const 
 }
 static inline int gww_wmi_receive(struct gww_state *s,const struct gww_io *io,const uint8_t *p,size_t n) {
     if(n<4)return gww_fail(s,GWW_FRAME);unsigned event=gwq_u32(p)&0xffffff;s->last_event=event;p+=4;n-=4;
+    /* Unknown events retain their regulatory/station dispatch semantics.
+     * Repeated WMI array tags are legal; this gate checks outer framing. */
+    if(gwpr_wmi_known(event)) {
+        uint64_t verdict=io->protocol?io->protocol(io->context,GWPR_WMI,event,0,p,n):
+            gwpr_baseline(GWPR_WMI,event,0,p,n);
+        if(gwpr_status(verdict)!=GWPR_VALID)return gww_fail(s,event==2 || (event==0x4009 && !s->service_ready)?GWW_FIRMWARE:GWW_FRAME);
+    }
     size_t z;const uint8_t *v;
     if(event==1) {
         v=gww_field(p,n,32,&z); /* WMI_SERVICE_READY_EVENT */

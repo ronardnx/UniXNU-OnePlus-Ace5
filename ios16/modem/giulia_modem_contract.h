@@ -178,6 +178,12 @@ struct gmr_ops {
      * the receiver's bounded queue. DATA_DELIVERED/DATA_ERROR with this exact
      * identity must follow; acceptance is not ifnet delivery. */
     int (*packet)(void *ctx,const struct gmr_identity *id,const uint8_t *bytes,size_t size);
+    /* Optional resident pure-parser adapter. Called after exact pending/source
+     * checks, on the serial executor. It borrows action/event for this call
+     * only, must not reenter the core, and returns the scalar proto verdict.
+     * The adapter may copy bytes to an authenticated hotload request, never
+     * publish these pointers. No hardware/resource effects are permitted. */
+    uint64_t (*qmi_check)(void *ctx,const struct gmr_action *,const struct gmr_event *);
 };
 struct gmr_pending {
     uint8_t used;

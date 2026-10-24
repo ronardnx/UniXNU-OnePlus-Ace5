@@ -7,7 +7,8 @@
  *                       gmu_handle, gmu_addr, size, align (v>0) }
  *
  * and the host answers with the same descriptor where the addresses, the host
- * handle and the actual size are filled in. This unit implements the decision
+ * handle are filled in. The logical request size is preserved even when the
+ * backing is rounded up. This unit implements the decision
  * logic only. Real memory still has to come from a provider that owns the
  * backing, its GPU/GMU mappings and its cache maintenance:
  *
@@ -87,11 +88,18 @@ enum gga_code {
     GGA_PUBLISH, GGA_RELEASE, GGA_QUARANTINED
 };
 
+/* Derived resident-only plan. Never part of an HFI descriptor or NLH state.
+ * valid=1 is installed only after the resident adapter validates every module
+ * result bit. The resource path consumes these fields instead of recomputing
+ * the same decision from the wire flags. */
+struct gga_plan { uint32_t valid,effective_flags,rounded_bytes,masters; };
+enum { GGA_PLAN_GFX=1u,GGA_PLAN_GMU=2u,GGA_PLAN_RESERVED=4u };
 struct gga_request {
     uint32_t hdr,version;
     uint64_t gpu_addr;
     uint32_t flags,kind,host_handle,gmu_handle,gmu_addr,size,align;
     uint32_t gpu_alignment,size_alignment; /* bytes, never below 4096 */
+    struct gga_plan plan;
 };
 
 struct gga_block {
@@ -114,6 +122,9 @@ struct gga_ops {
     int (*barrier)(void *cookie);
     /* Dedicated backends for kinds 5/19/22/23. NULL refuses those kinds. */
     int (*reserved)(void *cookie,const struct gga_request *request,struct gga_block *out);
+    /* Optional resident protocol adapter. It must populate the same bounded
+     * request and preserve validation errors before any resource callback. */
+    int (*decode)(void *cookie,const uint32_t *words,unsigned count,struct gga_request *out);
 };
 
 struct gga_entry {
@@ -125,6 +136,7 @@ struct gga_entry {
 struct gga_state {
     struct gga_entry entry[GGA_MAX];
     unsigned count,seq,allocated,published,refused,reused,quarantined,last;
+    unsigned module_allocated,module_reused; /* Successful resource outcomes, not parser calls. */
 };
 
 static inline uint32_t gga_alignment(uint32_t exponent)
@@ -200,16 +212,36 @@ static inline uint32_t gga_effective_flags(uint32_t flags,uint32_t kind)
      * GMU_ACC|GMU_PRIV|GMU_WRITEABLE, independent of the request bits. */
     return (flags&GGA_FLAG_GFX_ACC)?flags:(flags|GGA_FLAG_GMU_ONLY_FOLD);
 }
+static inline uint32_t gga_request_flags(const struct gga_request *request)
+{
+    return request->plan.valid?request->plan.effective_flags:
+        gga_effective_flags(request->flags,request->kind);
+}
+/* Validation may recompute the fixed upstream envelope. Once checked, the
+ * actual reserve/map path below uses the adopted plan fields themselves. */
+static inline int gga_plan_valid(const struct gga_request *request)
+{
+    if(!request->plan.valid)return 1;
+    unsigned reserved=(unsigned)gga_kind_reserved(request->kind);
+    unsigned gfx=(request->flags&GGA_FLAG_GFX_ACC)!=0 || request->kind==GGA_KIND_HW_FENCE;
+    unsigned gmu=reserved || !(request->flags&GGA_FLAG_GFX_ACC) || (request->flags&GGA_FLAG_GMU_ACC);
+    unsigned masters=(gfx?GGA_PLAN_GFX:0u)|(gmu?GGA_PLAN_GMU:0u)|(reserved?GGA_PLAN_RESERVED:0u);
+    uint32_t rounded=reserved?0u:gga_round_up(request->size,request->size_alignment);
+    return request->plan.valid==1 && request->plan.effective_flags==gga_effective_flags(request->flags,request->kind) &&
+        request->plan.masters==masters && request->plan.rounded_bytes==rounded && (reserved || rounded);
+}
 
 /* Which masters must see the block, decided only from the request. */
 static inline int gga_needs_gfx(const struct gga_request *request)
 {
+    if(request && request->plan.valid)return (request->plan.masters&GGA_PLAN_GFX)!=0;
     return request && ((request->flags&GGA_FLAG_GFX_ACC)||(request->kind==GGA_KIND_HW_FENCE));
 }
 
 static inline int gga_needs_gmu(const struct gga_request *request)
 {
     if (!request) return 0;
+    if(request->plan.valid)return (request->plan.masters&GGA_PLAN_GMU)!=0;
     if (gga_kind_reserved(request->kind)) return 1;
     if (request->flags&GGA_FLAG_GFX_ACC) return (request->flags&GGA_FLAG_GMU_ACC)!=0;
     /* GMU-only SYSRAM is always reachable from the GMU. */
@@ -223,7 +255,8 @@ static inline int gga_block_valid(const struct gga_request *request,const struct
     if (!request || !block) return 0;
     align=request->gpu_alignment;
     if (block->bytes<request->size) return 0;
-    if (block->effective_flags!=gga_effective_flags(request->flags,request->kind)) return 0;
+    if (block->effective_flags!=gga_request_flags(request)) return 0;
+    if(request->plan.valid && block->bytes<request->plan.rounded_bytes)return 0;
     /* Both addresses are page granular, and the GMU address honours the
      * requested VA alignment. A misaligned address is a provider bug. */
     if ((block->gpu_addr|block->gmu_addr)&(GGA_MIN_ALIGN-1)) return 0;
@@ -271,6 +304,7 @@ static inline int gga_parse(const uint32_t *words,unsigned count,struct gga_requ
     request.size_alignment=gga_alignment((request.align>>8)&0xffu);
     if (!request.gpu_alignment || !request.size_alignment) return GGA_ALIGN;
     if (request.size>UINT32_MAX-request.size_alignment) return GGA_SIZE;
+    request.plan.valid=request.plan.effective_flags=request.plan.rounded_bytes=request.plan.masters=0;
     *out=request;
     return GGA_OK;
 }
@@ -291,7 +325,9 @@ static inline unsigned gga_build_reply(const struct gga_request *request,
 {
     unsigned words;
     if (!request || !block || !out) return 0;
-    words=request->version?GGA_HDR_WORDS:GGA_LEGACY_WORDS;
+    /* The vendor always replies with the modern descriptor. A legacy request
+     * is expanded with align=0 by hfi_get_mem_alloc_desc(). */
+    words=GGA_HDR_WORDS;
     out[0]=GGA_MSG_ID|(GGA_ACK_TYPE<<16)|((seq&0xfffu)<<20)|((words&0xffu)<<8);
     out[1]=request->hdr;
     out[2]=(uint32_t)block->gpu_addr;
@@ -301,8 +337,8 @@ static inline unsigned gga_build_reply(const struct gga_request *request,
     out[6]=request->gmu_handle;  /* host handle echoes the requested GMU handle */
     out[7]=request->gmu_handle;
     out[8]=block->gmu_addr;
-    out[9]=block->bytes;
-    if (words>GGA_LEGACY_WORDS) out[10]=request->align;
+    out[9]=request->size;
+    out[10]=request->align;
     return words;
 }
 
@@ -320,14 +356,17 @@ static inline int gga_handle(const struct gga_ops *ops,struct gga_state *state,
     *reply_words=0;
     if (!gga_ops_valid(ops) || !state || !words || !reply) return GGA_ARGUMENT;
     if (state->quarantined) return GGA_QUARANTINED;
-    error=gga_parse(words,count,&request);
+    error=ops->decode?ops->decode(ops->cookie,words,count,&request):gga_parse(words,count,&request);
     if (error) {
         ++state->refused;
         state->last=(unsigned)error;
         return error;
     }
+    if(!gga_plan_valid(&request)) {
+        ++state->refused;state->last=GGA_PROVIDER;return GGA_PROVIDER;
+    }
     /* A short reply buffer must fail before anything is allocated. */
-    needed=request.version?GGA_HDR_WORDS:GGA_LEGACY_WORDS;
+    needed=GGA_HDR_WORDS;
     if (capacity<needed) return GGA_ARGUMENT;
 
     index=gga_find(state,request.kind,request.gmu_handle);
@@ -338,6 +377,8 @@ static inline int gga_handle(const struct gga_ops *ops,struct gga_state *state,
         return GGA_FULL;
     }
     if (index<0) {
+        /* Dedicated kinds remain selected by the immutable wire kind. A plan
+         * can never redirect secure/IPC/memstore/fence requests to SYSRAM. */
         if (gga_kind_reserved(request.kind)) {
             if (!ops->reserved) {
                 ++state->refused;
@@ -351,7 +392,7 @@ static inline int gga_handle(const struct gga_ops *ops,struct gga_state *state,
                 return GGA_PROVIDER;
             }
         } else {
-            rounded=gga_round_up(request.size,request.size_alignment);
+            rounded=request.plan.valid?request.plan.rounded_bytes:gga_round_up(request.size,request.size_alignment);
             if (!rounded) {
                 ++state->refused;
                 state->last=GGA_SIZE;
@@ -394,6 +435,7 @@ static inline int gga_handle(const struct gga_ops *ops,struct gga_state *state,
         state->entry[state->count].published=gga_kind_reserved(request.kind)?0u:1u;
         ++state->count;
         ++state->allocated;
+        if(request.plan.valid)++state->module_allocated;
     } else {
         const struct gga_entry *entry=&state->entry[index];
         /* Same key must mean the same descriptor. Anything else is refused so
@@ -405,7 +447,13 @@ static inline int gga_handle(const struct gga_ops *ops,struct gga_state *state,
             return GGA_CONFLICT;
         }
         block=entry->block;
+        /* Published ordinary backing is never reinitialized or released here.
+         * Validate an adopted plan against the real cached mapping descriptor. */
+        if(!gga_kind_reserved(request.kind) && !gga_block_valid(&request,&block)) {
+            ++state->refused;state->last=GGA_PROVIDER;return GGA_PROVIDER;
+        }
         ++state->reused;
+        if(request.plan.valid)++state->module_reused;
     }
     state->seq=(state->seq+1)&0xfffu;
     if (!state->seq) state->seq=1;

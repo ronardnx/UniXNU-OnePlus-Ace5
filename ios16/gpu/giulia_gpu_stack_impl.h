@@ -181,7 +181,8 @@ int GiuliaGPU::stackLeaveShare(void *cookie)
      * fence provider depends on them, so nothing is unshared here. */
     IOLog("GIULIA GPU SHARE: transaction_retained=%u snapshot=%u\n",
         self->shareRuntime.finished,self->shareRuntime.snapshot.taken);
-    return 0;
+    return self->shareRuntime.prepared || self->shareRuntime.finished ||
+        self->shareRuntime.snapshot.taken ? 1 : 0;
 }
 
 /* GMU load needs the adopted power lease and a live SID 5 translation before it
@@ -229,7 +230,9 @@ int GiuliaGPU::stackLeaveGmuLoad(void *cookie)
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     if(!self)return 1;
     IOLog("GIULIA GPU GMU: loaded=%u retained_until_reboot=1\n",self->gmuState.loaded);
-    return 0;
+    /* No unload/restore or DMA drain provider exists. Retained firmware is not
+     * a confirmed stage stop and must not become GGSK_STOPPED. */
+    return self->gmuState.loaded || self->gmuState.retain_resources ? 1 : 0;
 }
 
 int GiuliaGPU::stackProbeGmuStart(void *cookie,uint64_t *evidence)
@@ -267,7 +270,8 @@ int GiuliaGPU::stackLeaveGmuStart(void *cookie)
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     if(!self)return 1;
     IOLog("GIULIA GPU GMU: started=%u retained_until_reboot=1\n",self->gmuActive);
-    return 0;
+    return self->gmuActive || self->gmuState.reset_released ||
+        self->gmuState.retain_resources ? 1 : 0;
 }
 
 /* SMMU activation needs an exclusive bank/ASID/slot lease, a quiescence proof
@@ -362,7 +366,7 @@ int GiuliaGPU::stackLeaveFence(void *cookie)
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     if(!self)return 1;
     IOLog("GIULIA GPU FENCE: import retained state=%u\n",self->fenceImport.cpu.state);
-    return 0;
+    return self->fenceImport.cpu.state || self->fenceMapped ? 1 : 0;
 }
 
 /* The HFI client stage is the queue bring-up, not the allocator. The allocator
@@ -395,7 +399,8 @@ int GiuliaGPU::stackLeaveHfi(void *cookie)
 {
     GiuliaGPU *self=(GiuliaGPU *)cookie;
     if(!self)return 1;
-    return 0;
+    return self->gmuState.hfi_ready || self->hfiPump->received ||
+        self->hfiPump->quarantined ? 1 : 0;
 }
 
 /* Submit/scanout/metal have no backend in this service. They are registered so

@@ -1,7 +1,9 @@
 """Verify the downloaded FAT payload and its embedded kernel/ADT against the build report."""
+import argparse
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import struct
 import subprocess
 import sys
@@ -19,12 +21,109 @@ from ios16_gpu_gunyah import check_request as check_gpu_gunyah_request
 from ios16_trust_catalog import modules
 from ios16_payload_budget import MIB, fat_geometry, file_budget, loader_budget
 
-folder=Path(sys.argv[1]).resolve()
-report=json.loads((folder/'payload.json').read_text())
-image=folder/'payload.img'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('folder',type=Path)
+parser.add_argument('--payload',type=Path,help='Exact FAT image; defaults to folder/payload.img')
+parser.add_argument('--payload-report',type=Path,help='Exact payload report; defaults to folder/payload.json')
+parser.add_argument('--report',type=Path,help='New machine-readable verification report')
+arguments=parser.parse_args()
+if arguments.report and arguments.report.exists():parser.error('--report must be a new file')
+folder=arguments.folder.resolve()
+report_path=(arguments.payload_report or folder/'payload.json').resolve()
+report_bytes=report_path.read_bytes()
+report=json.loads(report_bytes)
+image=(arguments.payload or folder/'payload.img').resolve()
+if type(report.get('debug_hotload_enabled',False)) is not bool:
+    raise SystemExit('Payload hotload enable field must be a boolean')
+if report.get('debug_hotload_enabled') and (type(report.get('schema')) is not int or report['schema']!=1 or report.get('status')!='pass'):
+    raise SystemExit('Hotload payload requires the passing schema1 source-bound report')
 def digest(path):
     with path.open('rb') as f:
         return hashlib.file_digest(f,'sha256').hexdigest()
+
+def verify_hotload_sources(kernel,binding):
+    from ios16_hotload import check_hotload_kernel
+    if not isinstance(binding,dict) or binding.get('source_snapshot')!='hotload-binding/snapshot.json':
+        raise SystemExit('Hotload requires its external, source-only snapshot')
+    snapshot_root=folder/'hotload-binding'
+    if snapshot_root.is_symlink():raise SystemExit('Hotload source snapshot root cannot be a symlink')
+    snapshot_path=snapshot_root/'snapshot.json'
+    if digest(snapshot_path)!=binding.get('source_snapshot_sha256'):
+        raise SystemExit('Hotload source snapshot descriptor digest mismatch')
+    snapshot=json.loads(snapshot_path.read_text(encoding='utf-8'))
+    fixed={'schema':1,'status':'pass','source_manifest':'source-manifest.json',
+           'linked_report':'linked-report.json','kit_root':'kit','device_root':'device',
+           'proprietary_firmware_included':False}
+    if not isinstance(snapshot,dict) or any(type(snapshot.get(k)) is not type(v) or snapshot[k]!=v for k,v in fixed.items()):
+        raise SystemExit('Unsupported hotload source snapshot schema/layout')
+    files=snapshot.get('files')
+    if not isinstance(files,dict) or not files:
+        raise SystemExit('Hotload snapshot lacks exact input hashes')
+    for name,sha in files.items():
+        if not isinstance(name,str) or not isinstance(sha,str) or not re.fullmatch('[0-9a-f]{64}',sha):
+            raise SystemExit('Invalid hotload snapshot input identity')
+        relative=PurePosixPath(name);path=snapshot_root/name
+        if (relative.is_absolute() or '..' in relative.parts or str(relative)!=name or
+                '\\' in name or ':' in name or path.is_symlink() or
+                not path.resolve().is_relative_to(snapshot_root.resolve())):
+            raise SystemExit('Unsafe hotload snapshot input path')
+        if relative.suffix not in ('.h','.c','.cpp','.inc','.py','.json','.ld','.md','.sh') and relative.name!='LICENSE':
+            raise SystemExit('Hotload snapshot contains a non-source input')
+        data=path.read_bytes()
+        if b'\0' in data or hashlib.sha256(data).hexdigest()!=sha:
+            raise SystemExit('Hotload source snapshot input changed: '+name)
+        data.decode('utf-8')
+    inventory={p.relative_to(snapshot_root).as_posix() for p in snapshot_root.rglob('*') if p.is_file()}
+    if inventory!=set(files)|{'snapshot.json'} or any(p.is_symlink() for p in snapshot_root.rglob('*')):
+        raise SystemExit('Hotload snapshot contains unrecorded files/symlinks')
+    manifest=json.loads((snapshot_root/'source-manifest.json').read_text(encoding='utf-8'))
+    expected={'source-manifest.json':binding.get('source_manifest_sha256'),
+              'linked-report.json':binding.get('linked_source_report_sha256'),
+              'verifier/check-ios16-hotload-kernel.py':binding.get('verifier_sha256')}
+    for name,sha in manifest['files'].items():expected['kit/'+name]=sha
+    for name,sha in manifest['device_files'].items():expected['device/'+name]=sha
+    for name in ('make-ios16-payload.py','verify-payload.py','pack-payload.py','build-ios16-wifi-bringup.sh'):
+        expected['tooling/'+name]=files.get('tooling/'+name)
+    if expected!=files:
+        raise SystemExit('Hotload snapshot must exactly cover manifest, linked report, kit and device source closure')
+    linked=json.loads((snapshot_root/'linked-report.json').read_text(encoding='utf-8'))
+    checked=check_hotload_kernel(kernel,linked,manifest=snapshot_root/'source-manifest.json',
+        source=snapshot_root/'kit',device_root=snapshot_root/'device')
+    if (set(binding)!=set(checked)|{'linked_source_report_sha256','source_snapshot','source_snapshot_sha256'} or
+            any(type(binding.get(k)) is not type(v) or binding[k]!=v for k,v in checked.items()) or
+            any(snapshot.get(k)!=checked[k] for k in ('kernel_sha256','gateway_source_sha256','gateway_selected'))):
+        raise SystemExit('Embedded hotload code/source/call identity differs from payload binding')
+    # Recheck after the linked-code walk; do not certify concurrently modified
+    # source snapshots or an exchanged descriptor.
+    if digest(snapshot_path)!=binding['source_snapshot_sha256'] or any(digest(snapshot_root/name)!=sha for name,sha in files.items()):
+        raise SystemExit('Hotload source snapshot changed during verification')
+    return binding
+
+def use_hotload_resource_snapshot(kernel,binding):
+    """Use trusted checker code with frozen data roots, not snapshot code."""
+    import ios16_wifi_runtime
+    import ios16_gpu_runtime
+    import ios16_audio_runtime
+    import ios16_modem
+    frozen=folder/'hotload-binding/device'
+    selected=binding['gateway_selected']
+    checkers=(('wifi',ios16_wifi_runtime,b'GIULIA WIFI: PCIe/MHI/QMI/WMI ready;'),
+              ('gpu',ios16_gpu_runtime,b'GIULIA GPU: host preparation complete;'),
+              ('audio',ios16_audio_runtime,b'GIULIA AUDIO: compiled runtime disabled;'),
+              ('modem',ios16_modem,ios16_modem.RUNTIME_MARKER))
+    for name,module,marker in checkers:
+        if marker in kernel and name not in selected:
+            raise SystemExit('Hotload source manifest omits a compiled hardware runtime: '+name)
+        if name in selected:
+            # Their pin readers resolve data relative to __file__. Retain the
+            # already imported, supported implementation; execute no .py from
+            # an artifact. The target script and pins were hashed above.
+            module.__file__=str(frozen/'scripts'/('ios16_'+name+'_runtime.py' if name!='modem' else 'ios16_modem.py'))
+    if 'modem' in selected:
+        original_binding=ios16_modem.build_binding
+        def frozen_modem_binding(root=None):
+            return original_binding(frozen if root is None else root)
+        ios16_modem.build_binding=frozen_modem_binding
 if image.stat().st_size!=report['payload_bytes'] or digest(image)!=report['payload_sha256']:
     raise SystemExit('FAT payload digest/size mismatch')
 payload=image.read_bytes()
@@ -52,6 +151,12 @@ with tempfile.TemporaryDirectory() as directory:
     subprocess.run(['mcopy','-i',str(image),'::/EFI/UniXNU/unixnu.toml',str(temporary/'unixnu.toml')],check=True)
     if digest(temporary/'kernel.macho')!=report['payload_kernel_sha256']:
         raise SystemExit('Embedded kernel digest mismatch')
+    actual_kernel_sha256=digest(temporary/'kernel.macho')
+    if 'kernel_sha256' in report and report['kernel_sha256']!=actual_kernel_sha256:
+        raise SystemExit('Kernel identity alias differs from the actual FAT kernel')
+    if report.get('debug_hotload_enabled'):
+        verified_binding=verify_hotload_sources((temporary/'kernel.macho').read_bytes(),report.get('hotload_binding'))
+        use_hotload_resource_snapshot((temporary/'kernel.macho').read_bytes(),verified_binding)
     if digest(temporary/'kernel.macho.adt')!=report['adt_sha256']:
         raise SystemExit('Embedded ADT digest mismatch')
     wifi=check_wifi_platform(read_nodes((temporary/'kernel.macho.adt').read_bytes()))
@@ -127,10 +232,8 @@ with tempfile.TemporaryDirectory() as directory:
     if bool(report.get('debug_hotload_enabled')) != ('unixnu_hotload=1' in debug_args):
         raise SystemExit('Hotload boot argument/report mismatch')
     if report.get('debug_hotload_enabled'):
-        from ios16_hotload import check_hotload_kernel
         if not report.get('debug_terminal_enabled'):
             raise SystemExit('Hotload requires debug terminal mode')
-        check_hotload_kernel((temporary/'kernel.macho').read_bytes())
     if bool(report.get('wifi_terminal_wait')) != ('giulia_wifi_wait=1' in debug_args):
         raise SystemExit('Wi-Fi terminal wait/report mismatch')
     if report.get('wifi_terminal_wait') and (not report.get('debug_terminal_enabled') or
@@ -301,3 +404,15 @@ with tempfile.TemporaryDirectory() as directory:
     else:
         print('FAT file capacity verified for the legacy payload contract')
 print('Payload digest, embedded ARM64 kernel, ADT, and boot configuration verified')
+if (report_path.read_bytes()!=report_bytes or digest(image)!=report['payload_sha256']):
+    raise SystemExit('Payload/report changed during verification')
+verification={'schema':1,'status':'pass','verified':True,'payload_verification':True,
+              'payload_sha256':report['payload_sha256'],
+              'payload_report_sha256':hashlib.sha256(report_bytes).hexdigest(),
+              'kernel_sha256':actual_kernel_sha256,'payload_kernel_sha256':actual_kernel_sha256,
+              'debug_hotload_enabled':report.get('debug_hotload_enabled',False),'hardware_tested':False}
+if report.get('debug_hotload_enabled'):verification['hotload_binding']=report['hotload_binding']
+if arguments.report:
+    arguments.report.parent.mkdir(parents=True,exist_ok=True)
+    with arguments.report.open('x',encoding='utf-8',newline='\n') as stream:stream.write(json.dumps(verification,indent=2)+'\n')
+print(json.dumps(verification,sort_keys=True))

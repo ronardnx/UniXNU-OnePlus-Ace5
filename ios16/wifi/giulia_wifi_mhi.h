@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: BSD-2-Clause-Patent
  * Polling MHI/BHI/BHIE transport for WCN7850. Wire layout and sequencing:
- * Linux v6.12 drivers/bus/mhi/{common.h,host/boot.c,host/pm.c} and ath12k/mhi.c.
+ * OnePlus SM8650 66305c56 drivers/bus/mhi/{common.h,host/boot.c,host/pm.c,
+ * host/main.c}; Linux v6.12 ath12k/mhi.c. See WIFI_UPSTREAM_CHAIN.md.
  * Zero-initialize gwm_state before its first use; never reuse a quarantined
  * arena. One caller serializes access. The platform must establish an isolated DMA
  * arena and an owned MSI sink before master() may grant bus mastering.
@@ -28,11 +29,14 @@
 #define GWM_PACKET 8192u
 #define GWM_SEGMENT 0x80000u
 #define GWM_TIMEOUT_MS 10000u
+#define GWM_STOP_POLL_US 25000u
 enum gwm_error { GWM_OK,GWM_ARGUMENT,GWM_DMA_NOT_READY,GWM_IMAGE_REJECTED,
     GWM_REGISTER,GWM_INHERITED,GWM_BHI_ERROR,GWM_BHI_TIMEOUT,GWM_READY_TIMEOUT,
     GWM_STATE_TIMEOUT,GWM_BHIE_ERROR,GWM_BHIE_TIMEOUT,GWM_EVENT_CORRUPT,
     GWM_RING_FULL,GWM_COMMAND_ERROR,GWM_COMMAND_TIMEOUT,GWM_SHUTDOWN_FAILED };
 enum gwm_stage { GWM_PROBE=1,GWM_BHI,GWM_READY,GWM_M0,GWM_BHIE,GWM_MISSION,GWM_CHANNEL_START,GWM_RUNNING,GWM_STOPPED };
+enum gwm_stop_phase { GWM_STOP_NONE,GWM_STOP_RESET,GWM_STOP_WAIT_RESET,
+    GWM_STOP_INTVEC,GWM_STOP_EXECENV,GWM_STOP_WAIT_READY,GWM_STOP_MASTER,GWM_STOP_DONE };
 struct gwm_io {
     void *context;
     uint32_t (*read)(void *,uint32_t);
@@ -52,6 +56,8 @@ struct gwm_state {
     uint32_t stage,error,soc,major,bhi,bhie,chdb,erdb,ee,bhi_status,bhie_status;
     uint32_t last_register,last_value,sequence;
     unsigned bus_master,quarantined,running;
+    unsigned stop_phase,stop_error,reset_complete,ready_complete,master_stopped;
+    uint32_t stop_ee;
     unsigned ev_cons[2],ev_free[2],cmd_wp,cmd_pending,cmd_slot,cmd_channel,cmd_result;
     unsigned tx_wp,tx_rp,rx_wp,rx_rp;
 };
@@ -94,15 +100,69 @@ static inline void gwm_context(const struct gwm_io *b,unsigned at,unsigned cfg,u
     gwm_put64(p+12,b->dma_base+ring);gwm_put64(p+20,count*16u);
     gwm_put64(p+28,b->dma_base+ring);gwm_put64(p+36,b->dma_base+ring);
 }
+/* OnePlus 66305c56 mhi_pm_disable_transition polls every 25 ms for the
+ * controller's 10-second timeout. 25000 is an interval, not a deadline. */
+static inline int gwm_stop_wait(const struct gwm_io *b,struct gwm_state *s,
+    uint32_t reg,uint32_t mask,uint32_t expected)
+{
+    for(unsigned i=0;i<GWM_TIMEOUT_MS*1000u/GWM_STOP_POLL_US;i++) {
+        uint32_t value=gwm_read(b,s,reg);
+        if(value==0xffffffffu)return 0;
+        if((value&mask)==expected)return 1;
+        b->delay(b->context,GWM_STOP_POLL_US);
+    }
+    return 0;
+}
+static inline void gwm_stop_failed(struct gwm_state *s)
+{
+    if(!s->stop_error)s->stop_error=s->stop_phase;
+}
 static inline int gwm_stop(const struct gwm_io *b,struct gwm_state *s)
 {
+    if(!b || !s || !b->read || !b->write || !b->delay || !b->master)return 0;
     s->running=0;
-    if(!s->bus_master) {s->stage=GWM_STOPPED;return 1;}
+    /* A previous failed shutdown cannot become a successful retirement by
+     * calling again. Its backing remains quarantined even if BME is off. */
+    if(s->stop_phase)return s->stop_phase==GWM_STOP_DONE && !s->stop_error && !s->quarantined && !s->bus_master;
+    if(!s->bus_master) {if(s->quarantined)return 0;s->stage=GWM_STOPPED;return 1;}
+    s->stop_phase=GWM_STOP_RESET;s->stop_ee=0xffffffffu;
     uint32_t control=gwm_read(b,s,0x38);
-    if(control!=0xffffffffu) gwm_write(b,0x38,control|2u);
-    /* master(0) must read back BME=0 and drain PCIe pending transactions. */
-    if(!b->master(b->context,0)) {s->quarantined=1;return 0;}
-    s->bus_master=0;s->stage=GWM_STOPPED;return 1;
+    if(control==0xffffffffu)gwm_stop_failed(s);
+    else {
+        /* This polling transport has neither a fatal-link PM transition nor
+         * an RDDM image. It cannot use either vendor skip-reset exception. */
+        gwm_write(b,0x38,control|2u);
+        s->stop_phase=GWM_STOP_WAIT_RESET;
+        s->reset_complete=(unsigned)gwm_stop_wait(b,s,0x38,2,0);
+        if(!s->reset_complete)gwm_stop_failed(s);
+        /* As upstream, continue diagnostics after a reset timeout, while
+         * retaining that failure. No event processing or RX is re-entered. */
+        s->stop_phase=GWM_STOP_INTVEC;
+        if(!gwm_reg_valid(b,s->bhi,0x2c))gwm_stop_failed(s);
+        else {
+            gwm_write(b,s->bhi+0x20,0);
+            if(gwm_read(b,s,s->bhi+0x20)!=0)gwm_stop_failed(s);
+            s->stop_phase=GWM_STOP_EXECENV;
+            s->stop_ee=gwm_read(b,s,s->bhi+0x28);
+            if(s->stop_ee>=8)gwm_stop_failed(s);
+            /* MHI_IN_PBL: PBL=0, PTHRU=5, EDL=6 need no READY wait. */
+            else if(s->stop_ee!=0 && s->stop_ee!=5 && s->stop_ee!=6) {
+                s->stop_phase=GWM_STOP_WAIT_READY;
+                s->ready_complete=(unsigned)gwm_stop_wait(b,s,0x48,1,1);
+                if(!s->ready_complete)gwm_stop_failed(s);
+            }
+        }
+    }
+    /* Always attempt the independent PCIe safety barrier, even if reset
+     * failed. BME off/drained alone never clears a failed reset proof. */
+    s->stop_phase=GWM_STOP_MASTER;
+    s->master_stopped=(unsigned)!!b->master(b->context,0);
+    if(s->master_stopped)s->bus_master=0;else gwm_stop_failed(s);
+    s->stop_phase=GWM_STOP_DONE;
+    if(s->stop_error || s->quarantined) {
+        s->quarantined=1;if(!s->error)s->error=GWM_SHUTDOWN_FAILED;return 0;
+    }
+    s->stage=GWM_STOPPED;return 1;
 }
 static inline int gwm_fail(const struct gwm_io *b,struct gwm_state *s,unsigned error)
 {
