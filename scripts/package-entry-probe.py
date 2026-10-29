@@ -39,5 +39,5 @@ with image.open('rb') as f:
     while chunk:=f.read(1<<20):crc=zlib.crc32(chunk,crc)
 identity={'payload_bytes':image.stat().st_size,'payload_crc32':f'{crc:08x}',
           'payload_sha256':r['payload_sha256'],'kernel_sha256':r['payload_kernel_sha256'],
-          'data_sha256':r['data_ramdisk_sha256'],'purpose':r['purpose']}
+          'data_sha256':r.get('data_ramdisk_sha256', r.get('root_sha256', '')),'purpose':r['purpose']}
 a.identity.write_text(json.dumps(identity,indent=2)+'\n');print(json.dumps(identity,indent=2))

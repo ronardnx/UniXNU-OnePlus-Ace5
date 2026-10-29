@@ -233,6 +233,65 @@ class WindowsConsole:
             self.k.SetConsoleMode(handle, mode)
 
 
+class PosixConsole:
+    def __init__(self):
+        import termios
+        self.fd = sys.stdin.fileno()
+        self.old = termios.tcgetattr(self.fd)
+
+    def raw(self, enabled):
+        import termios, tty
+        if enabled:
+            tty.setraw(self.fd)
+        else:
+            self.restore()
+
+    def restore(self):
+        import termios
+        try:
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+        except Exception:
+            pass
+
+
+class PosixReader:
+    def __init__(self):
+        import termios, tty
+        self.fd = sys.stdin.fileno()
+        self.old = termios.tcgetattr(self.fd)
+        tty.setcbreak(self.fd)
+
+    def kbhit(self):
+        import select
+        return bool(select.select([self.fd], [], [], 0)[0])
+
+    def getwch(self):
+        ch = os.read(self.fd, 1).decode('utf-8', errors='replace')
+        if ch == '\x1b':
+            import select
+            if select.select([self.fd], [], [], 0.05)[0]:
+                ch2 = os.read(self.fd, 1).decode('utf-8', errors='replace')
+                if ch2 == '[':
+                    if select.select([self.fd], [], [], 0.05)[0]:
+                        ch3 = os.read(self.fd, 1).decode('utf-8', errors='replace')
+                        if ch3 == 'A': return 'H'
+                        if ch3 == 'B': return 'P'
+                        if ch3 == 'C': return 'M'
+                        if ch3 == 'D': return 'K'
+        if ch in ('\r', '\n'):
+            return '\r'
+        if ch in ('\x7f', '\x08'):
+            return '\b'
+        return ch
+
+    def restore(self):
+        import termios
+        try:
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+        except Exception:
+            pass
+
+
 def safe_text(text):
     return ''.join(c for c in text if c in '\n\r\t' or (ord(c) >= 32 and not 127 <= ord(c) <= 159))
 
@@ -491,8 +550,8 @@ def run(args, serial_module, ports):
     port = args.port or (found[0] if len(found) == 1 else None)
     if not port:
         raise ValueError('No unique Ace 5 CDC port online. Use --list and --port COM21.')
-    if not args.command and (os.name != 'nt' or not sys.stdin.isatty()):
-        raise ValueError('Interactive mode requires Windows CMD; use --command for scripted capture.')
+    if not args.command and not sys.stdin.isatty():
+        raise ValueError('Interactive mode requires a TTY terminal; use --command for scripted capture.')
     capture = Capture(Path(args.output).resolve())
     console = None
     reboot_disconnected = False
@@ -520,14 +579,18 @@ def run(args, serial_module, ports):
                     show(commands.accept(f'screen.configure {args.max_size or 695} {args.max_fps or 1}'))
                 show(commands.accept(args.command))
             else:
-                import msvcrt
+                if os.name == 'nt':
+                    import msvcrt
+                    kb = msvcrt
+                else:
+                    kb = PosixReader()
                 print('ace5> ', end='', flush=True)
             end = time.monotonic() + args.seconds
             extended = False
             wire = ShellWire()
             log_decoder = codecs.getincrementaldecoder('utf-8')('replace')
             if not args.command:
-                console = WindowsConsole()
+                console = WindowsConsole() if os.name == 'nt' else PosixConsole()
             while not args.command or time.monotonic() < end:
                 try:
                     data = serial.read(min(serial.in_waiting, 16384))
@@ -569,8 +632,8 @@ def run(args, serial_module, ports):
                         commands.shell_deadline = None
                         capture.screen_control.set_connection('diagnostic')
                         show('Shell did not start. Check giulia_debug=1 and the installed daemon/shell.')
-                if not args.command and msvcrt.kbhit():
-                    key = msvcrt.getwch()
+                if not args.command and kb.kbhit():
+                    key = kb.getwch()
                     if wire.active:
                         if key in ('\x00', '\xe0'):
                             extended = True
@@ -604,7 +667,7 @@ def run(args, serial_module, ports):
                         continue
                     if key == '\x03':
                         break
-                    if key == '\r':
+                    if key in ('\r', '\n'):
                         print()
                         command, line = line.strip(), ''
                         if command:
@@ -612,7 +675,7 @@ def run(args, serial_module, ports):
                             history = history[-100:]
                             history_index = len(history)
                         if command == 'clear':
-                            os.system('cls')
+                            os.system('cls' if os.name == 'nt' else 'clear')
                             show('Screen cleared; logs retained.')
                         else:
                             try:
@@ -637,6 +700,8 @@ def run(args, serial_module, ports):
     finally:
         if console:
             console.restore()
+        if not args.command and 'kb' in locals() and hasattr(kb, 'restore'):
+            kb.restore()
         try:
             capture.save(port)
         finally:

@@ -87,11 +87,15 @@ def main():
     edit(probe,'    wr(0x50, vu_lo(dma_pa));','    if (giulia_take()) return ENXIO;\n    wr(0x50, vu_lo(dma_pa));')
     edit(probe,'            wr(0x50, oldlo);','            if (giulia_restore()) return ENXIO;\n            wr(0x50, oldlo);')
     edit(probe,'0x80058','0xc6058')
+    edit(probe, 'flush_dcache64((addr64_t)dma_pa, DMA_SIZE, TRUE);',
+         'flush_dcache64((addr64_t)dma_va, DMA_SIZE, FALSE);')
+    edit(usb, 'flush_dcache64((addr64_t)(u.pa+off),size,TRUE);',
+         'flush_dcache64((addr64_t)(u.dma+off),size,FALSE);')
     edit(block,'    wr(0x50, vu_lo(dma_pa));','    if (giulia_take()) return ENXIO;\n    wr(0x50, vu_lo(dma_pa));')
     edit(block,'    wr(0x50, vb.oldlo);','    if (giulia_restore()) { vb.failed=true; return; }\n    wr(0x50, vb.oldlo);')
-    edit(v/'vermeer_media_policy.h','2570304ULL','3920350ULL')
-    edit(v/'vermeer_media_policy.h','59272123ULL','57400861ULL')
-    edit(block,'g.first != 2570304 || g.blocks != 59272123','g.first != 3920350 || g.blocks != 57400861')
+    edit(v/'vermeer_media_policy.h','2570304ULL','48738048ULL')
+    edit(v/'vermeer_media_policy.h','59272123ULL','12582912ULL')
+    edit(block,'g.first != 2570304 || g.blocks != 59272123','g.first != 48738048 || g.blocks != 12582912')
     # Start the scheduler-based CDC worker at root selection, BEFORE UFS I/O.
     hook=v/'0021-vermeer-ios-root-hook.patch'
     edit(hook,'+766,22','+766,33')

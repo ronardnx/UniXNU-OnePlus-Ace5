@@ -44,6 +44,7 @@ def main():
     p.add_argument('--gpu-mode',type=int,choices=(1,2,3),help='1: host preparation; 2: gated observation; 3: explicit UEFI CX/clock preparation with a fixed ADT report')
     p.add_argument('--audio-prepare',action='store_true',help='Validate local audio pack and start coordinator; does not establish native platform ownership')
     p.add_argument('--modem-mode',choices=('diagnostic','managed'),help='Enable the unified modem service; managed requires native provider and matching cellular root policy')
+    p.add_argument('--serial',default='0x23',help='Serial bitmap (default 0x23: UART, DockChannel and SWEET_FBCON)')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
     if a.trace_all:a.trace_services=True
@@ -95,7 +96,7 @@ def main():
         raise ValueError('Touch requires a GUI kernel containing the Ace 5 hardware driver')
     if a.touch_gpio and (not a.enable_touch or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in a.kernel.read_bytes()):
         raise ValueError('GPIO SPI requires the corresponding kernel driver and --enable-touch')
-    args='-v serial=3 debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
+    args=f'-v serial={a.serial} debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
     if a.debug_terminal:
         if b'GIULIA SHELL: /dev/giulia-debug ready;' not in a.kernel.read_bytes():
             raise ValueError('Debug terminal requires protocol 2 kernel')
@@ -106,7 +107,7 @@ def main():
             raise ValueError('Kernel lacks the Wi-Fi terminal start gate')
         args+=' giulia_wifi_wait=1'
     probe=args+' giulia_ufs_probe=1'
-    config=('version = 1\n[boot]\ntimeout = 3\ndefault = "xnu"\n[kits]\nautoload = false\n'
+    config=('version = 1\n[boot]\ntimeout = 5\ndefault = "xnu"\n[kits]\nautoload = false\n'
             '[[entry]]\nid = "xnu"\ntitle = "Ace 5 iOS16 UFS + USB"\ntype = "xnu"\n'
             'path = "Payloads/kernel.macho"\nargs = '+json.dumps(probe)+'\n')
     if a.root_report:
@@ -156,7 +157,8 @@ def main():
         if a.modem_mode:root_args+=' giulia_modem='+str(1 if a.modem_mode=='diagnostic' else 2)
         config+=('[[entry]]\nid = "ios16"\ntitle = "Ace 5 iOS16 HFSX root"\ntype = "xnu"\n'
                  'path = "Payloads/kernel.macho"\nargs = '+json.dumps(root_args)+'\n')
-        if a.default_root:config=config.replace('default = "xnu"','default = "ios16"')
+        if a.default_root:
+            config=config.replace('default = "xnu"','default = "ios16"')
     for e in tomllib.loads(config)['entry']:
         if len(e['args'].encode('ascii'))>=608:raise ValueError('Boot line too long')
     a.out.mkdir(parents=True)

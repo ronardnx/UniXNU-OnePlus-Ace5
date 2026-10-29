@@ -22,3 +22,10 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+DarwinBoot/
+UniXNU/
+boot-*/
+kernel-*/
+kernel-artifact/
+uefi-giulia/
+image-verification.json

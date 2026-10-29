@@ -332,13 +332,16 @@ def rebase(kernel, data):
                 return struct.unpack_from('<I', data, file_offset(at))[0]
             if (instruction(va) == 0xD5181000 and
                     instruction(va + 4) == 0xD5033FDF and
-                    instruction(va + 0x20) == 0xD2A00600 and
-                    instruction(va + 0x24) == 0xD5181040):
+                    ((instruction(va + 0x20) == 0xD2A00600 and instruction(va + 0x24) == 0xD5181040) or
+                     (instruction(va + 0x08) == 0xD2A00600 and instruction(va + 0x0c) == 0xD5181040))):
                 matches.append(va)
         if len(matches) != 1:
             raise SystemExit('Require one verified SCTLR/ISB/CPACR entry sequence')
         MMU_ENABLE_VA = matches[0]
-        AFTER_MMU_VA = MMU_ENABLE_VA + 0x20
+        if instruction(MMU_ENABLE_VA + 0x08) == 0xD2A00600:
+            AFTER_MMU_VA = MMU_ENABLE_VA + 0x08
+        else:
+            AFTER_MMU_VA = MMU_ENABLE_VA + 0x20
     if '_panic' in names and '_vinfo' in names:
         PANIC_VA = names['_panic']
         # Board diagnostics seed this ABI-compatible prefix from valid console
