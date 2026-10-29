@@ -9,7 +9,6 @@ env:
   MACHINE_CONFIG: SWEET
 jobs:
   build:
-    if: ${{ github.repository_owner == 'tycykp' }}
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4

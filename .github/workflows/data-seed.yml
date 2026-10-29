@@ -5,7 +5,6 @@ permissions:
   contents: read
 jobs:
   data:
-    if: ${{ github.repository_owner == 'tycykp' }}
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

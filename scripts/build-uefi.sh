@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 port_root="$(cd "$(dirname "$0")/.." && pwd)"
-work="${1:?Usage: build-uefi.sh /absolute/build/workspace}"
+work_arg="${1:?Usage: build-uefi.sh /absolute/build/workspace}"
+mkdir -p "$work_arg"
+work="$(cd "$work_arg" && pwd)"
 prepare_args=(--workspace "$work")
 if [ -n "${GIULIA_PAYLOAD_IDENTITY:-}" ]; then
   prepare_args+=(--payload-identity "$GIULIA_PAYLOAD_IDENTITY")
