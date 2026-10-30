@@ -14,6 +14,15 @@ TARGET_BIN = b"<string>/System/Library/Frameworks/CoreTelephony.framework/Suppor
 REPLACE_BIN = b"<string>/usr/bin/true                                                        </string>"
 BIN_OFFSETS = [0xce231488, 0xce2324c5]
 
+# Direct Mach-O entrypoint patch (mov w0, #0; ret)
+# Ensures that even if launched directly or via MachService/IPC, the binary exits immediately with status 0
+MACHO_ENTRY_PATCH = bytes.fromhex("00008052c0035fd6")
+MACHO_ENTRY_OFFSETS = [
+    (0x9ca67884, "CommCenter"),
+    (0x9cadfbe8, "CommCenterMobileHelper"),
+    (0x9d2f9ca4, "CommCenterRootHelper"),
+]
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--image", type=Path, default=Path("/home/ronard/unix-giulia/out/ios16-root/giulia-ios16-userdata.img"))
@@ -45,6 +54,17 @@ def main():
                 print(f"[SUCCESS] Replaced CommCenter binary at 0x{off:x} with /usr/bin/true")
             elif cur == REPLACE_BIN:
                 print(f"[OK] CommCenter binary already replaced at 0x{off:x}")
+
+        for off, name in MACHO_ENTRY_OFFSETS:
+            f.seek(off)
+            cur = f.read(len(MACHO_ENTRY_PATCH))
+            if cur != MACHO_ENTRY_PATCH:
+                f.seek(off)
+                f.write(MACHO_ENTRY_PATCH)
+                f.flush()
+                print(f"[SUCCESS] Patched {name} entrypoint at 0x{off:x} with mov w0, #0; ret")
+            else:
+                print(f"[OK] {name} entrypoint already patched at 0x{off:x}")
     return 0
 
 if __name__ == "__main__":
