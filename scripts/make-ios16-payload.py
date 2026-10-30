@@ -45,6 +45,7 @@ def main():
     p.add_argument('--audio-prepare',action='store_true',help='Validate local audio pack and start coordinator; does not establish native platform ownership')
     p.add_argument('--modem-mode',choices=('diagnostic','managed'),help='Enable the unified modem service; managed requires native provider and matching cellular root policy')
     p.add_argument('--serial',default='0x23',help='Serial bitmap (default 0x23: UART, DockChannel and SWEET_FBCON)')
+    p.add_argument('--cpus',type=int,default=1,help='Number of CPUs for XNU scheduler (default 1)')
     a=p.parse_args()
     if a.trace_launch_services:a.trace_services=True
     if a.trace_all:a.trace_services=True
@@ -96,7 +97,7 @@ def main():
         raise ValueError('Touch requires a GUI kernel containing the Ace 5 hardware driver')
     if a.touch_gpio and (not a.enable_touch or b'GIULIA TOUCH: GPIO SPI mode 0 active;' not in a.kernel.read_bytes()):
         raise ValueError('GPIO SPI requires the corresponding kernel driver and --enable-touch')
-    args=f'-v serial={a.serial} debug=0x14e cpus=1 rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
+    args=f'-v serial={a.serial} debug=0x14e cpus={a.cpus} rd=vermeerufs0 vermeer_usb=1 vermeer_ufs_highdma=1'
     if a.debug_terminal:
         if b'GIULIA SHELL: /dev/giulia-debug ready;' not in a.kernel.read_bytes():
             raise ValueError('Debug terminal requires protocol 2 kernel')
