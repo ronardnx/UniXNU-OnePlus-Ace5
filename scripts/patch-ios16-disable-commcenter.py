@@ -18,7 +18,8 @@ BIN_OFFSETS = [0xce231488, 0xce2324c5]
 # Ensures that even if launched directly or via MachService/IPC, the binary exits immediately with status 0
 MACHO_ENTRY_PATCH = bytes.fromhex("00008052c0035fd6")
 MACHO_ENTRY_OFFSETS = [
-    (0x9ca67884, "CommCenter"),
+    (0x9b43b524, "CommCenter"),
+    (0x9ca67884, "CommCenterAux"),
     (0x9cadfbe8, "CommCenterMobileHelper"),
     (0x9d2f9ca4, "CommCenterRootHelper"),
 ]
