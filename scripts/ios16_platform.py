@@ -61,14 +61,15 @@ def check_platform(adt, kernel):
     nodes = read_nodes(adt)
     root = nodes['/device-tree']
     cpus = [props for path, props in nodes.items() if path.startswith('/device-tree/cpus/')]
-    if len(cpus) != 1:
-        raise ValueError('This kernel supports one boot CPU')
+    if len(cpus) < 1 or len(cpus) > 8:
+        raise ValueError(f'Expected between 1 and 8 CPUs in ADT, found {len(cpus)}')
     platform = personality(kernel, 'SweetPlatformExpert', 'IOPlatformExpertDevice')
     cpu = personality(kernel, 'SweetCPU', 'IOPlatformDevice')
     if platform not in compatible(root):
         raise ValueError(f'ADT does not match built-in platform driver: {platform.decode()}')
-    if cpu not in compatible(cpus[0]):
-        raise ValueError(f'ADT does not match built-in CPU driver: {cpu.decode()}')
+    for c in cpus:
+        if cpu not in compatible(c):
+            raise ValueError(f'ADT does not match built-in CPU driver: {cpu.decode()}')
     ids=compatible(root)
     native=ids[0]==b'oneplus,giulia' and root.get('model')==b'OnePlus Ace 5\0'
     gui=(ids[:2]==[b'D22AP',b'iPhone10,3'] and root.get('model')==b'iPhone10,3\0'

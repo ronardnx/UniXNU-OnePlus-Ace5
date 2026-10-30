@@ -23,6 +23,69 @@ from ios16_trust_catalog import modules
 def sha(p):
     with p.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
 
+def make_multicore_adt(blob: bytes, cpu_count: int) -> bytes:
+    if cpu_count <= 1:
+        return blob
+    def parse_node(b, at=0):
+        nprops, nchildren = struct.unpack_from('<II', b, at)
+        at += 8
+        props = []
+        for _ in range(nprops):
+            key_raw, length = struct.unpack_from('<32sI', b, at)
+            at += 36
+            key = key_raw.split(b'\0', 1)[0].decode('ascii')
+            val = b[at:at+length]
+            at += length + ((-length) % 4)
+            props.append((key, val))
+        children = []
+        for _ in range(nchildren):
+            child, at = parse_node(b, at)
+            children.append(child)
+        return {'props': props, 'children': children}, at
+
+    def serialize_node(node):
+        props = node['props']
+        children = node['children']
+        res = struct.pack('<II', len(props), len(children))
+        for key, val in props:
+            key_bytes = key.encode('ascii') + b'\0'
+            res += struct.pack('<32sI', key_bytes.ljust(32, b'\0'), len(val))
+            res += val + bytes((-len(val)) % 4)
+        for child in children:
+            res += serialize_node(child)
+        return res
+
+    tree, _ = parse_node(blob)
+    clusters = [0, 0, 1, 1, 1, 2, 2, 3]
+    cluster_types = [0, 0, 1, 1, 1, 1, 1, 2]
+    for c in tree['children']:
+        name = dict(c['props']).get('name')
+        if name == b'cpus\0':
+            base_cpu = c['children'][0]
+            new_cpus = []
+            for i in range(min(cpu_count, 8)):
+                cpu_props = []
+                for k, v in base_cpu['props']:
+                    if k == 'name':
+                        v = f'cpu{i}\0'.encode('ascii')
+                    elif k == 'AAPL,phandle':
+                        v = struct.pack('<I', i + 1)
+                    elif k == 'reg':
+                        v = struct.pack('<I', i << 8)
+                    elif k == 'cpu-id':
+                        v = struct.pack('<I', i)
+                    elif k == 'cluster-id':
+                        v = struct.pack('<I', clusters[i])
+                    elif k == 'cluster-type':
+                        v = struct.pack('<I', cluster_types[i])
+                    elif k == 'state':
+                        v = b'running\0' if i == 0 else b'waiting\0'
+                    cpu_props.append((k, v))
+                new_cpus.append({'props': cpu_props, 'children': []})
+            c['children'] = new_cpus
+            break
+    return serialize_node(tree)
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument('--kernel',type=Path,required=True)
@@ -57,23 +120,24 @@ def main():
     report=json.loads(a.kernel.with_suffix('.json').read_text())
     if report['output_sha256']!=sha(a.kernel) or report['boot_args_bytes']!=736:
         raise ValueError('Kernel handoff verification missing')
-    platform_match=check_platform(a.adt.read_bytes(),a.kernel.read_bytes())
+    adt_bytes=make_multicore_adt(a.adt.read_bytes(),a.cpus)
+    platform_match=check_platform(adt_bytes,a.kernel.read_bytes())
     if a.enable_slider and (not a.root_report or not platform_match.get('gui') or
                             b'GIULIA SLIDER: handoff-missing gh=' not in a.kernel.read_bytes()):
         raise ValueError('Slider requires a GUI root and the compiled guarded AK09970 worker')
     gpu_runtime=check_gpu_runtime(a.kernel.read_bytes(),report)
     audio_runtime=check_audio_runtime(a.kernel.read_bytes(),report)
     modem_root=json.loads(a.root_report.read_text()) if a.root_report else None
-    modem_contract=check_modem_contract(a.kernel.read_bytes(),report,a.adt.read_bytes(),modem_root,a.modem_mode)
+    modem_contract=check_modem_contract(a.kernel.read_bytes(),report,adt_bytes,modem_root,a.modem_mode)
     if a.modem_mode and (not a.root_report or not platform_match.get('gui')):
         raise ValueError('Modem service requires the matching GUI root entry')
     if a.audio_prepare and (not audio_runtime or not a.root_report or not platform_match.get('gui')):
         raise ValueError('Audio preparation requires a GUI root and matching embedded audio firmware')
-    gpu_power=check_gpu_power_request(a.adt.read_bytes(),a.gpu_mode,a.kernel.read_bytes())
-    gpu_gunyah=check_gpu_gunyah_request(a.adt.read_bytes(),a.gpu_mode,a.kernel.read_bytes())
+    gpu_power=check_gpu_power_request(adt_bytes,a.gpu_mode,a.kernel.read_bytes())
+    gpu_gunyah=check_gpu_gunyah_request(adt_bytes,a.gpu_mode,a.kernel.read_bytes())
     if a.gpu_mode and (not gpu_runtime or not a.root_report or not platform_match.get('gui')):
         raise ValueError('GPU mode requires a GUI root entry and matching embedded GPU firmware')
-    wifi=check_wifi_platform(read_nodes(a.adt.read_bytes()))
+    wifi=check_wifi_platform(read_nodes(adt_bytes))
     wifi_runtime=check_runtime(a.kernel.read_bytes(),report)
     if wifi_runtime and not a.wifi_pcie:
         raise ValueError('Native Wi-Fi runtime requires the matching PCIe handoff')
@@ -168,7 +232,7 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         stage=Path(td);payload=stage/'EFI/UniXNU/Payloads';payload.mkdir(parents=True)
         shutil.copyfile(a.kernel,payload/'kernel.macho')
-        shutil.copyfile(a.adt,payload/'kernel.macho.adt')
+        (payload/'kernel.macho.adt').write_bytes(adt_bytes)
         if a.trust_catalog:shutil.copyfile(a.trust_catalog,payload/'kernel.macho.trustcache')
         (payload.parent/'unixnu.toml').write_text(config)
         for path in [stage,*stage.rglob('*')]:os.utime(path,(315532800,315532800))
@@ -177,7 +241,7 @@ def main():
     data=image.read_bytes()
     if data[82:90]!=b'FAT32   ' or struct.unpack_from('<I',data,32)[0]*512!=len(data):raise ValueError('FAT geometry')
     result={'payload_bytes':len(data),'payload_sha256':sha(image),'payload_crc32':f'{zlib.crc32(data):08x}',
-            'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':sha(a.adt),
+            'payload_kernel_sha256':sha(a.kernel),'kernel_sha256':sha(a.kernel),'adt_sha256':hashlib.sha256(adt_bytes).hexdigest(),
             'kernel_args':probe,'dram_handoff':'darwinboot-allocated-window','platform_match':platform_match,
             'hardware_tested':False,'purpose':'iOS16 XNU: UFS read probe and native USB console; no filesystem writes',
             'debug_terminal_enabled':a.debug_terminal,'debug_mmio_enabled':a.debug_mmio,
